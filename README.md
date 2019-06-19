@@ -1,6 +1,6 @@
 # Cloud SQL Connector for Python Drivers
 --------------------------------------------
-*Warning*: This project is experimental, and is not an official Google product.
+*Warning*: This project is experimental, and is not an officially supported Google product.
 
 The Cloud SQL Python Connector library is a library for MySQL/Postgres Python
 drivers that allows users with sufficient permissions to connect  to a Cloud SQL
