@@ -7,4 +7,4 @@ install:
     - pytest
     - flake8
 
-script: pytest test.py
+script: pytest
