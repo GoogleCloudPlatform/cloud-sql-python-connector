@@ -3,4 +3,6 @@ language: python
 python:
     - "3.7.3"
 
-script: pytest test.py
+script:
+    - pytest test.py
+    - flake8
