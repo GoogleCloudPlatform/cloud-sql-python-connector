@@ -23,6 +23,10 @@ import os
 
 # Connect method used in the SQLAlchemy creator
 def connect():
+    """
+    Connect method to be used as a custome creator in the SQLAlchemy engine
+    creation.
+    """
     return pymysql.connect(
         host=os.environ['db_host'],
         user=os.environ['db_user'],
@@ -38,8 +42,16 @@ def connect():
     )
 
 
-# Helper function to generate the private and public keys
 def generate_keys():
+    """
+    A helper function to generate the private and public keys.
+
+    For backend, the value specified is default_backend(). This is because the
+    cryptography library used to support different backends, but now only uses
+    the default_backend().
+
+    For the public_exponent, the value of 65537 was chosen due to
+    """
     private_key_obj = rsa.generate_private_key(
         backend=default_backend(),
         public_exponent=65537,
@@ -60,6 +72,10 @@ def generate_keys():
 # Helper function to write the serverCaCert, ephemeral certificate and private
 # key to .pem files
 def write_to_file(serverCaCert, ephemeralCert, priv_key):
+    """
+    Helper function to write the serverCaCert, ephemeral certificate and
+    private key to .pem files
+    """
     with open('keys/ca.pem', 'w+') as ca_out:
         ca_out.write(serverCaCert)
     with open('keys/cert.pem', 'w+') as ephemeral_out:

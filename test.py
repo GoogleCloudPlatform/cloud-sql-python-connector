@@ -15,10 +15,11 @@
 #############################################################################
 
 import pytest  # noqa: F401; pylint: disable=unused-variable
-from utils import generate_keys, write_to_file
+from utils import generate_keys
 
 
-# Test to check if objects are being produced from the generate_keys() function.
+# Test to check if objects are being produced from the generate_keys()
+# function.
 def test_generate_keys_1():
     res1, res2 = generate_keys()
     assert (res1 is not None) and (res2 is not None)
@@ -29,29 +30,3 @@ def test_generate_keys_1():
 def test_generate_keys_2():
     res1, res2 = generate_keys()
     assert (isinstance(res1, bytes) and (isinstance(res2, bytes)))
-
-@pytest.mark.skip(reason="Currently still working on this test.")
-def test_generate_keys_n():
-    priv, pub = generate_keys()
-
-    message_src = "According to all known laws of aviation, there is no way a bee should be able to fly."
-
-    encrypted_msg = pub.encrypt(
-        message_src,
-        padding.OAEP(
-            mgf=padding.MGF1(algorithm=hashes.SHA256()),
-            algorithm=hashes.SHA256(),
-            label=None
-        )
-    )
-
-    decrypted_msg = priv.decrypt(
-        ciphertext,
-        padding.OAEP(
-            mgf=padding.MGF1(algorithm=hashes.SHA256()),
-            algorithm=hashes.SHA256(),
-            label=None
-        )
-    )
-
-    assert decrypted_msg == message_src
