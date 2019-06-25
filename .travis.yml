@@ -1,10 +1,6 @@
 dist: xenial
 language: python
 python:
-    - "3.7"
+    - "3.7.3"
 
-install:
-    - pytest
-    - flake8
-
-script: pytest
+script: pytest test.py
