@@ -66,4 +66,3 @@ def write_to_file(serverCaCert, ephemeralCert, priv_key):
         ephemeral_out.write(ephemeralCert)
     with open('keys/priv.pem', 'wb') as priv_out:
         priv_out.write(priv_key)
-
