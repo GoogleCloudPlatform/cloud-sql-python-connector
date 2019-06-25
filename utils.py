@@ -1,37 +1,36 @@
-##############################################################################
-# Copyright 2019 Google LLC
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#   https://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-#############################################################################
+"""
+Copyright 2019 Google LLC
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+https://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+"""
+
 
 import pymysql.cursors
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
-import os
 
 
-# Connect method used in the SQLAlchemy creator
-def connect():
+def connect(host, user, password, db_name):
     """
-    Connect method to be used as a custome creator in the SQLAlchemy engine
+    Connect method to be used as a custom creator in the SQLAlchemy engine
     creation.
     """
     return pymysql.connect(
-        host=os.environ['db_host'],
-        user=os.environ['db_user'],
-        password=os.environ['db_pass'],
-        db=os.environ['db_name'],
+        host=host,
+        user=user,
+        password=password,
+        db=db_name,
         ssl={
             'ssl': {
                 'ca': './ca.pem',
@@ -46,11 +45,16 @@ def generate_keys():
     """
     A helper function to generate the private and public keys.
 
-    For backend, the value specified is default_backend(). This is because the
+    backend - The value specified is default_backend(). This is because the
     cryptography library used to support different backends, but now only uses
     the default_backend().
 
-    For the public_exponent, the value of 65537 was chosen due to
+    public_exponent - The public exponent is one of the variables used in the
+    generation of the keys. 65537 is recommended due to being a good balance
+    between speed and security.
+
+    key_size - The cryptography documentation recommended a key_size
+    of at least 2048.
     """
     private_key_obj = rsa.generate_private_key(
         backend=default_backend(),
@@ -69,8 +73,6 @@ def generate_keys():
     return private_key, public_key
 
 
-# Helper function to write the serverCaCert, ephemeral certificate and private
-# key to .pem files
 def write_to_file(serverCaCert, ephemeralCert, priv_key):
     """
     Helper function to write the serverCaCert, ephemeral certificate and
