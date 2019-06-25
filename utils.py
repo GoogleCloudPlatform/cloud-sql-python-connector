@@ -20,6 +20,7 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 import os
 
+
 # Connect method used in the SQLAlchemy creator
 def connect():
     return pymysql.connect(
@@ -35,4 +36,34 @@ def connect():
             }
         }
     )
+
+
+# Helper function to generate the private and public keys
+def generate_keys():
+    private_key_obj = rsa.generate_private_key(
+        backend=default_backend(),
+        public_exponent=65537,
+        key_size=2048
+    )
+    private_key = private_key_obj.private_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PrivateFormat.TraditionalOpenSSL,
+        encryption_algorithm=serialization.NoEncryption()
+    )
+    public_key = private_key_obj.public_key().public_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PublicFormat.SubjectPublicKeyInfo
+    )
+    return private_key, public_key
+
+
+# Helper function to write the serverCaCert, ephemeral certificate and private
+# key to .pem files
+def write_to_file(serverCaCert, ephemeralCert, priv_key):
+    with open('keys/ca.pem', 'w+') as ca_out:
+        ca_out.write(serverCaCert)
+    with open('keys/cert.pem', 'w+') as ephemeral_out:
+        ephemeral_out.write(ephemeralCert)
+    with open('keys/priv.pem', 'wb') as priv_out:
+        priv_out.write(priv_key)
 
