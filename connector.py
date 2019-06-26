@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-https://www.apache.org/licenses/LICENSE-2.0
+  https://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -26,8 +26,13 @@ def get_ephemeral(service, project, instance, pub_key):
     Returns the certificate as a string.
     """
 
-    if service is None or project is None or instance is None or pub_key is None:
-        print("Cannot take in None for any variables.")
+    if (
+        service is None or
+        project is None or
+        instance is None or
+        pub_key is None
+    ):
+        print("Cannot take None as an argument.")
         exit()
 
     # TODO(ryachen@) Add checks to ensure service object is valid.
