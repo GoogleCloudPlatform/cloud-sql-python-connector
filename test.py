@@ -30,3 +30,5 @@ def test_generate_keys_1():
 def test_generate_keys_2():
     res1, res2 = generate_keys()
     assert (isinstance(res1, bytes) and (isinstance(res2, bytes)))
+
+
