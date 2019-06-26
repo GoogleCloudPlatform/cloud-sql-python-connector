@@ -48,6 +48,27 @@ def get_ephemeral(service, project, instance, pub_key):
 
     # TODO: Add check if response is error or not.
 
-    print(response)
-
     return response['cert']
+
+
+def get_serverCaCert(service, project, instance):
+    """
+    A helper function that requests the instance metadata and extracts the IP
+    address and certificate authority of the server.
+
+    Takes in a service object, the project name and the instance name.
+
+    Returns the server's certificate authority as a string and saves the IP
+    in the 'db_host' environment variable.
+    """
+
+    request = service.instances().get(project=project, instance=instance)
+    response = request.execute()
+
+    # Extract IP of server.
+    os.environ['db_host'] = response['ipAddresses'][0]['ipAddress']
+
+    # Extract and return cert
+    serverCaCert = response['serverCaCert']['cert']
+    return serverCaCert
+
