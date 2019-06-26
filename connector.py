@@ -26,7 +26,11 @@ def get_ephemeral(service, project, instance, pub_key):
     Returns the certificate as a string.
     """
 
-    # TODO(Write checks)
+    if service is None or project is None or instance is None or pub_key is None:
+        print("Cannot take in None for any variables.")
+        exit()
+
+    # TODO(ryachen@) Add checks to ensure service object is valid.
 
     request = service.sslCerts().createEphemeral(
         project=project,
