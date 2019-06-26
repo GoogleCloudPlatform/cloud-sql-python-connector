@@ -15,6 +15,7 @@ limitations under the License.
 """
 import os
 
+
 def get_ephemeral(service, project, instance, pub_key):
     """
     A helper function that requests an ephemeral certificate from the
@@ -23,7 +24,7 @@ def get_ephemeral(service, project, instance, pub_key):
     Takes in a service object, the project name, the instance name and
     a public key.
 
-    Returns the certificate as a string.
+    Yields: The certificate as a string.
     """
 
     if (
@@ -58,7 +59,7 @@ def get_serverCaCert(service, project, instance):
 
     Takes in a service object, the project name and the instance name.
 
-    Returns the server's certificate authority as a string and saves the IP
+    Yields: The server's certificate authority as a string and saves the IP
     in the 'db_host' environment variable.
     """
 

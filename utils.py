@@ -25,6 +25,8 @@ def connect(host, user, password, db_name):
     """
     Connect method to be used as a custom creator in the SQLAlchemy engine
     creation.
+
+    Yields: A PyMySQL Connection object.
     """
     return pymysql.connect(
         host=host,
