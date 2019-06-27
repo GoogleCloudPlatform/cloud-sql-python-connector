@@ -20,16 +20,14 @@ from utils import generate_keys
 
 def test_generate_keys_1():
     """
-    # Test to check if objects are being produced from the generate_keys()
-    # function.
+    Test to check if objects are being produced from the generate_keys()
+    function.
     """
 
     res1, res2 = generate_keys()
     assert (res1 is not None) and (res2 is not None)
 
 
-# Test to check if objects produced from the generate_keys() function are of
-# type bytes.
 def test_generate_keys_2():
     """
     Test to check if objects produced from the generate_keys() function are of
