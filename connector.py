@@ -21,8 +21,9 @@ def get_ephemeral(service, project_name, instance_name, pub_key):
     Cloud SQL Instance.
 
     Args:
-        service (googleapiclient.discovery.Resource): A service object created from the Google Python API client
-            library. Must be using the SQL Admin API.
+        service (googleapiclient.discovery.Resource): A service object created
+          from the Google Python API client library. Must be using the SQL
+          Admin API.
         project (str): A string representing the name of the project.
         instance (str): A string representing the name of the instance.
             Usually found in environment variable 'CLOUD_SQL_INSTANCE_NAME.'
