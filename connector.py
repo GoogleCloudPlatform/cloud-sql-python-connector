@@ -25,7 +25,7 @@ def get_ephemeral(service, project_name, instance_name, pub_key):
             library. Must be using the SQL Admin API.
         project (String): A string representing the name of the project.
         instance (String): A string representing the name of the instance.
-            Usually found in the environment variable 'CLOUD_SQL_INSTANCE_NAME.'
+            Usually found in environment variable 'CLOUD_SQL_INSTANCE_NAME.'
         pub_key (String): A string representing PEM-encoded RSA public key.
 
     Returns:
