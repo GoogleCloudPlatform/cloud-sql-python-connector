@@ -21,12 +21,12 @@ def get_ephemeral(service, project_name, instance_name, pub_key):
     Cloud SQL Instance.
 
     Args:
-        service: A service object created from the Google Python API client
+        service (googleapiclient.discovery.Resource): A service object created from the Google Python API client
             library. Must be using the SQL Admin API.
-        project (String): A string representing the name of the project.
-        instance (String): A string representing the name of the instance.
+        project (str): A string representing the name of the project.
+        instance (str): A string representing the name of the instance.
             Usually found in environment variable 'CLOUD_SQL_INSTANCE_NAME.'
-        pub_key (String): A string representing PEM-encoded RSA public key.
+        pub_key (str): A string representing PEM-encoded RSA public key.
 
     Returns:
         An ephemeral certificate from the Cloud SQL instance that allows
@@ -42,8 +42,7 @@ def get_ephemeral(service, project_name, instance_name, pub_key):
         instance_name is None or
         pub_key is None
     ):
-        print("Cannot take None as an argument.")
-        raise(TypeError)
+        raise TypeError("Cannot take None as an argument.")
 
     # TODO(ryachen@) Add checks to ensure service object is valid.
 
@@ -55,7 +54,5 @@ def get_ephemeral(service, project_name, instance_name, pub_key):
         }
     )
     response = request.execute()
-
-    print(response)
 
     return response['cert']
