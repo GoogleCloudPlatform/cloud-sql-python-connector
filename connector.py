@@ -39,22 +39,18 @@ def get_ephemeral(service, project_name, instance_name, pub_key):
     """
 
     if (
-        service is None or
-        project_name is None or
-        instance_name is None or
-        pub_key is None
+        service is None
+        or project_name is None
+        or instance_name is None
+        or pub_key is None
     ):
         raise TypeError("Cannot take None as an argument.")
 
     # TODO(ryachen@) Add checks to ensure service object is valid.
 
     request = service.sslCerts().createEphemeral(
-        project=project_name,
-        instance=instance_name,
-        body={
-            'public_key': pub_key
-        }
+        project=project_name, instance=instance_name, body={"public_key": pub_key}
     )
     response = request.execute()
 
-    return response['cert']
+    return response["cert"]

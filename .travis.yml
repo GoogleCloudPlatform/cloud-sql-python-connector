@@ -2,12 +2,10 @@ dist: xenial
 language: python
 python:
     - "3.7"
-    - "3.6"
 
 install:
     - pip install -r requirements.txt
-    - pip install flake8
+    - pip install nox
 
 script:
-    - pytest test.py
-    - flake8
+    - nox
