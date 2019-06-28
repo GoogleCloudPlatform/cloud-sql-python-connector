@@ -21,7 +21,7 @@ import shutil
 import sys
 import nox
 
-BLACK_PATHS = ["*.py", "tests"]
+BLACK_PATHS = ["connector.py", "utils.py", "tests"]
 
 if os.path.exists("samples"):
     BLACK_PATHS.append("samples")
