@@ -1,13 +1,13 @@
 dist: xenial
 language: python
 python:
-    - "3.6"
+    - "3.7"
 
 before_install:
     - sudo apt-get update
     - sudo apt-get install python2.7
     - sudo apt-get install python3.5
-    - sudo apt-get install python3.7
+    - sudo apt-get install python3.6
 
 install:
     - pip install -r requirements.txt
