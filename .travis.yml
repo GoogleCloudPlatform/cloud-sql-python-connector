@@ -4,7 +4,7 @@ python:
     - "3.7"
 
 before_install:
-    - sudo add-apt-repository ppa:deadsnakes/ppa
+    - sudo add-apt-repository ppa:deadsnakes/ppa -y
     - sudo apt-get update
     - sudo apt-get install python2.7
     - sudo apt-get install python3.5
