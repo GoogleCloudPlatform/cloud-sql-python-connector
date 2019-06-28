@@ -23,7 +23,8 @@ def get_ephemeral(service, project_name, instance_name, pub_key):
     Args:
         service (googleapiclient.discovery.Resource): A service object created
           from the Google Python API client library. Must be using the SQL
-          Admin API.
+          Admin API. For more info check out
+          http://googleapis.github.io/google-api-python-client/docs/epy/index.html.
         project (str): A string representing the name of the project.
         instance (str): A string representing the name of the instance.
             Usually found in environment variable 'CLOUD_SQL_INSTANCE_NAME.'
