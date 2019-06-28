@@ -14,8 +14,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
+import googleapiclient
 
-def get_ephemeral(service, project_name, instance_name, pub_key):
+
+def get_ephemeral(service, proj_name, inst_name, pub_key):
     """
     A helper function that requests an ephemeral certificate from the
     Cloud SQL Instance.
@@ -39,17 +41,17 @@ def get_ephemeral(service, project_name, instance_name, pub_key):
     """
 
     if (
-        service is None
-        or project_name is None
-        or instance_name is None
-        or pub_key is None
+        not isinstance(service, googleapiclient.discovery.Resource)
+        or not isinstance(proj_name, str)
+        or not isinstance(inst_name, str)
+        or not isinstance(pub_key, str)
     ):
         raise TypeError("Cannot take None as an argument.")
 
     # TODO(ryachen@) Add checks to ensure service object is valid.
 
     request = service.sslCerts().createEphemeral(
-        project=project_name, instance=instance_name, body={"public_key": pub_key}
+        project=proj_name, instance=inst_name, body={"public_key": pub_key}
     )
     response = request.execute()
 
