@@ -32,12 +32,12 @@ def connect(host, user, password, db_name):
         password=password,
         db=db_name,
         ssl={
-            'ssl': {
-                'ca': './ca.pem',
-                'cert': './cert.pem',
-                'key': './priv.pem'
-            }
-        }
+            "ssl": {
+                "ca": "./ca.pem",
+                "cert": "./cert.pem",
+                "key": "./priv.pem",
+            }  # noqa: E501
+        },
     )
 
 
@@ -57,18 +57,16 @@ def generate_keys():
     of at least 2048.
     """
     private_key_obj = rsa.generate_private_key(
-        backend=default_backend(),
-        public_exponent=65537,
-        key_size=2048
+        backend=default_backend(), public_exponent=65537, key_size=2048
     )
     private_key = private_key_obj.private_bytes(
         encoding=serialization.Encoding.PEM,
         format=serialization.PrivateFormat.TraditionalOpenSSL,
-        encryption_algorithm=serialization.NoEncryption()
+        encryption_algorithm=serialization.NoEncryption(),
     )
     public_key = private_key_obj.public_key().public_bytes(
         encoding=serialization.Encoding.PEM,
-        format=serialization.PublicFormat.SubjectPublicKeyInfo
+        format=serialization.PublicFormat.SubjectPublicKeyInfo,
     )
     return private_key, public_key
 
@@ -78,9 +76,9 @@ def write_to_file(serverCaCert, ephemeralCert, priv_key):
     Helper function to write the serverCaCert, ephemeral certificate and
     private key to .pem files
     """
-    with open('keys/ca.pem', 'w+') as ca_out:
+    with open("keys/ca.pem", "w+") as ca_out:
         ca_out.write(serverCaCert)
-    with open('keys/cert.pem', 'w+') as ephemeral_out:
+    with open("keys/cert.pem", "w+") as ephemeral_out:
         ephemeral_out.write(ephemeralCert)
-    with open('keys/priv.pem', 'wb') as priv_out:
+    with open("keys/priv.pem", "wb") as priv_out:
         priv_out.write(priv_key)

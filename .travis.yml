@@ -2,12 +2,17 @@ dist: xenial
 language: python
 python:
     - "3.7"
-    - "3.6"
+
+before_install:
+    - sudo add-apt-repository ppa:deadsnakes/ppa -y
+    - sudo apt-get update
+    - sudo apt-get install python2.7
+    - sudo apt-get install python3.5
+    - sudo apt-get install python3.6
 
 install:
     - pip install -r requirements.txt
-    - pip install flake8
+    - pip install nox
 
 script:
-    - pytest test.py
-    - flake8
+    - nox
