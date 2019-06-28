@@ -13,7 +13,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
-import os
+import googleapiclient
 
 
 def get_ephemeral(service, project, instance, pub_key):
@@ -52,23 +52,51 @@ def get_ephemeral(service, project, instance, pub_key):
     return response['cert']
 
 
-def get_serverCaCert(service, project, instance):
+def get_serverCaCert(service, project_name, instance_name):
     """
     A helper function that requests the instance metadata and extracts the IP
     address and certificate authority of the server.
 
-    Takes in a service object, the project name and the instance name.
+    Arguments:
+        service (googleapiclient.discovery.Resource): A service object created
+            from the Google Python API client library. Must be using the SQL
+            Admin API.
+        project_name (str): A string representing the name of the project.
+        instance_name (str): A string representing the name of the instance.
+            Usually found in environment variable 'CLOUD_SQL_INSTANCE_NAME.'
 
-    Yields: The server's certificate authority as a string and saves the IP
-    in the 'db_host' environment variable.
+    Returns:
+        A string representing the serverCaCert and another string representing
+        the IP address of the Cloud SQL instance.
+
+    Raises:
+        TypeError: If one or more arguments passed in do not match the
+            required type.
     """
 
-    request = service.instances().get(project=project, instance=instance)
+    if (
+        not isinstance(service, googleapiclient.discovery.Resource) or
+        not isinstance(project_name, str) or
+        not isinstance(instance_name, str)
+    ):
+        raise TypeError(
+            "Arguments must be as follows: " +
+            "service (googleapiclient.discover.Resource), project_name (str)" +
+            " and instance_name (str)."
+        )
+
+    # Create request and execute request to receive response.
+    request = service.instances().get(
+        project=project_name,
+        instance=instance_name
+    )
+
     response = request.execute()
 
     # Extract IP of server.
-    os.environ['db_host'] = response['ipAddresses'][0]['ipAddress']
+    ipAddr = response['ipAddresses'][0]['ipAddress']
 
-    # Extract and return cert
+    # Extract server certificate authority.
     serverCaCert = response['serverCaCert']['cert']
-    return serverCaCert
+
+    return serverCaCert, ipAddr
