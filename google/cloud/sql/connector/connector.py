@@ -31,7 +31,7 @@ def get_metadata(service, proj_name, inst_name):
             Usually found in environment variable 'CLOUD_SQL_INSTANCE_NAME.'
 
     Returns:
-        A string representing the server's certificate authority and another
+        A dictionary containing a string representing the server's certificate authority and another
         string representing the server's IP address.
 
     Raises:
