@@ -49,7 +49,6 @@ def get_metadata(service, proj_name, inst_name):
     response = request.execute()
 
     # Extract IP address from response
-    # TODO(ryachen@) Load this into a dictionary and extract the PRIMARY one.
     ipaddr = response["ipAddresses"][0]["ipAddress"]
 
     # Extract the server's certificate authority from the response
