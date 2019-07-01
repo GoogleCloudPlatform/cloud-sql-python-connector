@@ -14,4 +14,13 @@
 
 from setuptools import setup, find_packages
 
+packages = [
+    package for package in setuptools.find_packages() if package.startswith("google")
+]
+
+# Determine which namespaces are needed.
+namespaces = ["google"]
+if "google.cloud" in packages:
+    namespaces.append("google.cloud")
+
 setup(name="cloud-sql-python-connector", packages=find_packages())

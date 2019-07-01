@@ -21,7 +21,7 @@ import shutil
 import sys
 import nox
 
-BLACK_PATHS = ["connector.py", "utils.py", "tests"]
+BLACK_PATHS = ["google", "tests"]
 
 if os.path.exists("samples"):
     BLACK_PATHS.append("samples")
@@ -71,7 +71,7 @@ def default(session):
     )
 
 
-@nox.session(python=["2.7", "3.5", "3.6", "3.7"])
+@nox.session(python=["3.6", "3.7"])
 def unit(session):
     default(session)
 
