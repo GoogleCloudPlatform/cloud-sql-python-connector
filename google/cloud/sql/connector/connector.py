@@ -17,6 +17,49 @@ limitations under the License.
 import googleapiclient
 
 
+def get_metadata(service, proj_name, inst_name):
+    """
+    A helper function that requests metadata from the Cloud SQL Instance.
+
+    Args:
+        service (googleapiclient.discovery.Resource): A service object created
+          from the Google Python API client library. Must be using the SQL
+          Admin API. For more info check out
+          https://github.com/googleapis/google-api-python-client.
+        project (str): A string representing the name of the project.
+        instance (str): A string representing the name of the instance.
+            Usually found in environment variable 'CLOUD_SQL_INSTANCE_NAME.'
+
+    Returns:
+        A string representing the server's certificate authority and another
+        string representing the server's IP address.
+
+    Raises:
+        TypeError: If one of the arguments passed in is None.
+    """
+
+    if (
+        not isinstance(service, googleapiclient.discovery.Resource)
+        or not isinstance(proj_name, str)
+        or not isinstance(inst_name, str)
+    ):
+        raise TypeError("Cannot take None as an argument.")
+
+    request = service.instances().get(project=proj_name, instance=inst_name)
+    response = request.execute()
+
+    # Extract IP address from response
+    # TODO(ryachen@) Load this into a dictionary and extract the PRIMARY one.
+    ipaddr = response["ipAddresses"][0]["ipAddress"]
+
+    # Extract the server's certificate authority from the response
+    serverCaCert = response["serverCaCert"]["cert"]
+
+    metadata = {"ip": ipaddr, "ca": serverCaCert}
+
+    return metadata
+
+
 def get_ephemeral(service, proj_name, inst_name, pub_key):
     """
     A helper function that requests an ephemeral certificate from the
