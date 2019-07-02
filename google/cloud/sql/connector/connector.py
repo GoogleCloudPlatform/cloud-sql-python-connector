@@ -32,8 +32,9 @@ def get_metadata(service, project, instance):
         inst_name(str): A string representing the name of the instance.
 
     Returns:
-        Returns a dictionary containing a dictionary of all IP addresses and
-        their type and a string representing the certificate authority.
+        Dict[str: Dict[str: str], str: str]
+          Returns a dictionary containing a dictionary of all IP addresses and
+          their type and a string representing the certificate authority.
 
     Raises:
         TypeError: If any of the arguments are not the specified type.
@@ -79,8 +80,9 @@ def get_ephemeral(service, project, instance, pub_key):
         pub_key (str): A string representing PEM-encoded RSA public key.
 
     Returns:
-        An ephemeral certificate from the Cloud SQL instance that allows
-        authorized connections to the instance.
+        str
+          An ephemeral certificate from the Cloud SQL instance that allows
+          authorized connections to the instance.
 
     Raises:
         TypeError: If one of the arguments passed in is None.
