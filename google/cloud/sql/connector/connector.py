@@ -17,7 +17,7 @@ limitations under the License.
 import googleapiclient
 
 
-def get_metadata(service, proj_name, inst_name):
+def get_metadata(service, project, instance):
     """
     A helper function that requests metadata from the Cloud SQL Instance
     and returns a dictionary containing the IP addresses and certificate
@@ -42,8 +42,8 @@ def get_metadata(service, proj_name, inst_name):
 
     if (
         not isinstance(service, googleapiclient.discovery.Resource)
-        or not isinstance(proj_name, str)
-        or not isinstance(inst_name, str)
+        or not isinstance(project, str)
+        or not isinstance(instance, str)
     ):
         raise TypeError(
             "Arguments must be as follows: "
@@ -51,7 +51,7 @@ def get_metadata(service, proj_name, inst_name):
             + "proj_name (str) and inst_name (str)."
         )
 
-    req = service.instances().get(project=proj_name, instance=inst_name)
+    req = service.instances().get(project=project, instance=instance)
     res = req.execute()
 
     # Extract server certificate authority
@@ -60,12 +60,12 @@ def get_metadata(service, proj_name, inst_name):
     # Map IP addresses to type.
     ip_map = {ip["type"]: ip["ipAddress"] for ip in res["ipAddresses"]}
 
-    metadata = {"ip": ip_map, "ca": serverCaCert}
+    metadata = {"ip_addresses": ip_map, "server_ca_cert": serverCaCert}
 
     return metadata
 
 
-def get_ephemeral(service, proj_name, inst_name, pub_key):
+def get_ephemeral(service, project, instance, pub_key):
     """
     A helper function that requests an ephemeral certificate from the
     Cloud SQL Instance.
@@ -90,8 +90,8 @@ def get_ephemeral(service, proj_name, inst_name, pub_key):
 
     if (
         not isinstance(service, googleapiclient.discovery.Resource)
-        or not isinstance(proj_name, str)
-        or not isinstance(inst_name, str)
+        or not isinstance(project, str)
+        or not isinstance(instance, str)
         or not isinstance(pub_key, str)
     ):
         raise TypeError("Cannot take None as an argument.")
@@ -99,7 +99,7 @@ def get_ephemeral(service, proj_name, inst_name, pub_key):
     # TODO(ryachen@) Add checks to ensure service object is valid.
 
     request = service.sslCerts().createEphemeral(
-        project=proj_name, instance=inst_name, body={"public_key": pub_key}
+        project=project, instance=instance, body={"public_key": pub_key}
     )
     response = request.execute()
 
