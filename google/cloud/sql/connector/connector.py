@@ -16,6 +16,7 @@ limitations under the License.
 
 import googleapiclient
 
+
 def get_metadata(service, proj_name, inst_name):
     """
     A helper function that requests metadata from the Cloud SQL Instance
@@ -27,8 +28,8 @@ def get_metadata(service, proj_name, inst_name):
           from the Google Python API client library. Must be using the SQL
           Admin API. For more info check out
           https://github.com/googleapis/google-api-python-client.
-        project (str): A string representing the name of the project.
-        instance (str): A string representing the name of the instance.
+        proj_name (str): A string representing the name of the project.
+        inst_name(str): A string representing the name of the instance.
             Usually found in environment variable 'CLOUD_SQL_INSTANCE_NAME.'
 
     Returns:
@@ -38,6 +39,28 @@ def get_metadata(service, proj_name, inst_name):
     Raises:
         TypeError: If any of the arguments are not the specified type.
     """
+
+    if (
+        not isinstance(service, googleapiclient.discovery.Resource)
+        or not isinstance(proj_name, str)
+        or not isinstance(inst_name, str)
+    ):
+        raise TypeError(
+            "Arguments must be as follows: "
+            + "service (googleapiclient.discovery.Resource), "
+            + "proj_name (str) and inst_name (str)."
+        )
+
+        req = service.instances().get(project=proj_name, instance=inst_name)
+        res = req.execute()
+
+        ip = res["ipAddresses"][0]["ipAddress"]
+
+        serverCaCert = res["serverCaCert"]["cert"]
+
+        metadata = {"ip": ip, "ca": serverCaCert}
+
+        return metadata
 
 
 def get_ephemeral(service, proj_name, inst_name, pub_key):
