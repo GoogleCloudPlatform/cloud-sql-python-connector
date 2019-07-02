@@ -30,7 +30,6 @@ def get_metadata(service, project, instance):
           https://github.com/googleapis/google-api-python-client.
         proj_name (str): A string representing the name of the project.
         inst_name(str): A string representing the name of the instance.
-            Usually found in environment variable 'CLOUD_SQL_INSTANCE_NAME.'
 
     Returns:
         Returns a dictionary containing a dictionary of all IP addresses and
@@ -77,7 +76,6 @@ def get_ephemeral(service, project, instance, pub_key):
           https://github.com/googleapis/google-api-python-client.
         project (str): A string representing the name of the project.
         instance (str): A string representing the name of the instance.
-          Usually found in environment variable 'CLOUD_SQL_INSTANCE_NAME.'
         pub_key (str): A string representing PEM-encoded RSA public key.
 
     Returns:
