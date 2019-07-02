@@ -16,6 +16,29 @@ limitations under the License.
 
 import googleapiclient
 
+def get_metadata(service, proj_name, inst_name):
+    """
+    A helper function that requests metadata from the Cloud SQL Instance
+    and returns a dictionary containing the IP address and certificate
+    authority of the Cloud SQL Instance.
+
+    Args:
+        service (googleapiclient.discovery.Resource): A service object created
+          from the Google Python API client library. Must be using the SQL
+          Admin API. For more info check out
+          https://github.com/googleapis/google-api-python-client.
+        project (str): A string representing the name of the project.
+        instance (str): A string representing the name of the instance.
+            Usually found in environment variable 'CLOUD_SQL_INSTANCE_NAME.'
+
+    Returns:
+        An ephemeral certificate from the Cloud SQL instance that allows
+        authorized connections to the instance.
+
+    Raises:
+        TypeError: If any of the arguments are not the specified type.
+    """
+
 
 def get_ephemeral(service, proj_name, inst_name, pub_key):
     """
