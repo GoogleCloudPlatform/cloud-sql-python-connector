@@ -20,7 +20,7 @@ import googleapiclient
 def get_metadata(service, proj_name, inst_name):
     """
     A helper function that requests metadata from the Cloud SQL Instance
-    and returns a dictionary containing the IP address and certificate
+    and returns a dictionary containing the IP addresses and certificate
     authority of the Cloud SQL Instance.
 
     Args:
@@ -33,8 +33,8 @@ def get_metadata(service, proj_name, inst_name):
             Usually found in environment variable 'CLOUD_SQL_INSTANCE_NAME.'
 
     Returns:
-        An ephemeral certificate from the Cloud SQL instance that allows
-        authorized connections to the instance.
+        Returns a dictionary containing a dictionary of all IP addresses and
+        their type and a string representing the certificate authority.
 
     Raises:
         TypeError: If any of the arguments are not the specified type.
@@ -51,16 +51,18 @@ def get_metadata(service, proj_name, inst_name):
             + "proj_name (str) and inst_name (str)."
         )
 
-        req = service.instances().get(project=proj_name, instance=inst_name)
-        res = req.execute()
+    req = service.instances().get(project=proj_name, instance=inst_name)
+    res = req.execute()
 
-        ip = res["ipAddresses"][0]["ipAddress"]
+    # Extract server certificate authority
+    serverCaCert = res["serverCaCert"]["cert"]
 
-        serverCaCert = res["serverCaCert"]["cert"]
+    # Map IP addresses to type.
+    ip_map = {ip["type"]: ip["ipAddress"] for ip in res["ipAddresses"]}
 
-        metadata = {"ip": ip, "ca": serverCaCert}
+    metadata = {"ip": ip_map, "ca": serverCaCert}
 
-        return metadata
+    return metadata
 
 
 def get_ephemeral(service, proj_name, inst_name, pub_key):
@@ -75,7 +77,7 @@ def get_ephemeral(service, proj_name, inst_name, pub_key):
           https://github.com/googleapis/google-api-python-client.
         project (str): A string representing the name of the project.
         instance (str): A string representing the name of the instance.
-            Usually found in environment variable 'CLOUD_SQL_INSTANCE_NAME.'
+          Usually found in environment variable 'CLOUD_SQL_INSTANCE_NAME.'
         pub_key (str): A string representing PEM-encoded RSA public key.
 
     Returns:
