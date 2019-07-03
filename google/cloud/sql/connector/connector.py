@@ -32,7 +32,7 @@ def get_metadata(service, project, instance):
         inst_name(str): A string representing the name of the instance.
 
     Returns:
-        Dict[str: Dict[str: str], str: str]
+          Dict[str: Union[Dict, str]]
           Returns a dictionary containing a dictionary of all IP addresses and
           their type and a string representing the certificate authority.
 
