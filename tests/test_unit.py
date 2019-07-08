@@ -14,7 +14,14 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
+import pytest
+
 from google.cloud.sql.connector import utils
+from google.cloud.sql.connector.InstanceConnectionManager import (
+    InstanceConnectionManager,
+    CloudSQLConnectionStringError,
+)
+import asyncio
 
 
 def test_generate_keys_not_return_none():
@@ -35,3 +42,13 @@ def test_generate_keys_returns_bytes():
 
     res1, res2 = utils.generate_keys()
     assert isinstance(res1, bytes) and (isinstance(res2, bytes))
+
+
+def test_InstanceConnectionManager_connection_string_parsing():
+    """
+    Test to check whether the __init__() method of InstanceConnectionManager
+    can tell if the connection string that's passed in is formatted correctly.
+    """
+    loop = asyncio.new_event_loop()
+    with pytest.raises(CloudSQLConnectionStringError):
+        InstanceConnectionManager("test-project:test-region", loop)

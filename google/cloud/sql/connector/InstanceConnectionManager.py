@@ -16,6 +16,7 @@ limitations under the License.
 
 import re
 import asyncio
+from google.auth.credentials import Credentials
 
 
 class CloudSQLConnectionStringError(Exception):
@@ -23,21 +24,23 @@ class CloudSQLConnectionStringError(Exception):
     Raised when the provided connection string is not formatted
     correctly.
     """
+
     def __init__(self, *args, **kwargs) -> None:
         Exception.__init__(self, *args, **kwargs)
 
 
 class InstanceConnectionManager:
-    _instance_connection_string:str = None
+    _instance_connection_string: str = None
     _loop: asyncio.unix_events._UnixSelectorEventLoop = None
     _project: str = None
+    _region: str = None
     _instance: str = None
-    _credentials: google.auth.credentials.Credentials = None
+    _credentials: Credentials = None
 
     def __init__(
         self,
         instance_connection_string: str,
-        loop: asyncio.unix_events._UnixSelectorEventLoop
+        loop: asyncio.unix_events._UnixSelectorEventLoop,
     ) -> None:
         # Validate connection string
         pattern = "([\\S]+):([\\S]+):([\\S]+)"
@@ -53,6 +56,5 @@ class InstanceConnectionManager:
                 + "format: project:region:instance."
             )
 
-        #
         # set current to future InstanceMetadata
         # set next to the future future InstanceMetadata
