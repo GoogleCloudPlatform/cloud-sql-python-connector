@@ -106,7 +106,7 @@ def get_ephemeral(service, project, instance, pub_key):
     return response["cert"]
 
 
-def connect(instance_connection_string, connection_args=None):
+def connect(instance_connection_string, **kwargs):
     """Prepares and returns a database connection object and starts a
     background thread to refresh the certificates and metadata.
 
@@ -117,9 +117,9 @@ def connect(instance_connection_string, connection_args=None):
 
         Example: example-proj:example-region-us6:example-instance
 
-    :type connection_args: (Dict[str, str])
-    :param connection_args:
-        A Dictionary containing connection arguments. Optional.
+    :param kwargs:
+        Pass in any driver-specific arguments needed to connect to the Cloud SQL
+        instance.
 
     :rtype: Connection
     :returns:
