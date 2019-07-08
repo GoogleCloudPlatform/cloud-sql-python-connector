@@ -14,7 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-import re
 import asyncio
 from google.auth.credentials import Credentials
 
@@ -43,13 +42,12 @@ class InstanceConnectionManager:
         loop: asyncio.unix_events._UnixSelectorEventLoop,
     ) -> None:
         # Validate connection string
-        pattern = "([\\S]+):([\\S]+):([\\S]+)"
-        match = re.match(pattern, instance_connection_string)
+        connection_string_split = instance_connection_string.split(":")
 
-        if match:
+        if len(connection_string_split) == 3:
             self.instance_connection_string = instance_connection_string
-            self.project = match[1]
-            self.instance = match[2]
+            self.project = connection_string_split[1]
+            self.instance = connection_string_split[2]
         else:
             raise CloudSQLConnectionStringError(
                 "Arg instance_connection_string must be in "
