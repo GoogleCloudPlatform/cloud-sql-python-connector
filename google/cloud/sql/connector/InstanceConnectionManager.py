@@ -16,22 +16,28 @@ limitations under the License.
 
 import re
 
-Class InstanceConnectionManager:
+
+class InstanceConnectionManager:
     instance_connection_string = None
     loop = None
     project = None
     instance = None
     credentials = None
 
-    def __init__(self,instance_connection_string, loop):
+    def __init__(self, instance_connection_string, loop):
         # Validate connection string
-        if match = re.match("([\S]+):([\S]+):([\S]+)", instance_connection_string):
+        pattern = "([\\S]+):([\\S]+):([\\S]+)"
+        match = re.match(pattern, instance_connection_string)
+
+        if match:
             self.instance_connection_string = instance_connection_string
             self.project = match[1]
             self.instance = match[2]
         else:
-            raise Exception("Arg instance_connection_string must be in format" +
-                            " project:region:instance.")
+            raise Exception(
+                "Arg instance_connection_string must be in "
+                + "format: project:region:instance."
+            )
 
         #
         # set current to future InstanceMetadata
