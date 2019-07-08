@@ -28,11 +28,11 @@ class CloudSQLConnectionStringError(Exception):
 
 
 class InstanceConnectionManager:
-    instance_connection_string = None
-    loop = None
-    project = None
-    instance = None
-    credentials = None
+    instance_connection_string:str = None
+    loop: asyncio.unix_events._UnixSelectorEventLoop = None
+    project: str = None
+    instance: str = None
+    credentials: google.auth.credentials.Credentials = None
 
     def __init__(
         self,
