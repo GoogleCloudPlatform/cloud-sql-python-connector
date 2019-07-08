@@ -15,6 +15,16 @@ limitations under the License.
 """
 
 import re
+import asyncio
+
+
+class CloudSQLConnectionStringError(Exception):
+    """
+    Raised when the provided connection string is not formatted
+    correctly.
+    """
+    def __init__(self, *args, **kwargs) -> None:
+        Exception.__init__(self, *args, **kwargs)
 
 
 class InstanceConnectionManager:
@@ -24,7 +34,11 @@ class InstanceConnectionManager:
     instance = None
     credentials = None
 
-    def __init__(self, instance_connection_string, loop):
+    def __init__(
+        self,
+        instance_connection_string: str,
+        loop: asyncio.unix_events._UnixSelectorEventLoop
+    ) -> None:
         # Validate connection string
         pattern = "([\\S]+):([\\S]+):([\\S]+)"
         match = re.match(pattern, instance_connection_string)
@@ -34,7 +48,7 @@ class InstanceConnectionManager:
             self.project = match[1]
             self.instance = match[2]
         else:
-            raise Exception(
+            raise CloudSQLConnectionStringError(
                 "Arg instance_connection_string must be in "
                 + "format: project:region:instance."
             )
