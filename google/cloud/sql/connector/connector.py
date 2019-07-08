@@ -107,24 +107,25 @@ def get_ephemeral(service, project, instance, pub_key):
 
 
 def connect(instance_connection_string, connection_args=None):
+    """Prepares and returns a database connection object and starts a
+    background thread to refresh the certificates and metadata.
+
+    :type instance_connection_string: str
+    :param instance_connection_string:
+        A string containing the GCP project name, region name, and instance
+        name separated by colons.
+
+        Example: example-proj:example-region-us6:example-instance
+
+    :type connection_args: (Dict[str, str])
+    :param connection_args:
+        A Dictionary containing connection arguments. Optional.
+
+    :rtype: Connection
+    :returns:
+        A DB-API connection to the specified Cloud SQL instance.
     """
-    A public function that will take in an instance_connection_string and a
-    dictionary of connection arguments and return a DB-API connection to a
-    database.
 
-    Args:
-        instance_connection_string (str): A string containing the GCP project
-            name, region name, and instance name separated by colons.
-
-            Example: example-proj:example-region-us6:example-instance
-        connection_args (Dict[str, str]): A Dictionary containing connection
-            arguments. Optional.
-
-    Returns:
-        DB-API connection object
-            Returns a connection object that is consistent with the PEP 249
-            standard, also known as DB-API 2.0.
-    """
     # Initiate event loop and run in background thread.
     #
     # Create an InstanceConnectionManager object from the connection string.
