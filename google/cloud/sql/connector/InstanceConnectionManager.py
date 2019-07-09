@@ -55,7 +55,7 @@ class InstanceConnectionManager:
     def __init__(
         self,
         instance_connection_string: str,
-        loop: asyncio.unix_events._UnixSelectorEventLoop,
+        loop: asyncio.AbstractEventLoop,
     ) -> None:
         # Validate connection string
         connection_string_split = instance_connection_string.split(":")
