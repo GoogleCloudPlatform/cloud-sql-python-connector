@@ -14,14 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-import pytest
-
 from google.cloud.sql.connector import utils
-from google.cloud.sql.connector.InstanceConnectionManager import (
-    InstanceConnectionManager,
-    CloudSQLConnectionError,
-)
-import asyncio
 
 
 def test_generate_keys_not_return_none():

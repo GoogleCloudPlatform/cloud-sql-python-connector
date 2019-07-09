@@ -16,7 +16,6 @@ limitations under the License.
 
 import pytest
 
-from google.cloud.sql.connector import utils
 from google.cloud.sql.connector.InstanceConnectionManager import (
     InstanceConnectionManager,
     CloudSQLConnectionError,
