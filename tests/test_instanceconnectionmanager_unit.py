@@ -23,7 +23,18 @@ from google.cloud.sql.connector.InstanceConnectionManager import (
 import asyncio
 
 
-def test_InstanceConnectionManager_connection_string_parsing():
+def test_InstanceConnectionManager_connection_string():
+    """
+    Test to check whether the __init__() method of InstanceConnectionManager
+    can tell if the connection string that's passed in is formatted correctly.
+    """
+    loop = asyncio.new_event_loop()
+    connect_string = "test-project:test-region:test-instance"
+    icm = InstanceConnectionManager(connect_string, loop)
+    assert icm._project == "test-project" and icm._region == "test-region" and icm._instance == "test-instance"
+
+
+def test_InstanceConnectionManager_wrong_connection_string():
     """
     Test to check whether the __init__() method of InstanceConnectionManager
     can tell if the connection string that's passed in is formatted correctly.
