@@ -19,7 +19,7 @@ import pytest
 from google.cloud.sql.connector import utils
 from google.cloud.sql.connector.InstanceConnectionManager import (
     InstanceConnectionManager,
-    CloudSQLConnectionStringError,
+    CloudSQLConnectionError,
 )
 import asyncio
 
@@ -50,5 +50,5 @@ def test_InstanceConnectionManager_connection_string_parsing():
     can tell if the connection string that's passed in is formatted correctly.
     """
     loop = asyncio.new_event_loop()
-    with pytest.raises(CloudSQLConnectionStringError):
+    with pytest.raises(CloudSQLConnectionError):
         InstanceConnectionManager("test-project:test-region", loop)

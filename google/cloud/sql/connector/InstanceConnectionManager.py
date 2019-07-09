@@ -18,14 +18,14 @@ import asyncio
 from google.auth.credentials import Credentials
 
 
-class CloudSQLConnectionStringError(Exception):
+class CloudSQLConnectionError(Exception):
     """
     Raised when the provided connection string is not formatted
     correctly.
     """
 
     def __init__(self, *args, **kwargs) -> None:
-        super(CloudSQLConnectionStringError, self).__init__(self, *args, **kwargs)
+        super(CloudSQLConnectionError, self).__init__(self, *args, **kwargs)
 
 
 class InstanceConnectionManager:
@@ -42,7 +42,7 @@ class InstanceConnectionManager:
     """
 
     _instance_connection_string: str = None
-    _loop: asyncio.unix_events._UnixSelectorEventLoop = None
+    _loop: asyncio.SelectorEventLoop = None
     _project: str = None
     _region: str = None
     _instance: str = None
@@ -57,11 +57,12 @@ class InstanceConnectionManager:
         connection_string_split = instance_connection_string.split(":")
 
         if len(connection_string_split) == 3:
-            self.instance_connection_string = instance_connection_string
-            self.project = connection_string_split[1]
-            self.instance = connection_string_split[2]
+            self._instance_connection_string = instance_connection_string
+            self._project = connection_string_split[0]
+            self._region = connection_string_split[1]
+            self._instance = connection_string_split[2]
         else:
-            raise CloudSQLConnectionStringError(
+            raise CloudSQLConnectionError(
                 "Arg instance_connection_string must be in "
                 + "format: project:region:instance."
             )
