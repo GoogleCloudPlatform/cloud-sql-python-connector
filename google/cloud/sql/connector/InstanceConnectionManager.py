@@ -29,6 +29,17 @@ class CloudSQLConnectionStringError(Exception):
 
 
 class InstanceConnectionManager:
+    """A class to manage the details of the connection, including refreshing the
+    credentials.
+
+    :param instance_connection_string:
+        The Google Cloud SQL Instance's connection
+        string.
+    :type instance_connection_string: str
+    :param loop:
+        A new event loop for the refresh function to run in.
+    :type loop: asyncio.unix_events._UnixSelectorEventLoop
+    """
     _instance_connection_string: str = None
     _loop: asyncio.unix_events._UnixSelectorEventLoop = None
     _project: str = None
