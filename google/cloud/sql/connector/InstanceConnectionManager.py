@@ -25,7 +25,7 @@ class CloudSQLConnectionStringError(Exception):
     """
 
     def __init__(self, *args, **kwargs) -> None:
-        Exception.__init__(self, *args, **kwargs)
+        super(CloudSQLConnectionStringError, self).__init__(self, *args, **kwargs)
 
 
 class InstanceConnectionManager:
