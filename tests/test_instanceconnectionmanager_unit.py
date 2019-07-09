@@ -25,7 +25,7 @@ import asyncio
 
 def test_InstanceConnectionManager_connection_string():
     """
-    Test to check whether the __init__() method of InstanceConnectionManager
+    Test to check whether the __init__ method of InstanceConnectionManager
     can tell if the connection string that's passed in is formatted correctly.
     """
     loop = asyncio.new_event_loop()
