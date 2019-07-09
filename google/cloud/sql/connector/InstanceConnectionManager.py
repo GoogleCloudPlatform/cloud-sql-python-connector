@@ -53,9 +53,7 @@ class InstanceConnectionManager:
     _credentials: Credentials = None
 
     def __init__(
-        self,
-        instance_connection_string: str,
-        loop: asyncio.AbstractEventLoop,
+        self, instance_connection_string: str, loop: asyncio.AbstractEventLoop
     ) -> None:
         # Validate connection string
         connection_string_split = instance_connection_string.split(":")
