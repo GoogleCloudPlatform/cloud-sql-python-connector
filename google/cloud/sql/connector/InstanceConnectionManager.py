@@ -40,6 +40,7 @@ class InstanceConnectionManager:
         A new event loop for the refresh function to run in.
     :type loop: asyncio.unix_events._UnixSelectorEventLoop
     """
+
     _instance_connection_string: str = None
     _loop: asyncio.unix_events._UnixSelectorEventLoop = None
     _project: str = None
