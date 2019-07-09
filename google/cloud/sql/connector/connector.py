@@ -118,8 +118,8 @@ def connect(instance_connection_string, **kwargs):
         Example: example-proj:example-region-us6:example-instance
 
     :param kwargs:
-        Pass in any driver-specific arguments needed to connect to the Cloud SQL
-        instance.
+        Pass in any driver-specific arguments needed to connect to the Cloud
+        SQL instance.
 
     :rtype: Connection
     :returns:
