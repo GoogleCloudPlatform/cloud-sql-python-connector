@@ -38,11 +38,15 @@ class InstanceConnectionManager:
     :type instance_connection_string: str
     :param loop:
         A new event loop for the refresh function to run in.
-    :type loop: asyncio.unix_events._UnixSelectorEventLoop
+    :type loop: asyncio.AbstractEventLoop
     """
 
+    # asyncio.AbstractEventLoop is used because the default loop,
+    # SelectorEventLoop, is usable on both Unix and Windows but has limited
+    # functionality on Windows. It is recommended to use ProactorEventLoop
+    # while developing on Windows.
+    _loop: asyncio.AbstractEventLoop = None
     _instance_connection_string: str = None
-    _loop: asyncio.SelectorEventLoop = None
     _project: str = None
     _region: str = None
     _instance: str = None
