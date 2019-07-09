@@ -104,3 +104,35 @@ def get_ephemeral(service, project, instance, pub_key):
     response = request.execute()
 
     return response["cert"]
+
+
+def connect(instance_connection_string, **kwargs):
+    """Prepares and returns a database connection object and starts a
+    background thread to refresh the certificates and metadata.
+
+    :type instance_connection_string: str
+    :param instance_connection_string:
+        A string containing the GCP project name, region name, and instance
+        name separated by colons.
+
+        Example: example-proj:example-region-us6:example-instance
+
+    :param kwargs:
+        Pass in any driver-specific arguments needed to connect to the Cloud SQL
+        instance.
+
+    :rtype: Connection
+    :returns:
+        A DB-API connection to the specified Cloud SQL instance.
+    """
+
+    # Initiate event loop and run in background thread.
+    #
+    # Create an InstanceConnectionManager object from the connection string.
+    # The InstanceConnectionManager should verify arguments.
+    #
+    # Use the InstanceConnectionManager to establish an SSL Connection.
+    #
+    # Return a DBAPI connection
+
+    raise NotImplementedError()
