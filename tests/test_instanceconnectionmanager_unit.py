@@ -24,26 +24,6 @@ from google.cloud.sql.connector.InstanceConnectionManager import (
 import asyncio
 
 
-def test_generate_keys_not_return_none():
-    """
-    Test to check if objects are being produced from the generate_keys()
-    function.
-    """
-
-    res1, res2 = utils.generate_keys()
-    assert (res1 is not None) and (res2 is not None)
-
-
-def test_generate_keys_returns_bytes():
-    """
-    Test to check if objects produced from the generate_keys() function are of
-    type bytes.
-    """
-
-    res1, res2 = utils.generate_keys()
-    assert isinstance(res1, bytes) and (isinstance(res2, bytes))
-
-
 def test_InstanceConnectionManager_connection_string_parsing():
     """
     Test to check whether the __init__() method of InstanceConnectionManager
