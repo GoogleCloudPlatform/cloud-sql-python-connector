@@ -55,6 +55,8 @@ class InstanceConnectionManager:
     _region: str = None
     _instance: str = None
     _credentials: Credentials = None
+    _priv_key: str = None
+    _pub_key: str = None
 
     def __init__(
         self, instance_connection_string: str, loop: asyncio.AbstractEventLoop
@@ -165,3 +167,11 @@ class InstanceConnectionManager:
         response = request.execute()
 
         return response["cert"]
+
+    def _get_credentials(self):
+        """Creates and returns a Google Python API service object for
+        Google Cloud SQL Admin API.
+        """
+
+
+  
