@@ -17,6 +17,7 @@ limitations under the License.
 import asyncio
 import googleapiclient
 import googleapiclient.discovery
+import google.auth
 from google.auth.credentials import Credentials
 from typing import Dict, Union
 from googleapiclient.discovery import Resource
@@ -168,10 +169,24 @@ class InstanceConnectionManager:
 
         return response["cert"]
 
-    def _get_credentials(self):
-        """Creates and returns a Google Python API service object for
+    def _auth_init(self):
+        """Creates and aassignassigns a Google Python API service object for
         Google Cloud SQL Admin API.
         """
 
+        credentials, project = google.auth.default()
+        scoped_credentials = credentials.with_scopes(
+            [
+                "https://www.googleapis.com/auth/sqlservice.admin",
+                "https://www.googleapis.com/auth.cloud-platform"
+            ]
+        )
 
-  
+        cloudsql = googleapiclient.discovery.build(
+            "sqladmin",
+            "v1beta4",
+            credentials=scoped_credentials
+        )
+
+        self._credentials = credentials
+        self._cloud_sql_service = cloudsql
