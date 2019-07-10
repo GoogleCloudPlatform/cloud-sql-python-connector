@@ -76,6 +76,8 @@ class InstanceConnectionManager:
                 + "format: project:region:instance."
             )
 
+        self._auth_init()
+
         # set current to future InstanceMetadata
         # set next to the future future InstanceMetadata
 
