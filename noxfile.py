@@ -36,7 +36,7 @@ def lint(session):
     session.install("flake8", "black")
     session.install("-r", "requirements.txt")
     session.run("black", "--check", *BLACK_PATHS)
-    session.run("flake8", "connector.py", "utils.py", "tests")
+    session.run("flake8", "google", "tests")
 
 
 @nox.session(python="3.6")
