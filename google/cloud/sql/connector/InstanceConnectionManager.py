@@ -178,14 +178,12 @@ class InstanceConnectionManager:
         scoped_credentials = credentials.with_scopes(
             [
                 "https://www.googleapis.com/auth/sqlservice.admin",
-                "https://www.googleapis.com/auth.cloud-platform"
+                "https://www.googleapis.com/auth.cloud-platform",
             ]
         )
 
         cloudsql = googleapiclient.discovery.build(
-            "sqladmin",
-            "v1beta4",
-            credentials=scoped_credentials
+            "sqladmin", "v1beta4", credentials=scoped_credentials
         )
 
         self._credentials = credentials
