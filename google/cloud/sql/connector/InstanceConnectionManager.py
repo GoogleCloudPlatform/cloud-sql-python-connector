@@ -15,7 +15,11 @@ limitations under the License.
 """
 
 import asyncio
+import googleapiclient
+import googleapiclient.discovery
 from google.auth.credentials import Credentials
+from typing import Dict, Union
+from googleapiclient.discovery import Resource
 
 
 class CloudSQLConnectionError(Exception):
@@ -71,3 +75,93 @@ class InstanceConnectionManager:
 
         # set current to future InstanceMetadata
         # set next to the future future InstanceMetadata
+
+    def _get_metadata(
+        service: Resource, project: str, instance: str
+    ) -> Dict[str, Union[Dict, str]]:
+        """Requests metadata from the Cloud SQL Instance
+        and returns a dictionary containing the IP addresses and certificate
+        authority of the Cloud SQL Instance.
+
+        :type service: googleapiclient.discovery.Resource
+        :param service:
+            A service object created from the Google Python API client library.
+            Must be using the SQL Admin API. For more info check out
+            https://github.com/googleapis/google-api-python-client.
+
+        :type project: str
+        :param project:
+            A string representing the name of the project.
+
+        :type inst_name: str
+        :param project: A string representing the name of the instance.
+
+        :rtype: Dict[str: Union[Dict, str]]
+        :returns: Returns a dictionary containing a dictionary of all IP
+              addresses and their type and a string representing the
+              certificate authority.
+
+        :raises TypeError: If any of the arguments are not the specified type.
+        """
+
+        if (
+            not isinstance(service, googleapiclient.discovery.Resource)
+            or not isinstance(project, str)
+            or not isinstance(instance, str)
+        ):
+            raise TypeError(
+                "Arguments must be as follows: "
+                + "service (googleapiclient.discovery.Resource), "
+                + "proj_name (str) and inst_name (str)."
+            )
+
+        req = service.instances().get(project=project, instance=instance)
+        res = req.execute()
+
+        # Extract server certificate authority
+        serverCaCert = res["serverCaCert"]["cert"]
+
+        # Map IP addresses to type.
+        ip_map = {ip["type"]: ip["ipAddress"] for ip in res["ipAddresses"]}
+
+        metadata = {"ip_addresses": ip_map, "server_ca_cert": serverCaCert}
+
+        return metadata
+
+    def _get_ephemeral(service, project, instance, pub_key):
+        """Requests an ephemeral certificate from the Cloud SQL Instance.
+
+        Args:
+            service (googleapiclient.discovery.Resource): A service object
+              created from the Google Python API client library. Must be
+              using the SQL Admin API. For more info check out
+              https://github.com/googleapis/google-api-python-client.
+            project (str): A string representing the name of the project.
+            instance (str): A string representing the name of the instance.
+            pub_key (str): A string representing PEM-encoded RSA public key.
+
+        Returns:
+            str
+              An ephemeral certificate from the Cloud SQL instance that allows
+              authorized connections to the instance.
+
+        Raises:
+            TypeError: If one of the arguments passed in is None.
+        """
+
+        if (
+            not isinstance(service, googleapiclient.discovery.Resource)
+            or not isinstance(project, str)
+            or not isinstance(instance, str)
+            or not isinstance(pub_key, str)
+        ):
+            raise TypeError("Cannot take None as an argument.")
+
+        # TODO(ryachen@) Add checks to ensure service object is valid.
+
+        request = service.sslCerts().createEphemeral(
+            project=project, instance=instance, body={"public_key": pub_key}
+        )
+        response = request.execute()
+
+        return response["cert"]
