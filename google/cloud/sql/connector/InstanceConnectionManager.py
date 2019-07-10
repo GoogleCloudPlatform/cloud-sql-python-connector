@@ -16,7 +16,10 @@ limitations under the License.
 
 import asyncio
 import googleapiclient
+import googleapiclient.discovery
 from google.auth.credentials import Credentials
+from typing import Dict, Union
+from googleapiclient.discovery import Resource
 
 
 class CloudSQLConnectionError(Exception):
@@ -73,7 +76,9 @@ class InstanceConnectionManager:
         # set current to future InstanceMetadata
         # set next to the future future InstanceMetadata
 
-    def _get_metadata(service, project, instance):
+    def _get_metadata(
+        service: Resource, project: str, instance: str
+    ) -> Dict[str, Union[Dict, str]]:
         """Requests metadata from the Cloud SQL Instance
         and returns a dictionary containing the IP addresses and certificate
         authority of the Cloud SQL Instance.
