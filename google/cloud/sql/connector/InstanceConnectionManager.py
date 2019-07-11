@@ -172,7 +172,7 @@ class InstanceConnectionManager:
         return response["cert"]
 
     def _auth_init(self):
-        """Creates and aassignassigns a Google Python API service object for
+        """Creates and assigns a Google Python API service object for
         Google Cloud SQL Admin API.
         """
 
