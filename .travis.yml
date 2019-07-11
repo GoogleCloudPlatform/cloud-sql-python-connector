@@ -7,6 +7,8 @@ before_install:
     - sudo add-apt-repository ppa:deadsnakes/ppa -y
     - sudo apt-get update
     - sudo apt-get install python3.6
+    - sudo apt-get install openssl
+    - openssl enc -aes-256-cbc -d -in auth.enc -out auth.json -k $DECRYPT_PASS
 
 install:
     - pip install -r requirements.txt
