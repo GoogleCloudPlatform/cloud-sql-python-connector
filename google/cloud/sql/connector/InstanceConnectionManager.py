@@ -17,6 +17,7 @@ limitations under the License.
 import asyncio
 import googleapiclient
 import googleapiclient.discovery
+import google.auth
 from google.auth.credentials import Credentials
 from typing import Dict, Union
 from googleapiclient.discovery import Resource
@@ -55,6 +56,8 @@ class InstanceConnectionManager:
     _region: str = None
     _instance: str = None
     _credentials: Credentials = None
+    _priv_key: str = None
+    _pub_key: str = None
 
     def __init__(
         self, instance_connection_string: str, loop: asyncio.AbstractEventLoop
@@ -72,6 +75,8 @@ class InstanceConnectionManager:
                 "Arg instance_connection_string must be in "
                 + "format: project:region:instance."
             )
+
+        self._auth_init()
 
         # set current to future InstanceMetadata
         # set next to the future future InstanceMetadata
@@ -165,3 +170,23 @@ class InstanceConnectionManager:
         response = request.execute()
 
         return response["cert"]
+
+    def _auth_init(self):
+        """Creates and assigns a Google Python API service object for
+        Google Cloud SQL Admin API.
+        """
+
+        credentials, project = google.auth.default()
+        scoped_credentials = credentials.with_scopes(
+            [
+                "https://www.googleapis.com/auth/sqlservice.admin",
+                "https://www.googleapis.com/auth.cloud-platform",
+            ]
+        )
+
+        cloudsql = googleapiclient.discovery.build(
+            "sqladmin", "v1beta4", credentials=scoped_credentials
+        )
+
+        self._credentials = credentials
+        self._cloud_sql_service = cloudsql
