@@ -17,10 +17,11 @@ limitations under the License.
 import asyncio
 import googleapiclient
 import googleapiclient.discovery
+from googleapiclient.discovery import Resource
 import google.auth
 from google.auth.credentials import Credentials
+from google.cloud.sql.connector.utils import generate_keys
 from typing import Dict, Union
-from googleapiclient.discovery import Resource
 
 
 class CloudSQLConnectionError(Exception):
@@ -77,6 +78,7 @@ class InstanceConnectionManager:
             )
 
         self._auth_init()
+        self._priv_key, self._pub_key = generate_keys()
 
         # set current to future InstanceMetadata
         # set next to the future future InstanceMetadata
