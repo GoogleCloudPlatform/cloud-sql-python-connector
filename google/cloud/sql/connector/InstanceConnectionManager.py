@@ -230,3 +230,25 @@ class InstanceConnectionManager:
 
         self._credentials = scoped_credentials
         self._cloud_sql_service = cloudsql
+
+    def _perform_refresh(self) -> Dict[str, Union[Dict, str]]:
+        """Retrieves instance metadata and ephemeral certificate from the
+        Cloud SQL Instance.
+
+        :rtype: Dict[str, Union[Dict, str]]
+        :returns: A Dictionary containing the server's certificate authority,
+            a Dictionary containing the IP addresses of the instance, and
+            the latest ephemeral certificate.
+        """
+        metadata_result = self._get_metadata(
+            self._cloud_sql_service, self._project, self._instance
+        )
+
+        metadata_result["ephemeral_cert"] = self._get_ephemeral(
+            self._cloud_sql_service,
+            self._project,
+            self._instance,
+            self._pub_key.decode("UTF-8"),  # noqa: E501
+        )
+
+        return metadata_result
