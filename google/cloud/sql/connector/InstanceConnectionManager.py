@@ -21,6 +21,7 @@ import google.auth
 from google.auth.credentials import Credentials
 from typing import Dict, Union
 from googleapiclient.discovery import Resource
+from google.cloud.sql.connector.utils import generate_keys
 
 
 class CloudSQLConnectionError(Exception):
@@ -77,6 +78,7 @@ class InstanceConnectionManager:
             )
 
         self._auth_init()
+        self._priv_key, self._pub_key = generate_keys()
 
         # set current to future InstanceMetadata
         # set next to the future future InstanceMetadata
