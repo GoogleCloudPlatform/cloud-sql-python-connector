@@ -17,11 +17,11 @@ limitations under the License.
 import asyncio
 import googleapiclient
 import googleapiclient.discovery
+from googleapiclient.discovery import Resource
 import google.auth
 from google.auth.credentials import Credentials
-from typing import Dict, Union
-from googleapiclient.discovery import Resource
 from google.cloud.sql.connector.utils import generate_keys
+from typing import Dict, Union
 
 
 class CloudSQLConnectionError(Exception):
