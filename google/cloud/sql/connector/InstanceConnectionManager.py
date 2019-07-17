@@ -128,7 +128,9 @@ class InstanceConnectionManager:
 
         return None
 
-    async def _get_ephemeral(self, credentials, project, instance, pub_key):
+    async def _get_ephemeral(
+        self, credentials: Credentials, project: str, instance: str, pub_key: str
+    ) -> str:
         """Requests an ephemeral certificate from the Cloud SQL Instance.
 
         Args:
