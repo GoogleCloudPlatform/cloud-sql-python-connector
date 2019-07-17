@@ -78,7 +78,7 @@ class InstanceConnectionManager:
                 "Arg instance_connection_string must be in "
                 + "format: project:region:instance."
             )
-
+        self._loop = loop
         self._auth_init()
         self._priv_key, self._pub_key = generate_keys()
 
@@ -149,7 +149,6 @@ class InstanceConnectionManager:
             TypeError: If one of the arguments passed in is None.
         """
 
-        print(type(project), type(instance), type(pub_key))
         if (
             not isinstance(credentials, Credentials)
             or not isinstance(project, str)
@@ -169,9 +168,8 @@ class InstanceConnectionManager:
             "Content-Type": "application/json",
         }
 
-        # TODO(ryachen@) Add checks to ensure service object is valid.
         url = (
-            "https://www.googleapis.com/sql/v1beta4/projects/%s/instances/%s/createEphemeral"
+            "https://www.googleapis.com/sql/v1beta4/projects/%s/instances/%s/createEphemeral"  # noqa url too long
             % (project, instance)
         )
 
