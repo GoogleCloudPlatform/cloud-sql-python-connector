@@ -171,7 +171,7 @@ class InstanceConnectionManager:
         }
 
         url = (
-            "https://www.googleapis.com/sql/v1beta4/projects/%s/instances/%s/createEphemeral"  # noqa url too long
+            "https://www.googleapis.com/sql/v1beta4/projects/%s/instances/%s/createEphemeral"
             % (project, instance)
         )
 
