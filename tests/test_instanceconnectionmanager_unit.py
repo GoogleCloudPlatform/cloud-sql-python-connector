@@ -15,7 +15,7 @@ limitations under the License.
 """
 
 import pytest
-
+import aiohttp
 from google.cloud.sql.connector.InstanceConnectionManager import (
     InstanceConnectionManager,
     CloudSQLConnectionError,
@@ -65,8 +65,19 @@ def test_InstanceConnectionManager_get_ephemeral():
 
     loop = asyncio.new_event_loop()
     icm = InstanceConnectionManager(connect_string, loop)
+
+    async def create_client_session():
+        return aiohttp.ClientSession()
+
+    fut_client_session = asyncio.ensure_future(create_client_session(), loop=loop)
+
+    icm._loop.run_until_complete(fut_client_session)
+
+    client_session = fut_client_session.result()
+
     fut = asyncio.ensure_future(
         icm._get_ephemeral(
+            client_session,
             icm._credentials,
             icm._project,
             icm._instance,
@@ -79,6 +90,9 @@ def test_InstanceConnectionManager_get_ephemeral():
     icm._loop.close()
 
     result = fut.result().split("\n")
+
+    client_session.close()
+
     assert (
         result[0] == "-----BEGIN CERTIFICATE-----"
         and result[len(result) - 1] == "-----END CERTIFICATE-----"
@@ -101,14 +115,30 @@ def test_InstanceConnectionManager_get_metadata():
 
     loop = asyncio.new_event_loop()
     icm = InstanceConnectionManager(connect_string, loop)
+
+    async def create_client_session():
+        return aiohttp.ClientSession()
+
+    fut_client_session = asyncio.ensure_future(create_client_session(), loop=loop)
+
+    icm._loop.run_until_complete(fut_client_session)
+
+    client_session = fut_client_session.result()
+
     fut = asyncio.ensure_future(
-        icm._get_metadata(icm._credentials, icm._project, icm._instance), loop=loop
+        icm._get_metadata(
+            client_session, icm._credentials, icm._project, icm._instance
+        ),
+        loop=loop,
     )
 
     icm._loop.run_until_complete(fut)
     icm._loop.close()
 
     result = fut.result()
+
+    client_session.close()
+
     assert result["ip_addresses"] is not None and isinstance(
         result["server_ca_cert"], str
     )

@@ -19,7 +19,7 @@ import aiohttp
 import googleapiclient
 import googleapiclient.discovery
 import google.auth
-from google.oauth2.service_account import Credentials
+from google.auth.credentials import Credentials
 from google.cloud.sql.connector.utils import generate_keys
 import google.auth.transport.requests
 import json
@@ -87,7 +87,10 @@ class InstanceConnectionManager:
 
     @staticmethod
     async def _get_metadata(
-        credentials: Credentials, project: str, instance: str
+        client_session: aiohttp.ClientSession,
+        credentials: Credentials,
+        project: str,
+        instance: str,
     ) -> Dict[str, Union[Dict, str]]:
         """Requests metadata from the Cloud SQL Instance
         and returns a dictionary containing the IP addresses and certificate
@@ -140,11 +143,8 @@ class InstanceConnectionManager:
             project, instance
         )
 
-        ret_json = None
-
-        async with aiohttp.ClientSession() as session:
-            async with session.get(url, headers=headers) as resp:
-                ret_json = await resp.text()
+        resp = await client_session.get(url, headers=headers)
+        ret_json = await resp.text()
 
         ret_dict = json.loads(ret_json)
 
@@ -158,7 +158,11 @@ class InstanceConnectionManager:
 
     @staticmethod
     async def _get_ephemeral(
-        credentials: Credentials, project: str, instance: str, pub_key: str
+        client_session: aiohttp.ClientSession,
+        credentials: Credentials,
+        project: str,
+        instance: str,
+        pub_key: str,
     ) -> str:
         """Asynchronously requests an ephemeral certificate from the Cloud SQL Instance.
 
@@ -205,11 +209,8 @@ class InstanceConnectionManager:
 
         data = {"public_key": pub_key}
 
-        ret_json = None
-
-        async with aiohttp.ClientSession() as session:
-            async with session.post(url, headers=headers, json=data) as resp:
-                ret_json = await resp.text()
+        resp = await client_session.post(url, headers=headers, json=data)
+        ret_json = await resp.text()
 
         ret_dict = json.loads(ret_json)
 
