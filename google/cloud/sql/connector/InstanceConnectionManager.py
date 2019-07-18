@@ -124,9 +124,37 @@ class InstanceConnectionManager:
                 + "proj_name (str) and inst_name (str)."
             )
 
-        # TODO: Fill with async version
+        if not credentials.valid:
+            request = google.auth.transport.requests.Request()
+            credentials.refresh(request)
 
-        return None
+        bearer_token = credentials.token
+
+        headers = {
+            "Authorization": "Bearer %s" % bearer_token,
+            "Content-Type": "application/json",
+        }
+
+        url = "https://www.googleapis.com/sql/v1beta4/projects/%s/instances/%s" % (
+            project,
+            instance,
+        )
+
+        ret_json = None
+
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, headers=headers) as resp:
+                ret_json = await resp.text()
+
+        ret_dict = json.loads(ret_json)
+
+        server_ca_cert = ret_dict["serverCaCert"]["cert"]
+
+        ip_map = {ip["type"]: ip["ipAddress"] for ip in ret_dict["ipAddresses"]}
+
+        metadata = {"ip_addresses": ip_map, "server_ca_cert": server_ca_cert}
+
+        return metadata
 
     async def _get_ephemeral(
         self, credentials: Credentials, project: str, instance: str, pub_key: str
