@@ -85,8 +85,9 @@ class InstanceConnectionManager:
         # set current to future InstanceMetadata
         # set next to the future future InstanceMetadata
 
+    @staticmethod
     async def _get_metadata(
-        self, credentials: Credentials, project: str, instance: str
+        credentials: Credentials, project: str, instance: str
     ) -> Dict[str, Union[Dict, str]]:
         """Requests metadata from the Cloud SQL Instance
         and returns a dictionary containing the IP addresses and certificate
@@ -95,8 +96,8 @@ class InstanceConnectionManager:
         :type credentials: google.oauth2.service_account.Credentials
         :param service:
             A service object created from the google-auth Python library.
-            Must be have the SQL Admin API scopes. For more info check out
-            https://github.com/googleapis/google-api-python-client.
+            Must have the SQL Admin API scopes. For more info check out
+            https://google-auth.readthedocs.io/en/latest/.
 
         :type project: str
         :param project:
@@ -135,9 +136,8 @@ class InstanceConnectionManager:
             "Content-Type": "application/json",
         }
 
-        url = "https://www.googleapis.com/sql/v1beta4/projects/%s/instances/%s" % (
-            project,
-            instance,
+        url = "https://www.googleapis.com/sql/v1beta4/projects/{}/instances/{}".format(
+            project, instance
         )
 
         ret_json = None
@@ -156,8 +156,9 @@ class InstanceConnectionManager:
 
         return metadata
 
+    @staticmethod
     async def _get_ephemeral(
-        self, credentials: Credentials, project: str, instance: str, pub_key: str
+        credentials: Credentials, project: str, instance: str, pub_key: str
     ) -> str:
         """Asynchronously requests an ephemeral certificate from the Cloud SQL Instance.
 
@@ -165,7 +166,7 @@ class InstanceConnectionManager:
             credentials (google.oauth2.service_account.Credentials): A credentials object
               created from the google-auth library. Must be
               using the SQL Admin API scopes. For more info, check out
-              https://google-auth.readthedocs.io/en/latest/ .
+              https://google-auth.readthedocs.io/en/latest/.
             project (str): A string representing the name of the project.
             instance (str): A string representing the name of the instance.
             pub_key (str): A string representing PEM-encoded RSA public key.
@@ -198,9 +199,8 @@ class InstanceConnectionManager:
             "Content-Type": "application/json",
         }
 
-        url = (
-            "https://www.googleapis.com/sql/v1beta4/projects/%s/instances/%s/createEphemeral"
-            % (project, instance)
+        url = "https://www.googleapis.com/sql/v1beta4/projects/{}/instances/{}/createEphemeral".format(
+            project, instance
         )
 
         data = {"public_key": pub_key}
