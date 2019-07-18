@@ -92,10 +92,10 @@ class InstanceConnectionManager:
         and returns a dictionary containing the IP addresses and certificate
         authority of the Cloud SQL Instance.
 
-        :type service: googleapiclient.discovery.Resource
+        :type credentials: google.oauth2.service_account.Credentials
         :param service:
-            A service object created from the Google Python API client library.
-            Must be using the SQL Admin API. For more info check out
+            A service object created from the google-auth Python library.
+            Must be have the SQL Admin API scopes. For more info check out
             https://github.com/googleapis/google-api-python-client.
 
         :type project: str
@@ -164,7 +164,7 @@ class InstanceConnectionManager:
         Args:
             credentials (google.oauth2.service_account.Credentials): A credentials object
               created from the google-auth library. Must be
-              using the SQL Admin API. For more info, check out
+              using the SQL Admin API scopes. For more info, check out
               https://google-auth.readthedocs.io/en/latest/ .
             project (str): A string representing the name of the project.
             instance (str): A string representing the name of the instance.
