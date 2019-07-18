@@ -95,7 +95,7 @@ class InstanceConnectionManager:
 
         :type credentials: google.oauth2.service_account.Credentials
         :param service:
-            A service object created from the google-auth Python library.
+            A credentials object created from the google-auth Python library.
             Must have the SQL Admin API scopes. For more info check out
             https://google-auth.readthedocs.io/en/latest/.
 
