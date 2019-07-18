@@ -148,11 +148,12 @@ class InstanceConnectionManager:
 
         ret_dict = json.loads(ret_json)
 
-        server_ca_cert = ret_dict["serverCaCert"]["cert"]
-
-        ip_map = {ip["type"]: ip["ipAddress"] for ip in ret_dict["ipAddresses"]}
-
-        metadata = {"ip_addresses": ip_map, "server_ca_cert": server_ca_cert}
+        metadata = {
+            "ip_addresses": {
+                ip["type"]: ip["ipAddress"] for ip in ret_dict["ipAddresses"]
+            },
+            "server_ca_cert": ret_dict["serverCaCert"]["cert"],
+        }
 
         return metadata
 
