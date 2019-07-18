@@ -131,13 +131,13 @@ class InstanceConnectionManager:
     async def _get_ephemeral(
         self, credentials: Credentials, project: str, instance: str, pub_key: str
     ) -> str:
-        """Requests an ephemeral certificate from the Cloud SQL Instance.
+        """Asynchronously requests an ephemeral certificate from the Cloud SQL Instance.
 
         Args:
-            service (googleapiclient.discovery.Resource): A service object
-              created from the Google Python API client library. Must be
-              using the SQL Admin API. For more info check out
-              https://github.com/googleapis/google-api-python-client.
+            credentials (google.oauth2.service_account.Credentials): A credentials object
+              created from the google-auth library. Must be
+              using the SQL Admin API. For more info, check out
+              https://google-auth.readthedocs.io/en/latest/ .
             project (str): A string representing the name of the project.
             instance (str): A string representing the name of the instance.
             pub_key (str): A string representing PEM-encoded RSA public key.
