@@ -15,12 +15,13 @@ limitations under the License.
 """
 
 import pytest
-
+import aiohttp
 from google.cloud.sql.connector.InstanceConnectionManager import (
     InstanceConnectionManager,
     CloudSQLConnectionError,
 )
 import asyncio
+import os
 
 
 def test_InstanceConnectionManager_init():
@@ -46,3 +47,77 @@ def test_InstanceConnectionManager_wrong_connection_string():
     loop = asyncio.new_event_loop()
     with pytest.raises(CloudSQLConnectionError):
         InstanceConnectionManager("test-project:test-region", loop)
+
+
+def test_InstanceConnectionManager_get_ephemeral():
+    """
+    Test to check whether _get_ephemeral runs without problems given a valid
+    connection string.
+    """
+
+    try:
+        connect_string = os.environ["INSTANCE_CONNECTION_NAME"]
+    except KeyError:
+        raise KeyError(
+            "Please set environment variable 'INSTANCE_CONNECTION"
+            + "_NAME' to a valid Cloud SQL connection string."
+        )
+
+    loop = asyncio.new_event_loop()
+    icm = InstanceConnectionManager(connect_string, loop)
+
+    async def async_get_ephemeral():
+        async with aiohttp.ClientSession() as client_session:
+            return await icm._get_ephemeral(
+                client_session,
+                icm._credentials,
+                icm._project,
+                icm._instance,
+                icm._pub_key.decode("UTF-8"),
+            )
+
+    fut = asyncio.ensure_future(async_get_ephemeral(), loop=loop)
+    icm._loop.run_until_complete(fut)
+    icm._loop.close()
+
+    result = fut.result().split("\n")
+
+    assert (
+        result[0] == "-----BEGIN CERTIFICATE-----"
+        and result[len(result) - 1] == "-----END CERTIFICATE-----"
+    )
+
+
+def test_InstanceConnectionManager_get_metadata():
+    """
+    Test to check whether _get_ephemeral runs without problems given a valid
+    connection string.
+    """
+
+    try:
+        connect_string = os.environ["INSTANCE_CONNECTION_NAME"]
+    except KeyError:
+        raise KeyError(
+            "Please set environment variable 'INSTANCE_CONNECTION"
+            + "_NAME' to a valid Cloud SQL connection string."
+        )
+
+    loop = asyncio.new_event_loop()
+    icm = InstanceConnectionManager(connect_string, loop)
+
+    async def async_get_metadata():
+        async with aiohttp.ClientSession() as client_session:
+            return await icm._get_metadata(
+                client_session, icm._credentials, icm._project, icm._instance
+            )
+
+    fut = asyncio.ensure_future(async_get_metadata(), loop=loop)
+
+    icm._loop.run_until_complete(fut)
+    icm._loop.close()
+
+    result = fut.result()
+
+    assert result["ip_addresses"] is not None and isinstance(
+        result["server_ca_cert"], str
+    )

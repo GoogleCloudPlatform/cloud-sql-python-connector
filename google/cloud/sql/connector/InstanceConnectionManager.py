@@ -15,12 +15,14 @@ limitations under the License.
 """
 
 import asyncio
+import aiohttp
 import googleapiclient
 import googleapiclient.discovery
-from googleapiclient.discovery import Resource
 import google.auth
 from google.auth.credentials import Credentials
 from google.cloud.sql.connector.utils import generate_keys
+import google.auth.transport.requests
+import json
 from typing import Dict, Union
 
 
@@ -76,25 +78,29 @@ class InstanceConnectionManager:
                 "Arg instance_connection_string must be in "
                 + "format: project:region:instance."
             )
-
+        self._loop = loop
         self._auth_init()
         self._priv_key, self._pub_key = generate_keys()
 
         # set current to future InstanceMetadata
         # set next to the future future InstanceMetadata
 
-    def _get_metadata(
-        service: Resource, project: str, instance: str
+    @staticmethod
+    async def _get_metadata(
+        client_session: aiohttp.ClientSession,
+        credentials: Credentials,
+        project: str,
+        instance: str,
     ) -> Dict[str, Union[Dict, str]]:
         """Requests metadata from the Cloud SQL Instance
         and returns a dictionary containing the IP addresses and certificate
         authority of the Cloud SQL Instance.
 
-        :type service: googleapiclient.discovery.Resource
+        :type credentials: google.oauth2.service_account.Credentials
         :param service:
-            A service object created from the Google Python API client library.
-            Must be using the SQL Admin API. For more info check out
-            https://github.com/googleapis/google-api-python-client.
+            A credentials object created from the google-auth Python library.
+            Must have the SQL Admin API scopes. For more info check out
+            https://google-auth.readthedocs.io/en/latest/.
 
         :type project: str
         :param project:
@@ -112,7 +118,7 @@ class InstanceConnectionManager:
         """
 
         if (
-            not isinstance(service, googleapiclient.discovery.Resource)
+            not isinstance(credentials, Credentials)
             or not isinstance(project, str)
             or not isinstance(instance, str)
         ):
@@ -122,27 +128,46 @@ class InstanceConnectionManager:
                 + "proj_name (str) and inst_name (str)."
             )
 
-        req = service.instances().get(project=project, instance=instance)
-        res = req.execute()
+        if not credentials.valid:
+            request = google.auth.transport.requests.Request()
+            credentials.refresh(request)
 
-        # Extract server certificate authority
-        serverCaCert = res["serverCaCert"]["cert"]
+        headers = {
+            "Authorization": "Bearer {}".format(credentials.token),
+            "Content-Type": "application/json",
+        }
 
-        # Map IP addresses to type.
-        ip_map = {ip["type"]: ip["ipAddress"] for ip in res["ipAddresses"]}
+        url = "https://www.googleapis.com/sql/v1beta4/projects/{}/instances/{}".format(
+            project, instance
+        )
 
-        metadata = {"ip_addresses": ip_map, "server_ca_cert": serverCaCert}
+        resp = await client_session.get(url, headers=headers, raise_for_status=True)
+        ret_dict = json.loads(await resp.text())
+
+        metadata = {
+            "ip_addresses": {
+                ip["type"]: ip["ipAddress"] for ip in ret_dict["ipAddresses"]
+            },
+            "server_ca_cert": ret_dict["serverCaCert"]["cert"],
+        }
 
         return metadata
 
-    def _get_ephemeral(service, project, instance, pub_key):
-        """Requests an ephemeral certificate from the Cloud SQL Instance.
+    @staticmethod
+    async def _get_ephemeral(
+        client_session: aiohttp.ClientSession,
+        credentials: Credentials,
+        project: str,
+        instance: str,
+        pub_key: str,
+    ) -> str:
+        """Asynchronously requests an ephemeral certificate from the Cloud SQL Instance.
 
         Args:
-            service (googleapiclient.discovery.Resource): A service object
-              created from the Google Python API client library. Must be
-              using the SQL Admin API. For more info check out
-              https://github.com/googleapis/google-api-python-client.
+            credentials (google.oauth2.service_account.Credentials): A credentials object
+              created from the google-auth library. Must be
+              using the SQL Admin API scopes. For more info, check out
+              https://google-auth.readthedocs.io/en/latest/.
             project (str): A string representing the name of the project.
             instance (str): A string representing the name of the instance.
             pub_key (str): A string representing PEM-encoded RSA public key.
@@ -157,21 +182,34 @@ class InstanceConnectionManager:
         """
 
         if (
-            not isinstance(service, googleapiclient.discovery.Resource)
+            not isinstance(credentials, Credentials)
             or not isinstance(project, str)
             or not isinstance(instance, str)
             or not isinstance(pub_key, str)
         ):
             raise TypeError("Cannot take None as an argument.")
 
-        # TODO(ryachen@) Add checks to ensure service object is valid.
+        if not credentials.valid:
+            request = google.auth.transport.requests.Request()
+            credentials.refresh(request)
 
-        request = service.sslCerts().createEphemeral(
-            project=project, instance=instance, body={"public_key": pub_key}
+        headers = {
+            "Authorization": "Bearer {}".format(credentials.token),
+            "Content-Type": "application/json",
+        }
+
+        url = "https://www.googleapis.com/sql/v1beta4/projects/{}/instances/{}/createEphemeral".format(
+            project, instance
         )
-        response = request.execute()
 
-        return response["cert"]
+        data = {"public_key": pub_key}
+
+        resp = await client_session.post(
+            url, headers=headers, json=data, raise_for_status=True
+        )
+        ret_dict = json.loads(await resp.text())
+
+        return ret_dict["cert"]
 
     def _auth_init(self):
         """Creates and assigns a Google Python API service object for
@@ -182,7 +220,7 @@ class InstanceConnectionManager:
         scoped_credentials = credentials.with_scopes(
             [
                 "https://www.googleapis.com/auth/sqlservice.admin",
-                "https://www.googleapis.com/auth.cloud-platform",
+                "https://www.googleapis.com/auth/cloud-platform",
             ]
         )
 
@@ -190,5 +228,5 @@ class InstanceConnectionManager:
             "sqladmin", "v1beta4", credentials=scoped_credentials
         )
 
-        self._credentials = credentials
+        self._credentials = scoped_credentials
         self._cloud_sql_service = cloudsql
