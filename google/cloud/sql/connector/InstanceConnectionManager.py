@@ -61,6 +61,7 @@ class InstanceConnectionManager:
     _credentials: Credentials = None
     _priv_key: str = None
     _pub_key: str = None
+    _client_session: aiohttp.ClientSession = None
 
     def __init__(
         self, instance_connection_string: str, loop: asyncio.AbstractEventLoop
@@ -84,6 +85,14 @@ class InstanceConnectionManager:
 
         # set current to future InstanceMetadata
         # set next to the future future InstanceMetadata
+
+    def __del__(self):
+        async def close_client_session():
+            await self._client_session.close()
+
+        if self._client_session is not None:
+            self._loop.run_until_complete(close_client_session())
+            self._loop.stop()
 
     @staticmethod
     async def _get_metadata(
@@ -231,7 +240,7 @@ class InstanceConnectionManager:
         self._credentials = scoped_credentials
         self._cloud_sql_service = cloudsql
 
-    def _perform_refresh(self) -> Dict[str, Union[Dict, str]]:
+    async def _perform_refresh(self) -> Dict[str, Union[Dict, str]]:
         """Retrieves instance metadata and ephemeral certificate from the
         Cloud SQL Instance.
 
@@ -240,15 +249,22 @@ class InstanceConnectionManager:
             a Dictionary containing the IP addresses of the instance, and
             the latest ephemeral certificate.
         """
-        metadata_result = self._get_metadata(
-            self._cloud_sql_service, self._project, self._instance
+
+        if self._client_session is None:
+            self._client_session = aiohttp.ClientSession()
+
+        metadata_future = self._get_metadata(
+            self._client_session, self._credentials, self._project, self._instance
         )
 
-        metadata_result["ephemeral_cert"] = self._get_ephemeral(
-            self._cloud_sql_service,
+        ephemeral_future = self._get_ephemeral(
+            self._client_session,
+            self._credentials,
             self._project,
             self._instance,
-            self._pub_key.decode("UTF-8"),  # noqa: E501
+            self._pub_key.decode("UTF-8"),
         )
 
-        return metadata_result
+        result_future = asyncio.gather(metadata_future, ephemeral_future)
+
+        return result_future
