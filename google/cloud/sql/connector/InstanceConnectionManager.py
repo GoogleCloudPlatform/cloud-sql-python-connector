@@ -132,10 +132,8 @@ class InstanceConnectionManager:
             request = google.auth.transport.requests.Request()
             credentials.refresh(request)
 
-        bearer_token = credentials.token
-
         headers = {
-            "Authorization": "Bearer %s" % bearer_token,
+            "Authorization": "Bearer {}".format(credentials.token),
             "Content-Type": "application/json",
         }
 
@@ -143,10 +141,8 @@ class InstanceConnectionManager:
             project, instance
         )
 
-        resp = await client_session.get(url, headers=headers)
-        ret_json = await resp.text()
-
-        ret_dict = json.loads(ret_json)
+        resp = await client_session.get(url, headers=headers, raise_for_status=True)
+        ret_dict = json.loads(await resp.text())
 
         metadata = {
             "ip_addresses": {
@@ -197,10 +193,8 @@ class InstanceConnectionManager:
             request = google.auth.transport.requests.Request()
             credentials.refresh(request)
 
-        bearer_token = credentials.token
-
         headers = {
-            "Authorization": "Bearer %s" % bearer_token,
+            "Authorization": "Bearer {}".format(credentials.token),
             "Content-Type": "application/json",
         }
 
@@ -210,10 +204,10 @@ class InstanceConnectionManager:
 
         data = {"public_key": pub_key}
 
-        resp = await client_session.post(url, headers=headers, json=data)
-        ret_json = await resp.text()
-
-        ret_dict = json.loads(ret_json)
+        resp = await client_session.post(
+            url, headers=headers, json=data, raise_for_status=True
+        )
+        ret_dict = json.loads(await resp.text())
 
         return ret_dict["cert"]
 
