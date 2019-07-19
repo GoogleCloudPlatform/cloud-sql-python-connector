@@ -66,32 +66,21 @@ def test_InstanceConnectionManager_get_ephemeral():
     loop = asyncio.new_event_loop()
     icm = InstanceConnectionManager(connect_string, loop)
 
-    async def create_client_session():
-        return aiohttp.ClientSession()
+    async def async_get_ephemeral():
+        async with aiohttp.ClientSession() as client_session:
+            return await icm._get_ephemeral(
+                client_session,
+                icm._credentials,
+                icm._project,
+                icm._instance,
+                icm._pub_key.decode("UTF-8"),
+            )
 
-    fut_client_session = asyncio.ensure_future(create_client_session(), loop=loop)
-
-    icm._loop.run_until_complete(fut_client_session)
-
-    client_session = fut_client_session.result()
-
-    fut = asyncio.ensure_future(
-        icm._get_ephemeral(
-            client_session,
-            icm._credentials,
-            icm._project,
-            icm._instance,
-            icm._pub_key.decode("UTF-8"),  # noqa
-        ),
-        loop=loop,
-    )
-
+    fut = asyncio.ensure_future(async_get_ephemeral(), loop=loop)
     icm._loop.run_until_complete(fut)
     icm._loop.close()
 
     result = fut.result().split("\n")
-
-    client_session.close()
 
     assert (
         result[0] == "-----BEGIN CERTIFICATE-----"
@@ -116,28 +105,18 @@ def test_InstanceConnectionManager_get_metadata():
     loop = asyncio.new_event_loop()
     icm = InstanceConnectionManager(connect_string, loop)
 
-    async def create_client_session():
-        return aiohttp.ClientSession()
+    async def async_get_metadata():
+        async with aiohttp.ClientSession() as client_session:
+            return await icm._get_metadata(
+                client_session, icm._credentials, icm._project, icm._instance
+            )
 
-    fut_client_session = asyncio.ensure_future(create_client_session(), loop=loop)
-
-    icm._loop.run_until_complete(fut_client_session)
-
-    client_session = fut_client_session.result()
-
-    fut = asyncio.ensure_future(
-        icm._get_metadata(
-            client_session, icm._credentials, icm._project, icm._instance
-        ),
-        loop=loop,
-    )
+    fut = asyncio.ensure_future(async_get_metadata(), loop=loop)
 
     icm._loop.run_until_complete(fut)
     icm._loop.close()
 
     result = fut.result()
-
-    client_session.close()
 
     assert result["ip_addresses"] is not None and isinstance(
         result["server_ca_cert"], str
