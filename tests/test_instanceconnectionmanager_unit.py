@@ -121,3 +121,23 @@ def test_InstanceConnectionManager_get_metadata():
     assert result["ip_addresses"] is not None and isinstance(
         result["server_ca_cert"], str
     )
+
+
+def test_InstanceConnectionManager_perform_refresh():
+    """
+    Test to check whether _get_perform works as described given valid
+    conditions.
+    """
+    try:
+        connect_string = os.environ["INSTANCE_CONNECTION_NAME"]
+    except KeyError:
+        raise KeyError(
+            "Please set environment variable 'INSTANCE_CONNECTION"
+            + "_NAME' to a valid Cloud SQL connection string."
+        )
+
+    loop = asyncio.new_event_loop()
+    icm = InstanceConnectionManager(connect_string, loop)
+    fut = icm._perform_refresh()
+
+    assert isinstance(fut, asyncio.Task)

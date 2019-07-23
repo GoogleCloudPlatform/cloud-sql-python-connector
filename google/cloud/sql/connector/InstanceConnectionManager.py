@@ -92,7 +92,7 @@ class InstanceConnectionManager:
             await self._client_session.close()
 
         if self._client_session is not None:
-            self._loop.call_soon(close_client_session)
+            self._loop.run_until_complete(close_client_session)
 
         self._loop.close()
 
@@ -221,6 +221,12 @@ class InstanceConnectionManager:
         ret_dict = json.loads(await resp.text())
 
         return ret_dict["cert"]
+
+    async def _get_context(self, ephemeral_task, metadata_task):
+        raise NotImplementedError
+
+    def _threadsafe_refresh(self, future):
+        raise NotImplementedError
 
     def _auth_init(self):
         """Creates and assigns a Google Python API service object for
