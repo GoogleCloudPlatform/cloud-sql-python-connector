@@ -280,9 +280,9 @@ class InstanceConnectionManager:
             )
         )
 
-        future = self._loop.create_task(
+        instance_data_task = self._loop.create_task(
             self._get_context(metadata_future, ephemeral_future)
         )
-        future.add_done_callback(self._threadsafe_refresh)
+        instance_data_task.add_done_callback(self._threadsafe_refresh)
 
-        return future
+        return instance_data_task
