@@ -62,6 +62,7 @@ class InstanceConnectionManager:
     _priv_key: str = None
     _pub_key: str = None
     _client_session: aiohttp.ClientSession = None
+    _metadata: Dict[str, Union[Dict, str]] = None
 
     def __init__(
         self, instance_connection_string: str, loop: asyncio.AbstractEventLoop
@@ -91,8 +92,9 @@ class InstanceConnectionManager:
             await self._client_session.close()
 
         if self._client_session is not None:
-            self._loop.run_until_complete(close_client_session())
-            self._loop.stop()
+            self._loop.call_soon(close_client_session)
+
+        self._loop.close()
 
     @staticmethod
     async def _get_metadata(
@@ -240,31 +242,39 @@ class InstanceConnectionManager:
         self._credentials = scoped_credentials
         self._cloud_sql_service = cloudsql
 
-    async def _perform_refresh(self) -> Dict[str, Union[Dict, str]]:
+    def _perform_refresh(self) -> asyncio.Awaitable:
         """Retrieves instance metadata and ephemeral certificate from the
         Cloud SQL Instance.
 
-        :rtype: Dict[str, Union[Dict, str]]
-        :returns: A Dictionary containing the server's certificate authority,
-            a Dictionary containing the IP addresses of the instance, and
-            the latest ephemeral certificate.
+        :type delay: int
+        :param delay:
+            An integer representing the number of seconds delayed.
+
+        :rtype: asyncio.Awaitable
+        :returns: An awaitable representing the 
         """
 
         if self._client_session is None:
             self._client_session = aiohttp.ClientSession()
 
-        metadata_future = self._get_metadata(
-            self._client_session, self._credentials, self._project, self._instance
+        # schedule get_metadata and get_ephemeral  as tasks
+        metadata_future = self._loop.create_task(
+            self._get_metadata(
+                self._client_session, self._credentials, self._project, self._instance
+            )
         )
 
-        ephemeral_future = self._get_ephemeral(
-            self._client_session,
-            self._credentials,
-            self._project,
-            self._instance,
-            self._pub_key.decode("UTF-8"),
+        ephemeral_future = self._loop.create_task(
+            self._get_ephemeral(
+                self._client_session,
+                self._credentials,
+                self._project,
+                self._instance,
+                self._pub_key.decode("UTF-8"),
+            )
         )
 
-        result_future = asyncio.gather(metadata_future, ephemeral_future)
+        future = self._loop.create_task(self._get_context(metadata_future, ephemeral_future))
+        future.add_done_callback(self._threadsafe_refresh)
 
-        return result_future
+        return future
