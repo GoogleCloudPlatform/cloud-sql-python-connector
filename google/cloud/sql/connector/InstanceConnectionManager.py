@@ -242,7 +242,7 @@ class InstanceConnectionManager:
         self._credentials = scoped_credentials
         self._cloud_sql_service = cloudsql
 
-    def _perform_refresh(self) -> asyncio.Awaitable:
+    def _perform_refresh(self) -> asyncio.Task:
         """Retrieves instance metadata and ephemeral certificate from the
         Cloud SQL Instance.
 
@@ -251,7 +251,7 @@ class InstanceConnectionManager:
             An integer representing the number of seconds delayed.
 
         :rtype: asyncio.Awaitable
-        :returns: An awaitable representing the 
+        :returns: An awaitable representing the creation of an SSLcontext.
         """
 
         if self._client_session is None:
@@ -274,7 +274,9 @@ class InstanceConnectionManager:
             )
         )
 
-        future = self._loop.create_task(self._get_context(metadata_future, ephemeral_future))
+        future = self._loop.create_task(
+            self._get_context(metadata_future, ephemeral_future)
+        )
         future.add_done_callback(self._threadsafe_refresh)
 
         return future
