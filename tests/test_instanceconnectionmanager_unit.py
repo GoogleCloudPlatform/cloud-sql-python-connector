@@ -22,6 +22,15 @@ from google.cloud.sql.connector.InstanceConnectionManager import (
 )
 import asyncio
 import os
+import concurrent
+import threading
+
+
+def thread_looper(loop):
+    try:
+        loop.run_forever()
+    finally:
+        loop.stop()
 
 
 def test_InstanceConnectionManager_init():
@@ -30,8 +39,12 @@ def test_InstanceConnectionManager_init():
     can tell if the connection string that's passed in is formatted correctly.
     """
     loop = asyncio.new_event_loop()
+    thr = threading.Thread(target=loop.run_forever)
+    thr.start()
     connect_string = "test-project:test-region:test-instance"
     icm = InstanceConnectionManager(connect_string, loop)
+    loop.stop()
+    # thr.run(loop.stop())
     assert (
         icm._project == "test-project"
         and icm._region == "test-region"
@@ -45,8 +58,11 @@ def test_InstanceConnectionManager_wrong_connection_string():
     can tell if the connection string that's passed in is formatted correctly.
     """
     loop = asyncio.new_event_loop()
+    thr = threading.Thread(target=loop.run_forever)
+    thr.start()
     with pytest.raises(CloudSQLConnectionError):
         InstanceConnectionManager("test-project:test-region", loop)
+        loop.stop()
 
 
 def test_InstanceConnectionManager_get_ephemeral():
@@ -64,6 +80,8 @@ def test_InstanceConnectionManager_get_ephemeral():
         )
 
     loop = asyncio.new_event_loop()
+    thr = threading.Thread(target=loop.run_forever)
+    thr.start()
     icm = InstanceConnectionManager(connect_string, loop)
 
     async def async_get_ephemeral():
@@ -76,11 +94,12 @@ def test_InstanceConnectionManager_get_ephemeral():
                 icm._pub_key.decode("UTF-8"),
             )
 
-    fut = asyncio.ensure_future(async_get_ephemeral(), loop=loop)
-    icm._loop.run_until_complete(fut)
-    icm._loop.close()
+    fut = asyncio.run_coroutine_threadsafe(async_get_ephemeral(), loop=loop)
+    # icm._loop.close()
+    # thr.join()
 
     result = fut.result().split("\n")
+    loop.stop()
 
     assert (
         result[0] == "-----BEGIN CERTIFICATE-----"
@@ -103,6 +122,8 @@ def test_InstanceConnectionManager_get_metadata():
         )
 
     loop = asyncio.new_event_loop()
+    thr = threading.Thread(target=loop.run_forever, daemon=True)
+    thr.start()
     icm = InstanceConnectionManager(connect_string, loop)
 
     async def async_get_metadata():
@@ -111,13 +132,11 @@ def test_InstanceConnectionManager_get_metadata():
                 client_session, icm._credentials, icm._project, icm._instance
             )
 
-    fut = asyncio.ensure_future(async_get_metadata(), loop=loop)
-
-    icm._loop.run_until_complete(fut)
-    icm._loop.close()
+    fut = asyncio.run_coroutine_threadsafe(async_get_metadata(), loop=loop)
 
     result = fut.result()
-
+    # thr.join(timeout=10)
+    loop.stop()
     assert result["ip_addresses"] is not None and isinstance(
         result["server_ca_cert"], str
     )
@@ -137,7 +156,11 @@ def test_InstanceConnectionManager_perform_refresh():
         )
 
     loop = asyncio.new_event_loop()
+    thr = threading.Thread(target=loop.run_forever, daemon=True)
+    thr.start()
     icm = InstanceConnectionManager(connect_string, loop)
     fut = icm._perform_refresh()
 
-    assert isinstance(fut, asyncio.Task)
+    # thr.join(timeout=20)
+    loop.stop()
+    assert isinstance(fut, concurrent.futures.Future)

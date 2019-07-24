@@ -84,17 +84,26 @@ class InstanceConnectionManager:
         self._auth_init()
         self._priv_key, self._pub_key = generate_keys()
 
+        async def create_client_session():
+            self._client_session = aiohttp.ClientSession()
+
+        asyncio.run_coroutine_threadsafe(create_client_session(), loop=self._loop)
+
         # set current to future InstanceMetadata
         # set next to the future future InstanceMetadata
 
     def __del__(self):
-        async def close_client_session():
-            await self._client_session.close()
-
+        """Deconstructor to make sure ClientSession is closed and tasks have
+        finished to have a graceful exit.
+        """
+        print("deconstructing")
         if self._client_session is not None:
-            self._loop.run_until_complete(close_client_session)
-
-        self._loop.close()
+            asyncio.run_coroutine_threadsafe(
+                self._client_session.close(), loop=self._loop
+            )
+            print("stopping loop{}".format(self._loop.is_running())
+        self._loop.stop()
+        # self._loop.close()
 
     @staticmethod
     async def _get_metadata(
@@ -260,28 +269,27 @@ class InstanceConnectionManager:
         :returns: An awaitable representing the creation of an SSLcontext.
         """
 
-        if self._client_session is None:
-            self._client_session = aiohttp.ClientSession()
-
         # schedule get_metadata and get_ephemeral  as tasks
-        metadata_future = self._loop.create_task(
+        metadata_future = asyncio.run_coroutine_threadsafe(
             self._get_metadata(
                 self._client_session, self._credentials, self._project, self._instance
-            )
+            ),
+            loop=self._loop,
         )
 
-        ephemeral_future = self._loop.create_task(
+        ephemeral_future = asyncio.run_coroutine_threadsafe(
             self._get_ephemeral(
                 self._client_session,
                 self._credentials,
                 self._project,
                 self._instance,
                 self._pub_key.decode("UTF-8"),
-            )
+            ),
+            loop=self._loop,
         )
 
-        instance_data_task = self._loop.create_task(
-            self._get_context(metadata_future, ephemeral_future)
+        instance_data_task = asyncio.run_coroutine_threadsafe(
+            self._get_context(metadata_future, ephemeral_future), loop=self._loop
         )
         instance_data_task.add_done_callback(self._threadsafe_refresh)
 
