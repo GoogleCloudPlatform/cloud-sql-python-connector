@@ -101,7 +101,6 @@ class InstanceConnectionManager:
             asyncio.run_coroutine_threadsafe(
                 self._client_session.close(), loop=self._loop
             )
-            print("stopping loop{}".format(self._loop.is_running())
         self._loop.stop()
         # self._loop.close()
 

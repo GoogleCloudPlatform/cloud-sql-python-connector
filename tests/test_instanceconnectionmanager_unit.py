@@ -43,8 +43,9 @@ def test_InstanceConnectionManager_init():
     thr.start()
     connect_string = "test-project:test-region:test-instance"
     icm = InstanceConnectionManager(connect_string, loop)
-    loop.stop()
+    # loop.stop()
     # thr.run(loop.stop())
+
     assert (
         icm._project == "test-project"
         and icm._region == "test-region"
