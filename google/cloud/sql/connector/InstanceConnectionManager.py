@@ -308,7 +308,13 @@ class InstanceConnectionManager:
 
         return instance_data
 
-    def _threadsafe_refresh(self, future):
+    def _threadsafe_refresh(self, future) -> None:
+        """A threadsafe way to update the current instance data and the
+        future instance data. Only meant to be called as a callback.
+
+        :type future: asyncio.Future
+        :param future: The future passed in by add_done_callback.
+        """
         print("_threadsafe_refresh\n-----------------------")
         with self._mutex:
             self._current = future.result()
