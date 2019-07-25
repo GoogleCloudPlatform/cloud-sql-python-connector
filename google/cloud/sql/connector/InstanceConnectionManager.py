@@ -106,8 +106,6 @@ class InstanceConnectionManager:
             create_client_session(), loop=self._loop
         ).result()
 
-        # print(self._client_session)
-
         # set current to future InstanceMetadata
         # set next to the future future InstanceMetadata
 
@@ -115,20 +113,16 @@ class InstanceConnectionManager:
         """Deconstructor to make sure ClientSession is closed and tasks have
         finished to have a graceful exit.
         """
+
         if self._client_session is not None and not self._client_session.closed:
-            asyncio.run_coroutine_threadsafe(
+            close_future = asyncio.run_coroutine_threadsafe(
                 self._client_session.close(), loop=self._loop
             )
+            close_future.result()
 
         if self._current is not None and not self._current.done():
             # print("waiting for current")
             self._current.result()
-
-        # print("all dead")
-
-        # print(self._loop.is_running())
-        # self._loop.stop()
-        # self._loop.close()
 
     @staticmethod
     async def _get_metadata(
@@ -277,7 +271,7 @@ class InstanceConnectionManager:
         self,
         metadata_task: concurrent.futures.Future,
         ephemeral_task: concurrent.futures.Future,
-    ) -> OpenSSL.SSL.Context:
+    ) -> Dict[str, Union[OpenSSL.SSL.Context, Dict]]:
         """Asynchronous function that takes in the futures for the ephemeral certificate
         and the instance metadata and generates an OpenSSL context object.
 
@@ -289,9 +283,9 @@ class InstanceConnectionManager:
         :param metadata_task:
             A future representing the instance metadata returend from _get_metdata.
 
-        :rtype: OpenSSL.SSL.Context
-        :returns: An OpenSSL context that is created using the requested ephemeral certificate
-            instance metadata.
+        :rtype: Dict[str, Union[OpenSSL.SSL.Context, Dict]]
+        :returns: A dict containing an OpenSSL context that is created using the requested ephemeral certificate
+            instance metadata and a dict that contains all the instance's IP addresses.
         """
 
         print("Creating context")
@@ -312,7 +306,9 @@ class InstanceConnectionManager:
         ctx.check_privatekey()
         ctx.get_cert_store().add_cert(trusted_cert)
 
-        return ctx
+        instance_data = {"ssl_context": ctx, "ip_addresses": metadata["ip_addresses"]}
+
+        return instance_data
 
     def _threadsafe_refresh(self, future):
         print("Hello")
@@ -340,21 +336,17 @@ class InstanceConnectionManager:
         self._credentials = scoped_credentials
         self._cloud_sql_service = cloudsql
 
-    def _perform_refresh(self) -> concurrent.futures.Future:
+    def _perform_refresh(self) -> asyncio.Task:
         """Retrieves instance metadata and ephemeral certificate from the
         Cloud SQL Instance.
 
-        :type delay: int
-        :param delay:
-            An integer representing the number of seconds delayed.
-
-        :rtype: asyncio.Awaitable
+        :rtype: asyncio.Task
         :returns: An awaitable representing the creation of an SSLcontext.
         """
 
         print("refreshing")
 
-        # schedule get_metadata and get_ephemeral  as tasks
+        # schedule get_metadata and get_ephemeral as tasks
         metadata_future = self._loop.create_task(
             self._get_metadata(
                 self._client_session, self._credentials, self._project, self._instance

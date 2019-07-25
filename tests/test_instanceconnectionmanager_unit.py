@@ -15,21 +15,12 @@ limitations under the License.
 """
 
 import pytest  # noqa F401
-import aiohttp
 from google.cloud.sql.connector.InstanceConnectionManager import (
     InstanceConnectionManager,
 )
 import asyncio
 import os
-import concurrent
 import threading
-
-
-def thread_looper(loop):
-    try:
-        loop.run_forever()
-    finally:
-        loop.stop()
 
 
 def test_InstanceConnectionManager_init():
@@ -91,15 +82,6 @@ def test_InstanceConnectionManager_get_ephemeral():
     thr.start()
     icm = InstanceConnectionManager(connect_string, loop)
 
-    async def async_get_ephemeral():
-        return await icm._get_ephemeral(
-            icm._client_session,
-            icm._credentials,
-            icm._project,
-            icm._instance,
-            icm._pub_key.decode("UTF-8"),
-        )
-
     fut = asyncio.run_coroutine_threadsafe(
         icm._get_ephemeral(
             icm._client_session,
@@ -142,15 +124,15 @@ def test_InstanceConnectionManager_get_metadata():
     thr.start()
     icm = InstanceConnectionManager(connect_string, loop)
 
-    async def async_get_metadata():
-        return await icm._get_metadata(
+    fut = asyncio.run_coroutine_threadsafe(
+        icm._get_metadata(
             icm._client_session, icm._credentials, icm._project, icm._instance
-        )
-
-    fut = asyncio.run_coroutine_threadsafe(async_get_metadata(), loop=loop)
+        ),
+        loop=loop,
+    )
 
     result = fut.result()
-    # thr.join(timeout=10)
+
     del icm
     loop.stop()
     assert result["ip_addresses"] is not None and isinstance(
@@ -177,7 +159,6 @@ def test_InstanceConnectionManager_perform_refresh():
     icm = InstanceConnectionManager(connect_string, loop)
     fut = icm._perform_refresh()
 
-    # thr.join(timeout=20)
     del icm
     loop.stop()
     assert isinstance(fut, asyncio.Task)
