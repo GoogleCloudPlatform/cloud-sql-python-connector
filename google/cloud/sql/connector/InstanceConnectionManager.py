@@ -267,7 +267,7 @@ class InstanceConnectionManager:
 
         return ret_dict["cert"]
 
-    async def _get_context(
+    async def _get_instance_data(
         self,
         metadata_task: concurrent.futures.Future,
         ephemeral_task: concurrent.futures.Future,
@@ -364,7 +364,7 @@ class InstanceConnectionManager:
         )
 
         instance_data_task = self._loop.create_task(
-            self._get_context(metadata_future, ephemeral_future)
+            self._get_instance_data(metadata_future, ephemeral_future)
         )
         instance_data_task.add_done_callback(self._threadsafe_refresh)
 
