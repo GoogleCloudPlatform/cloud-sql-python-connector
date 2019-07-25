@@ -14,16 +14,23 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
+# Importing libraries
 import asyncio
 import aiohttp
+import concurrent
 import googleapiclient
 import googleapiclient.discovery
 import google.auth
 from google.auth.credentials import Credentials
-from google.cloud.sql.connector.utils import generate_keys
 import google.auth.transport.requests
 import json
+import OpenSSL
+import threading
 from typing import Dict, Union
+
+
+# Custom utils import
+from google.cloud.sql.connector.utils import generate_keys
 
 
 class CloudSQLConnectionError(Exception):
@@ -64,6 +71,11 @@ class InstanceConnectionManager:
     _client_session: aiohttp.ClientSession = None
     _metadata: Dict[str, Union[Dict, str]] = None
 
+    _mutex: threading.Lock = None
+
+    _current: concurrent.futures.Future = None
+    _next: concurrent.futures.Future = None
+
     def __init__(
         self, instance_connection_string: str, loop: asyncio.AbstractEventLoop
     ) -> None:
@@ -85,10 +97,16 @@ class InstanceConnectionManager:
         self._auth_init()
         self._priv_key, self._pub_key = generate_keys()
 
-        async def create_client_session():
-            self._client_session = aiohttp.ClientSession()
+        self._mutex = threading.Lock()
 
-        asyncio.run_coroutine_threadsafe(create_client_session(), loop=self._loop)
+        async def create_client_session():
+            return aiohttp.ClientSession()
+
+        self._client_session = asyncio.run_coroutine_threadsafe(
+            create_client_session(), loop=self._loop
+        ).result()
+
+        # print(self._client_session)
 
         # set current to future InstanceMetadata
         # set next to the future future InstanceMetadata
@@ -97,15 +115,19 @@ class InstanceConnectionManager:
         """Deconstructor to make sure ClientSession is closed and tasks have
         finished to have a graceful exit.
         """
-        print("deconstructing")
-        if self._client_session is not None:
-            print("killing client_session")
+        if self._client_session is not None and not self._client_session.closed:
             asyncio.run_coroutine_threadsafe(
                 self._client_session.close(), loop=self._loop
             )
 
-        print(self._loop.is_running())
-        self._loop.stop()
+        if self._current is not None and not self._current.done():
+            # print("waiting for current")
+            self._current.result()
+
+        # print("all dead")
+
+        # print(self._loop.is_running())
+        # self._loop.stop()
         # self._loop.close()
 
     @staticmethod
@@ -140,6 +162,8 @@ class InstanceConnectionManager:
         :raises TypeError: If any of the arguments are not the specified type.
         """
 
+        print("meta")
+
         if (
             not isinstance(credentials, Credentials)
             or not isinstance(project, str)
@@ -163,7 +187,8 @@ class InstanceConnectionManager:
         url = "https://www.googleapis.com/sql/v1beta4/projects/{}/instances/{}".format(
             project, instance
         )
-
+        print("requesting metadata")
+        print(client_session)
         resp = await client_session.get(url, headers=headers, raise_for_status=True)
         ret_dict = json.loads(await resp.text())
 
@@ -173,6 +198,8 @@ class InstanceConnectionManager:
             },
             "server_ca_cert": ret_dict["serverCaCert"]["cert"],
         }
+
+        print(metadata)
 
         return metadata
 
@@ -204,6 +231,8 @@ class InstanceConnectionManager:
             TypeError: If one of the arguments passed in is None.
         """
 
+        print("life is ephemeral")
+
         if (
             not isinstance(credentials, Credentials)
             or not isinstance(project, str)
@@ -227,18 +256,69 @@ class InstanceConnectionManager:
 
         data = {"public_key": pub_key}
 
-        resp = await client_session.post(
-            url, headers=headers, json=data, raise_for_status=True
-        )
+        # print(client_session)
+        if client_session is not None:
+            resp = await client_session.post(
+                url, headers=headers, json=data, raise_for_status=True
+            )
+        else:
+            async with aiohttp.ClientSession() as cs:
+                resp = await cs.post(
+                    url, headers=headers, json=data, raise_for_status=True
+                )
+
         ret_dict = json.loads(await resp.text())
+
+        # print(type(ret_dict["cert"]))
 
         return ret_dict["cert"]
 
-    async def _get_context(self, ephemeral_task, metadata_task):
-        raise NotImplementedError
+    async def _get_context(
+        self,
+        metadata_task: concurrent.futures.Future,
+        ephemeral_task: concurrent.futures.Future,
+    ) -> OpenSSL.SSL.Context:
+        """Asynchronous function that takes in the futures for the ephemeral certificate
+        and the instance metadata and generates an OpenSSL context object.
+
+        :type ephemeral_task: concurrent.futures.Future
+        :param ephemeral_task:
+            A future representing the ephemeral certificate returned from _get_ephemeral.
+
+        :type metadata_task: concurrent.futures.Future
+        :param metadata_task:
+            A future representing the instance metadata returend from _get_metdata.
+
+        :rtype: OpenSSL.SSL.Context
+        :returns: An OpenSSL context that is created using the requested ephemeral certificate
+            instance metadata.
+        """
+
+        print("Creating context")
+        metadata = await metadata_task
+        ephemeral_cert = await ephemeral_task
+
+        PEM = OpenSSL.crypto.FILETYPE_PEM
+
+        pkey = OpenSSL.crypto.load_privatekey(PEM, self._priv_key)
+        public_cert = OpenSSL.crypto.load_certificate(PEM, ephemeral_cert.encode())
+        trusted_cert = OpenSSL.crypto.load_certificate(
+            PEM, metadata["server_ca_cert"].encode()
+        )
+
+        ctx = OpenSSL.SSL.Context(OpenSSL.SSL.TLSv1_METHOD)
+        ctx.use_privatekey(pkey)
+        ctx.use_certificate(public_cert)
+        ctx.check_privatekey()
+        ctx.get_cert_store().add_cert(trusted_cert)
+
+        return ctx
 
     def _threadsafe_refresh(self, future):
-        raise NotImplementedError
+        print("Hello")
+        with self._mutex:
+            self._current = future.result()
+            self._next = asyncio.run_coroutine_threadsafe(self._schedule_refresh(10))
 
     def _auth_init(self):
         """Creates and assigns a Google Python API service object for
@@ -260,7 +340,7 @@ class InstanceConnectionManager:
         self._credentials = scoped_credentials
         self._cloud_sql_service = cloudsql
 
-    def _perform_refresh(self) -> asyncio.Task:
+    def _perform_refresh(self) -> concurrent.futures.Future:
         """Retrieves instance metadata and ephemeral certificate from the
         Cloud SQL Instance.
 
@@ -272,27 +352,27 @@ class InstanceConnectionManager:
         :returns: An awaitable representing the creation of an SSLcontext.
         """
 
+        print("refreshing")
+
         # schedule get_metadata and get_ephemeral  as tasks
-        metadata_future = asyncio.run_coroutine_threadsafe(
+        metadata_future = self._loop.create_task(
             self._get_metadata(
                 self._client_session, self._credentials, self._project, self._instance
-            ),
-            loop=self._loop,
+            )
         )
 
-        ephemeral_future = asyncio.run_coroutine_threadsafe(
+        ephemeral_future = self._loop.create_task(
             self._get_ephemeral(
                 self._client_session,
                 self._credentials,
                 self._project,
                 self._instance,
                 self._pub_key.decode("UTF-8"),
-            ),
-            loop=self._loop,
+            )
         )
 
-        instance_data_task = asyncio.run_coroutine_threadsafe(
-            self._get_context(metadata_future, ephemeral_future), loop=self._loop
+        instance_data_task = self._loop.create_task(
+            self._get_context(metadata_future, ephemeral_future)
         )
         instance_data_task.add_done_callback(self._threadsafe_refresh)
 

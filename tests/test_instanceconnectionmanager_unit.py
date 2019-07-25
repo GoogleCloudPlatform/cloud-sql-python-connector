@@ -42,13 +42,18 @@ def test_InstanceConnectionManager_init():
     thr.start()
     connect_string = "test-project:test-region:test-instance"
     icm = InstanceConnectionManager(connect_string, loop)
-    # loop.stop()
+    project_result = icm._project
+    region_result = icm._region
+    instance_result = icm._instance
+
+    del icm
+    loop.call_soon_threadsafe(loop.stop)
     # thr.run(loop.stop())
 
     assert (
-        icm._project == "test-project"
-        and icm._region == "test-region"
-        and icm._instance == "test-instance"
+        project_result == "test-project"
+        and region_result == "test-region"
+        and instance_result == "test-instance"
     )
 
 
@@ -87,21 +92,30 @@ def test_InstanceConnectionManager_get_ephemeral():
     icm = InstanceConnectionManager(connect_string, loop)
 
     async def async_get_ephemeral():
-        async with aiohttp.ClientSession() as client_session:
-            return await icm._get_ephemeral(
-                client_session,
-                icm._credentials,
-                icm._project,
-                icm._instance,
-                icm._pub_key.decode("UTF-8"),
-            )
+        return await icm._get_ephemeral(
+            icm._client_session,
+            icm._credentials,
+            icm._project,
+            icm._instance,
+            icm._pub_key.decode("UTF-8"),
+        )
 
-    fut = asyncio.run_coroutine_threadsafe(async_get_ephemeral(), loop=loop)
-    # icm._loop.close()
-    # thr.join()
+    fut = asyncio.run_coroutine_threadsafe(
+        icm._get_ephemeral(
+            icm._client_session,
+            icm._credentials,
+            icm._project,
+            icm._instance,
+            icm._pub_key.decode("UTF-8"),
+        ),
+        loop=loop,
+    )
 
     result = fut.result().split("\n")
-    # loop.stop()
+    print(result)
+
+    del icm
+    loop.stop()
 
     assert (
         result[0] == "-----BEGIN CERTIFICATE-----"
@@ -129,16 +143,16 @@ def test_InstanceConnectionManager_get_metadata():
     icm = InstanceConnectionManager(connect_string, loop)
 
     async def async_get_metadata():
-        async with aiohttp.ClientSession() as client_session:
-            return await icm._get_metadata(
-                client_session, icm._credentials, icm._project, icm._instance
-            )
+        return await icm._get_metadata(
+            icm._client_session, icm._credentials, icm._project, icm._instance
+        )
 
     fut = asyncio.run_coroutine_threadsafe(async_get_metadata(), loop=loop)
 
     result = fut.result()
     # thr.join(timeout=10)
-    # loop.stop()
+    del icm
+    loop.stop()
     assert result["ip_addresses"] is not None and isinstance(
         result["server_ca_cert"], str
     )
@@ -165,4 +179,5 @@ def test_InstanceConnectionManager_perform_refresh():
 
     # thr.join(timeout=20)
     del icm
-    assert isinstance(fut, concurrent.futures.Future)
+    loop.stop()
+    assert isinstance(fut, asyncio.Task)
