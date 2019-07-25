@@ -67,6 +67,7 @@ class InstanceConnectionManager:
     def __init__(
         self, instance_connection_string: str, loop: asyncio.AbstractEventLoop
     ) -> None:
+        print("born")
         # Validate connection string
         connection_string_split = instance_connection_string.split(":")
 
@@ -98,9 +99,12 @@ class InstanceConnectionManager:
         """
         print("deconstructing")
         if self._client_session is not None:
+            print("killing client_session")
             asyncio.run_coroutine_threadsafe(
                 self._client_session.close(), loop=self._loop
             )
+
+        print(self._loop.is_running())
         self._loop.stop()
         # self._loop.close()
 
