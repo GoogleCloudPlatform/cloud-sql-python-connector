@@ -113,16 +113,19 @@ class InstanceConnectionManager:
         """Deconstructor to make sure ClientSession is closed and tasks have
         finished to have a graceful exit.
         """
+        print("deconstructing")
+        if self._current is not None:
+            print("waiting for current")
+            self._current.result()
 
         if self._client_session is not None and not self._client_session.closed:
+            print("killing client session")
             close_future = asyncio.run_coroutine_threadsafe(
                 self._client_session.close(), loop=self._loop
             )
             close_future.result()
 
-        if self._current is not None and not self._current.done():
-            # print("waiting for current")
-            self._current.result()
+        print("all dead")
 
     @staticmethod
     async def _get_metadata(
@@ -156,8 +159,6 @@ class InstanceConnectionManager:
         :raises TypeError: If any of the arguments are not the specified type.
         """
 
-        print("meta")
-
         if (
             not isinstance(credentials, Credentials)
             or not isinstance(project, str)
@@ -182,7 +183,6 @@ class InstanceConnectionManager:
             project, instance
         )
         print("requesting metadata")
-        print(client_session)
         resp = await client_session.get(url, headers=headers, raise_for_status=True)
         ret_dict = json.loads(await resp.text())
 
@@ -192,8 +192,6 @@ class InstanceConnectionManager:
             },
             "server_ca_cert": ret_dict["serverCaCert"]["cert"],
         }
-
-        print(metadata)
 
         return metadata
 
@@ -311,12 +309,12 @@ class InstanceConnectionManager:
         return instance_data
 
     def _threadsafe_refresh(self, future):
-        print("Hello")
+        print("_threadsafe_refresh\n-----------------------")
         with self._mutex:
             self._current = future.result()
-            self._next = asyncio.run_coroutine_threadsafe(self._schedule_refresh(10))
+            self._next = self._loop.create_task(self._schedule_refresh(10))
 
-    def _auth_init(self):
+    def _auth_init(self) -> None:
         """Creates and assigns a Google Python API service object for
         Google Cloud SQL Admin API.
         """
@@ -369,3 +367,12 @@ class InstanceConnectionManager:
         instance_data_task.add_done_callback(self._threadsafe_refresh)
 
         return instance_data_task
+
+    async def _schedule_refresh(self, delay: int):
+        print("schedling")
+        try:
+            await asyncio.sleep(delay)
+        except asyncio.CancelledException:
+            return None
+
+        return self._perform_refresh()
