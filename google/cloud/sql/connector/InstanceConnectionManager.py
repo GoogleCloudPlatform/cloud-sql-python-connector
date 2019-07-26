@@ -359,9 +359,6 @@ class InstanceConnectionManager:
 
         print("refreshing")
 
-        # schedule get_metadata and get_ephemeral as tasks
-
-        # TODO: put tasks in get_instance_metadata. have perform_refresh return a concurrent.futures.Future
         instance_data_task = asyncio.run_coroutine_threadsafe(
             self._get_instance_data(),
             loop=self._loop
