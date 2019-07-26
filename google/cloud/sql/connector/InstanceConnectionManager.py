@@ -29,6 +29,8 @@ import socket
 import threading
 from typing import Any, Dict, Union
 
+import logging
+
 
 # Custom utils import
 from google.cloud.sql.connector.utils import generate_keys
@@ -109,7 +111,7 @@ class InstanceConnectionManager:
             create_client_session(), loop=self._loop
         ).result()
 
-        print("instance data")
+        logging.debug("Updating instance data")
         self._current_instance_data = self._perform_refresh()
         self._next_instance_data = self.immediate_future(self._current_instance_data)
 
@@ -117,20 +119,20 @@ class InstanceConnectionManager:
         """Deconstructor to make sure ClientSession is closed and tasks have
         finished to have a graceful exit.
         """
-        print("deconstructing")
+        logging.debug("Entering deconstructor")
 
         if self._current is not None:
-            print("waiting for current")
+            logging.debug("Waiting for _current_instance_data to finish")
             self._current.result()
 
         if self._client_session is not None and not self._client_session.closed:
-            print("killing client session")
+            logging.debug("Waiting for _client_session to close")
             close_future = asyncio.run_coroutine_threadsafe(
                 self._client_session.close(), loop=self._loop
             )
             close_future.result()
 
-        print("all dead")
+        logging.debug("Finished deconstructing")
 
     @staticmethod
     async def _get_metadata(
@@ -188,7 +190,7 @@ class InstanceConnectionManager:
             project, instance
         )
 
-        print("requesting metadata")
+        logging.debug("Requesting metadata")
 
         resp = await client_session.get(url, headers=headers, raise_for_status=True)
         ret_dict = json.loads(await resp.text())
@@ -230,7 +232,7 @@ class InstanceConnectionManager:
             TypeError: If one of the arguments passed in is None.
         """
 
-        print("life is ephemeral")
+        logging.debug("Life is ephemeral")
 
         if (
             not isinstance(credentials, Credentials)
@@ -272,7 +274,7 @@ class InstanceConnectionManager:
             instance metadata and a dict that contains all the instance's IP addresses.
         """
 
-        print("Creating context")
+        logging.debug("Creating context")
 
         metadata_task = self._loop.create_task(
             self._get_metadata(
@@ -350,7 +352,7 @@ class InstanceConnectionManager:
         :type future: asyncio.Future
         :param future: The future passed in by add_done_callback.
         """
-        print("_threadsafe_refresh\n-----------------------")
+        logging.debug("Entered _threadsafe_refresh")
         with self._mutex:
             self._current = future.result()
             self._next = self._loop.create_task(self._schedule_refresh(self._delay))
@@ -383,7 +385,7 @@ class InstanceConnectionManager:
         :returns: A future representing the creation of an SSLcontext.
         """
 
-        print("refreshing")
+        logging.debug("Entered _perform_refresh")
 
         instance_data_task = asyncio.run_coroutine_threadsafe(
             self._get_instance_data(), loop=self._loop
@@ -402,11 +404,12 @@ class InstanceConnectionManager:
         :rtype: asyncio.Task
         :returns: A Task representing _get_instance_data.
         """
-        print("scheduling")
+        logging.debug("Entering sleep")
 
         try:
             await asyncio.sleep(delay)
         except asyncio.CancelledException:
+            logging.debug("Task cancelled.")
             return None
 
         return self._perform_refresh()
