@@ -298,25 +298,56 @@ class InstanceConnectionManager:
 
         metadata, ephemeral_cert = await asyncio.gather(metadata_task, ephemeral_task)
 
-        pkey = OpenSSL.crypto.load_privatekey(
-            OpenSSL.crypto.FILETYPE_PEM, self._priv_key
+        instance_data = {
+            "ssl_context": self._create_context(
+                self._priv_key,
+                ephemeral_cert.encode(),
+                metadata["server_ca_cert"].encode(),
+            ),
+            "ip_addresses": metadata["ip_addresses"],
+        }
+
+        return instance_data
+
+    def _create_context(
+        self, private_key_string: str, public_cert_byte: bytes, trusted_cert_byte: bytes
+    ) -> OpenSSL.SSL.Context:
+        """A helper function to create an OpenSSL SSLContext object.
+
+        :type private_key_string: str
+        :param private_key_string: A string representing a PEM-encoded private key.
+
+        :type public_cert_byte: bytes
+        :param public_cert_byte: A byte string representing a PEM-encoded certificate.
+
+        :type trusted_cert_byte: bytes
+        :param trusted_cert_byte: A byte string representing a PEM-encoded certificate
+
+        :type public_cert_byte: bytes
+        :param public_cert_byte: A byte string representing a PEM-encoded certificate CA
+            from the Cloud SQL Instance.
+
+        :rtype: OpenSSL.SSL.Context
+        :returns: An OpenSSL context object that contains the ephemeral certificate,
+            the private key and the Cloud SQL Instance's server CA.
+        """
+        private_key = OpenSSL.crypto.load_privatekey(
+            OpenSSL.crypto.FILETYPE_PEM, private_key_string
         )
         public_cert = OpenSSL.crypto.load_certificate(
-            OpenSSL.crypto.FILETYPE_PEM, ephemeral_cert.encode()
+            OpenSSL.crypto.FILETYPE_PEM, public_cert_byte
         )
         trusted_cert = OpenSSL.crypto.load_certificate(
-            OpenSSL.crypto.FILETYPE_PEM, metadata["server_ca_cert"].encode()
+            OpenSSL.crypto.FILETYPE_PEM, trusted_cert_byte
         )
 
         ctx = OpenSSL.SSL.Context(OpenSSL.SSL.TLSv1_2_METHOD)
-        ctx.use_privatekey(pkey)
+        ctx.use_privatekey(private_key)
         ctx.use_certificate(public_cert)
         ctx.check_privatekey()
         ctx.get_cert_store().add_cert(trusted_cert)
 
-        instance_data = {"ssl_context": ctx, "ip_addresses": metadata["ip_addresses"]}
-
-        return instance_data
+        return ctx
 
     def _update_current(self, future) -> None:
         """A threadsafe way to update the current instance data and the
