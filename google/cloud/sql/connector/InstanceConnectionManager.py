@@ -269,9 +269,7 @@ class InstanceConnectionManager:
 
         return ret_dict["cert"]
 
-    async def _get_instance_data(
-        self,
-    ) -> Dict[str, Union[OpenSSL.SSL.Context, Dict]]:
+    async def _get_instance_data(self) -> Dict[str, Union[OpenSSL.SSL.Context, Dict]]:
         """Asynchronous function that takes in the futures for the ephemeral certificate
         and the instance metadata and generates an OpenSSL context object.
 
@@ -300,12 +298,14 @@ class InstanceConnectionManager:
 
         metadata, ephemeral_cert = await asyncio.gather(metadata_task, ephemeral_task)
 
-        PEM = OpenSSL.crypto.FILETYPE_PEM
-
-        pkey = OpenSSL.crypto.load_privatekey(PEM, self._priv_key)
-        public_cert = OpenSSL.crypto.load_certificate(PEM, ephemeral_cert.encode())
+        pkey = OpenSSL.crypto.load_privatekey(
+            OpenSSL.crypto.FILETYPE_PEM, self._priv_key
+        )
+        public_cert = OpenSSL.crypto.load_certificate(
+            OpenSSL.crypto.FILETYPE_PEM, ephemeral_cert.encode()
+        )
         trusted_cert = OpenSSL.crypto.load_certificate(
-            PEM, metadata["server_ca_cert"].encode()
+            OpenSSL.crypto.FILETYPE_PEM, metadata["server_ca_cert"].encode()
         )
 
         ctx = OpenSSL.SSL.Context(OpenSSL.SSL.TLSv1_2_METHOD)
@@ -361,8 +361,7 @@ class InstanceConnectionManager:
         print("refreshing")
 
         instance_data_task = asyncio.run_coroutine_threadsafe(
-            self._get_instance_data(),
-            loop=self._loop
+            self._get_instance_data(), loop=self._loop
         )
         instance_data_task.add_done_callback(self._update_current)
 
