@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-import pytest  # noqa F401
+import pytest  # noqa F401 Needed to run the tests
 from google.cloud.sql.connector.InstanceConnectionManager import (
     InstanceConnectionManager,
 )
