@@ -25,6 +25,7 @@ from google.auth.credentials import Credentials
 import google.auth.transport.requests
 import json
 import OpenSSL
+import socket
 import threading
 from typing import Any, Dict, Union
 
@@ -76,10 +77,11 @@ class InstanceConnectionManager:
     _current: concurrent.futures.Future = None
     _next: concurrent.futures.Future = None
 
+    _delay: int = 15
+
     def __init__(
         self, instance_connection_string: str, loop: asyncio.AbstractEventLoop
     ) -> None:
-        print("born")
         # Validate connection string
         connection_string_split = instance_connection_string.split(":")
 
@@ -93,10 +95,10 @@ class InstanceConnectionManager:
                 "Arg instance_connection_string must be in "
                 + "format: project:region:instance."
             )
+
         self._loop = loop
         self._auth_init()
         self._priv_key, self._pub_key = generate_keys()
-
         self._mutex = threading.Lock()
 
         async def create_client_session():
@@ -106,6 +108,7 @@ class InstanceConnectionManager:
             create_client_session(), loop=self._loop
         ).result()
 
+        print("instance data")
         self._current_instance_data = self._perform_refresh()
         self._next_instance_data = self.immediate_future(self._current_instance_data)
 
@@ -114,6 +117,7 @@ class InstanceConnectionManager:
         finished to have a graceful exit.
         """
         print("deconstructing")
+
         if self._current is not None:
             print("waiting for current")
             self._current.result()
@@ -182,7 +186,9 @@ class InstanceConnectionManager:
         url = "https://www.googleapis.com/sql/v1beta4/projects/{}/instances/{}".format(
             project, instance
         )
+
         print("requesting metadata")
+
         resp = await client_session.get(url, headers=headers, raise_for_status=True)
         ret_dict = json.loads(await resp.text())
 
@@ -248,7 +254,6 @@ class InstanceConnectionManager:
 
         data = {"public_key": pub_key}
 
-        # print(client_session)
         if client_session is not None:
             resp = await client_session.post(
                 url, headers=headers, json=data, raise_for_status=True
@@ -261,25 +266,13 @@ class InstanceConnectionManager:
 
         ret_dict = json.loads(await resp.text())
 
-        # print(type(ret_dict["cert"]))
-
         return ret_dict["cert"]
 
     async def _get_instance_data(
         self,
-        metadata_task: concurrent.futures.Future,
-        ephemeral_task: concurrent.futures.Future,
     ) -> Dict[str, Union[OpenSSL.SSL.Context, Dict]]:
         """Asynchronous function that takes in the futures for the ephemeral certificate
         and the instance metadata and generates an OpenSSL context object.
-
-        :type ephemeral_task: concurrent.futures.Future
-        :param ephemeral_task:
-            A future representing the ephemeral certificate returned from _get_ephemeral.
-
-        :type metadata_task: concurrent.futures.Future
-        :param metadata_task:
-            A future representing the instance metadata returend from _get_metdata.
 
         :rtype: Dict[str, Union[OpenSSL.SSL.Context, Dict]]
         :returns: A dict containing an OpenSSL context that is created using the requested ephemeral certificate
@@ -287,8 +280,24 @@ class InstanceConnectionManager:
         """
 
         print("Creating context")
-        metadata = await metadata_task
-        ephemeral_cert = await ephemeral_task
+
+        metadata_task = self._loop.create_task(
+            self._get_metadata(
+                self._client_session, self._credentials, self._project, self._instance
+            )
+        )
+
+        ephemeral_task = self._loop.create_task(
+            self._get_ephemeral(
+                self._client_session,
+                self._credentials,
+                self._project,
+                self._instance,
+                self._pub_key.decode("UTF-8"),
+            )
+        )
+
+        metadata, ephemeral_cert = await asyncio.gather(metadata_task, ephemeral_task)
 
         PEM = OpenSSL.crypto.FILETYPE_PEM
 
@@ -298,7 +307,7 @@ class InstanceConnectionManager:
             PEM, metadata["server_ca_cert"].encode()
         )
 
-        ctx = OpenSSL.SSL.Context(OpenSSL.SSL.TLSv1_METHOD)
+        ctx = OpenSSL.SSL.Context(OpenSSL.SSL.TLSv1_2_METHOD)
         ctx.use_privatekey(pkey)
         ctx.use_certificate(public_cert)
         ctx.check_privatekey()
@@ -318,7 +327,7 @@ class InstanceConnectionManager:
         print("_threadsafe_refresh\n-----------------------")
         with self._mutex:
             self._current = future.result()
-            self._next = self._loop.create_task(self._schedule_refresh(10))
+            self._next = self._loop.create_task(self._schedule_refresh(self._delay))
 
     def _auth_init(self) -> None:
         """Creates and assigns a Google Python API service object for
@@ -340,36 +349,22 @@ class InstanceConnectionManager:
         self._credentials = scoped_credentials
         self._cloud_sql_service = cloudsql
 
-    def _perform_refresh(self) -> asyncio.Task:
+    def _perform_refresh(self) -> concurrent.futures.Future:
         """Retrieves instance metadata and ephemeral certificate from the
         Cloud SQL Instance.
 
-        :rtype: asyncio.Task
-        :returns: An awaitable representing the creation of an SSLcontext.
+        :rtype: concurrent.future.Futures
+        :returns: A future representing the creation of an SSLcontext.
         """
 
         print("refreshing")
 
         # schedule get_metadata and get_ephemeral as tasks
-        metadata_future = self._loop.create_task(
-            self._get_metadata(
-                self._client_session, self._credentials, self._project, self._instance
-            )
-        )
-
-        ephemeral_future = self._loop.create_task(
-            self._get_ephemeral(
-                self._client_session,
-                self._credentials,
-                self._project,
-                self._instance,
-                self._pub_key.decode("UTF-8"),
-            )
-        )
 
         # TODO: put tasks in get_instance_metadata. have perform_refresh return a concurrent.futures.Future
-        instance_data_task = self._loop.create_task(
-            self._get_instance_data(metadata_future, ephemeral_future)
+        instance_data_task = asyncio.run_coroutine_threadsafe(
+            self._get_instance_data(),
+            loop=self._loop
         )
         instance_data_task.add_done_callback(self._update_current)
 
@@ -385,6 +380,8 @@ class InstanceConnectionManager:
         :rtype: asyncio.Task
         :returns: A Task representing _get_instance_data.
         """
+        print("scheduling")
+
         try:
             await asyncio.sleep(delay)
         except asyncio.CancelledException:
@@ -407,3 +404,19 @@ class InstanceConnectionManager:
         fut = concurrent.futures.Future()
         fut.set_result(object)
         return fut
+
+    def connect(self) -> OpenSSL.SSL.Connection:
+        """A method that returns an OpenSSL connection to the database.
+
+        :rtype: OpenSSl.SSL.Connection
+        :returns: An OpenSSL connection to the primary IP of the database.
+        """
+        instance_data = self._current_instance_data.result()
+        ctx = instance_data["ssl_context"]
+        ip_addr = instance_data["ip_addresses"]["PRIMARY"]
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        ssl_connection = OpenSSL.SSL.Connection(ctx, s)
+        ssl_connection.connect((ip_addr, 3307))
+        ssl_connection.do_handshake()
+
+        return ssl_connection
