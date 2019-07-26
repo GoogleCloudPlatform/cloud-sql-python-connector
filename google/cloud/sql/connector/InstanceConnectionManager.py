@@ -255,15 +255,9 @@ class InstanceConnectionManager:
 
         data = {"public_key": pub_key}
 
-        if client_session is not None:
-            resp = await client_session.post(
-                url, headers=headers, json=data, raise_for_status=True
-            )
-        else:
-            async with aiohttp.ClientSession() as cs:
-                resp = await cs.post(
-                    url, headers=headers, json=data, raise_for_status=True
-                )
+        resp = await client_session.post(
+            url, headers=headers, json=data, raise_for_status=True
+        )
 
         ret_dict = json.loads(await resp.text())
 
@@ -433,7 +427,7 @@ class InstanceConnectionManager:
         fut.set_result(object)
         return fut
 
-    def connect(self) -> OpenSSL.SSL.Connection:
+    def connect(self,) -> OpenSSL.SSL.Connection:
         """A method that returns an OpenSSL connection to the database.
 
         :rtype: OpenSSl.SSL.Connection
