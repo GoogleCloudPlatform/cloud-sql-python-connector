@@ -99,6 +99,7 @@ class InstanceConnectionManager:
         self._loop = loop
         self._auth_init()
         self._priv_key, self._pub_key = generate_keys()
+        self._pub_key = self._pub_key.decode("UTF-8")
         self._mutex = threading.Lock()
 
         async def create_client_session():
@@ -293,7 +294,7 @@ class InstanceConnectionManager:
                 self._credentials,
                 self._project,
                 self._instance,
-                self._pub_key.decode("UTF-8"),
+                self._pub_key,
             )
         )
 
