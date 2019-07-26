@@ -26,7 +26,7 @@ import google.auth.transport.requests
 import json
 import OpenSSL
 import threading
-from typing import Dict, Union
+from typing import Any, Dict, Union
 
 
 # Custom utils import
@@ -106,8 +106,8 @@ class InstanceConnectionManager:
             create_client_session(), loop=self._loop
         ).result()
 
-        # set current to future InstanceMetadata
-        # set next to the future future InstanceMetadata
+        self._current_instance_data = self._perform_refresh()
+        self._next_instance_data = self.immediate_future(self._current_instance_data)
 
     def __del__(self):
         """Deconstructor to make sure ClientSession is closed and tasks have
@@ -308,7 +308,7 @@ class InstanceConnectionManager:
 
         return instance_data
 
-    def _threadsafe_refresh(self, future) -> None:
+    def _update_current(self, future) -> None:
         """A threadsafe way to update the current instance data and the
         future instance data. Only meant to be called as a callback.
 
@@ -367,18 +367,43 @@ class InstanceConnectionManager:
             )
         )
 
+        # TODO: put tasks in get_instance_metadata. have perform_refresh return a concurrent.futures.Future
         instance_data_task = self._loop.create_task(
             self._get_instance_data(metadata_future, ephemeral_future)
         )
-        instance_data_task.add_done_callback(self._threadsafe_refresh)
+        instance_data_task.add_done_callback(self._update_current)
 
         return instance_data_task
 
-    async def _schedule_refresh(self, delay: int):
-        print("schedling")
+    async def _schedule_refresh(self, delay: int) -> asyncio.Task:
+        """A coroutine that sleeps for the specified amount of time before
+        running _perform_refresh.
+
+        :type delay: int
+        :param delay: An integer representing the number of seconds for delay.
+
+        :rtype: asyncio.Task
+        :returns: A Task representing _get_instance_data.
+        """
         try:
             await asyncio.sleep(delay)
         except asyncio.CancelledException:
             return None
 
         return self._perform_refresh()
+
+    @staticmethod
+    def immediate_future(object: Any) -> concurrent.futures.Future:
+        """A static method that returns an finished future representing
+        the object passed in.
+
+        :type object: Any
+        :param object: Any object.
+
+        :rtype: concurrent.futures.Future
+        :returns: A concurrent.futures.Future representing the value passed
+            in.
+        """
+        fut = concurrent.futures.Future()
+        fut.set_result(object)
+        return fut
