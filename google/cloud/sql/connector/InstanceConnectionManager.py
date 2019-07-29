@@ -84,14 +84,6 @@ class InstanceConnectionManager:
     def __init__(
         self, instance_connection_string: str, loop: asyncio.AbstractEventLoop
     ) -> None:
-        # Block to initialize logging
-        logging.basicConfig(
-            level=logging.DEBUG,
-            format="%(asctime)s %(levelname)s %(message)s",
-            filename="InstanceConnectionManager.log",
-            filemode="w",
-        )
-
         # Validate connection string
         connection_string_split = instance_connection_string.split(":")
 
