@@ -15,14 +15,10 @@ limitations under the License.
 """
 
 # Importing libraries
-import asyncio
-import aiohttp
 import concurrent
 import googleapiclient
 import googleapiclient.discovery
 import google.auth
-from google.auth.credentials import Credentials
-import google.auth.transport.requests
 import json
 import OpenSSL
 import socket
@@ -71,7 +67,6 @@ class InstanceConnectionManager:
     _credentials: Credentials = None
     _priv_key: str = None
     _pub_key: str = None
-    _client_session: aiohttp.ClientSession = None
     _metadata: Dict[str, Union[Dict, str]] = None
 
     _mutex: threading.Lock = None
@@ -117,16 +112,7 @@ class InstanceConnectionManager:
         """
         logging.debug("Entering deconstructor")
 
-        if self._current is not None:
-            logging.debug("Waiting for _current_instance_data to finish")
-            self._current.result()
-
-        if self._client_session is not None and not self._client_session.closed:
-            logging.debug("Waiting for _client_session to close")
-            close_future = asyncio.run_coroutine_threadsafe(
-                self._client_session.close(), loop=self._loop
-            )
-            close_future.result()
+        self._executor.shutdown(wait=True)
 
         logging.debug("Finished deconstructing")
 
