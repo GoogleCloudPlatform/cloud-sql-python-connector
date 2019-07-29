@@ -16,10 +16,10 @@ limitations under the License.
 
 # Importing libraries
 import concurrent
+from concurrent.futures import Future, ThreadPoolExecutor
 import googleapiclient
 import googleapiclient.discovery
 import google.auth
-import json
 import OpenSSL
 import socket
 import threading
@@ -64,15 +64,15 @@ class InstanceConnectionManager:
     _project: str = None
     _region: str = None
     _instance: str = None
-    _credentials: Credentials = None
     _priv_key: str = None
     _pub_key: str = None
     _metadata: Dict[str, Union[Dict, str]] = None
 
     _mutex: threading.Lock = None
 
-    _current: concurrent.futures.Future = None
-    _next: concurrent.futures.Future = None
+    _current: Future = None
+    _next: Future = None
+    _executor: ThreadPoolExecutor = None
 
     _delay: int = 15
 
@@ -102,7 +102,7 @@ class InstanceConnectionManager:
 
         self._logger = logging.getLogger(name=__name__)
 
-        logging.debug("Updating instance data")
+        self._logger.debug("Updating instance data")
         self._current_instance_data = self._perform_refresh()
         self._next_instance_data = self.immediate_future(self._current_instance_data)
 
@@ -110,11 +110,11 @@ class InstanceConnectionManager:
         """Deconstructor to make sure ClientSession is closed and tasks have
         finished to have a graceful exit.
         """
-        logging.debug("Entering deconstructor")
+        self._logger.debug("Entering deconstructor")
 
         self._executor.shutdown(wait=True)
 
-        logging.debug("Finished deconstructing")
+        self._logger.debug("Finished deconstructing")
 
     @staticmethod
     def _get_metadata(
@@ -124,7 +124,7 @@ class InstanceConnectionManager:
         and returns a dictionary containing the IP addresses and certificate
         authority of the Cloud SQL Instance.
 
-        :type service: googleapiclient.discovery.Resource   
+        :type service: googleapiclient.discovery.Resource
         :param service: A googleapiclient.discovery.Resource object, built using the Cloud
             SQL Admin API.
 
@@ -154,9 +154,10 @@ class InstanceConnectionManager:
                 + "proj_name (str) and inst_name (str)."
             )
 
-        logging.debug("Requesting metadata")
+        logging.getLogger(__name__).debug("Requesting metadata")
 
-        ret_dict = service.instances().get(project=project, instance=instance).execute()
+        with threading.Lock():
+            ret_dict = service.instances().get(project=project, instance=instance).execute()
 
         metadata = {
             "ip_addresses": {
@@ -172,17 +173,17 @@ class InstanceConnectionManager:
         service: googleapiclient.discovery, project: str, instance: str, pub_key: str
     ) -> str:
         """Requests an ephemeral certificate from the Cloud SQL Instance.
-        
+
         :type service: googleapiclient.discovery.Resource
         :param service: A googleapiclient.discovery.Resource object, built using the Cloud
             SQL Admin API.
-        
+
         :type project: str
         :param project: A string representing the name of the project.
-        
+
         :type instance: str
         :param instance: A string representing the name of the instance.
-        
+
         :type pub_key: str
         :param pub_key: A string representing the name of the instance.
 
@@ -193,7 +194,7 @@ class InstanceConnectionManager:
         :raises TypeError: If one of the arguments passed in is None.
         """
 
-        print("Life is ephemeral")
+        logging.getLogger(__name__).debug("Life is ephemeral")
 
         if (
             not isinstance(service, googleapiclient.discovery.Resource)
@@ -203,13 +204,14 @@ class InstanceConnectionManager:
         ):
             raise TypeError("Cannot take None as an argument.")
 
-        data = {"public_key": pub_key}
+        with threading.Lock():
+            data = {"public_key": pub_key}
 
-        ret_dict = (
-            service.sslCerts()
-            .createEphemeral(project=project, instance=instance, body=data)
-            .execute()
-        )
+            ret_dict = (
+                service.sslCerts()
+                .createEphemeral(project=project, instance=instance, body=data)
+                .execute()
+            )
 
         return ret_dict["cert"]
 
@@ -222,7 +224,7 @@ class InstanceConnectionManager:
             instance metadata and a dict that contains all the instance's IP addresses.
         """
 
-        logging.debug("Creating context")
+        self._logger.debug("Creating context")
 
         metadata = self._executor.submit(
             self._get_metadata, self._cloud_sql_service, self._project, self._instance
@@ -294,7 +296,7 @@ class InstanceConnectionManager:
         :type future: concurrent.futures.Future
         :param future: The future passed in by add_done_callback.
         """
-        logging.debug("Entered _threadsafe_refresh")
+        self._logger.debug("Entered _threadsafe_refresh")
         with self._mutex:
             self._current = future.result()
             self._next = self._executor.submit(self._schedule_refresh, self._delay)
@@ -318,7 +320,6 @@ class InstanceConnectionManager:
 
         self._credentials = scoped_credentials
         self._cloud_sql_service = cloudsql
-        print(cloudsql)
 
     def _perform_refresh(self) -> concurrent.futures.Future:
         """Retrieves instance metadata and ephemeral certificate from the
@@ -328,7 +329,7 @@ class InstanceConnectionManager:
         :returns: A future representing the creation of an SSLcontext.
         """
 
-        logging.debug("Entered _perform_refresh")
+        self._logger.debug("Entered _perform_refresh")
 
         instance_data_task = self._executor.submit(self._get_instance_data)
         instance_data_task.add_done_callback(self._update_current)
@@ -345,12 +346,12 @@ class InstanceConnectionManager:
         :rtype: concurrent.futures.Future
         :returns: A Future representing _get_instance_data.
         """
-        logging.debug("Entering sleep")
+        self._logger.debug("Entering sleep")
 
         try:
             time.sleep(delay)
         except concurrent.futures.CancelledError:
-            logging.debug("Task cancelled.")
+            self._logger.debug("Task cancelled.")
             return None
 
         return self._perform_refresh()
