@@ -103,7 +103,7 @@ class InstanceConnectionManager:
         self._priv_key, self._pub_key = generate_keys()
         self._pub_key = self._pub_key.decode("UTF-8")
         self._mutex = threading.Lock()
-        
+
         logging.debug("Updating instance data")
         self._current_instance_data = self._perform_refresh()
         self._next_instance_data = self.immediate_future(self._current_instance_data)
@@ -199,29 +199,28 @@ class InstanceConnectionManager:
 
     @staticmethod
     async def _get_ephemeral(
-        service: googleapiclient.discovery  ,
-        project: str,
-        instance: str,
-        pub_key: str,
+        service: googleapiclient.discovery, project: str, instance: str, pub_key: str
     ) -> str:
-        """Asynchronously requests an ephemeral certificate from the Cloud SQL Instance.
+        """Requests an ephemeral certificate from the Cloud SQL Instance.
+        
+        :type service: googleapiclient.discovery
+        :param service: A googleapiclient Discovery object, built using the Cloud
+            SQL Admin API.
+        
+        :type project: str
+        :param project: A string representing the name of the project.
+        
+        :type instance: str
+        :param instance: A string representing the name of the instance.
+        
+        :type pub_key: str
+        :param pub_key: A string representing the name of the instance.
 
-        Args:
-            credentials (google.oauth2.service_account.Credentials): A credentials object
-              created from the google-auth library. Must be
-              using the SQL Admin API scopes. For more info, check out
-              https://google-auth.readthedocs.io/en/latest/.
-            project (str): A string representing the name of the project.
-            instance (str): A string representing the name of the instance.
-            pub_key (str): A string representing PEM-encoded RSA public key.
+        :rtype: str
+        :returns: An ephemeral certificate from the Cloud SQL instance that allows
+            authorized connections to the instance.
 
-        Returns:
-            str
-              An ephemeral certificate from the Cloud SQL instance that allows
-              authorized connections to the instance.
-
-        Raises:
-            TypeError: If one of the arguments passed in is None.
+        :raises TypeError: If one of the arguments passed in is None.
         """
 
         logging.debug("Life is ephemeral")
@@ -236,7 +235,9 @@ class InstanceConnectionManager:
 
         data = {"public_key": pub_key}
 
-        ret_dict = service.sslCerts().createEphemeral(project=project, instance=instance, body=data)
+        ret_dict = service.sslCerts().createEphemeral(
+            project=project, instance=instance, body=data
+        )
 
         return ret_dict["cert"]
 
