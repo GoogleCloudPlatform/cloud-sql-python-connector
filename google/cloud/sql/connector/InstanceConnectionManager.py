@@ -83,14 +83,6 @@ class InstanceConnectionManager:
     def __init__(
         self, instance_connection_string: str, loop: asyncio.AbstractEventLoop
     ) -> None:
-        # Block to initialize logging
-        logging.basicConfig(
-            level=logging.DEBUG,
-            format="%(asctime)s %(levelname)s %(message)s",
-            filename="InstanceConnectionManager.log",
-            filemode="w",
-        )
-
         # Validate connection string
         connection_string_split = instance_connection_string.split(":")
 
@@ -111,14 +103,7 @@ class InstanceConnectionManager:
         self._priv_key, self._pub_key = generate_keys()
         self._pub_key = self._pub_key.decode("UTF-8")
         self._mutex = threading.Lock()
-
-        async def create_client_session():
-            return aiohttp.ClientSession()
-
-        self._client_session = asyncio.run_coroutine_threadsafe(
-            create_client_session(), loop=self._loop
-        ).result()
-
+        
         logging.debug("Updating instance data")
         self._current_instance_data = self._perform_refresh()
         self._next_instance_data = self.immediate_future(self._current_instance_data)
@@ -214,8 +199,7 @@ class InstanceConnectionManager:
 
     @staticmethod
     async def _get_ephemeral(
-        client_session: aiohttp.ClientSession,
-        credentials: Credentials,
+        service: googleapiclient.discovery  ,
         project: str,
         instance: str,
         pub_key: str,
@@ -243,33 +227,16 @@ class InstanceConnectionManager:
         logging.debug("Life is ephemeral")
 
         if (
-            not isinstance(credentials, Credentials)
+            not isinstance(service, googleapiclient.discovery)
             or not isinstance(project, str)
             or not isinstance(instance, str)
             or not isinstance(pub_key, str)
         ):
             raise TypeError("Cannot take None as an argument.")
 
-        if not credentials.valid:
-            request = google.auth.transport.requests.Request()
-            credentials.refresh(request)
-
-        headers = {
-            "Authorization": "Bearer {}".format(credentials.token),
-            "Content-Type": "application/json",
-        }
-
-        url = "https://www.googleapis.com/sql/v1beta4/projects/{}/instances/{}/createEphemeral".format(
-            project, instance
-        )
-
         data = {"public_key": pub_key}
 
-        resp = await client_session.post(
-            url, headers=headers, json=data, raise_for_status=True
-        )
-
-        ret_dict = json.loads(await resp.text())
+        ret_dict = service.sslCerts().createEphemeral(project=project, instance=instance, body=data)
 
         return ret_dict["cert"]
 
