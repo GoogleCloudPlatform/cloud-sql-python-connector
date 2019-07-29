@@ -343,8 +343,8 @@ class InstanceConnectionManager:
 
         logging.debug("Entered _perform_refresh")
 
-        instance_data_task = asyncio.run_coroutine_threadsafe(
-            self._get_instance_data(), loop=self._loop
+        instance_data_task = self._executor.submit(
+            self._get_instance_data
         )
         instance_data_task.add_done_callback(self._update_current)
 
