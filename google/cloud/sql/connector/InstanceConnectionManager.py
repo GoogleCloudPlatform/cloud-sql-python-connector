@@ -30,6 +30,7 @@ import threading
 from typing import Any, Dict, Union
 
 import logging
+
 logger = logging.getLogger(name=__name__)
 
 # Custom utils import
@@ -69,7 +70,6 @@ class InstanceConnectionManager:
     _client_session: aiohttp.ClientSession = None
     _credentials: Credentials = None
 
-    
     _instance_connection_string: str = None
     _instance: str = None
     _project: str = None
@@ -84,8 +84,6 @@ class InstanceConnectionManager:
     _next: concurrent.futures.Future = None
 
     _delay: int = 15
-
-    
 
     def __init__(
         self, instance_connection_string: str, loop: asyncio.AbstractEventLoop
@@ -120,7 +118,6 @@ class InstanceConnectionManager:
         logger.debug("Updating instance data")
         self._current_instance_data = self._perform_refresh()
         self._next_instance_data = self.immediate_future(self._current_instance_data)
-
 
     def __del__(self):
         """Deconstructor to make sure ClientSession is closed and tasks have
@@ -352,7 +349,7 @@ class InstanceConnectionManager:
 
         return ctx
 
-    def _update_current(self, future) -> None:
+    def _update_current(self, future: concurrent.futures.Future) -> None:
         """A threadsafe way to update the current instance data and the
         future instance data. Only meant to be called as a callback.
 
