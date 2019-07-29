@@ -125,7 +125,7 @@ class InstanceConnectionManager:
             logging.debug("Waiting for _current_instance_data to finish")
             self._current.result()
 
-        if self._client_session is not None and not self._client_session.closed:
+        if not self._client_session.closed:
             logging.debug("Waiting for _client_session to close")
             close_future = asyncio.run_coroutine_threadsafe(
                 self._client_session.close(), loop=self._loop
@@ -232,7 +232,7 @@ class InstanceConnectionManager:
             TypeError: If one of the arguments passed in is None.
         """
 
-        logging.debug("Life is ephemeral")
+        logging.debug("Requesting ephemeral certificate")
 
         if (
             not isinstance(credentials, Credentials)
@@ -352,7 +352,7 @@ class InstanceConnectionManager:
         :type future: asyncio.Future
         :param future: The future passed in by add_done_callback.
         """
-        logging.debug("Entered _threadsafe_refresh")
+        logging.debug("Entered _update_current")
         with self._mutex:
             self._current = future.result()
             self._next = self._loop.create_task(self._schedule_refresh(self._delay))
