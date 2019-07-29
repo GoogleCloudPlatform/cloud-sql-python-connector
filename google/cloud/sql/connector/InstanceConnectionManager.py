@@ -14,6 +14,9 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
+# Custom utils import
+from google.cloud.sql.connector.utils import generate_keys
+
 # Importing libraries
 import asyncio
 import aiohttp
@@ -32,9 +35,6 @@ from typing import Any, Dict, Union
 import logging
 
 logger = logging.getLogger(name=__name__)
-
-# Custom utils import
-from google.cloud.sql.connector.utils import generate_keys
 
 
 class CloudSQLConnectionError(Exception):
@@ -358,7 +358,7 @@ class InstanceConnectionManager:
         """
         logger.debug("Entered _update_current")
         with self._mutex:
-            self._current = future.result()
+            self._current = future
             self._next = self._loop.create_task(self._schedule_refresh(self._delay))
 
     def _auth_init(self) -> None:
