@@ -63,7 +63,6 @@ class InstanceConnectionManager:
     # SelectorEventLoop, is usable on both Unix and Windows but has limited
     # functionality on Windows. It is recommended to use ProactorEventLoop
     # while developing on Windows.
-    _loop: asyncio.AbstractEventLoop = None
     _instance_connection_string: str = None
     _project: str = None
     _region: str = None
@@ -106,7 +105,8 @@ class InstanceConnectionManager:
                 + "format: project:region:instance."
             )
 
-        self._loop = loop
+        # Initialize ThreadPoolExecutor
+        self._executor = concurrent.futures.ThreadPoolExecutor(max_workers=4)
         self._auth_init()
         self._priv_key, self._pub_key = generate_keys()
         self._pub_key = self._pub_key.decode("UTF-8")
