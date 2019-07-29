@@ -305,13 +305,13 @@ class InstanceConnectionManager:
         """A threadsafe way to update the current instance data and the
         future instance data. Only meant to be called as a callback.
 
-        :type future: asyncio.Future
+        :type future: concurrent.futures.Future
         :param future: The future passed in by add_done_callback.
         """
         logging.debug("Entered _threadsafe_refresh")
         with self._mutex:
             self._current = future.result()
-            self._next = self._loop.create_task(self._schedule_refresh(self._delay))
+            self._next = self._executor.submit(self._schedule_refresh, self._delay)
 
     def _auth_init(self) -> None:
         """Creates and assigns a Google Python API service object for
