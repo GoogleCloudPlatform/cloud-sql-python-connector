@@ -64,22 +64,28 @@ class InstanceConnectionManager:
     # functionality on Windows. It is recommended to use ProactorEventLoop
     # while developing on Windows.
     _loop: asyncio.AbstractEventLoop = None
+    _mutex: threading.Lock = None
+
+    _client_session: aiohttp.ClientSession = None
+    _credentials: Credentials = None
+
+    
     _instance_connection_string: str = None
+    _instance: str = None
     _project: str = None
     _region: str = None
-    _instance: str = None
-    _credentials: Credentials = None
-    _priv_key: str = None
-    _pub_key: str = None
-    _client_session: aiohttp.ClientSession = None
+
     _metadata: Dict[str, Union[Dict, str]] = None
 
-    _mutex: threading.Lock = None
+    _priv_key: str = None
+    _pub_key: str = None
 
     _current: concurrent.futures.Future = None
     _next: concurrent.futures.Future = None
 
     _delay: int = 15
+
+    _logger: logging.Logger = None
 
     def __init__(
         self, instance_connection_string: str, loop: asyncio.AbstractEventLoop
@@ -114,6 +120,8 @@ class InstanceConnectionManager:
         logging.debug("Updating instance data")
         self._current_instance_data = self._perform_refresh()
         self._next_instance_data = self.immediate_future(self._current_instance_data)
+
+        self._logger = logging.getLogger(name=__name__)
 
     def __del__(self):
         """Deconstructor to make sure ClientSession is closed and tasks have
