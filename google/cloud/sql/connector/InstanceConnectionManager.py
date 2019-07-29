@@ -30,7 +30,7 @@ import threading
 from typing import Any, Dict, Union
 
 import logging
-
+logger = logging.getLogger(name=__name__)
 
 # Custom utils import
 from google.cloud.sql.connector.utils import generate_keys
@@ -85,7 +85,7 @@ class InstanceConnectionManager:
 
     _delay: int = 15
 
-    _logger: logging.Logger = None
+    
 
     def __init__(
         self, instance_connection_string: str, loop: asyncio.AbstractEventLoop
@@ -117,9 +117,7 @@ class InstanceConnectionManager:
             create_client_session(), loop=self._loop
         ).result()
 
-        self._logger = logging.getLogger(name=__name__)
-
-        self._logger.debug("Updating instance data")
+        logger.debug("Updating instance data")
         self._current_instance_data = self._perform_refresh()
         self._next_instance_data = self.immediate_future(self._current_instance_data)
 
@@ -128,20 +126,20 @@ class InstanceConnectionManager:
         """Deconstructor to make sure ClientSession is closed and tasks have
         finished to have a graceful exit.
         """
-        self._logger.debug("Entering deconstructor")
+        logger.debug("Entering deconstructor")
 
         if self._current is not None:
-            self._logger.debug("Waiting for _current_instance_data to finish")
+            logger.debug("Waiting for _current_instance_data to finish")
             self._current.result()
 
         if not self._client_session.closed:
-            self._logger.debug("Waiting for _client_session to close")
+            logger.debug("Waiting for _client_session to close")
             close_future = asyncio.run_coroutine_threadsafe(
                 self._client_session.close(), loop=self._loop
             )
             close_future.result()
 
-        self._logger.debug("Finished deconstructing")
+        logger.debug("Finished deconstructing")
 
     @staticmethod
     async def _get_metadata(
@@ -283,7 +281,7 @@ class InstanceConnectionManager:
             instance metadata and a dict that contains all the instance's IP addresses.
         """
 
-        self._logger.debug("Creating context")
+        logger.debug("Creating context")
 
         metadata_task = self._loop.create_task(
             self._get_metadata(
@@ -361,7 +359,7 @@ class InstanceConnectionManager:
         :type future: asyncio.Future
         :param future: The future passed in by add_done_callback.
         """
-        self._logger.debug("Entered _update_current")
+        logger.debug("Entered _update_current")
         with self._mutex:
             self._current = future.result()
             self._next = self._loop.create_task(self._schedule_refresh(self._delay))
@@ -394,7 +392,7 @@ class InstanceConnectionManager:
         :returns: A future representing the creation of an SSLcontext.
         """
 
-        self._logger.debug("Entered _perform_refresh")
+        logger.debug("Entered _perform_refresh")
 
         instance_data_task = asyncio.run_coroutine_threadsafe(
             self._get_instance_data(), loop=self._loop
@@ -413,12 +411,12 @@ class InstanceConnectionManager:
         :rtype: asyncio.Task
         :returns: A Task representing _get_instance_data.
         """
-        self._logger.debug("Entering sleep")
+        logger.debug("Entering sleep")
 
         try:
             await asyncio.sleep(delay)
         except asyncio.CancelledException:
-            self._logger.debug("Task cancelled.")
+            logger.debug("Task cancelled.")
             return None
 
         return self._perform_refresh()
