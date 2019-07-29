@@ -83,9 +83,7 @@ class InstanceConnectionManager:
 
     _logger: logging.Logger = None
 
-    def __init__(
-        self, instance_connection_string: str, loop: asyncio.AbstractEventLoop
-    ) -> None:
+    def __init__(self, instance_connection_string: str) -> None:
         # Validate connection string
         connection_string_split = instance_connection_string.split(":")
 
@@ -221,9 +219,11 @@ class InstanceConnectionManager:
 
         data = {"public_key": pub_key}
 
-        ret_dict = service.sslCerts().createEphemeral(
-            project=project, instance=instance, body=data
-        ).execute()
+        ret_dict = (
+            service.sslCerts()
+            .createEphemeral(project=project, instance=instance, body=data)
+            .execute()
+        )
 
         return ret_dict["cert"]
 
@@ -239,10 +239,7 @@ class InstanceConnectionManager:
         logging.debug("Creating context")
 
         metadata = self._executor.submit(
-            self._get_metadata,
-            self._cloud_sql_service,
-            self._project,
-            self._instance,
+            self._get_metadata, self._cloud_sql_service, self._project, self._instance
         ).result()
 
         ephemeral_cert = self._executor.submit(
