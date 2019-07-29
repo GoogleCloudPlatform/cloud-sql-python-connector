@@ -76,13 +76,12 @@ def test_InstanceConnectionManager_get_ephemeral():
     icm = InstanceConnectionManager(connect_string)
 
     result = icm._get_ephemeral(
-        icm._cloud_sql_service,
-        icm._project,
-        icm._instance,
-        icm._pub_key,
-    )
+        icm._cloud_sql_service, icm._project, icm._instance, icm._pub_key
+    ).split("\n")
 
     del icm
+
+    print(result)
 
     assert (
         result[0] == "-----BEGIN CERTIFICATE-----"
@@ -105,9 +104,7 @@ def test_InstanceConnectionManager_get_metadata():
         )
     icm = InstanceConnectionManager(connect_string)
 
-    result = icm._get_metadata(
-        icm._cloud_sql_service, icm._project, icm._instance
-    )
+    result = icm._get_metadata(icm._cloud_sql_service, icm._project, icm._instance)
 
     del icm
 

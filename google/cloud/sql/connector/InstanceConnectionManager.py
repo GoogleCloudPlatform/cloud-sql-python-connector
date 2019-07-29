@@ -157,7 +157,9 @@ class InstanceConnectionManager:
         logging.getLogger(__name__).debug("Requesting metadata")
 
         with threading.Lock():
-            ret_dict = service.instances().get(project=project, instance=instance).execute()
+            ret_dict = (
+                service.instances().get(project=project, instance=instance).execute()
+            )
 
         metadata = {
             "ip_addresses": {
