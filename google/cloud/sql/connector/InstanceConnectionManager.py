@@ -129,20 +129,15 @@ class InstanceConnectionManager:
 
     @staticmethod
     async def _get_metadata(
-        client_session: aiohttp.ClientSession,
-        credentials: Credentials,
-        project: str,
-        instance: str,
+        service: googleapiclient.discovery, project: str, instance: str
     ) -> Dict[str, Union[Dict, str]]:
         """Requests metadata from the Cloud SQL Instance
         and returns a dictionary containing the IP addresses and certificate
         authority of the Cloud SQL Instance.
 
-        :type credentials: google.oauth2.service_account.Credentials
-        :param service:
-            A credentials object created from the google-auth Python library.
-            Must have the SQL Admin API scopes. For more info check out
-            https://google-auth.readthedocs.io/en/latest/.
+        :type service: googleapiclient.discovery
+        :param service: A googleapiclient Discovery object, built using the Cloud
+            SQL Admin API.
 
         :type project: str
         :param project:
@@ -160,7 +155,7 @@ class InstanceConnectionManager:
         """
 
         if (
-            not isinstance(credentials, Credentials)
+            not isinstance(service, googleapiclient.discovery)
             or not isinstance(project, str)
             or not isinstance(instance, str)
         ):
@@ -170,23 +165,9 @@ class InstanceConnectionManager:
                 + "proj_name (str) and inst_name (str)."
             )
 
-        if not credentials.valid:
-            request = google.auth.transport.requests.Request()
-            credentials.refresh(request)
-
-        headers = {
-            "Authorization": "Bearer {}".format(credentials.token),
-            "Content-Type": "application/json",
-        }
-
-        url = "https://www.googleapis.com/sql/v1beta4/projects/{}/instances/{}".format(
-            project, instance
-        )
-
         logging.debug("Requesting metadata")
 
-        resp = await client_session.get(url, headers=headers, raise_for_status=True)
-        ret_dict = json.loads(await resp.text())
+        ret_dict = service.instances().get(project=project, instance=instance)
 
         metadata = {
             "ip_addresses": {
