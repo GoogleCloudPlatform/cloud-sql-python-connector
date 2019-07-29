@@ -233,23 +233,22 @@ class InstanceConnectionManager:
 
         logging.debug("Creating context")
 
-        metadata_task = self._loop.create_task(
-            self._get_metadata(
-                self._client_session, self._credentials, self._project, self._instance
-            )
-        )
+        metadata = self._executor.submit(
+            self._get_metadata,
+            self._client_session,
+            self._credentials,
+            self._project,
+            self._instance,
+        ).result()
 
-        ephemeral_task = self._loop.create_task(
-            self._get_ephemeral(
-                self._client_session,
-                self._credentials,
-                self._project,
-                self._instance,
-                self._pub_key,
-            )
-        )
-
-        metadata, ephemeral_cert = await asyncio.gather(metadata_task, ephemeral_task)
+        ephemeral_cert = self._executor.submit(
+            self._get_ephemeral,
+            self._client_session,
+            self._credentials,
+            self._project,
+            self._instance,
+            self._pub_key,
+        ).result()
 
         instance_data = {
             "ssl_context": self._create_context(
