@@ -81,6 +81,8 @@ class InstanceConnectionManager:
 
     _delay: int = 15
 
+    _logger: logging.Logger = None
+
     def __init__(
         self, instance_connection_string: str, loop: asyncio.AbstractEventLoop
     ) -> None:
@@ -104,6 +106,8 @@ class InstanceConnectionManager:
         self._priv_key, self._pub_key = generate_keys()
         self._pub_key = self._pub_key.decode("UTF-8")
         self._mutex = threading.Lock()
+
+        self._logger = logging.getLogger(name=__name__)
 
         logging.debug("Updating instance data")
         self._current_instance_data = self._perform_refresh()
@@ -129,15 +133,15 @@ class InstanceConnectionManager:
         logging.debug("Finished deconstructing")
 
     @staticmethod
-    async def _get_metadata(
+    def _get_metadata(
         service: googleapiclient.discovery, project: str, instance: str
     ) -> Dict[str, Union[Dict, str]]:
         """Requests metadata from the Cloud SQL Instance
         and returns a dictionary containing the IP addresses and certificate
         authority of the Cloud SQL Instance.
 
-        :type service: googleapiclient.discovery
-        :param service: A googleapiclient Discovery object, built using the Cloud
+        :type service: googleapiclient.discovery.Resource   
+        :param service: A googleapiclient.discovery.Resource object, built using the Cloud
             SQL Admin API.
 
         :type project: str
@@ -156,7 +160,7 @@ class InstanceConnectionManager:
         """
 
         if (
-            not isinstance(service, googleapiclient.discovery)
+            not isinstance(service, googleapiclient.discovery.Resource)
             or not isinstance(project, str)
             or not isinstance(instance, str)
         ):
@@ -168,7 +172,7 @@ class InstanceConnectionManager:
 
         logging.debug("Requesting metadata")
 
-        ret_dict = service.instances().get(project=project, instance=instance)
+        ret_dict = service.instances().get(project=project, instance=instance).execute()
 
         metadata = {
             "ip_addresses": {
@@ -180,13 +184,13 @@ class InstanceConnectionManager:
         return metadata
 
     @staticmethod
-    async def _get_ephemeral(
+    def _get_ephemeral(
         service: googleapiclient.discovery, project: str, instance: str, pub_key: str
     ) -> str:
         """Requests an ephemeral certificate from the Cloud SQL Instance.
         
-        :type service: googleapiclient.discovery
-        :param service: A googleapiclient Discovery object, built using the Cloud
+        :type service: googleapiclient.discovery.Resource
+        :param service: A googleapiclient.discovery.Resource object, built using the Cloud
             SQL Admin API.
         
         :type project: str
@@ -205,10 +209,10 @@ class InstanceConnectionManager:
         :raises TypeError: If one of the arguments passed in is None.
         """
 
-        logging.debug("Life is ephemeral")
+        print("Life is ephemeral")
 
         if (
-            not isinstance(service, googleapiclient.discovery)
+            not isinstance(service, googleapiclient.discovery.Resource)
             or not isinstance(project, str)
             or not isinstance(instance, str)
             or not isinstance(pub_key, str)
@@ -219,11 +223,11 @@ class InstanceConnectionManager:
 
         ret_dict = service.sslCerts().createEphemeral(
             project=project, instance=instance, body=data
-        )
+        ).execute()
 
         return ret_dict["cert"]
 
-    async def _get_instance_data(self) -> Dict[str, Union[OpenSSL.SSL.Context, Dict]]:
+    def _get_instance_data(self) -> Dict[str, Union[OpenSSL.SSL.Context, Dict]]:
         """Asynchronous function that takes in the futures for the ephemeral certificate
         and the instance metadata and generates an OpenSSL context object.
 
@@ -236,16 +240,14 @@ class InstanceConnectionManager:
 
         metadata = self._executor.submit(
             self._get_metadata,
-            self._client_session,
-            self._credentials,
+            self._cloud_sql_service,
             self._project,
             self._instance,
         ).result()
 
         ephemeral_cert = self._executor.submit(
             self._get_ephemeral,
-            self._client_session,
-            self._credentials,
+            self._cloud_sql_service,
             self._project,
             self._instance,
             self._pub_key,
@@ -333,6 +335,7 @@ class InstanceConnectionManager:
 
         self._credentials = scoped_credentials
         self._cloud_sql_service = cloudsql
+        print(cloudsql)
 
     def _perform_refresh(self) -> concurrent.futures.Future:
         """Retrieves instance metadata and ephemeral certificate from the
