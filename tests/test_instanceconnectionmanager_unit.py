@@ -19,7 +19,8 @@ from google.cloud.sql.connector.InstanceConnectionManager import (
     InstanceConnectionManager,
 )
 import os
-import threading
+
+# import threadings
 import concurrent
 
 

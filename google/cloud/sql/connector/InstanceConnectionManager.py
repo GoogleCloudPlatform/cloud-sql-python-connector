@@ -162,12 +162,12 @@ class InstanceConnectionManager:
                 service.instances().get(project=project, instance=instance).execute()
             )
 
-        metadata = {
-            "ip_addresses": {
-                ip["type"]: ip["ipAddress"] for ip in ret_dict["ipAddresses"]
-            },
-            "server_ca_cert": ret_dict["serverCaCert"]["cert"],
-        }
+            metadata = {
+                "ip_addresses": {
+                    ip["type"]: ip["ipAddress"] for ip in ret_dict["ipAddresses"]
+                },
+                "server_ca_cert": ret_dict["serverCaCert"]["cert"],
+            }
 
         return metadata
 
@@ -216,7 +216,9 @@ class InstanceConnectionManager:
                 .execute()
             )
 
-        return ret_dict["cert"]
+            cert = ret_dict["cert"]
+
+        return cert
 
     def _get_instance_data(self) -> Dict[str, Union[OpenSSL.SSL.Context, Dict]]:
         """Asynchronous function that takes in the futures for the ephemeral certificate
@@ -308,20 +310,20 @@ class InstanceConnectionManager:
         """Creates and assigns a Google Python API service object for
         Google Cloud SQL Admin API.
         """
+        with threading.Lock():
+            credentials, project = google.auth.default()
+            scoped_credentials = credentials.with_scopes(
+                [
+                    "https://www.googleapis.com/auth/sqlservice.admin",
+                    "https://www.googleapis.com/auth/cloud-platform",
+                ]
+            )
 
-        credentials, project = google.auth.default()
-        scoped_credentials = credentials.with_scopes(
-            [
-                "https://www.googleapis.com/auth/sqlservice.admin",
-                "https://www.googleapis.com/auth/cloud-platform",
-            ]
-        )
-
-        cloudsql = googleapiclient.discovery.build(
-            "sqladmin", "v1beta4", credentials=scoped_credentials
-        )
-        self._credentials = scoped_credentials
-        self._cloud_sql_service = cloudsql
+            cloudsql = googleapiclient.discovery.build(
+                "sqladmin", "v1beta4", credentials=scoped_credentials
+            )
+            self._credentials = scoped_credentials
+            self._cloud_sql_service = cloudsql
 
     def _perform_refresh(self) -> concurrent.futures.Future:
         """Retrieves instance metadata and ephemeral certificate from the
