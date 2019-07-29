@@ -27,6 +27,7 @@ import json
 import OpenSSL
 import socket
 import threading
+import time
 from typing import Any, Dict, Union
 
 import logging
@@ -343,28 +344,26 @@ class InstanceConnectionManager:
 
         logging.debug("Entered _perform_refresh")
 
-        instance_data_task = self._executor.submit(
-            self._get_instance_data
-        )
+        instance_data_task = self._executor.submit(self._get_instance_data)
         instance_data_task.add_done_callback(self._update_current)
 
         return instance_data_task
 
-    async def _schedule_refresh(self, delay: int) -> asyncio.Task:
-        """A coroutine that sleeps for the specified amount of time before
+    def _schedule_refresh(self, delay: int) -> concurrent.futures.Future:
+        """A corofunctionutine that sleeps for the specified amount of time before
         running _perform_refresh.
 
         :type delay: int
         :param delay: An integer representing the number of seconds for delay.
 
-        :rtype: asyncio.Task
-        :returns: A Task representing _get_instance_data.
+        :rtype: concurrent.futures.Future
+        :returns: A Future representing _get_instance_data.
         """
         logging.debug("Entering sleep")
 
         try:
-            await asyncio.sleep(delay)
-        except asyncio.CancelledException:
+            time.sleep(delay)
+        except concurrent.futures.CancelledError:
             logging.debug("Task cancelled.")
             return None
 
