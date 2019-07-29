@@ -112,6 +112,7 @@ class InstanceConnectionManager:
         """
         self._logger.debug("Entering deconstructor")
 
+        # self._next.cancel()
         self._executor.shutdown(wait=True)
 
         self._logger.debug("Finished deconstructing")
@@ -300,7 +301,7 @@ class InstanceConnectionManager:
         """
         self._logger.debug("Entered _threadsafe_refresh")
         with self._mutex:
-            self._current = future.result()
+            self._current = future
             self._next = self._executor.submit(self._schedule_refresh, self._delay)
 
     def _auth_init(self) -> None:
@@ -319,7 +320,6 @@ class InstanceConnectionManager:
         cloudsql = googleapiclient.discovery.build(
             "sqladmin", "v1beta4", credentials=scoped_credentials
         )
-
         self._credentials = scoped_credentials
         self._cloud_sql_service = cloudsql
 
