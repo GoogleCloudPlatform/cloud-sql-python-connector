@@ -97,8 +97,6 @@ class InstanceConnectionManager:
     _current: concurrent.futures.Future = None
     _next: concurrent.futures.Future = None
 
-    _delay: int = 15
-
     def __init__(
         self, instance_connection_string: str, loop: asyncio.AbstractEventLoop
     ) -> None:
@@ -125,10 +123,8 @@ class InstanceConnectionManager:
         logger.debug("Updating instance data")
 
         with self._lock:
-            self._current_instance_data = self._perform_refresh()
-            self._next_instance_data = self.immediate_future(
-                self._current_instance_data
-            )
+            self._current = self._perform_refresh()
+            self._next = self.immediate_future(self._current)
 
     def __del__(self):
         """Deconstructor to make sure ClientSession is closed and tasks have
@@ -138,7 +134,7 @@ class InstanceConnectionManager:
 
         if self._current is not None:
             logger.debug("Waiting for _current_instance_data to finish")
-            self._current.result()
+            self._current.cancel()
 
         if not self._client_session.closed:
             logger.debug("Waiting for _client_session to close")
@@ -368,7 +364,7 @@ class InstanceConnectionManager:
         logger.debug("Entered _update_current")
         with self._lock:
             self._current = future
-            self._next = self._loop.create_task(self._schedule_refresh(self._delay))
+            self._next = self._loop.create_task(self._schedule_refresh(55 * 60))
 
     def _auth_init(self) -> None:
         """Creates and assigns a Google Python API service object for
@@ -449,7 +445,8 @@ class InstanceConnectionManager:
         :rtype: OpenSSl.SSL.Connection
         :returns: An OpenSSL connection to the primary IP of the database.
         """
-        instance_data: InstanceMetadata = self._current_instance_data.result()
+        with self._lock:
+            instance_data: InstanceMetadata = self._current.result()
         ctx = instance_data.ssl_context
         ip_addr = instance_data.ip_addresses["PRIMARY"]
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
