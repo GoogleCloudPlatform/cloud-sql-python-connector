@@ -75,7 +75,7 @@ class InstanceConnectionManager:
     # while developing on Windows.
     _loop: asyncio.AbstractEventLoop
 
-    __client_session: aiohttp.ClientSession
+    __client_session: aiohttp.ClientSession = None
 
     @property
     def _client_session(self) -> aiohttp.ClientSession:
