@@ -53,7 +53,7 @@ def blacken(session):
 
 def default(session):
     # Install all test dependencies, then install this package in-place.
-    session.install("mock", "pytest", "pytest-cov", "pytest-concurrent")
+    session.install("mock", "pytest", "pytest-cov")
     session.install("-e", ".")
     session.install("-r", "requirements.txt")
     # Run py.test against the unit tests.
@@ -66,7 +66,6 @@ def default(session):
         "--cov-config=.coveragerc",
         "--cov-report=",
         "--cov-fail-under=0",
-        "--concmode=mthread",
         os.path.join("tests"),
         *session.posargs,
     )

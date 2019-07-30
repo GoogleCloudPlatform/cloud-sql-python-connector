@@ -77,7 +77,7 @@ def test_InstanceConnectionManager_get_ephemeral():
     icm = InstanceConnectionManager(connect_string)
 
     result = icm._get_ephemeral(
-        icm._cloud_sql_service, icm._project, icm._instance, icm._pub_key
+        icm._credentials, icm._project, icm._instance, icm._pub_key
     ).split("\n")
 
     del icm
@@ -105,7 +105,7 @@ def test_InstanceConnectionManager_get_metadata():
         )
     icm = InstanceConnectionManager(connect_string)
 
-    result = icm._get_metadata(icm._cloud_sql_service, icm._project, icm._instance)
+    result = icm._get_metadata(icm._credentials, icm._project, icm._instance)
 
     del icm
 
