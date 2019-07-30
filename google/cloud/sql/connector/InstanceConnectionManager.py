@@ -73,7 +73,7 @@ class InstanceConnectionManager:
     # SelectorEventLoop, is usable on both Unix and Windows but has limited
     # functionality on Windows. It is recommended to use ProactorEventLoop
     # while developing on Windows.
-    _loop: asyncio.AbstractEventLoop
+    _loop: asyncio.AbstractEventLoop = None
 
     __client_session: aiohttp.ClientSession = None
 
@@ -83,19 +83,19 @@ class InstanceConnectionManager:
             self.__client_session = aiohttp.ClientSession()
         return self.__client_session
 
-    _credentials: Credentials
+    _credentials: Credentials = None
 
-    _instance_connection_string: str
-    _instance: str
-    _project: str
-    _region: str
+    _instance_connection_string: str = None
+    _instance: str = None
+    _project: str = None
+    _region: str = None
 
-    _priv_key: str
-    _pub_key: str
+    _priv_key: str = None
+    _pub_key: str = None
 
-    _lock: threading.Lock
-    _current: concurrent.futures.Future
-    _next: concurrent.futures.Future
+    _lock: threading.Lock = None
+    _current: concurrent.futures.Future = None
+    _next: concurrent.futures.Future = None
 
     _delay: int = 15
 
@@ -143,7 +143,7 @@ class InstanceConnectionManager:
         if not self._client_session.closed:
             logger.debug("Waiting for _client_session to close")
             close_future = asyncio.run_coroutine_threadsafe(
-                self._client_session.close(), loop=self._loop
+                self.__client_session.close(), loop=self._loop
             )
             close_future.result()
 
