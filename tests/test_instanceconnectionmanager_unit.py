@@ -18,10 +18,13 @@ import pytest  # noqa F401 Needed to run the tests
 from google.cloud.sql.connector.InstanceConnectionManager import (
     InstanceConnectionManager,
 )
+from google.cloud.sql.connector.utils import generate_keys
 import asyncio
 import os
 import threading
 import concurrent
+import google.auth
+import aiohttp
 
 
 def test_InstanceConnectionManager_init():
@@ -64,7 +67,8 @@ def test_InstanceConnectionManager_init():
 # del icm
 
 
-def test_InstanceConnectionManager_get_ephemeral():
+@pytest.mark.asyncio
+async def test_InstanceConnectionManager_get_ephemeral():
     """
     Test to check whether _get_ephemeral runs without problems given a valid
     connection string.
@@ -78,27 +82,24 @@ def test_InstanceConnectionManager_get_ephemeral():
             + "_NAME' to a valid Cloud SQL connection string."
         )
 
-    loop = asyncio.new_event_loop()
-    thr = threading.Thread(target=loop.run_forever)
-    thr.start()
-    icm = InstanceConnectionManager(connect_string, loop)
+    project = connect_string.split(":")[0]
+    instance = connect_string.split(":")[2]
 
-    fut = asyncio.run_coroutine_threadsafe(
-        icm._get_ephemeral(
-            icm._client_session,
-            icm._credentials,
-            icm._project,
-            icm._instance,
-            icm._pub_key,
-        ),
-        loop=loop,
+    credentials, project = google.auth.default()
+    credentials = credentials.with_scopes(
+        [
+            "https://www.googleapis.com/auth/sqlservice.admin",
+            "https://www.googleapis.com/auth/cloud-platform",
+        ]
     )
+    priv, pub_key = generate_keys()
 
-    result = fut.result().split("\n")
-    print(result)
+    async with aiohttp.ClientSession() as client_session:
+        result = await InstanceConnectionManager._get_ephemeral(
+            client_session, credentials, project, instance, pub_key.decode("UTF-8")
+        )
 
-    del icm
-    loop.stop()
+    result = result.split("\n")
 
     assert (
         result[0] == "-----BEGIN CERTIFICATE-----"
@@ -106,7 +107,8 @@ def test_InstanceConnectionManager_get_ephemeral():
     )
 
 
-def test_InstanceConnectionManager_get_metadata():
+@pytest.mark.asyncio
+async def test_InstanceConnectionManager_get_metadata():
     """
     Test to check whether _get_ephemeral runs without problems given a valid
     connection string.
@@ -120,22 +122,23 @@ def test_InstanceConnectionManager_get_metadata():
             + "_NAME' to a valid Cloud SQL connection string."
         )
 
-    loop = asyncio.new_event_loop()
-    thr = threading.Thread(target=loop.run_forever, daemon=True)
-    thr.start()
-    icm = InstanceConnectionManager(connect_string, loop)
+    project = connect_string.split(":")[0]
+    instance = connect_string.split(":")[2]
 
-    fut = asyncio.run_coroutine_threadsafe(
-        icm._get_metadata(
-            icm._client_session, icm._credentials, icm._project, icm._instance
-        ),
-        loop=loop,
+    credentials, project = google.auth.default()
+    credentials = credentials.with_scopes(
+        [
+            "https://www.googleapis.com/auth/sqlservice.admin",
+            "https://www.googleapis.com/auth/cloud-platform",
+        ]
     )
+    priv, pub_key = generate_keys()
 
-    result = fut.result()
+    async with aiohttp.ClientSession() as client_session:
+        result = await InstanceConnectionManager._get_metadata(
+            client_session, credentials, project, instance
+        )
 
-    del icm
-    loop.stop()
     assert result["ip_addresses"] is not None and isinstance(
         result["server_ca_cert"], str
     )

@@ -73,22 +73,29 @@ class InstanceConnectionManager:
     # SelectorEventLoop, is usable on both Unix and Windows but has limited
     # functionality on Windows. It is recommended to use ProactorEventLoop
     # while developing on Windows.
-    _loop: asyncio.AbstractEventLoop = None
+    _loop: asyncio.AbstractEventLoop
 
-    _client_session: aiohttp.ClientSession = None
-    _credentials: Credentials = None
+    __client_session: aiohttp.ClientSession
 
-    _instance_connection_string: str = None
-    _instance: str = None
-    _project: str = None
-    _region: str = None
+    @property
+    def _client_session(self) -> aiohttp.ClientSession:
+        if self.__client_session is None:
+            self.__client_session = aiohttp.ClientSession()
+        return self.__client_session
 
-    _priv_key: str = None
-    _pub_key: str = None
+    _credentials: Credentials
 
-    _lock: threading.Lock = None
-    _current: concurrent.futures.Future = None
-    _next: concurrent.futures.Future = None
+    _instance_connection_string: str
+    _instance: str
+    _project: str
+    _region: str
+
+    _priv_key: str
+    _pub_key: str
+
+    _lock: threading.Lock
+    _current: concurrent.futures.Future
+    _next: concurrent.futures.Future
 
     _delay: int = 15
 
@@ -111,16 +118,9 @@ class InstanceConnectionManager:
 
         self._loop = loop
         self._auth_init()
-        self._priv_key, self._pub_key = generate_keys()
-        self._pub_key = self._pub_key.decode("UTF-8")
+        self._priv_key, pub_key = generate_keys()
+        self._pub_key = pub_key.decode("UTF-8")
         self._lock = threading.Lock()
-
-        async def create_client_session():
-            return aiohttp.ClientSession()
-
-        self._client_session = asyncio.run_coroutine_threadsafe(
-            create_client_session(), loop=self._loop
-        ).result()
 
         logger.debug("Updating instance data")
 
@@ -407,7 +407,7 @@ class InstanceConnectionManager:
 
         return instance_data_task
 
-    async def _schedule_refresh(self, delay: int) -> asyncio.Task:
+    async def _schedule_refresh(self, delay: int) -> concurrent.futures.Future:
         """A coroutine that sleeps for the specified amount of time before
         running _perform_refresh.
 
@@ -439,7 +439,7 @@ class InstanceConnectionManager:
         :returns: A concurrent.futures.Future representing the value passed
             in.
         """
-        fut = concurrent.futures.Future()
+        fut: concurrent.futures.Future = concurrent.futures.Future()
         fut.set_result(object)
         return fut
 
@@ -449,7 +449,7 @@ class InstanceConnectionManager:
         :rtype: OpenSSl.SSL.Connection
         :returns: An OpenSSL connection to the primary IP of the database.
         """
-        instance_data = self._current_instance_data.result()
+        instance_data: InstanceMetadata = self._current_instance_data.result()
         ctx = instance_data.ssl_context
         ip_addr = instance_data.ip_addresses["PRIMARY"]
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
