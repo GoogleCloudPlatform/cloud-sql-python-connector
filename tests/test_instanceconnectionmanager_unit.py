@@ -27,11 +27,29 @@ import google.auth
 import aiohttp
 
 
+@pytest.fixture
+def connect_string():
+    """
+    Retrieves a valid connection string from the environment and
+    returns it.
+    """
+    try:
+        connect_string = os.environ["INSTANCE_CONNECTION_NAME"]
+    except KeyError:
+        raise KeyError(
+            "Please set environment variable 'INSTANCE_CONNECTION"
+            + "_NAME' to a valid Cloud SQL connection string."
+        )
+
+    return connect_string
+
+
 def test_InstanceConnectionManager_init():
     """
     Test to check whether the __init__ method of InstanceConnectionManager
     can tell if the connection string that's passed in is formatted correctly.
     """
+
     loop = asyncio.new_event_loop()
     thr = threading.Thread(target=loop.run_forever)
     thr.start()
@@ -68,19 +86,11 @@ def test_InstanceConnectionManager_init():
 
 
 @pytest.mark.asyncio
-async def test_InstanceConnectionManager_get_ephemeral():
+async def test_InstanceConnectionManager_get_ephemeral(connect_string):
     """
     Test to check whether _get_ephemeral runs without problems given a valid
     connection string.
     """
-
-    try:
-        connect_string = os.environ["INSTANCE_CONNECTION_NAME"]
-    except KeyError:
-        raise KeyError(
-            "Please set environment variable 'INSTANCE_CONNECTION"
-            + "_NAME' to a valid Cloud SQL connection string."
-        )
 
     project = connect_string.split(":")[0]
     instance = connect_string.split(":")[2]
@@ -108,19 +118,11 @@ async def test_InstanceConnectionManager_get_ephemeral():
 
 
 @pytest.mark.asyncio
-async def test_InstanceConnectionManager_get_metadata():
+async def test_InstanceConnectionManager_get_metadata(connect_string):
     """
     Test to check whether _get_ephemeral runs without problems given a valid
     connection string.
     """
-
-    try:
-        connect_string = os.environ["INSTANCE_CONNECTION_NAME"]
-    except KeyError:
-        raise KeyError(
-            "Please set environment variable 'INSTANCE_CONNECTION"
-            + "_NAME' to a valid Cloud SQL connection string."
-        )
 
     project = connect_string.split(":")[0]
     instance = connect_string.split(":")[2]
@@ -144,21 +146,14 @@ async def test_InstanceConnectionManager_get_metadata():
     )
 
 
-def test_InstanceConnectionManager_perform_refresh():
+def test_InstanceConnectionManager_perform_refresh(connect_string):
     """
     Test to check whether _get_perform works as described given valid
     conditions.
     """
-    try:
-        connect_string = os.environ["INSTANCE_CONNECTION_NAME"]
-    except KeyError:
-        raise KeyError(
-            "Please set environment variable 'INSTANCE_CONNECTION"
-            + "_NAME' to a valid Cloud SQL connection string."
-        )
 
     loop = asyncio.new_event_loop()
-    thr = threading.Thread(target=loop.run_forever, daemon=True)
+    thr = threading.Thread(target=loop.run_forever)
     thr.start()
     icm = InstanceConnectionManager(connect_string, loop)
     fut = icm._perform_refresh()
