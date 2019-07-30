@@ -53,7 +53,7 @@ def blacken(session):
 
 def default(session):
     # Install all test dependencies, then install this package in-place.
-    session.install("mock", "pytest", "pytest-cov")
+    session.install("mock", "pytest", "pytest-cov", "pytest-asyncio")
     session.install("-e", ".")
     session.install("-r", "requirements.txt")
     # Run py.test against the unit tests.
