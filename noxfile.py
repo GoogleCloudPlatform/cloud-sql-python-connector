@@ -66,6 +66,7 @@ def default(session):
         "--cov-config=.coveragerc",
         "--cov-report=",
         "--cov-fail-under=0",
+        # "--concmode=mthread",
         os.path.join("tests"),
         *session.posargs,
     )

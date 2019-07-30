@@ -21,6 +21,7 @@ from google.cloud.sql.connector.InstanceConnectionManager import (
 import asyncio
 import os
 import threading
+import concurrent
 
 
 def test_InstanceConnectionManager_init():
@@ -88,7 +89,7 @@ def test_InstanceConnectionManager_get_ephemeral():
             icm._credentials,
             icm._project,
             icm._instance,
-            icm._pub_key.decode("UTF-8"),
+            icm._pub_key,
         ),
         loop=loop,
     )
@@ -161,4 +162,4 @@ def test_InstanceConnectionManager_perform_refresh():
 
     del icm
     loop.stop()
-    assert isinstance(fut, asyncio.Task)
+    assert isinstance(fut, concurrent.futures.Future)
