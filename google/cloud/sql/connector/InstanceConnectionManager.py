@@ -37,6 +37,15 @@ import logging
 logger = logging.getLogger(name=__name__)
 
 
+class InstanceMetadata:
+    ip_addresses: Dict[str, str]
+    ssl_context: OpenSSL.SSL.Context
+
+    def __init__(self, ssl_context, ip_addresses):
+        self.ssl_context = ssl_context
+        self.ip_addresses = ip_addresses
+
+
 class CloudSQLConnectionError(Exception):
     """
     Raised when the provided connection string is not formatted
@@ -65,7 +74,6 @@ class InstanceConnectionManager:
     # functionality on Windows. It is recommended to use ProactorEventLoop
     # while developing on Windows.
     _loop: asyncio.AbstractEventLoop = None
-    _mutex: threading.Lock = None
 
     _client_session: aiohttp.ClientSession = None
     _credentials: Credentials = None
@@ -75,11 +83,10 @@ class InstanceConnectionManager:
     _project: str = None
     _region: str = None
 
-    _metadata: Dict[str, Union[Dict, str]] = None
-
     _priv_key: str = None
     _pub_key: str = None
 
+    _lock: threading.Lock = None
     _current: concurrent.futures.Future = None
     _next: concurrent.futures.Future = None
 
@@ -106,7 +113,7 @@ class InstanceConnectionManager:
         self._auth_init()
         self._priv_key, self._pub_key = generate_keys()
         self._pub_key = self._pub_key.decode("UTF-8")
-        self._mutex = threading.Lock()
+        self._lock = threading.Lock()
 
         async def create_client_session():
             return aiohttp.ClientSession()
@@ -116,8 +123,12 @@ class InstanceConnectionManager:
         ).result()
 
         logger.debug("Updating instance data")
-        self._current_instance_data = self._perform_refresh()
-        self._next_instance_data = self.immediate_future(self._current_instance_data)
+
+        with self._lock:
+            self._current_instance_data = self._perform_refresh()
+            self._next_instance_data = self.immediate_future(
+                self._current_instance_data
+            )
 
     def __del__(self):
         """Deconstructor to make sure ClientSession is closed and tasks have
@@ -269,7 +280,7 @@ class InstanceConnectionManager:
 
         return ret_dict["cert"]
 
-    async def _get_instance_data(self) -> Dict[str, Union[OpenSSL.SSL.Context, Dict]]:
+    async def _get_instance_data(self) -> InstanceMetadata:
         """Asynchronous function that takes in the futures for the ephemeral certificate
         and the instance metadata and generates an OpenSSL context object.
 
@@ -298,16 +309,14 @@ class InstanceConnectionManager:
 
         metadata, ephemeral_cert = await asyncio.gather(metadata_task, ephemeral_task)
 
-        instance_data = {
-            "ssl_context": self._create_context(
+        return InstanceMetadata(
+            self._create_context(
                 self._priv_key,
                 ephemeral_cert.encode(),
                 metadata["server_ca_cert"].encode(),
             ),
-            "ip_addresses": metadata["ip_addresses"],
-        }
-
-        return instance_data
+            metadata["ip_addresses"],
+        )
 
     def _create_context(
         self, private_key_string: str, public_cert_byte: bytes, trusted_cert_byte: bytes
@@ -357,7 +366,7 @@ class InstanceConnectionManager:
         :param future: The future passed in by add_done_callback.
         """
         logger.debug("Entered _update_current")
-        with self._mutex:
+        with self._lock:
             self._current = future
             self._next = self._loop.create_task(self._schedule_refresh(self._delay))
 
@@ -441,8 +450,8 @@ class InstanceConnectionManager:
         :returns: An OpenSSL connection to the primary IP of the database.
         """
         instance_data = self._current_instance_data.result()
-        ctx = instance_data["ssl_context"]
-        ip_addr = instance_data["ip_addresses"]["PRIMARY"]
+        ctx = instance_data.ssl_context
+        ip_addr = instance_data.ip_addresses["PRIMARY"]
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         ssl_connection = OpenSSL.SSL.Connection(ctx, s)
         ssl_connection.connect((ip_addr, 3307))
