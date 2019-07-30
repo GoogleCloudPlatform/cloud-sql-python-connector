@@ -39,7 +39,7 @@ def lint(session):
     session.run("flake8", "google", "tests")
 
 
-@nox.session(python="3.7")
+@nox.session(python="3.6")
 def blacken(session):
     """Run black.
     Format code to uniform standard.
@@ -66,7 +66,6 @@ def default(session):
         "--cov-config=.coveragerc",
         "--cov-report=",
         "--cov-fail-under=0",
-        # "--concmode=mthread",
         os.path.join("tests"),
         *session.posargs,
     )
