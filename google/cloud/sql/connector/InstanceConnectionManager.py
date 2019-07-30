@@ -13,15 +13,16 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
+# Custom utils import
+from google.cloud.sql.connector.utils import generate_keys
 
 # Importing libraries
 import concurrent
 from concurrent.futures import Future, ThreadPoolExecutor
-import googleapiclient
-import googleapiclient.discovery
 from google.auth.credentials import Credentials
 import google.auth.transport.requests
 import google.auth
+import logging
 import OpenSSL
 import requests
 import socket
@@ -29,12 +30,17 @@ import threading
 import time
 from typing import Any, Dict, Union
 
-import logging
 
 logger = logging.getLogger(name=__name__)
 
-# Custom utils import
-from google.cloud.sql.connector.utils import generate_keys
+
+class InstanceMetadata:
+    ip_addresses: Dict[str, str]
+    ssl_context: OpenSSL.SSL.Context
+
+    def __init__(self, ssl_context, ip_addresses):
+        self.ssl_context = ssl_context
+        self.ip_addresses = ip_addresses
 
 
 class CloudSQLConnectionError(Exception):
@@ -78,8 +84,6 @@ class InstanceConnectionManager:
     _next: Future = None
     _executor: ThreadPoolExecutor = None
 
-    _delay: int = 15
-
     _logger: logging.Logger = None
 
     def __init__(self, instance_connection_string: str) -> None:
@@ -105,8 +109,8 @@ class InstanceConnectionManager:
         self._mutex = threading.Lock()
 
         logger.debug("Updating instance data")
-        self._current_instance_data = self._perform_refresh()
-        self._next_instance_data = self.immediate_future(self._current_instance_data)
+        self.current = self._perform_refresh()
+        self._next_instance_data = self.immediate_future(self.current)
 
     def __del__(self):
         """Deconstructor to make sure ClientSession is closed and tasks have
@@ -114,8 +118,9 @@ class InstanceConnectionManager:
         """
         logger.debug("Entering deconstructor")
 
-        # self._next.cancel()
-        self._executor.shutdown(wait=True)
+        self._next.cancel()
+        self._current.cancel()
+        self._executor.shutdown(wait=False)
 
         logger.debug("Finished deconstructing")
 
@@ -241,7 +246,7 @@ class InstanceConnectionManager:
 
         return cert
 
-    def _get_instance_data(self) -> Dict[str, Union[OpenSSL.SSL.Context, Dict]]:
+    def _get_instance_data(self) -> InstanceMetadata:
         """Asynchronous function that takes in the futures for the ephemeral certificate
         and the instance metadata and generates an OpenSSL context object.
 
@@ -264,16 +269,14 @@ class InstanceConnectionManager:
             self._pub_key,
         ).result()
 
-        instance_data = {
-            "ssl_context": self._create_context(
+        return InstanceMetadata(
+            self._create_context(
                 self._priv_key,
                 ephemeral_cert.encode(),
                 metadata["server_ca_cert"].encode(),
             ),
-            "ip_addresses": metadata["ip_addresses"],
-        }
-
-        return instance_data
+            metadata["ip_addresses"],
+        )
 
     def _create_context(
         self, private_key_string: str, public_cert_byte: bytes, trusted_cert_byte: bytes
@@ -325,7 +328,7 @@ class InstanceConnectionManager:
         logger.debug("Entered _threadsafe_refresh")
         with self._mutex:
             self._current = future
-            self._next = self._executor.submit(self._schedule_refresh, self._delay)
+            self._next = self._executor.submit(self._schedule_refresh, 55 * 60)
 
     def _auth_init(self) -> None:
         """Creates and assigns a Google Python API service object for
@@ -340,9 +343,6 @@ class InstanceConnectionManager:
                 ]
             )
 
-            cloudsql = googleapiclient.discovery.build(
-                "sqladmin", "v1beta4", credentials=scoped_credentials
-            )
             self._credentials = scoped_credentials
 
     def _perform_refresh(self) -> concurrent.futures.Future:
@@ -373,7 +373,7 @@ class InstanceConnectionManager:
         logger.debug("Entering sleep")
 
         try:
-            time.sleep(delay)
+            threading.timer(delay, self._perform_refresh)
         except concurrent.futures.CancelledError:
             logger.debug("Task cancelled.")
             return None
@@ -402,7 +402,7 @@ class InstanceConnectionManager:
         :rtype: OpenSSl.SSL.Connection
         :returns: An OpenSSL connection to the primary IP of the database.
         """
-        instance_data = self._current_instance_data.result()
+        instance_data = self._current.result()
         ctx = instance_data["ssl_context"]
         ip_addr = instance_data["ip_addresses"]["PRIMARY"]
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
