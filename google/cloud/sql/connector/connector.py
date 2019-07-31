@@ -13,9 +13,14 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
+import asyncio
+from google.cloud.sql.connector.InstanceConnectionManager import (
+    InstanceConnectionManager,
+)
+from threading import Thread
 
 
-def connect(instance_connection_string, **kwargs):
+def connect(instance_connection_string, driver: str, **kwargs):
     """Prepares and returns a database connection object and starts a
     background thread to refresh the certificates and metadata.
 
@@ -44,4 +49,8 @@ def connect(instance_connection_string, **kwargs):
     #
     # Return a DBAPI connection
 
-    raise NotImplementedError()
+    loop = asyncio.new_event_loop()
+    thr = Thread(target=loop.run_forever)
+    thr.start()
+    icm = InstanceConnectionManager(instance_connection_string, loop)
+    return icm.connect(driver, username=kwargs.pop("username"), **kwargs)

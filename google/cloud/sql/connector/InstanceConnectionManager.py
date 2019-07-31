@@ -21,8 +21,6 @@ from google.cloud.sql.connector.utils import generate_keys
 import asyncio
 import aiohttp
 import concurrent
-import googleapiclient
-import googleapiclient.discovery
 import google.auth
 from google.auth.credentials import Credentials
 import google.auth.transport.requests
@@ -289,9 +287,10 @@ class InstanceConnectionManager:
         """Asynchronous function that takes in the futures for the ephemeral certificate
         and the instance metadata and generates an OpenSSL context object.
 
-        :rtype: Dict[str, Union[OpenSSL.SSL.Context, Dict]]
-        :returns: A dict containing an OpenSSL context that is created using the requested ephemeral certificate
-            instance metadata and a dict that contains all the instance's IP addresses.
+        :rtype: InstanceMetadata
+        :returns: A dataclass containing a string representing the ephemeral certificate, a dict
+            containing the instances IP adresses, a string representing a PEM-encoded private key
+            and a string representing a PEM-encoded certificate authority.
         """
 
         logger.debug("Creating context")
@@ -346,12 +345,7 @@ class InstanceConnectionManager:
             ]
         )
 
-        cloudsql = googleapiclient.discovery.build(
-            "sqladmin", "v1beta4", credentials=scoped_credentials
-        )
-
         self._credentials = scoped_credentials
-        self._cloud_sql_service = cloudsql
 
     def _perform_refresh(self) -> concurrent.futures.Future:
         """Retrieves instance metadata and ephemeral certificate from the
@@ -435,8 +429,8 @@ class InstanceConnectionManager:
 
         try:
             connector = {
-                "pymysql": _connect_with_pymysql,
-                "pg8000": _connect_with_pg8000,
+                "pymysql": self._connect_with_pymysql,
+                "pg8000": self._connect_with_pg8000,
             }[driver]
         except KeyError:
             raise KeyError("Driver {} is not supported.".format(driver))
@@ -457,7 +451,7 @@ class InstanceConnectionManager:
         ip_addresses: Dict[str, str],
         username: str,
         **kwargs
-    ) -> pymysql.Connection:
+    ):
         """Helper function to create a pymysql DB-API connection object.
 
         :type ca_filepath: str
@@ -467,18 +461,18 @@ class InstanceConnectionManager:
         :type cert_filepath: str
         :param cert_filepath: A string representing the path to the ephemeral
             certificate.
-        
+
         :type key_filepath: str
         :param key_filepath: A string representing the path to the private key file.
 
         :type ip_addresses: Dict[str, str]
         :param ip_addresses: A Dictionary containing the different IP addresses
             of the Cloud SQL instance.
-        
+
         :type username: str
         :param username: A string representing the username use to connect to the
             Cloud SQL instance.
-        
+
         :rtype: pymysql.Connection
         :returns: A PyMySQL Connection object for the Cloud SQL instance.
         """
@@ -505,7 +499,7 @@ class InstanceConnectionManager:
         ip_addresses: Dict[str, str],
         username: str,
         **kwargs
-    ) -> pg8000.Connection:
+    ):
         """Helper function to create a pymysql DB-API connection object.
 
         :type ca_filepath: str
@@ -515,18 +509,18 @@ class InstanceConnectionManager:
         :type cert_filepath: str
         :param cert_filepath: A string representing the path to the ephemeral
             certificate.
-        
+
         :type key_filepath: str
         :param key_filepath: A string representing the path to the private key file.
 
         :type ip_addresses: Dict[str, str]
         :param ip_addresses: A Dictionary containing the different IP addresses
             of the Cloud SQL instance.
-        
+
         :type username: str
         :param username: A string representing the username use to connect to the
             Cloud SQL instance.
-        
+
         :rtype: pg8000.Connection
         :returns: A pg8000 Connection object for the Cloud SQL instance.
         """
