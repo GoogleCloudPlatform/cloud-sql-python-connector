@@ -29,6 +29,7 @@ import google.auth.transport.requests
 import json
 import OpenSSL
 import socket
+from tempfile import NamedTemporaryFile
 import threading
 from typing import Any, Dict, Union
 
@@ -36,14 +37,19 @@ import logging
 
 logger = logging.getLogger(name=__name__)
 
+  
 
 class InstanceMetadata:
+    ephemeral_cert: str
     ip_addresses: Dict[str, str]
-    ssl_context: OpenSSL.SSL.Context
+    private_key: str
+    server_ca_cert: str
 
-    def __init__(self, ssl_context, ip_addresses):
-        self.ssl_context = ssl_context
+    def __init__(self, ephemeral_cert: str, ip_addresses: Dict[str, str], private_key: str, server_ca_cert: str):
         self.ip_addresses = ip_addresses
+        self.server_ca_cert = server_ca_cert
+        self.ephemeral_cert = ephemeral_cert
+        self.private_key = private_key
 
 
 class CloudSQLConnectionError(Exception):
@@ -306,53 +312,11 @@ class InstanceConnectionManager:
         metadata, ephemeral_cert = await asyncio.gather(metadata_task, ephemeral_task)
 
         return InstanceMetadata(
-            self._create_context(
+                ephemeral_cert,
+                metadata["ip_addresses"],
                 self._priv_key,
-                ephemeral_cert.encode(),
-                metadata["server_ca_cert"].encode(),
-            ),
-            metadata["ip_addresses"],
-        )
-
-    def _create_context(
-        self, private_key_string: str, public_cert_byte: bytes, trusted_cert_byte: bytes
-    ) -> OpenSSL.SSL.Context:
-        """A helper function to create an OpenSSL SSLContext object.
-
-        :type private_key_string: str
-        :param private_key_string: A string representing a PEM-encoded private key.
-
-        :type public_cert_byte: bytes
-        :param public_cert_byte: A byte string representing a PEM-encoded certificate.
-
-        :type trusted_cert_byte: bytes
-        :param trusted_cert_byte: A byte string representing a PEM-encoded certificate
-
-        :type public_cert_byte: bytes
-        :param public_cert_byte: A byte string representing a PEM-encoded certificate CA
-            from the Cloud SQL Instance.
-
-        :rtype: OpenSSL.SSL.Context
-        :returns: An OpenSSL context object that contains the ephemeral certificate,
-            the private key and the Cloud SQL Instance's server CA.
-        """
-        private_key = OpenSSL.crypto.load_privatekey(
-            OpenSSL.crypto.FILETYPE_PEM, private_key_string
-        )
-        public_cert = OpenSSL.crypto.load_certificate(
-            OpenSSL.crypto.FILETYPE_PEM, public_cert_byte
-        )
-        trusted_cert = OpenSSL.crypto.load_certificate(
-            OpenSSL.crypto.FILETYPE_PEM, trusted_cert_byte
-        )
-
-        ctx = OpenSSL.SSL.Context(OpenSSL.SSL.TLSv1_2_METHOD)
-        ctx.use_privatekey(private_key)
-        ctx.use_certificate(public_cert)
-        ctx.check_privatekey()
-        ctx.get_cert_store().add_cert(trusted_cert)
-
-        return ctx
+                metadata["server_ca_cert"],
+            )
 
     def _update_current(self, future: concurrent.futures.Future) -> None:
         """A threadsafe way to update the current instance data and the
@@ -364,7 +328,7 @@ class InstanceConnectionManager:
         logger.debug("Entered _update_current")
         with self._lock:
             self._current = future
-            self._next = self._loop.create_task(self._schedule_refresh(55 * 60))
+            self._next = self._loop.create_task(self._schedule_refresh(5))
 
     def _auth_init(self) -> None:
         """Creates and assigns a Google Python API service object for
@@ -439,19 +403,56 @@ class InstanceConnectionManager:
         fut.set_result(object)
         return fut
 
-    def connect(self,) -> OpenSSL.SSL.Connection:
+    def connect(self, driver: str, username:str=None, **kwargs) -> OpenSSL.SSL.Connection:
         """A method that returns an OpenSSL connection to the database.
 
         :rtype: OpenSSl.SSL.Connection
         :returns: An OpenSSL connection to the primary IP of the database.
         """
+        logger.debug("Entered connect method")
+        if username is None:
+            raise ValueError("No username provided!")
+
         with self._lock:
             instance_data: InstanceMetadata = self._current.result()
-        ctx = instance_data.ssl_context
-        ip_addr = instance_data.ip_addresses["PRIMARY"]
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        ssl_connection = OpenSSL.SSL.Connection(ctx, s)
-        ssl_connection.connect((ip_addr, 3307))
-        ssl_connection.do_handshake()
+        
+        ssl_ca = NamedTemporaryFile(suffix=".pem")
+        ssl_cert = NamedTemporaryFile(suffix=".pem")
+        ssl_key = NamedTemporaryFile(suffix=".pem")
 
-        return ssl_connection
+        ssl_ca.write(instance_data.server_ca_cert.encode())
+        ssl_cert.write(instance_data.ephemeral_cert.encode())
+        ssl_key.write(instance_data.private_key)
+
+        if driver is "pg8000":
+            try:
+                import pg8000
+                logger.debug("Successfully imported %s", driver)
+
+                ssl_dict = {
+                    "ca_certs": ssl_ca.name,
+                    "certfile": ssl_cert.name,
+                    "keyfile": ssl_key.name
+                }
+                logger.debug("Temporary files: {}, {} and {}".format(ssl_ca.name, ssl_cert.name, ssl_key.name))
+                
+                return pg8000.connect(username, instance_data.ip_addresses["PRIMARY"], ssl=ssl_dict, **kwargs)
+            except ImportError as e:
+                raise e
+        elif driver is "pymysql":
+            try:
+                import pymysql
+                logger.debug("Successfully imported %s", driver)
+
+                ssl_dict = {
+                    "ssl": {
+                        "ca": ssl_ca.name,
+                        "cert": ssl_cert.name,
+                        "key": ssl_key.name
+                    }
+                }
+                logger.debug("Temporary files: {}, {} and {}".format(ssl_ca.name, ssl_cert.name, ssl_key.name))
+                logger.debug(kwargs)
+                return pymysql.connect(host=instance_data.ip_addresses["PRIMARY"], user=username, ssl=ssl_dict, **kwargs)
+            except ImportError as e:
+                raise e
