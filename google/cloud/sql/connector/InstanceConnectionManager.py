@@ -27,8 +27,6 @@ import google.auth
 from google.auth.credentials import Credentials
 import google.auth.transport.requests
 import json
-import OpenSSL
-import socket
 from tempfile import NamedTemporaryFile
 import threading
 from typing import Any, Dict, Union
@@ -37,7 +35,6 @@ import logging
 
 logger = logging.getLogger(name=__name__)
 
-  
 
 class InstanceMetadata:
     ephemeral_cert: str
@@ -45,7 +42,13 @@ class InstanceMetadata:
     private_key: str
     server_ca_cert: str
 
-    def __init__(self, ephemeral_cert: str, ip_addresses: Dict[str, str], private_key: str, server_ca_cert: str):
+    def __init__(
+        self,
+        ephemeral_cert: str,
+        ip_addresses: Dict[str, str],
+        private_key: str,
+        server_ca_cert: str,
+    ):
         self.ip_addresses = ip_addresses
         self.server_ca_cert = server_ca_cert
         self.ephemeral_cert = ephemeral_cert
@@ -312,11 +315,11 @@ class InstanceConnectionManager:
         metadata, ephemeral_cert = await asyncio.gather(metadata_task, ephemeral_task)
 
         return InstanceMetadata(
-                ephemeral_cert,
-                metadata["ip_addresses"],
-                self._priv_key,
-                metadata["server_ca_cert"],
-            )
+            ephemeral_cert,
+            metadata["ip_addresses"],
+            self._priv_key,
+            metadata["server_ca_cert"],
+        )
 
     def _update_current(self, future: concurrent.futures.Future) -> None:
         """A threadsafe way to update the current instance data and the
@@ -403,11 +406,10 @@ class InstanceConnectionManager:
         fut.set_result(object)
         return fut
 
-    def connect(self, driver: str, username:str=None, **kwargs) -> OpenSSL.SSL.Connection:
-        """A method that returns an OpenSSL connection to the database.
+    def connect(self, driver: str, username: str = None, **kwargs) -> Any:
+        """A method that returns a DB-API connection to the database.
 
-        :rtype: OpenSSl.SSL.Connection
-        :returns: An OpenSSL connection to the primary IP of the database.
+        :returns: An DB-API connection to the primary IP of the database.
         """
         logger.debug("Entered connect method")
         if username is None:
@@ -415,7 +417,7 @@ class InstanceConnectionManager:
 
         with self._lock:
             instance_data: InstanceMetadata = self._current.result()
-        
+
         ssl_ca = NamedTemporaryFile(suffix=".pem")
         ssl_cert = NamedTemporaryFile(suffix=".pem")
         ssl_key = NamedTemporaryFile(suffix=".pem")
@@ -424,35 +426,55 @@ class InstanceConnectionManager:
         ssl_cert.write(instance_data.ephemeral_cert.encode())
         ssl_key.write(instance_data.private_key)
 
-        if driver is "pg8000":
+        if driver == "pg8000":
             try:
                 import pg8000
+
                 logger.debug("Successfully imported %s", driver)
 
                 ssl_dict = {
                     "ca_certs": ssl_ca.name,
                     "certfile": ssl_cert.name,
-                    "keyfile": ssl_key.name
+                    "keyfile": ssl_key.name,
                 }
-                logger.debug("Temporary files: {}, {} and {}".format(ssl_ca.name, ssl_cert.name, ssl_key.name))
-                
-                return pg8000.connect(username, instance_data.ip_addresses["PRIMARY"], ssl=ssl_dict, **kwargs)
+                logger.debug(
+                    "Temporary files: {}, {} and {}".format(
+                        ssl_ca.name, ssl_cert.name, ssl_key.name
+                    )
+                )
+
+                return pg8000.connect(
+                    username,
+                    instance_data.ip_addresses["PRIMARY"],
+                    ssl=ssl_dict,
+                    **kwargs
+                )
             except ImportError as e:
                 raise e
-        elif driver is "pymysql":
+        elif driver == "pymysql":
             try:
                 import pymysql
+
                 logger.debug("Successfully imported %s", driver)
 
                 ssl_dict = {
                     "ssl": {
                         "ca": ssl_ca.name,
                         "cert": ssl_cert.name,
-                        "key": ssl_key.name
+                        "key": ssl_key.name,
                     }
                 }
-                logger.debug("Temporary files: {}, {} and {}".format(ssl_ca.name, ssl_cert.name, ssl_key.name))
+                logger.debug(
+                    "Temporary files: {}, {} and {}".format(
+                        ssl_ca.name, ssl_cert.name, ssl_key.name
+                    )
+                )
                 logger.debug(kwargs)
-                return pymysql.connect(host=instance_data.ip_addresses["PRIMARY"], user=username, ssl=ssl_dict, **kwargs)
+                return pymysql.connect(
+                    host=instance_data.ip_addresses["PRIMARY"],
+                    user=username,
+                    ssl=ssl_dict,
+                    **kwargs
+                )
             except ImportError as e:
                 raise e
