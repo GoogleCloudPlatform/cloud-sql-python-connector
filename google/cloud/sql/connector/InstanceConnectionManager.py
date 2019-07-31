@@ -409,7 +409,14 @@ class InstanceConnectionManager:
     def connect(self, driver: str, username: str = None, **kwargs) -> Any:
         """A method that returns a DB-API connection to the database.
 
-        :returns: An DB-API connection to the primary IP of the database.
+        :type driver: str
+        :param driver: A string representing the driver. e.g. "pg8000" or "pymysql"
+
+        :type username: str
+        :param username: A string representing the username use to connect to the
+            Cloud SQL instance.
+
+        :returns: A DB-API connection to the primary IP of the database.
         """
         logger.debug("Entered connect method")
         if username is None:
@@ -426,55 +433,115 @@ class InstanceConnectionManager:
         ssl_cert.write(instance_data.ephemeral_cert.encode())
         ssl_key.write(instance_data.private_key)
 
-        if driver == "pg8000":
-            try:
-                import pg8000
+        try:
+            connector = {
+                "pymysql": _connect_with_pymysql,
+                "pg8000": _connect_with_pg8000,
+            }[driver]
+        except KeyError:
+            raise KeyError("Driver {} is not supported.".format(driver))
 
-                logger.debug("Successfully imported %s", driver)
+        return connector(
+            ssl_ca.name,
+            ssl_cert.name,
+            ssl_key.name,
+            instance_data.ip_addresses,
+            username,
+            **kwargs
+        )
 
-                ssl_dict = {
-                    "ca_certs": ssl_ca.name,
-                    "certfile": ssl_cert.name,
-                    "keyfile": ssl_key.name,
-                }
-                logger.debug(
-                    "Temporary files: {}, {} and {}".format(
-                        ssl_ca.name, ssl_cert.name, ssl_key.name
-                    )
-                )
+    def _connect_with_pymysql(
+        ca_filepath: str,
+        cert_filepath: str,
+        key_filepath: str,
+        ip_addresses: Dict[str, str],
+        username: str,
+        **kwargs
+    ) -> pymysql.Connection:
+        """Helper function to create a pymysql DB-API connection object.
 
-                return pg8000.connect(
-                    username,
-                    instance_data.ip_addresses["PRIMARY"],
-                    ssl=ssl_dict,
-                    **kwargs
-                )
-            except ImportError as e:
-                raise e
-        elif driver == "pymysql":
-            try:
-                import pymysql
+        :type ca_filepath: str
+        :param ca_filepath: A string representing the path to the server's
+            certificate authority.
 
-                logger.debug("Successfully imported %s", driver)
+        :type cert_filepath: str
+        :param cert_filepath: A string representing the path to the ephemeral
+            certificate.
+        
+        :type key_filepath: str
+        :param key_filepath: A string representing the path to the private key file.
 
-                ssl_dict = {
-                    "ssl": {
-                        "ca": ssl_ca.name,
-                        "cert": ssl_cert.name,
-                        "key": ssl_key.name,
-                    }
-                }
-                logger.debug(
-                    "Temporary files: {}, {} and {}".format(
-                        ssl_ca.name, ssl_cert.name, ssl_key.name
-                    )
-                )
-                logger.debug(kwargs)
-                return pymysql.connect(
-                    host=instance_data.ip_addresses["PRIMARY"],
-                    user=username,
-                    ssl=ssl_dict,
-                    **kwargs
-                )
-            except ImportError as e:
-                raise e
+        :type ip_addresses: Dict[str, str]
+        :param ip_addresses: A Dictionary containing the different IP addresses
+            of the Cloud SQL instance.
+        
+        :type username: str
+        :param username: A string representing the username use to connect to the
+            Cloud SQL instance.
+        
+        :rtype: pymysql.Connection
+        :returns: A PyMySQL Connection object for the Cloud SQL instance.
+        """
+        import pymysql
+
+        ssl_dict = {
+            "ssl": {"ca": ca_filepath, "cert": cert_filepath, "key": key_filepath}
+        }
+
+        logger.debug(
+            "Temporary files: {}, {} and {}".format(
+                ca_filepath, cert_filepath, key_filepath
+            )
+        )
+
+        return pymysql.connect(
+            host=ip_addresses["PRIMARY"], user=username, ssl=ssl_dict, **kwargs
+        )
+
+    def _connect_with_pg8000(
+        ca_filepath: str,
+        cert_filepath: str,
+        key_filepath: str,
+        ip_addresses: Dict[str, str],
+        username: str,
+        **kwargs
+    ) -> pg8000.Connection:
+        """Helper function to create a pymysql DB-API connection object.
+
+        :type ca_filepath: str
+        :param ca_filepath: A string representing the path to the server's
+            certificate authority.
+
+        :type cert_filepath: str
+        :param cert_filepath: A string representing the path to the ephemeral
+            certificate.
+        
+        :type key_filepath: str
+        :param key_filepath: A string representing the path to the private key file.
+
+        :type ip_addresses: Dict[str, str]
+        :param ip_addresses: A Dictionary containing the different IP addresses
+            of the Cloud SQL instance.
+        
+        :type username: str
+        :param username: A string representing the username use to connect to the
+            Cloud SQL instance.
+        
+        :rtype: pg8000.Connection
+        :returns: A pg8000 Connection object for the Cloud SQL instance.
+        """
+        import pg8000
+
+        ssl_dict = {
+            "ca_certs": ca_filepath,
+            "certfile": cert_filepath,
+            "keyfile": key_filepath,
+        }
+
+        logger.debug(
+            "Temporary files: {}, {} and {}".format(
+                ca_filepath, cert_filepath, key_filepath
+            )
+        )
+
+        return pg8000.connect(username, ip_addresses["PRIMARY"], ssl=ssl_dict, **kwargs)
