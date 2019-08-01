@@ -44,24 +44,32 @@ def connect_string():
     return connect_string
 
 
-def test_InstanceConnectionManager_init():
+@pytest.fixture
+def async_loop():
+    """
+    Creates a loop in a background thread and returns it to use for testing.
+    """
+    loop = asyncio.new_event_loop()
+    thr = threading.Thread(target=loop.run_forever)
+    thr.start()
+    return loop
+    loop.call_soon_threadsafe(loop.stop())
+    thr.join()
+
+
+def test_InstanceConnectionManager_init(async_loop):
     """
     Test to check whether the __init__ method of InstanceConnectionManager
     can tell if the connection string that's passed in is formatted correctly.
     """
 
-    loop = asyncio.new_event_loop()
-    thr = threading.Thread(target=loop.run_forever)
-    thr.start()
     connect_string = "test-project:test-region:test-instance"
-    icm = InstanceConnectionManager(connect_string, loop)
+    icm = InstanceConnectionManager(connect_string, async_loop)
     project_result = icm._project
     region_result = icm._region
     instance_result = icm._instance
 
     del icm
-    loop.call_soon_threadsafe(loop.stop)
-    # thr.run(loop.stop())
 
     assert (
         project_result == "test-project"
@@ -146,18 +154,15 @@ async def test_InstanceConnectionManager_get_metadata(connect_string):
     )
 
 
-def test_InstanceConnectionManager_perform_refresh(connect_string):
+def test_InstanceConnectionManager_perform_refresh(async_loop, connect_string):
     """
     Test to check whether _get_perform works as described given valid
     conditions.
     """
 
-    loop = asyncio.new_event_loop()
-    thr = threading.Thread(target=loop.run_forever)
-    thr.start()
-    icm = InstanceConnectionManager(connect_string, loop)
+    icm = InstanceConnectionManager(connect_string, async_loop)
     fut = icm._perform_refresh()
 
     del icm
-    loop.stop()
+
     assert isinstance(fut, concurrent.futures.Future)
