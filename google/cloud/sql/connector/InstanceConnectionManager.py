@@ -35,16 +35,10 @@ logger = logging.getLogger(name=__name__)
 
 
 class InstanceMetadata:
-    ephemeral_cert: str
-    ip_addresses: Dict[str, str]
-    private_key: str
-    server_ca_cert: str
-
+    ip_address: str
     ca_fileobject: NamedTemporaryFile
     cert_fileobject: NamedTemporaryFile
     key_fileobject: NamedTemporaryFile
-
-    filepaths: Dict[str, str] = {}
 
     def __init__(
         self,
@@ -53,10 +47,7 @@ class InstanceMetadata:
         private_key: str,
         server_ca_cert: str,
     ):
-        self.ip_addresses = ip_addresses
-        self.server_ca_cert = server_ca_cert
-        self.ephemeral_cert = ephemeral_cert
-        self.private_key = private_key
+        self.ip_address = ip_address
 
         self.ca_fileobject = NamedTemporaryFile(suffix=".pem")
         self.cert_fileobject = NamedTemporaryFile(suffix=".pem")
@@ -339,7 +330,7 @@ class InstanceConnectionManager:
 
         return InstanceMetadata(
             ephemeral_cert,
-            metadata["ip_addresses"],
+            metadata["ip_addresses"]["PRIMARY"],
             self._priv_key,
             metadata["server_ca_cert"],
         )
@@ -435,8 +426,8 @@ class InstanceConnectionManager:
         """
         logger.debug("Entered connect method")
 
-        if "host" in kwargs.keys():
-            raise ValueError("Cannot pass in host")
+        kwargs.pop("host", None)
+        kwargs.pop("ssl", None)
 
         with self._lock:
             instance_data: InstanceMetadata = self._current.result()
@@ -450,10 +441,10 @@ class InstanceConnectionManager:
             raise KeyError("Driver {} is not supported.".format(driver))
 
         return connector(
-            instance_data.filepaths["ca"],
-            instance_data.filepaths["cert"],
-            instance_data.filepaths["key"],
-            instance_data.ip_addresses,
+            instance_data.ca_fileobject.name,
+            instance_data.cert_fileobject.name,
+            instance_data.key_fileobject.name,
+            instance_data.ip_address,
             **kwargs
         )
 
