@@ -208,7 +208,7 @@ class InstanceConnectionManager:
             project, instance
         )
 
-        logging.getLogger(__name__).debug("Requesting metadata")
+        logger.debug("Requesting metadata")
 
         resp = await client_session.get(url, headers=headers, raise_for_status=True)
         ret_dict = json.loads(await resp.text())
@@ -232,25 +232,30 @@ class InstanceConnectionManager:
     ) -> str:
         """Asynchronously requests an ephemeral certificate from the Cloud SQL Instance.
 
-        Args:
-            credentials (google.oauth2.service_account.Credentials): A credentials object
-              created from the google-auth library. Must be
-              using the SQL Admin API scopes. For more info, check out
-              https://google-auth.readthedocs.io/en/latest/.
-            project (str): A string representing the name of the project.
-            instance (str): A string representing the name of the instance.
-            pub_key (str): A string representing PEM-encoded RSA public key.
+        
+        :type credentials: google.oauth2.service_account.Credentials
+        :param credentials: A credentials object 
+            created from the google-auth library. Must be
+            using the SQL Admin API scopes. For more info, check out
+            https://google-auth.readthedocs.io/en/latest/.
 
-        Returns:
-            str
-              An ephemeral certificate from the Cloud SQL instance that allows
+        :type project: str
+        :param project : A string representing the name of the project.
+
+        :type instance: str
+        :param instance: A string representing the name of the instance.
+        
+        :type pub_key: 
+        :param str: A string representing PEM-encoded RSA public key.
+
+        :rtype: str
+        :returns: An ephemeral certificate from the Cloud SQL instance that allows
               authorized connections to the instance.
 
-        Raises:
-            TypeError: If one of the arguments passed in is None.
+        :raises TypeError: If one of the arguments passed in is None.
         """
 
-        logging.getLogger(__name__).debug("Requesting ephemeral certificate")
+        logger.debug("Requesting ephemeral certificate")
 
         if (
             not isinstance(credentials, Credentials)
