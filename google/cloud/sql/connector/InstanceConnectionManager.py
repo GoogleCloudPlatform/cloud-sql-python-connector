@@ -425,21 +425,18 @@ class InstanceConnectionManager:
         fut.set_result(object)
         return fut
 
-    def connect(self, driver: str, username: str = None, **kwargs) -> Any:
+    def connect(self, driver: str, **kwargs) -> Any:
         """A method that returns a DB-API connection to the database.
 
         :type driver: str
         :param driver: A string representing the driver. e.g. "pg8000" or "pymysql"
 
-        :type username: str
-        :param username: A string representing the username use to connect to the
-            Cloud SQL instance.
-
         :returns: A DB-API connection to the primary IP of the database.
         """
         logger.debug("Entered connect method")
-        if username is None:
-            raise ValueError("No username provided!")
+
+        if "host" in kwargs.keys():
+            raise ValueError("Cannot pass in host")
 
         with self._lock:
             instance_data: InstanceMetadata = self._current.result()
@@ -457,7 +454,6 @@ class InstanceConnectionManager:
             instance_data.filepaths["cert"],
             instance_data.filepaths["key"],
             instance_data.ip_addresses,
-            username,
             **kwargs
         )
 
@@ -487,14 +483,13 @@ class InstanceConnectionManager:
         :param ip_addresses: A Dictionary containing the different IP addresses
             of the Cloud SQL instance.
 
-        :type username: str
-        :param username: A string representing the username use to connect to the
-            Cloud SQL instance.
-
         :rtype: pymysql.Connection
         :returns: A PyMySQL Connection object for the Cloud SQL instance.
         """
-        import pymysql
+        try:
+            import pymysql
+        except ImportError:
+            raise ImportError("Driver pymysql not installed.")
 
         ssl_dict = {
             "ssl": {"ca": ca_filepath, "cert": cert_filepath, "key": key_filepath}
@@ -506,9 +501,7 @@ class InstanceConnectionManager:
             )
         )
 
-        return pymysql.connect(
-            host=ip_addresses["PRIMARY"], user=username, ssl=ssl_dict, **kwargs
-        )
+        return pymysql.connect(host=ip_addresses["PRIMARY"], ssl=ssl_dict, **kwargs)
 
     def _connect_with_pg8000(
         self,
@@ -536,14 +529,13 @@ class InstanceConnectionManager:
         :param ip_addresses: A Dictionary containing the different IP addresses
             of the Cloud SQL instance.
 
-        :type username: str
-        :param username: A string representing the username use to connect to the
-            Cloud SQL instance.
-
         :rtype: pg8000.Connection
         :returns: A pg8000 Connection object for the Cloud SQL instance.
         """
-        import pg8000
+        try:
+            import pg8000
+        except ImportError:
+            raise ImportError("Driver pg8000 not installed.")
 
         ssl_dict = {
             "ca_certs": ca_filepath,
