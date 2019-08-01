@@ -52,8 +52,8 @@ def async_loop():
     loop = asyncio.new_event_loop()
     thr = threading.Thread(target=loop.run_forever)
     thr.start()
-    return loop
-    loop.call_soon_threadsafe(loop.stop())
+    yield loop
+    loop.stop()
     thr.join()
 
 
