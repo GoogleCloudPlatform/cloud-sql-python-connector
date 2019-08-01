@@ -40,6 +40,12 @@ class InstanceMetadata:
     private_key: str
     server_ca_cert: str
 
+    ca_fileobject: NamedTemporaryFile
+    cert_fileobject: NamedTemporaryFile
+    key_fileobject: NamedTemporaryFile
+
+    filepaths: Dict[str, str] = {}
+
     def __init__(
         self,
         ephemeral_cert: str,
@@ -51,6 +57,20 @@ class InstanceMetadata:
         self.server_ca_cert = server_ca_cert
         self.ephemeral_cert = ephemeral_cert
         self.private_key = private_key
+
+        self.ca_fileobject = NamedTemporaryFile(suffix=".pem")
+        self.cert_fileobject = NamedTemporaryFile(suffix=".pem")
+        self.key_fileobject = NamedTemporaryFile(suffix=".pem")
+
+        self.ca_fileobject.write(server_ca_cert.encode())
+        self.cert_fileobject.write(ephemeral_cert.encode())
+        self.key_fileobject.write(private_key)
+
+        self.filepaths = {
+            "ca": self.ca_fileobject.name,
+            "cert": self.cert_fileobject.name,
+            "key": self.key_fileobject.name,
+        }
 
 
 class CloudSQLConnectionError(Exception):
@@ -232,9 +252,8 @@ class InstanceConnectionManager:
     ) -> str:
         """Asynchronously requests an ephemeral certificate from the Cloud SQL Instance.
 
-        
         :type credentials: google.oauth2.service_account.Credentials
-        :param credentials: A credentials object 
+        :param credentials: A credentials object
             created from the google-auth library. Must be
             using the SQL Admin API scopes. For more info, check out
             https://google-auth.readthedocs.io/en/latest/.
@@ -244,8 +263,8 @@ class InstanceConnectionManager:
 
         :type instance: str
         :param instance: A string representing the name of the instance.
-        
-        :type pub_key: 
+
+        :type pub_key:
         :param str: A string representing PEM-encoded RSA public key.
 
         :rtype: str
@@ -335,7 +354,8 @@ class InstanceConnectionManager:
         logger.debug("Entered _update_current")
         with self._lock:
             self._current = future
-            self._next = self._loop.create_task(self._schedule_refresh(5))
+            # Ephemeral certificate expires in 1 hour, so we schedule a refresh to happen in 55 minutes.
+            self._next = self._loop.create_task(self._schedule_refresh(55 * 60))
 
     def _auth_init(self) -> None:
         """Creates and assigns a Google Python API service object for
@@ -424,14 +444,6 @@ class InstanceConnectionManager:
         with self._lock:
             instance_data: InstanceMetadata = self._current.result()
 
-        ssl_ca = NamedTemporaryFile(suffix=".pem")
-        ssl_cert = NamedTemporaryFile(suffix=".pem")
-        ssl_key = NamedTemporaryFile(suffix=".pem")
-
-        ssl_ca.write(instance_data.server_ca_cert.encode())
-        ssl_cert.write(instance_data.ephemeral_cert.encode())
-        ssl_key.write(instance_data.private_key)
-
         try:
             connector = {
                 "pymysql": self._connect_with_pymysql,
@@ -441,15 +453,16 @@ class InstanceConnectionManager:
             raise KeyError("Driver {} is not supported.".format(driver))
 
         return connector(
-            ssl_ca.name,
-            ssl_cert.name,
-            ssl_key.name,
+            instance_data.filepaths["ca"],
+            instance_data.filepaths["cert"],
+            instance_data.filepaths["key"],
             instance_data.ip_addresses,
             username,
             **kwargs
         )
 
     def _connect_with_pymysql(
+        self,
         ca_filepath: str,
         cert_filepath: str,
         key_filepath: str,
@@ -498,6 +511,7 @@ class InstanceConnectionManager:
         )
 
     def _connect_with_pg8000(
+        self,
         ca_filepath: str,
         cert_filepath: str,
         key_filepath: str,
