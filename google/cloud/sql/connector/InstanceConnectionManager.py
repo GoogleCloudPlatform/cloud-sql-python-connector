@@ -43,7 +43,7 @@ class InstanceMetadata:
     def __init__(
         self,
         ephemeral_cert: str,
-        ip_addresses: Dict[str, str],
+        ip_address: str,
         private_key: str,
         server_ca_cert: str,
     ):
