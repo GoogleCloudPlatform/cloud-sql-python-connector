@@ -16,8 +16,24 @@ limitations under the License.
 import asyncio
 from google.cloud.sql.connector.InstanceConnectionManager import (
     InstanceConnectionManager,
+    _get_loop,
 )
 from threading import Thread
+from typing import Optional
+
+
+# This thread is used to background processing
+_thread: Optional[Thread] = None
+_loop: Optional[asyncio.AbstractEventLoop] = None
+
+
+def _get_loop() -> Thread:
+    global _loop
+    if _loop is None:
+        _loop = asyncio.new_event_loop()
+        _thread = Thread(target=_loop.run_forever)
+        _thread.start()
+    return _loop
 
 
 def connect(instance_connection_string, driver: str, **kwargs):
@@ -49,8 +65,6 @@ def connect(instance_connection_string, driver: str, **kwargs):
     #
     # Return a DBAPI connection
 
-    loop = asyncio.new_event_loop()
-    thr = Thread(target=loop.run_forever)
-    thr.start()
+    loop = _get_loop()
     icm = InstanceConnectionManager(instance_connection_string, loop)
-    return icm.connect(driver, username=kwargs.pop("username"), **kwargs)
+    return icm.connect(driver, user=kwargs.pop("user"), **kwargs)

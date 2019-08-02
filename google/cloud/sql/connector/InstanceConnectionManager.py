@@ -27,11 +27,25 @@ import google.auth.transport.requests
 import json
 from tempfile import NamedTemporaryFile
 import threading
-from typing import Any, Dict, Union
+from typing import Any, Dict, Optional, Union
 
 import logging
 
 logger = logging.getLogger(name=__name__)
+
+# This thread is used to background processing
+_thread: Optional[threading.Thread] = None
+_loop: Optional[asyncio.AbstractEventLoop] = None
+
+
+def _get_loop() -> threading.Thread:
+    if _loop is None:
+        loop = asyncio.new_event_loop()
+        thr = threading.Thread(target=loop.run_forever)
+        thr.start()
+        _thread = thr
+        _loop = loop
+        return _loop
 
 
 class InstanceMetadata:
@@ -56,12 +70,6 @@ class InstanceMetadata:
         self.ca_fileobject.write(server_ca_cert.encode())
         self.cert_fileobject.write(ephemeral_cert.encode())
         self.key_fileobject.write(private_key)
-
-        self.filepaths = {
-            "ca": self.ca_fileobject.name,
-            "cert": self.cert_fileobject.name,
-            "key": self.key_fileobject.name,
-        }
 
 
 class CloudSQLConnectionError(Exception):
@@ -426,6 +434,8 @@ class InstanceConnectionManager:
         """
         logger.debug("Entered connect method")
 
+        # Host and ssl options come from the certificates and metadata, so we don't
+        # want the user to specify them.
         kwargs.pop("host", None)
         kwargs.pop("ssl", None)
 
@@ -453,8 +463,8 @@ class InstanceConnectionManager:
         ca_filepath: str,
         cert_filepath: str,
         key_filepath: str,
-        ip_addresses: Dict[str, str],
-        username: str,
+        ip_address: str,
+        user: str,
         **kwargs
     ):
         """Helper function to create a pymysql DB-API connection object.
@@ -480,7 +490,9 @@ class InstanceConnectionManager:
         try:
             import pymysql
         except ImportError:
-            raise ImportError("Driver pymysql not installed.")
+            raise ImportError(
+                'Unable to import module "pymysql." Please install and try again.'
+            )
 
         ssl_dict = {
             "ssl": {"ca": ca_filepath, "cert": cert_filepath, "key": key_filepath}
@@ -492,14 +504,14 @@ class InstanceConnectionManager:
             )
         )
 
-        return pymysql.connect(host=ip_addresses["PRIMARY"], ssl=ssl_dict, **kwargs)
+        return pymysql.connect(host=ip_address, ssl=ssl_dict, user=user, **kwargs)
 
     def _connect_with_pg8000(
         self,
         ca_filepath: str,
         cert_filepath: str,
         key_filepath: str,
-        ip_addresses: Dict[str, str],
+        ip_address: str,
         username: str,
         **kwargs
     ):
@@ -526,7 +538,9 @@ class InstanceConnectionManager:
         try:
             import pg8000
         except ImportError:
-            raise ImportError("Driver pg8000 not installed.")
+            raise ImportError(
+                'Unable to import module "pg8000." Please install and try again.'
+            )
 
         ssl_dict = {
             "ca_certs": ca_filepath,
@@ -540,4 +554,4 @@ class InstanceConnectionManager:
             )
         )
 
-        return pg8000.connect(username, ip_addresses["PRIMARY"], ssl=ssl_dict, **kwargs)
+        return pg8000.connect(username, ip_address, ssl=ssl_dict, **kwargs)
