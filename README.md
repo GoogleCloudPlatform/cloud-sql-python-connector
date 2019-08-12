@@ -43,7 +43,7 @@ python3.7 -m pip install -r requirements.txt
 ```
 8. To use the connector: import the connector by including the following statement at the top of your Python file:
 ```Python
-from google.cloud.sql import connector
+from google.cloud.sql.connector import connector
 ```
 9. Use the connector to create a connection object by calling the connect method. Input your connection string as the first positional argument and “mysql-connector” for the second positional argument. Insert the rest of your connection keyword arguments like user, password and database.
 ```
