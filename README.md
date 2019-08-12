@@ -52,7 +52,7 @@ connector.connect(
     "mysql-connector",
     user="root",
     password="shhh",
-    database="your-db-name"
+    db="your-db-name"
 ... insert other kwargs ...
 )
 ```
