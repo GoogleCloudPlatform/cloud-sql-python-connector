@@ -15,12 +15,15 @@ limitations under the License.
 """
 
 # Custom utils import
-from google.cloud.sql.connector.utils import generate_keys
+from google.cloud.sql.connector.utils import generate_keys, write_to_file
 
 # Importing libraries
 import asyncio
 import aiohttp
 import concurrent
+from cryptography.x509 import load_pem_x509_certificate
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives.serialization import Encoding
 import google.auth
 from google.auth.credentials import Credentials
 import google.auth.transport.requests
@@ -67,9 +70,14 @@ class InstanceMetadata:
         self.cert_fileobject = NamedTemporaryFile(suffix=".pem")
         self.key_fileobject = NamedTemporaryFile(suffix=".pem")
 
+        # write_to_file(server_ca_cert, ephemeral_cert, private_key)
+
         self.ca_fileobject.write(server_ca_cert.encode())
+        self.ca_fileobject.seek(0)
         self.cert_fileobject.write(ephemeral_cert.encode())
+        self.cert_fileobject.seek(0)
         self.key_fileobject.write(private_key)
+        self.key_fileobject.seek(0)
 
 
 class CloudSQLConnectionError(Exception):
@@ -226,6 +234,8 @@ class InstanceConnectionManager:
         url = "https://www.googleapis.com/sql/v1beta4/projects/{}/instances/{}".format(
             project, instance
         )
+
+        logger.debug(url)
 
         logger.debug("Requesting metadata")
 
@@ -444,27 +454,20 @@ class InstanceConnectionManager:
 
         try:
             connector = {
-                "pymysql": self._connect_with_pymysql,
+                "mysql-connector": self._connect_with_mysql_connector,
                 "pg8000": self._connect_with_pg8000,
             }[driver]
         except KeyError:
             raise KeyError("Driver {} is not supported.".format(driver))
 
-        return connector(
-            instance_data.ca_fileobject.name,
-            instance_data.cert_fileobject.name,
-            instance_data.key_fileobject.name,
-            instance_data.ip_address,
-            **kwargs
-        )
+        return connector("", "", "", instance_data.ip_address, **kwargs)
 
-    def _connect_with_pymysql(
+    def _connect_with_mysql_connector(
         self,
         ca_filepath: str,
         cert_filepath: str,
         key_filepath: str,
         ip_address: str,
-        user: str,
         **kwargs
     ):
         """Helper function to create a pymysql DB-API connection object.
@@ -488,15 +491,15 @@ class InstanceConnectionManager:
         :returns: A PyMySQL Connection object for the Cloud SQL instance.
         """
         try:
-            import pymysql
+            import mysql.connector
         except ImportError:
             raise ImportError(
-                'Unable to import module "pymysql." Please install and try again.'
+                'Unable to import module "mysql.connector." Please install and try again.'
             )
 
-        ssl_dict = {
-            "ssl": {"ca": ca_filepath, "cert": cert_filepath, "key": key_filepath}
-        }
+        # ssl_dict = {
+        # "ssl": {"ca": ca_filepath, "cert": cert_filepath, "key": key_filepath, 'check_hostname': False}
+        # }
 
         logger.debug(
             "Temporary files: {}, {} and {}".format(
@@ -504,7 +507,13 @@ class InstanceConnectionManager:
             )
         )
 
-        return pymysql.connect(host=ip_address, ssl=ssl_dict, user=user, **kwargs)
+        return mysql.connector.connect(
+            host=ip_address,
+            ssl_ca=ca_filepath,
+            ssl_key=key_filepath,
+            ssl_cert=cert_filepath,
+            **kwargs
+        )
 
     def _connect_with_pg8000(
         self,
