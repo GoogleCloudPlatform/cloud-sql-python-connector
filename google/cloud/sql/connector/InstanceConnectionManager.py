@@ -460,7 +460,13 @@ class InstanceConnectionManager:
         except KeyError:
             raise KeyError("Driver {} is not supported.".format(driver))
 
-        return connector("", "", "", instance_data.ip_address, **kwargs)
+        return connector(
+            instance_data.ca_fileobject.name,
+            instance_data.cert_fileobject.name,
+            instance_data.key_fileobject.name,
+            instance_data.ip_address,
+            **kwargs
+        )
 
     def _connect_with_mysql_connector(
         self,
