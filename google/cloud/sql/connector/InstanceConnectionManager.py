@@ -21,34 +21,19 @@ from google.cloud.sql.connector.utils import generate_keys, write_to_file
 import asyncio
 import aiohttp
 import concurrent
-from cryptography.x509 import load_pem_x509_certificate
-from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives.serialization import Encoding
 import google.auth
 from google.auth.credentials import Credentials
 import google.auth.transport.requests
 import json
+import ssl
+import socket
 from tempfile import NamedTemporaryFile
 import threading
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, Union
 
 import logging
 
 logger = logging.getLogger(name=__name__)
-
-# This thread is used to background processing
-_thread: Optional[threading.Thread] = None
-_loop: Optional[asyncio.AbstractEventLoop] = None
-
-
-def _get_loop() -> threading.Thread:
-    if _loop is None:
-        loop = asyncio.new_event_loop()
-        thr = threading.Thread(target=loop.run_forever)
-        thr.start()
-        _thread = thr
-        _loop = loop
-        return _loop
 
 
 class InstanceMetadata:
@@ -70,7 +55,7 @@ class InstanceMetadata:
         self.cert_fileobject = NamedTemporaryFile(suffix=".pem")
         self.key_fileobject = NamedTemporaryFile(suffix=".pem")
 
-        # write_to_file(server_ca_cert, ephemeral_cert, private_key)
+        write_to_file(server_ca_cert, ephemeral_cert, private_key)
 
         self.ca_fileobject.write(server_ca_cert.encode())
         self.ca_fileobject.seek(0)
@@ -454,7 +439,7 @@ class InstanceConnectionManager:
 
         try:
             connector = {
-                "mysql-connector": self._connect_with_mysql_connector,
+                "pymysql": self._connect_with_pymysql,
                 "pg8000": self._connect_with_pg8000,
             }[driver]
         except KeyError:
@@ -468,7 +453,7 @@ class InstanceConnectionManager:
             **kwargs
         )
 
-    def _connect_with_mysql_connector(
+    def _connect_with_pymysql(
         self,
         ca_filepath: str,
         cert_filepath: str,
@@ -497,10 +482,10 @@ class InstanceConnectionManager:
         :returns: A PyMySQL Connection object for the Cloud SQL instance.
         """
         try:
-            import mysql.connector
+            import pymysql
         except ImportError:
             raise ImportError(
-                'Unable to import module "mysql.connector." Please install and try again.'
+                'Unable to import module "pymysql." Please install and try again.'
             )
 
         # ssl_dict = {
@@ -513,13 +498,19 @@ class InstanceConnectionManager:
             )
         )
 
-        return mysql.connector.connect(
-            host=ip_address,
-            ssl_ca=ca_filepath,
-            ssl_key=key_filepath,
-            ssl_cert=cert_filepath,
-            **kwargs
+        ctx = ssl.SSLContext()
+        ctx.load_cert_chain(cert_filepath, keyfile=key_filepath)
+        ctx.load_verify_locations(cafile=ca_filepath)
+
+        sock = ctx.wrap_socket(
+            socket.create_connection((ip_address, 3307)), server_hostname=ip_address
         )
+
+        conn = pymysql.Connection(host=ip_address, defer_connect=True, **kwargs)
+
+        conn.connect(sock)
+
+        return conn
 
     def _connect_with_pg8000(
         self,

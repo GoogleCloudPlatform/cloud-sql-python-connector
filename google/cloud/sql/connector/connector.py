@@ -16,7 +16,6 @@ limitations under the License.
 import asyncio
 from google.cloud.sql.connector.InstanceConnectionManager import (
     InstanceConnectionManager,
-    _get_loop,
 )
 from threading import Thread
 from typing import Optional
