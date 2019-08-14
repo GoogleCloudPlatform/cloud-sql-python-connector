@@ -15,7 +15,7 @@ limitations under the License.
 """
 
 # Custom utils import
-from google.cloud.sql.connector.utils import generate_keys, write_to_file
+from google.cloud.sql.connector.utils import generate_keys
 
 # Importing libraries
 import asyncio
@@ -41,6 +41,7 @@ class InstanceMetadata:
     ca_fileobject: NamedTemporaryFile
     cert_fileobject: NamedTemporaryFile
     key_fileobject: NamedTemporaryFile
+    context: ssl.SSLContext
 
     def __init__(
         self,
@@ -55,13 +56,21 @@ class InstanceMetadata:
         self.cert_fileobject = NamedTemporaryFile(suffix=".pem")
         self.key_fileobject = NamedTemporaryFile(suffix=".pem")
 
-        write_to_file(server_ca_cert, ephemeral_cert, private_key)
-
+        # Write each file and reset to beginning
         self.ca_fileobject.write(server_ca_cert.encode())
-        self.ca_fileobject.seek(0)
         self.cert_fileobject.write(ephemeral_cert.encode())
-        self.cert_fileobject.seek(0)
         self.key_fileobject.write(private_key)
+
+        self.ca_fileobject.seek(0)
+        self.cert_fileobject.seek(0)
+        self.key_fileobject.seek(0)
+
+        self.context = ssl.SSLContext()
+        self.context.load_cert_chain(self.cert_fileobject.name, keyfile=self.key_fileobject.name)
+        self.context.load_verify_locations(cafile=self.ca_fileobject.name)
+
+        self.ca_fileobject.seek(0)
+        self.cert_fileobject.seek(0)
         self.key_fileobject.seek(0)
 
 
@@ -219,8 +228,6 @@ class InstanceConnectionManager:
         url = "https://www.googleapis.com/sql/v1beta4/projects/{}/instances/{}".format(
             project, instance
         )
-
-        logger.debug(url)
 
         logger.debug("Requesting metadata")
 
@@ -433,6 +440,7 @@ class InstanceConnectionManager:
         # want the user to specify them.
         kwargs.pop("host", None)
         kwargs.pop("ssl", None)
+        kwargs.pop("port", None)
 
         with self._lock:
             instance_data: InstanceMetadata = self._current.result()
@@ -440,25 +448,20 @@ class InstanceConnectionManager:
         try:
             connector = {
                 "pymysql": self._connect_with_pymysql,
-                "pg8000": self._connect_with_pg8000,
             }[driver]
         except KeyError:
             raise KeyError("Driver {} is not supported.".format(driver))
 
         return connector(
-            instance_data.ca_fileobject.name,
-            instance_data.cert_fileobject.name,
-            instance_data.key_fileobject.name,
             instance_data.ip_address,
+            instance_data.context,
             **kwargs
         )
 
     def _connect_with_pymysql(
         self,
-        ca_filepath: str,
-        cert_filepath: str,
-        key_filepath: str,
         ip_address: str,
+        ctx: ssl.SSLContext,
         **kwargs
     ):
         """Helper function to create a pymysql DB-API connection object.
@@ -487,77 +490,13 @@ class InstanceConnectionManager:
             raise ImportError(
                 'Unable to import module "pymysql." Please install and try again.'
             )
-
-        # ssl_dict = {
-        # "ssl": {"ca": ca_filepath, "cert": cert_filepath, "key": key_filepath, 'check_hostname': False}
-        # }
-
-        logger.debug(
-            "Temporary files: {}, {} and {}".format(
-                ca_filepath, cert_filepath, key_filepath
-            )
-        )
-
-        ctx = ssl.SSLContext()
-        ctx.load_cert_chain(cert_filepath, keyfile=key_filepath)
-        ctx.load_verify_locations(cafile=ca_filepath)
-
+        
+        # Create socket and wrap with context.
         sock = ctx.wrap_socket(
             socket.create_connection((ip_address, 3307)), server_hostname=ip_address
         )
-
+        
+        # Create pymysql connection object and hand in pre-made connection
         conn = pymysql.Connection(host=ip_address, defer_connect=True, **kwargs)
-
         conn.connect(sock)
-
         return conn
-
-    def _connect_with_pg8000(
-        self,
-        ca_filepath: str,
-        cert_filepath: str,
-        key_filepath: str,
-        ip_address: str,
-        username: str,
-        **kwargs
-    ):
-        """Helper function to create a pymysql DB-API connection object.
-
-        :type ca_filepath: str
-        :param ca_filepath: A string representing the path to the server's
-            certificate authority.
-
-        :type cert_filepath: str
-        :param cert_filepath: A string representing the path to the ephemeral
-            certificate.
-
-        :type key_filepath: str
-        :param key_filepath: A string representing the path to the private key file.
-
-        :type ip_addresses: Dict[str, str]
-        :param ip_addresses: A Dictionary containing the different IP addresses
-            of the Cloud SQL instance.
-
-        :rtype: pg8000.Connection
-        :returns: A pg8000 Connection object for the Cloud SQL instance.
-        """
-        try:
-            import pg8000
-        except ImportError:
-            raise ImportError(
-                'Unable to import module "pg8000." Please install and try again.'
-            )
-
-        ssl_dict = {
-            "ca_certs": ca_filepath,
-            "certfile": cert_filepath,
-            "keyfile": key_filepath,
-        }
-
-        logger.debug(
-            "Temporary files: {}, {} and {}".format(
-                ca_filepath, cert_filepath, key_filepath
-            )
-        )
-
-        return pg8000.connect(username, ip_address, ssl=ssl_dict, **kwargs)
