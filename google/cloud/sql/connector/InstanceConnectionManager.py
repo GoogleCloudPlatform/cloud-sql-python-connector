@@ -66,7 +66,9 @@ class InstanceMetadata:
         self.key_fileobject.seek(0)
 
         self.context = ssl.SSLContext()
-        self.context.load_cert_chain(self.cert_fileobject.name, keyfile=self.key_fileobject.name)
+        self.context.load_cert_chain(
+            self.cert_fileobject.name, keyfile=self.key_fileobject.name
+        )
         self.context.load_verify_locations(cafile=self.ca_fileobject.name)
 
         self.ca_fileobject.seek(0)
@@ -446,24 +448,13 @@ class InstanceConnectionManager:
             instance_data: InstanceMetadata = self._current.result()
 
         try:
-            connector = {
-                "pymysql": self._connect_with_pymysql,
-            }[driver]
+            connector = {"pymysql": self._connect_with_pymysql}[driver]
         except KeyError:
             raise KeyError("Driver {} is not supported.".format(driver))
 
-        return connector(
-            instance_data.ip_address,
-            instance_data.context,
-            **kwargs
-        )
+        return connector(instance_data.ip_address, instance_data.context, **kwargs)
 
-    def _connect_with_pymysql(
-        self,
-        ip_address: str,
-        ctx: ssl.SSLContext,
-        **kwargs
-    ):
+    def _connect_with_pymysql(self, ip_address: str, ctx: ssl.SSLContext, **kwargs):
         """Helper function to create a pymysql DB-API connection object.
 
         :type ca_filepath: str
@@ -490,12 +481,12 @@ class InstanceConnectionManager:
             raise ImportError(
                 'Unable to import module "pymysql." Please install and try again.'
             )
-        
+
         # Create socket and wrap with context.
         sock = ctx.wrap_socket(
             socket.create_connection((ip_address, 3307)), server_hostname=ip_address
         )
-        
+
         # Create pymysql connection object and hand in pre-made connection
         conn = pymysql.Connection(host=ip_address, defer_connect=True, **kwargs)
         conn.connect(sock)
