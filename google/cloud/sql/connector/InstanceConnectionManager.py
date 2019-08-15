@@ -364,7 +364,7 @@ class InstanceConnectionManager:
         with self._lock:
             self._current = future
             # Ephemeral certificate expires in 1 hour, so we schedule a refresh to happen in 55 minutes.
-            self._next = self._loop.create_task(self._schedule_refresh(55 * 60))
+            self._next = self._loop.create_task(self._schedule_refresh(_delay))
 
     def _auth_init(self) -> None:
         """Creates and assigns a Google Python API service object for
@@ -438,7 +438,7 @@ class InstanceConnectionManager:
         """A method that returns a DB-API connection to the database.
 
         :type driver: str
-        :param driver: A string representing the driver. e.g. "pg8000" or "pymysql"
+        :param driver: A string representing the driver. e.g. "pymysql"
 
         :returns: A DB-API connection to the primary IP of the database.
         """
