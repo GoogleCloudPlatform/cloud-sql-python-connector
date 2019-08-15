@@ -38,9 +38,9 @@ logger = logging.getLogger(name=__name__)
 
 class InstanceMetadata:
     ip_address: str
-    ca_fileobject: NamedTemporaryFile
-    cert_fileobject: NamedTemporaryFile
-    key_fileobject: NamedTemporaryFile
+    _ca_fileobject: NamedTemporaryFile
+    _cert_fileobject: NamedTemporaryFile
+    _key_fileobject: NamedTemporaryFile
     context: ssl.SSLContext
 
     def __init__(
@@ -52,28 +52,24 @@ class InstanceMetadata:
     ):
         self.ip_address = ip_address
 
-        self.ca_fileobject = NamedTemporaryFile(suffix=".pem")
-        self.cert_fileobject = NamedTemporaryFile(suffix=".pem")
-        self.key_fileobject = NamedTemporaryFile(suffix=".pem")
+        self._ca_fileobject = NamedTemporaryFile(suffix=".pem")
+        self._cert_fileobject = NamedTemporaryFile(suffix=".pem")
+        self._key_fileobject = NamedTemporaryFile(suffix=".pem")
 
         # Write each file and reset to beginning
-        self.ca_fileobject.write(server_ca_cert.encode())
-        self.cert_fileobject.write(ephemeral_cert.encode())
+        self._ca_fileobject.write(server_ca_cert.encode())
+        self._cert_fileobject.write(ephemeral_cert.encode())
         self.key_fileobject.write(private_key)
 
-        self.ca_fileobject.seek(0)
-        self.cert_fileobject.seek(0)
-        self.key_fileobject.seek(0)
+        self._ca_fileobject.seek(0)
+        self._cert_fileobject.seek(0)
+        self._key_fileobject.seek(0)
 
         self.context = ssl.SSLContext()
         self.context.load_cert_chain(
-            self.cert_fileobject.name, keyfile=self.key_fileobject.name
+            self._cert_fileobject.name, keyfile=self._key_fileobject.name
         )
-        self.context.load_verify_locations(cafile=self.ca_fileobject.name)
-
-        self.ca_fileobject.seek(0)
-        self.cert_fileobject.seek(0)
-        self.key_fileobject.seek(0)
+        self.context.load_verify_locations(cafile=self._ca_fileobject.name)
 
 
 class CloudSQLConnectionError(Exception):
