@@ -11,32 +11,59 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+import io
+import os
 from setuptools import setup, find_packages
 
+package_root = os.path.abspath(os.path.dirname(__file__))
 
+readme_filename = os.path.join(package_root, "README.rst")
+with io.open(readme_filename, encoding="utf-8") as readme_file:
+    readme = readme_file.read()
+
+packages = [package for package in find_packages() if package.startswith("google")]
 
 # Determine which namespaces are needed.
 namespaces = ["google"]
-
-packages = [
-    package for package in find_packages() if package.startswith("google")
-]
-
 if "google.cloud" in packages:
     namespaces.append("google.cloud")
 
 name = "cloud-sql-python-connector"
 description = ""
 version = ""
-release_status = 'Development Status :: 3 - Alpha'
+release_status = "Development Status :: 3 - Alpha"
 dependencies = [
     "aiohttp",
     "cryptography",
     "PyMySQL",
     "pytest",
     "Requests",
-    "google-api-python-client"
+    "google-api-python-client",
 ]
 
-setup(name="cloud-sql-python-connector", version=version, packages=find_packages())
+setup(
+    name=name,
+    version=version,
+    description=description,
+    long_description=readme,
+    author="Google LLC",
+    license="Apache 2.0",
+    url="https://github.com/GoogleCloudPlatform/cloud-sql-python-connector",
+    classifiers=[
+        release_status,
+        "Intended Audience :: Developers",
+        "Development Status :: 3 - Alpha",
+        "Intended Audience :: Developers",
+        "License :: OSI Approved :: Apache Software License",
+        "Programming Language :: Python",
+        "Programming Language :: Python :: 3.6",
+        "Programming Language :: Python :: 3.7",
+    ],
+    platforms="Posix; MacOS X",
+    packages=packages,
+    namespace_packages=namespaces,
+    install_requires=dependencies,
+    python_requires=">=3.6",
+    include_package_data=True,
+    zip_safe=False,
+)
