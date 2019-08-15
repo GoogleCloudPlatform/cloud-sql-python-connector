@@ -14,13 +14,29 @@
 
 from setuptools import setup, find_packages
 
-packages = [
-    package for package in setuptools.find_packages() if package.startswith("google")
-]
+
 
 # Determine which namespaces are needed.
 namespaces = ["google"]
+
+packages = [
+    package for package in find_packages() if package.startswith("google")
+]
+
 if "google.cloud" in packages:
     namespaces.append("google.cloud")
 
-setup(name="cloud-sql-python-connector", packages=find_packages())
+name = "cloud-sql-python-connector"
+description = ""
+version = ""
+release_status = 'Development Status :: 3 - Alpha'
+dependencies = [
+    "aiohttp",
+    "cryptography",
+    "PyMySQL",
+    "pytest",
+    "Requests",
+    "google-api-python-client"
+]
+
+setup(name="cloud-sql-python-connector", version=version, packages=find_packages())
