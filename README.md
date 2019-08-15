@@ -5,6 +5,8 @@ The Cloud SQL Python Connector library is a library for MySQL/Postgres Python
 drivers that allows users with sufficient permissions to connect  to a Cloud SQL
 database without having to manually whitelist IPs or manage SSL certificates.
 
+Currently only supports MySQL through the `pymysql` driver.
+
 ### Authentication
 
 This library uses the [Application Default Credentials](https://cloud.google.com/docs/authentication/production) to authenticate the
@@ -16,6 +18,38 @@ To activate credentials locally, use the following `gcloud` command:
 ```
 gcloud auth application-default login
 ```
+
+### How to install this connector
+
+Clone this repo, `cd` into the `cloud-sql-python-connector` directory then run the following command to install the package:
+```
+pip install .
+```
+Conversely, install straight from Github using `pip`:
+```
+pip install git+https://github.com/GoogleCloudPlatform/cloud-sql-python-connector
+```
+
+### How to use this connector
+
+To use the connector: import the connector by including the following statement at the top of your Python file:
+```Python
+from google.cloud.sql.connector import connector
+```
+
+Use the connector to create a connection object by calling the connect method. Input your connection string as the first positional argument and “mysql-connector” for the second positional argument. Insert the rest of your connection keyword arguments like user, password and database.
+
+```
+connector.connect(
+    "your:connection:string:", 
+    "pymysql",
+    user="root",
+    password="shhh",
+    db="your-db-name"
+... insert other kwargs ...
+)
+```
+
 
 ### Setup for development
 
@@ -32,28 +66,9 @@ export INSTANCE_CONNECTION_NAME=your:connection:string
 export GOOGLE_APPLICATION_CREDENTIALS=/path/to/auth/./json
 ```
 5. Enable the SQL Admin API.
-6. Clone the [repository](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector) and checkout the connect branch.
-7. Create a virtual environment and activate it by running the following commands:
+6. Clone the [repository](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector).
+7. Create a virtual environment and change directory into the `cloud-sql-python-connector` folder.
+8. Install the package by running the following command:
 ```
-python3.7 -m venv env
-source env/bin/activate
-```
-8. Install the dependencies using the following command:
-```
-python3.7 -m pip install -r requirements.txt
-```
-9. To use the connector: import the connector by including the following statement at the top of your Python file:
-```Python
-from google.cloud.sql.connector import connector
-```
-10. Use the connector to create a connection object by calling the connect method. Input your connection string as the first positional argument and “mysql-connector” for the second positional argument. Insert the rest of your connection keyword arguments like user, password and database.
-```
-connector.connect(
-    "your:connection:string:", 
-    "mysql-connector",
-    user="root",
-    password="shhh",
-    db="your-db-name"
-... insert other kwargs ...
-)
+pip install .
 ```
