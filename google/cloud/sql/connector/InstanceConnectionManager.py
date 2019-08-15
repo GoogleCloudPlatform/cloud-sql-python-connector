@@ -21,14 +21,13 @@ from google.cloud.sql.connector.utils import generate_keys
 import asyncio
 import aiohttp
 import concurrent
-import googleapiclient
-import googleapiclient.discovery
 import google.auth
 from google.auth.credentials import Credentials
 import google.auth.transport.requests
 import json
-import OpenSSL
+import ssl
 import socket
+from tempfile import NamedTemporaryFile
 import threading
 from typing import Any, Dict, Union
 
@@ -37,13 +36,48 @@ import logging
 logger = logging.getLogger(name=__name__)
 
 
-class InstanceMetadata:
-    ip_addresses: Dict[str, str]
-    ssl_context: OpenSSL.SSL.Context
+# The default delay is set to 55 minutes since each ephemeral certificate is only
+# valid for an hour. This gives five minutes of buffer time.
+_delay: int = 55 * 60
+_sql_api_version: str = "v1beta4"
 
-    def __init__(self, ssl_context, ip_addresses):
-        self.ssl_context = ssl_context
-        self.ip_addresses = ip_addresses
+
+class InstanceMetadata:
+    ip_address: str
+    _ca_fileobject: NamedTemporaryFile
+    _cert_fileobject: NamedTemporaryFile
+    _key_fileobject: NamedTemporaryFile
+    context: ssl.SSLContext
+
+    def __init__(
+        self,
+        ephemeral_cert: str,
+        ip_address: str,
+        private_key: str,
+        server_ca_cert: str,
+    ):
+        self.ip_address = ip_address
+
+        self._ca_fileobject = NamedTemporaryFile(suffix=".pem")
+        self._cert_fileobject = NamedTemporaryFile(suffix=".pem")
+        self._key_fileobject = NamedTemporaryFile(suffix=".pem")
+
+        # Write each file and reset to beginning
+        # TODO: Write tests on Windows and convert writing of temp
+        # files to be compatible with Windows.
+        self._ca_fileobject.write(server_ca_cert.encode())
+        self._cert_fileobject.write(ephemeral_cert.encode())
+        self.key_fileobject.write(private_key)
+
+        self._ca_fileobject.seek(0)
+        self._cert_fileobject.seek(0)
+        self._key_fileobject.seek(0)
+
+        self.context = ssl.SSLContext()
+        self.context.load_cert_chain(
+            self._cert_fileobject.name, keyfile=self._key_fileobject.name
+        )
+        self.context.load_verify_locations(cafile=self._ca_fileobject.name)
 
 
 class CloudSQLConnectionError(Exception):
@@ -73,6 +107,8 @@ class InstanceConnectionManager:
     # SelectorEventLoop, is usable on both Unix and Windows but has limited
     # functionality on Windows. It is recommended to use ProactorEventLoop
     # while developing on Windows.
+    # Link to Github issue:
+    # https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/22
     _loop: asyncio.AbstractEventLoop = None
 
     __client_session: aiohttp.ClientSession = None
@@ -197,11 +233,11 @@ class InstanceConnectionManager:
             "Content-Type": "application/json",
         }
 
-        url = "https://www.googleapis.com/sql/v1beta4/projects/{}/instances/{}".format(
-            project, instance
+        url = "https://www.googleapis.com/sql/{}/projects/{}/instances/{}".format(
+            _sql_api_version, project, instance
         )
 
-        logging.getLogger(__name__).debug("Requesting metadata")
+        logger.debug("Requesting metadata")
 
         resp = await client_session.get(url, headers=headers, raise_for_status=True)
         ret_dict = json.loads(await resp.text())
@@ -225,25 +261,29 @@ class InstanceConnectionManager:
     ) -> str:
         """Asynchronously requests an ephemeral certificate from the Cloud SQL Instance.
 
-        Args:
-            credentials (google.oauth2.service_account.Credentials): A credentials object
-              created from the google-auth library. Must be
-              using the SQL Admin API scopes. For more info, check out
-              https://google-auth.readthedocs.io/en/latest/.
-            project (str): A string representing the name of the project.
-            instance (str): A string representing the name of the instance.
-            pub_key (str): A string representing PEM-encoded RSA public key.
+        :type credentials: google.oauth2.service_account.Credentials
+        :param credentials: A credentials object
+            created from the google-auth library. Must be
+            using the SQL Admin API scopes. For more info, check out
+            https://google-auth.readthedocs.io/en/latest/.
 
-        Returns:
-            str
-              An ephemeral certificate from the Cloud SQL instance that allows
+        :type project: str
+        :param project : A string representing the name of the project.
+
+        :type instance: str
+        :param instance: A string representing the name of the instance.
+
+        :type pub_key:
+        :param str: A string representing PEM-encoded RSA public key.
+
+        :rtype: str
+        :returns: An ephemeral certificate from the Cloud SQL instance that allows
               authorized connections to the instance.
 
-        Raises:
-            TypeError: If one of the arguments passed in is None.
+        :raises TypeError: If one of the arguments passed in is None.
         """
 
-        logging.getLogger(__name__).debug("Requesting ephemeral certificate")
+        logger.debug("Requesting ephemeral certificate")
 
         if (
             not isinstance(credentials, Credentials)
@@ -262,8 +302,8 @@ class InstanceConnectionManager:
             "Content-Type": "application/json",
         }
 
-        url = "https://www.googleapis.com/sql/v1beta4/projects/{}/instances/{}/createEphemeral".format(
-            project, instance
+        url = "https://www.googleapis.com/sql/{}/projects/{}/instances/{}/createEphemeral".format(
+            _sql_api_version, project, instance
         )
 
         data = {"public_key": pub_key}
@@ -280,9 +320,10 @@ class InstanceConnectionManager:
         """Asynchronous function that takes in the futures for the ephemeral certificate
         and the instance metadata and generates an OpenSSL context object.
 
-        :rtype: Dict[str, Union[OpenSSL.SSL.Context, Dict]]
-        :returns: A dict containing an OpenSSL context that is created using the requested ephemeral certificate
-            instance metadata and a dict that contains all the instance's IP addresses.
+        :rtype: InstanceMetadata
+        :returns: A dataclass containing a string representing the ephemeral certificate, a dict
+            containing the instances IP adresses, a string representing a PEM-encoded private key
+            and a string representing a PEM-encoded certificate authority.
         """
 
         logger.debug("Creating context")
@@ -306,53 +347,11 @@ class InstanceConnectionManager:
         metadata, ephemeral_cert = await asyncio.gather(metadata_task, ephemeral_task)
 
         return InstanceMetadata(
-            self._create_context(
-                self._priv_key,
-                ephemeral_cert.encode(),
-                metadata["server_ca_cert"].encode(),
-            ),
-            metadata["ip_addresses"],
+            ephemeral_cert,
+            metadata["ip_addresses"]["PRIMARY"],
+            self._priv_key,
+            metadata["server_ca_cert"],
         )
-
-    def _create_context(
-        self, private_key_string: str, public_cert_byte: bytes, trusted_cert_byte: bytes
-    ) -> OpenSSL.SSL.Context:
-        """A helper function to create an OpenSSL SSLContext object.
-
-        :type private_key_string: str
-        :param private_key_string: A string representing a PEM-encoded private key.
-
-        :type public_cert_byte: bytes
-        :param public_cert_byte: A byte string representing a PEM-encoded certificate.
-
-        :type trusted_cert_byte: bytes
-        :param trusted_cert_byte: A byte string representing a PEM-encoded certificate
-
-        :type public_cert_byte: bytes
-        :param public_cert_byte: A byte string representing a PEM-encoded certificate CA
-            from the Cloud SQL Instance.
-
-        :rtype: OpenSSL.SSL.Context
-        :returns: An OpenSSL context object that contains the ephemeral certificate,
-            the private key and the Cloud SQL Instance's server CA.
-        """
-        private_key = OpenSSL.crypto.load_privatekey(
-            OpenSSL.crypto.FILETYPE_PEM, private_key_string
-        )
-        public_cert = OpenSSL.crypto.load_certificate(
-            OpenSSL.crypto.FILETYPE_PEM, public_cert_byte
-        )
-        trusted_cert = OpenSSL.crypto.load_certificate(
-            OpenSSL.crypto.FILETYPE_PEM, trusted_cert_byte
-        )
-
-        ctx = OpenSSL.SSL.Context(OpenSSL.SSL.TLSv1_2_METHOD)
-        ctx.use_privatekey(private_key)
-        ctx.use_certificate(public_cert)
-        ctx.check_privatekey()
-        ctx.get_cert_store().add_cert(trusted_cert)
-
-        return ctx
 
     def _update_current(self, future: concurrent.futures.Future) -> None:
         """A threadsafe way to update the current instance data and the
@@ -364,7 +363,8 @@ class InstanceConnectionManager:
         logger.debug("Entered _update_current")
         with self._lock:
             self._current = future
-            self._next = self._loop.create_task(self._schedule_refresh(55 * 60))
+            # Ephemeral certificate expires in 1 hour, so we schedule a refresh to happen in 55 minutes.
+            self._next = self._loop.create_task(self._schedule_refresh(_delay))
 
     def _auth_init(self) -> None:
         """Creates and assigns a Google Python API service object for
@@ -379,12 +379,7 @@ class InstanceConnectionManager:
             ]
         )
 
-        cloudsql = googleapiclient.discovery.build(
-            "sqladmin", "v1beta4", credentials=scoped_credentials
-        )
-
         self._credentials = scoped_credentials
-        self._cloud_sql_service = cloudsql
 
     def _perform_refresh(self) -> concurrent.futures.Future:
         """Retrieves instance metadata and ephemeral certificate from the
@@ -439,19 +434,66 @@ class InstanceConnectionManager:
         fut.set_result(object)
         return fut
 
-    def connect(self,) -> OpenSSL.SSL.Connection:
-        """A method that returns an OpenSSL connection to the database.
+    def connect(self, driver: str, **kwargs) -> Any:
+        """A method that returns a DB-API connection to the database.
 
-        :rtype: OpenSSl.SSL.Connection
-        :returns: An OpenSSL connection to the primary IP of the database.
+        :type driver: str
+        :param driver: A string representing the driver. e.g. "pymysql"
+
+        :returns: A DB-API connection to the primary IP of the database.
         """
+        logger.debug("Entered connect method")
+
+        # Host and ssl options come from the certificates and metadata, so we don't
+        # want the user to specify them.
+        kwargs.pop("host", None)
+        kwargs.pop("ssl", None)
+        kwargs.pop("port", None)
+
         with self._lock:
             instance_data: InstanceMetadata = self._current.result()
-        ctx = instance_data.ssl_context
-        ip_addr = instance_data.ip_addresses["PRIMARY"]
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        ssl_connection = OpenSSL.SSL.Connection(ctx, s)
-        ssl_connection.connect((ip_addr, 3307))
-        ssl_connection.do_handshake()
 
-        return ssl_connection
+        try:
+            connector = {"pymysql": self._connect_with_pymysql}[driver]
+        except KeyError:
+            raise KeyError("Driver {} is not supported.".format(driver))
+
+        return connector(instance_data.ip_address, instance_data.context, **kwargs)
+
+    def _connect_with_pymysql(self, ip_address: str, ctx: ssl.SSLContext, **kwargs):
+        """Helper function to create a pymysql DB-API connection object.
+
+        :type ca_filepath: str
+        :param ca_filepath: A string representing the path to the server's
+            certificate authority.
+
+        :type cert_filepath: str
+        :param cert_filepath: A string representing the path to the ephemeral
+            certificate.
+
+        :type key_filepath: str
+        :param key_filepath: A string representing the path to the private key file.
+
+        :type ip_addresses: Dict[str, str]
+        :param ip_addresses: A Dictionary containing the different IP addresses
+            of the Cloud SQL instance.
+
+        :rtype: pymysql.Connection
+        :returns: A PyMySQL Connection object for the Cloud SQL instance.
+        """
+        try:
+            import pymysql
+        except ImportError:
+            raise ImportError(
+                'Unable to import module "pymysql." Please install and try again.'
+            )
+
+        # Create socket and wrap with context.
+        sock = ctx.wrap_socket(
+            socket.create_connection((ip_address, 3307)), server_hostname=ip_address
+        )
+
+        # Create pymysql connection object and hand in pre-made connection
+        conn = pymysql.Connection(host=ip_address, defer_connect=True, **kwargs)
+        conn.connect(sock)
+        return conn
