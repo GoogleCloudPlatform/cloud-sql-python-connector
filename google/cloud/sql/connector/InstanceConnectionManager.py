@@ -36,6 +36,12 @@ import logging
 logger = logging.getLogger(name=__name__)
 
 
+# The default delay is set to 55 minutes since each ephemeral certificate is only
+# valid for an hour. This gives five minutes of buffer time.
+_delay: int = 55 * 60
+_sql_api_version: str = "v1beta4"
+
+
 class InstanceMetadata:
     ip_address: str
     _ca_fileobject: NamedTemporaryFile
@@ -57,6 +63,8 @@ class InstanceMetadata:
         self._key_fileobject = NamedTemporaryFile(suffix=".pem")
 
         # Write each file and reset to beginning
+        # TODO: Write tests on Windows and convert writing of temp
+        # files to be compatible with Windows.
         self._ca_fileobject.write(server_ca_cert.encode())
         self._cert_fileobject.write(ephemeral_cert.encode())
         self.key_fileobject.write(private_key)
@@ -99,6 +107,8 @@ class InstanceConnectionManager:
     # SelectorEventLoop, is usable on both Unix and Windows but has limited
     # functionality on Windows. It is recommended to use ProactorEventLoop
     # while developing on Windows.
+    # Link to Github issue:
+    # https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/22
     _loop: asyncio.AbstractEventLoop = None
 
     __client_session: aiohttp.ClientSession = None
@@ -223,8 +233,8 @@ class InstanceConnectionManager:
             "Content-Type": "application/json",
         }
 
-        url = "https://www.googleapis.com/sql/v1beta4/projects/{}/instances/{}".format(
-            project, instance
+        url = "https://www.googleapis.com/sql/{}/projects/{}/instances/{}".format(
+            _sql_api_version, project, instance
         )
 
         logger.debug("Requesting metadata")
@@ -292,8 +302,8 @@ class InstanceConnectionManager:
             "Content-Type": "application/json",
         }
 
-        url = "https://www.googleapis.com/sql/v1beta4/projects/{}/instances/{}/createEphemeral".format(
-            project, instance
+        url = "https://www.googleapis.com/sql/{}/projects/{}/instances/{}/createEphemeral".format(
+            _sql_api_version, project, instance
         )
 
         data = {"public_key": pub_key}
