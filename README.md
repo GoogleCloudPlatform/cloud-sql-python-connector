@@ -7,6 +7,8 @@ database without having to manually whitelist IPs or manage SSL certificates.
 
 Currently only supports MySQL through the `pymysql` driver.
 
+Requires Python 3.6 or 3.7.
+
 ### Authentication
 
 This library uses the [Application Default Credentials](https://cloud.google.com/docs/authentication/production) to authenticate the
