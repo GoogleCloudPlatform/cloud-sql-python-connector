@@ -7,7 +7,8 @@ database without having to manually whitelist IPs or manage SSL certificates.
 
 Currently only supports MySQL through the `pymysql` driver.
 
-Requires Python 3.6 or 3.7.
+# Supported Python Versions
+Currently Python versions >= 3.6 are supported.
 
 ### Authentication
 
