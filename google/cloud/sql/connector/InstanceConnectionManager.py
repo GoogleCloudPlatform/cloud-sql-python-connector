@@ -67,7 +67,7 @@ class InstanceMetadata:
         # files to be compatible with Windows.
         self._ca_fileobject.write(server_ca_cert.encode())
         self._cert_fileobject.write(ephemeral_cert.encode())
-        self.key_fileobject.write(private_key)
+        self._key_fileobject.write(private_key)
 
         self._ca_fileobject.seek(0)
         self._cert_fileobject.seek(0)
