@@ -67,7 +67,7 @@ class InstanceMetadata:
         # files to be compatible with Windows.
         self._ca_fileobject.write(server_ca_cert.encode())
         self._cert_fileobject.write(ephemeral_cert.encode())
-        self.key_fileobject.write(private_key)
+        self._key_fileobject.write(private_key)
 
         self._ca_fileobject.seek(0)
         self._cert_fileobject.seek(0)
@@ -371,15 +371,14 @@ class InstanceConnectionManager:
         Google Cloud SQL Admin API.
         """
 
-        credentials, project = google.auth.default()
-        scoped_credentials = credentials.with_scopes(
-            [
+        credentials, project = google.auth.default(
+            scopes=[
                 "https://www.googleapis.com/auth/sqlservice.admin",
                 "https://www.googleapis.com/auth/cloud-platform",
             ]
         )
 
-        self._credentials = scoped_credentials
+        self._credentials = credentials
 
     def _perform_refresh(self) -> concurrent.futures.Future:
         """Retrieves instance metadata and ephemeral certificate from the
