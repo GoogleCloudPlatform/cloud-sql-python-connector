@@ -371,15 +371,13 @@ class InstanceConnectionManager:
         Google Cloud SQL Admin API.
         """
 
-        credentials, project = google.auth.default()
-        scoped_credentials = credentials.with_scopes(
-            [
+        credentials, project = google.auth.default(scopes=[
                 "https://www.googleapis.com/auth/sqlservice.admin",
                 "https://www.googleapis.com/auth/cloud-platform",
             ]
         )
 
-        self._credentials = scoped_credentials
+        self._credentials = credentials
 
     def _perform_refresh(self) -> concurrent.futures.Future:
         """Retrieves instance metadata and ephemeral certificate from the
