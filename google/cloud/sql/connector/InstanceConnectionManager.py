@@ -371,7 +371,8 @@ class InstanceConnectionManager:
         Google Cloud SQL Admin API.
         """
 
-        credentials, project = google.auth.default(scopes=[
+        credentials, project = google.auth.default(
+            scopes=[
                 "https://www.googleapis.com/auth/sqlservice.admin",
                 "https://www.googleapis.com/auth/cloud-platform",
             ]
