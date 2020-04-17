@@ -26,11 +26,11 @@ _thread: Optional[Thread] = None
 _loop: Optional[asyncio.AbstractEventLoop] = None
 
 
-def _get_loop() -> Thread:
+def _get_loop() -> asyncio.AbstractEventLoop:
     global _loop
     if _loop is None:
         _loop = asyncio.new_event_loop()
-        _thread = Thread(target=_loop.run_forever)
+        _thread = Thread(target=_loop.run_forever, daemon=True)
         _thread.start()
     return _loop
 
