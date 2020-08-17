@@ -116,7 +116,12 @@ class InstanceConnectionManager:
     @property
     def _client_session(self) -> aiohttp.ClientSession:
         if self.__client_session is None:
-            self.__client_session = aiohttp.ClientSession()
+            self.__client_session = aiohttp.ClientSession(
+                headers={
+                    "x-goog-api-client": "cloud-sql-python-connector/0.0.1-alpha",
+                    "Content-Type": "application/json",
+                }
+            )
         return self.__client_session
 
     _credentials: Credentials = None
@@ -230,7 +235,6 @@ class InstanceConnectionManager:
 
         headers = {
             "Authorization": "Bearer {}".format(credentials.token),
-            "Content-Type": "application/json",
         }
 
         url = "https://www.googleapis.com/sql/{}/projects/{}/instances/{}".format(
@@ -299,7 +303,6 @@ class InstanceConnectionManager:
 
         headers = {
             "Authorization": "Bearer {}".format(credentials.token),
-            "Content-Type": "application/json",
         }
 
         url = "https://www.googleapis.com/sql/{}/projects/{}/instances/{}/createEphemeral".format(
