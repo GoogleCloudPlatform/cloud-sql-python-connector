@@ -1,6 +1,6 @@
 aiohttp==3.5.4
 cryptography==2.7
-PyMySQL==0.9.3
+PyMySQL==0.10.1
 pyopenssl==19.0.0
 pytest==4.6.3
 Requests==2.22.0
