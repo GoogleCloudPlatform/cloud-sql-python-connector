@@ -1,4 +1,4 @@
-aiohttp==3.5.4
+aiohttp==3.7.3
 cryptography==2.7
 PyMySQL==0.9.3
 pyopenssl==19.0.0
