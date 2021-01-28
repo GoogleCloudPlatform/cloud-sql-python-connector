@@ -4,4 +4,4 @@ PyMySQL==0.9.3
 pyopenssl==19.0.0
 pytest==4.6.3
 Requests==2.22.0
-google-api-python-client==1.7.9
+google-api-python-client==1.12.8
