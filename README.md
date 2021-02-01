@@ -3,7 +3,7 @@
 
 The Cloud SQL Python Connector library is a library for MySQL/Postgres Python
 drivers that allows users with sufficient permissions to connect  to a Cloud SQL
-database without having to manually whitelist IPs or manage SSL certificates.
+database without having to manually allowlist IPs or manage SSL certificates.
 
 Currently only supports MySQL through the `pymysql` driver.
 
