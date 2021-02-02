@@ -78,6 +78,11 @@ def unit(session):
 def system(session):
     default(session, os.path.join("tests", "system"))
 
+@nox.session(python=["3.6", "3.7", "3.8", "3.9"])
+def test(session):
+    default(session, os.path.join("tests", "unit"))
+    default(session, os.path.join("tests", "system"))
+
 # @nox.session(python="3.7")
 # def cover(session):
 # """Run the final coverage report.
