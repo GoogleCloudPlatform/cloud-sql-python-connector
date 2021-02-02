@@ -51,30 +51,37 @@ def blacken(session):
     session.run("black", *BLACK_PATHS)
 
 
-def default(session):
+def default(session, path):
     # Install all test dependencies, then install this package in-place.
-    session.install("mock", "pytest", "pytest-cov", "pytest-asyncio")
+    session.install("-r", "requirements-test.txt")
     session.install("-e", ".")
     session.install("-r", "requirements.txt")
     # Run py.test against the unit tests.
     session.run(
         "py.test",
-        "--quiet",
         # "--cov=util",
         # "--cov=connector",
         "--cov-append",
         "--cov-config=.coveragerc",
         "--cov-report=",
         "--cov-fail-under=0",
-        os.path.join("tests"),
+        path,
         *session.posargs,
     )
 
 
 @nox.session(python=["3.6", "3.7", "3.8", "3.9"])
 def unit(session):
-    default(session)
+    default(session, os.path.join("tests", "unit"))
 
+@nox.session(python=["3.6", "3.7", "3.8", "3.9"])
+def system(session):
+    default(session, os.path.join("tests", "system"))
+
+@nox.session(python=["3.6", "3.7", "3.8", "3.9"])
+def test(session):
+    default(session, os.path.join("tests", "unit"))
+    default(session, os.path.join("tests", "system"))
 
 # @nox.session(python="3.7")
 # def cover(session):
