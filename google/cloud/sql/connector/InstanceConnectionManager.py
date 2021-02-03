@@ -455,8 +455,13 @@ class InstanceConnectionManager:
         with self._lock:
             instance_data: InstanceMetadata = self._current.result()
 
+        connect_func = {
+            "pymysql": self._connect_with_pymysql,
+            "pg8000": self._connect_with_pg8000
+        }
+
         try:
-            connector = {"pymysql": self._connect_with_pymysql}[driver]
+            connector = connect_func[driver]
         except KeyError:
             raise KeyError("Driver {} is not supported.".format(driver))
 
@@ -499,3 +504,24 @@ class InstanceConnectionManager:
         conn = pymysql.Connection(host=ip_address, defer_connect=True, **kwargs)
         conn.connect(sock)
         return conn
+
+    def _connect_with_pg8000(self, ip_address: str, ctx: ssl.SSLContext, **kwargs):
+        try:
+            import pg8000
+        except ImportError:
+            raise ImportError(
+                'Unable to import module "pg8000." Please install and try again.'
+            )
+        user = kwargs.pop("user")
+        db = kwargs.pop("db")
+        passwd = kwargs.pop("password")
+        return pg8000.dbapi.connect(
+            user, 
+            database=db, 
+            password=passwd, 
+            host=ip_address, 
+            port=3307, 
+            ssl_context=ctx,
+            request_ssl=False,
+            **kwargs
+        )
