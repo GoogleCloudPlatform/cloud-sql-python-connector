@@ -506,6 +506,20 @@ class InstanceConnectionManager:
         return conn
 
     def _connect_with_pg8000(self, ip_address: str, ctx: ssl.SSLContext, **kwargs):
+        """Helper function to create a pg8000 DB-API connection object.
+
+        :type ip_address: str
+        :param ip_address: A string containing an IP address for the Cloud SQL 
+            instance.
+        
+        :type ctx: ssl.SSLContext
+        :param ctx: An SSLContext object created from the Cloud SQL server CA 
+            cert and ephemeral cert.
+
+
+        :rtype: pg8000.dbapi.Connection
+        :returns: A pg8000 Connection object for the Cloud SQL instance.
+        """
         try:
             import pg8000
         except ImportError:
