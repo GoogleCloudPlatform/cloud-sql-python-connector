@@ -457,7 +457,7 @@ class InstanceConnectionManager:
 
         connect_func = {
             "pymysql": self._connect_with_pymysql,
-            "pg8000": self._connect_with_pg8000
+            "pg8000": self._connect_with_pg8000,
         }
 
         try:
@@ -509,11 +509,11 @@ class InstanceConnectionManager:
         """Helper function to create a pg8000 DB-API connection object.
 
         :type ip_address: str
-        :param ip_address: A string containing an IP address for the Cloud SQL 
+        :param ip_address: A string containing an IP address for the Cloud SQL
             instance.
-        
+
         :type ctx: ssl.SSLContext
-        :param ctx: An SSLContext object created from the Cloud SQL server CA 
+        :param ctx: An SSLContext object created from the Cloud SQL server CA
             cert and ephemeral cert.
 
 
@@ -530,11 +530,11 @@ class InstanceConnectionManager:
         db = kwargs.pop("db")
         passwd = kwargs.pop("password")
         return pg8000.dbapi.connect(
-            user, 
-            database=db, 
-            password=passwd, 
-            host=ip_address, 
-            port=3307, 
+            user,
+            database=db,
+            password=passwd,
+            host=ip_address,
+            port=3307,
             ssl_context=ctx,
             request_ssl=False,
             **kwargs
