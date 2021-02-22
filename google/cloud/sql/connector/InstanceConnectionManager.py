@@ -529,6 +529,7 @@ class InstanceConnectionManager:
         user = kwargs.pop("user")
         db = kwargs.pop("db")
         passwd = kwargs.pop("password")
+        ctx.request_ssl = False
         return pg8000.dbapi.connect(
             user,
             database=db,
@@ -536,6 +537,5 @@ class InstanceConnectionManager:
             host=ip_address,
             port=3307,
             ssl_context=ctx,
-            request_ssl=False,
             **kwargs
         )
