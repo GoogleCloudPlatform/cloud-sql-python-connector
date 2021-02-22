@@ -26,11 +26,11 @@ table_name = f"books_{uuid.uuid4().hex}"
 def init_connection_engine():
     def getconn():
         conn = connector.connect(
-            os.environ["PG_CONNECTION_NAME"],
+            os.environ["POSTGRES_CONNECTION_NAME"],
             "pg8000",
-            user=os.environ["PG_USER"],
-            password=os.environ["PG_PASS"],
-            db=os.environ["PG_DB"],
+            user=os.environ["POSTGRES_USER"],
+            password=os.environ["POSTGRES_PASS"],
+            db=os.environ["POSTGRES_DB"],
         )
         return conn
 
