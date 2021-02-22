@@ -41,6 +41,11 @@ logger = logging.getLogger(name=__name__)
 _delay: int = 55 * 60
 _sql_api_version: str = "v1beta4"
 
+class ConnectionSSLContext(ssl.SSLContext):
+    """Subclass of ssl.SS:Context with added request_ssl attribute."""
+    def __init__(self, *args, **kwargs):
+        self.request_ssl = False
+        super(ConnectionSSLContext, self).__init__(*args, **kwargs)
 
 class InstanceMetadata:
     ip_address: str
@@ -73,7 +78,7 @@ class InstanceMetadata:
         self._cert_fileobject.seek(0)
         self._key_fileobject.seek(0)
 
-        self.context = ssl.SSLContext()
+        self.context = ConnectionSSLContext()
         self.context.load_cert_chain(
             self._cert_fileobject.name, keyfile=self._key_fileobject.name
         )
