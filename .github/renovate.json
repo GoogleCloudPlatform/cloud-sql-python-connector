@@ -1,0 +1,13 @@
+{
+  "extends": [
+    "config:base",
+    ":semanticCommitTypeAll(chore)"
+  ],
+  "prConcurrentLimit": 0,
+  "rebaseStalePrs": true,
+  "masterIssue": true,
+  "semanticCommits": true,
+  "postUpdateOptions": [
+    "gomodTidy"
+  ]
+}
