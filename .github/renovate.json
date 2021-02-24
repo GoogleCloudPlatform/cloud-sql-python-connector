@@ -1,8 +1,9 @@
 {
   "extends": [
     "config:base",
-    ":semanticCommitType(chore)"
+    ":semanticCommitTypeAll(chore)"
   ],
+  "ignorePresets": [":semanticPrefixFixDepsChoreOthers"],
   "prConcurrentLimit": 0,
   "rebaseStalePrs": true,
   "dependencyDashboard": true,
