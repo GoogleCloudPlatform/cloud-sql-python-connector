@@ -43,7 +43,9 @@ _sql_api_version: str = "v1beta4"
 
 
 class ConnectionSSLContext(ssl.SSLContext):
-    """Subclass of ssl.SS:Context with added request_ssl attribute."""
+    """Subclass of ssl.SSLContext with added request_ssl attribute. This is
+    required for compatibility with pg8000 driver.
+    """
 
     def __init__(self, *args, **kwargs):
         self.request_ssl = False
