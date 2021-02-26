@@ -42,6 +42,16 @@ _delay: int = 55 * 60
 _sql_api_version: str = "v1beta4"
 
 
+class ConnectionSSLContext(ssl.SSLContext):
+    """Subclass of ssl.SSLContext with added request_ssl attribute. This is
+    required for compatibility with pg8000 driver.
+    """
+
+    def __init__(self, *args, **kwargs):
+        self.request_ssl = False
+        super(ConnectionSSLContext, self).__init__(*args, **kwargs)
+
+
 class InstanceMetadata:
     ip_address: str
     _ca_fileobject: NamedTemporaryFile
@@ -73,7 +83,7 @@ class InstanceMetadata:
         self._cert_fileobject.seek(0)
         self._key_fileobject.seek(0)
 
-        self.context = ssl.SSLContext()
+        self.context = ConnectionSSLContext()
         self.context.load_cert_chain(
             self._cert_fileobject.name, keyfile=self._key_fileobject.name
         )
@@ -455,8 +465,13 @@ class InstanceConnectionManager:
         with self._lock:
             instance_data: InstanceMetadata = self._current.result()
 
+        connect_func = {
+            "pymysql": self._connect_with_pymysql,
+            "pg8000": self._connect_with_pg8000,
+        }
+
         try:
-            connector = {"pymysql": self._connect_with_pymysql}[driver]
+            connector = connect_func[driver]
         except KeyError:
             raise KeyError("Driver {} is not supported.".format(driver))
 
@@ -499,3 +514,38 @@ class InstanceConnectionManager:
         conn = pymysql.Connection(host=ip_address, defer_connect=True, **kwargs)
         conn.connect(sock)
         return conn
+
+    def _connect_with_pg8000(self, ip_address: str, ctx: ssl.SSLContext, **kwargs):
+        """Helper function to create a pg8000 DB-API connection object.
+
+        :type ip_address: str
+        :param ip_address: A string containing an IP address for the Cloud SQL
+            instance.
+
+        :type ctx: ssl.SSLContext
+        :param ctx: An SSLContext object created from the Cloud SQL server CA
+            cert and ephemeral cert.
+
+
+        :rtype: pg8000.dbapi.Connection
+        :returns: A pg8000 Connection object for the Cloud SQL instance.
+        """
+        try:
+            import pg8000
+        except ImportError:
+            raise ImportError(
+                'Unable to import module "pg8000." Please install and try again.'
+            )
+        user = kwargs.pop("user")
+        db = kwargs.pop("db")
+        passwd = kwargs.pop("password")
+        ctx.request_ssl = False
+        return pg8000.dbapi.connect(
+            user,
+            database=db,
+            password=passwd,
+            host=ip_address,
+            port=3307,
+            ssl_context=ctx,
+            **kwargs
+        )
