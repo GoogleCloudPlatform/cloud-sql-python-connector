@@ -3,3 +3,4 @@ env
 venv
 *.pyc
 .python-version
+cloud_sql_python_connector.egg-info/
