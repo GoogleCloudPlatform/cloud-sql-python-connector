@@ -6,4 +6,4 @@ git+https://github.com/tlocke/pg8000.git@37dcbe3#egg=pg8000
 pyopenssl==20.0.1
 pytest==6.2.2
 Requests==2.25.1
-google-api-python-client==1.12.8
+google-api-python-client==2.0.0
