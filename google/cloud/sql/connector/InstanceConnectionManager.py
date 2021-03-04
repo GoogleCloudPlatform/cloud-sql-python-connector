@@ -108,6 +108,11 @@ class InstanceConnectionManager:
         The Google Cloud SQL Instance's connection
         string.
     :type instance_connection_string: str
+
+    :param user_agent_string:
+        The user agent string to append to SQLAdmin API requests
+    :type user_agent_string: str
+
     :param loop:
         A new event loop for the refresh function to run in.
     :type loop: asyncio.AbstractEventLoop
@@ -128,7 +133,8 @@ class InstanceConnectionManager:
         if self.__client_session is None:
             self.__client_session = aiohttp.ClientSession(
                 headers={
-                    "x-goog-api-client": "cloud-sql-python-connector/0.0.1-alpha",
+                    "x-goog-api-client": self._user_agent_string,
+                    "User-Agent": self._user_agent_string,
                     "Content-Type": "application/json",
                 }
             )
@@ -137,6 +143,7 @@ class InstanceConnectionManager:
     _credentials: Credentials = None
 
     _instance_connection_string: str = None
+    _user_agent_string: str = None
     _instance: str = None
     _project: str = None
     _region: str = None
@@ -149,7 +156,9 @@ class InstanceConnectionManager:
     _next: concurrent.futures.Future = None
 
     def __init__(
-        self, instance_connection_string: str, loop: asyncio.AbstractEventLoop
+        self, instance_connection_string: str,
+        user_agent_string: str,
+        loop: asyncio.AbstractEventLoop
     ) -> None:
         # Validate connection string
         connection_string_split = instance_connection_string.split(":")
@@ -165,6 +174,7 @@ class InstanceConnectionManager:
                 + "format: project:region:instance."
             )
 
+        self._user_agent_string = user_agent_string
         self._loop = loop
         self._auth_init()
         self._priv_key, pub_key = generate_keys()

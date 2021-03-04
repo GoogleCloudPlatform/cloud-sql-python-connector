@@ -30,7 +30,12 @@ if "google.cloud" in packages:
 
 name = "cloud-sql-python-connector"
 description = ""
-version = ""
+
+version = {}
+with open("google/cloud/sql/connector/version.py") as fp:
+    exec(fp.read(), version)
+version = version["__version__"]
+
 release_status = "Development Status :: 3 - Alpha"
 dependencies = [
     "aiohttp",

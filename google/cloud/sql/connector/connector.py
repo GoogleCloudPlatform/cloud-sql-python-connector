@@ -17,8 +17,11 @@ import asyncio
 from google.cloud.sql.connector.InstanceConnectionManager import (
     InstanceConnectionManager,
 )
+from google.cloud.sql.connector.version import __version__
+
 from threading import Thread
 from typing import Optional
+
 
 
 # This thread is used to background processing
@@ -65,5 +68,6 @@ def connect(instance_connection_string, driver: str, **kwargs):
     # Return a DBAPI connection
 
     loop = _get_loop()
-    icm = InstanceConnectionManager(instance_connection_string, loop)
+    user_agent = f"cloud-sql-python-connector-{driver}/{__version__}"
+    icm = InstanceConnectionManager(instance_connection_string, user_agent, loop)
     return icm.connect(driver, user=kwargs.pop("user"), **kwargs)
