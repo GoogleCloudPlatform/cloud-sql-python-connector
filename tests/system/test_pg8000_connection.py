@@ -58,7 +58,7 @@ def setup():
         conn.execute(f"DROP TABLE IF EXISTS {table_name}")
 
 
-def test_pooled_connection_with_pymysql(pool):
+def test_pooled_connection_with_pg8000(pool):
     insert_stmt = sqlalchemy.text(
         f"INSERT INTO {table_name} (id, title) VALUES (:id, :title)",
     )
