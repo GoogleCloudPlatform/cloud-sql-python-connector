@@ -480,20 +480,13 @@ class InstanceConnectionManager:
     def _connect_with_pymysql(self, ip_address: str, ctx: ssl.SSLContext, **kwargs):
         """Helper function to create a pymysql DB-API connection object.
 
-        :type ca_filepath: str
-        :param ca_filepath: A string representing the path to the server's
-            certificate authority.
+        :type ip_address: str
+        :param ip_address: A string containing an IP address for the Cloud SQL
+            instance.
 
-        :type cert_filepath: str
-        :param cert_filepath: A string representing the path to the ephemeral
-            certificate.
-
-        :type key_filepath: str
-        :param key_filepath: A string representing the path to the private key file.
-
-        :type ip_addresses: Dict[str, str]
-        :param ip_addresses: A Dictionary containing the different IP addresses
-            of the Cloud SQL instance.
+        :type ctx: ssl.SSLContext
+        :param ctx: An SSLContext object created from the Cloud SQL server CA
+            cert and ephemeral cert.
 
         :rtype: pymysql.Connection
         :returns: A PyMySQL Connection object for the Cloud SQL instance.
