@@ -1,4 +1,4 @@
-aiohttp==3.7.4
+aiohttp==3.7.4.post0
 cryptography==3.4.6
 PyMySQL==1.0.2
 #pg8000==1.17.0
