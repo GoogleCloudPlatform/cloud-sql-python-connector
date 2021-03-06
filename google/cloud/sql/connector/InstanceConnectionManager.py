@@ -156,9 +156,10 @@ class InstanceConnectionManager:
     _next: concurrent.futures.Future = None
 
     def __init__(
-        self, instance_connection_string: str,
+        self,
+        instance_connection_string: str,
         user_agent_string: str,
-        loop: asyncio.AbstractEventLoop
+        loop: asyncio.AbstractEventLoop,
     ) -> None:
         # Validate connection string
         connection_string_split = instance_connection_string.split(":")

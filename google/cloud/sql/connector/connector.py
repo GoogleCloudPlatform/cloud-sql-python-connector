@@ -23,7 +23,6 @@ from threading import Thread
 from typing import Optional
 
 
-
 # This thread is used to background processing
 _thread: Optional[Thread] = None
 _loop: Optional[asyncio.AbstractEventLoop] = None
