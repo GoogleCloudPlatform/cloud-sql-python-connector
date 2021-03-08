@@ -18,7 +18,6 @@ import pytest  # noqa F401 Needed to run the tests
 from google.cloud.sql.connector.InstanceConnectionManager import (
     InstanceConnectionManager,
 )
-from google.cloud.sql.connector.version import __version__
 from google.cloud.sql.connector.utils import generate_keys
 import asyncio
 import os

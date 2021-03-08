@@ -17,7 +17,6 @@ import asyncio
 from google.cloud.sql.connector.InstanceConnectionManager import (
     InstanceConnectionManager,
 )
-from google.cloud.sql.connector.version import __version__
 
 from threading import Thread
 from typing import Optional
