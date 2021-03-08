@@ -16,6 +16,7 @@ limitations under the License.
 
 # Custom utils import
 from google.cloud.sql.connector.utils import generate_keys
+from google.cloud.sql.connector.version import __version__ as version
 
 # Importing libraries
 import asyncio
@@ -35,12 +36,12 @@ import logging
 
 logger = logging.getLogger(name=__name__)
 
+APPLICATION_NAME ="cloud-sql-python-connector"
 
 # The default delay is set to 55 minutes since each ephemeral certificate is only
 # valid for an hour. This gives five minutes of buffer time.
 _delay: int = 55 * 60
 _sql_api_version: str = "v1beta4"
-
 
 class ConnectionSSLContext(ssl.SSLContext):
     """Subclass of ssl.SSLContext with added request_ssl attribute. This is
@@ -158,7 +159,7 @@ class InstanceConnectionManager:
     def __init__(
         self,
         instance_connection_string: str,
-        user_agent_string: str,
+        driver_name: str,
         loop: asyncio.AbstractEventLoop,
     ) -> None:
         # Validate connection string
@@ -175,7 +176,7 @@ class InstanceConnectionManager:
                 + "format: project:region:instance."
             )
 
-        self._user_agent_string = user_agent_string
+        self._user_agent_string = f"{APPLICATION_NAME}/{version}+{driver_name}"
         self._loop = loop
         self._auth_init()
         self._priv_key, pub_key = generate_keys()
