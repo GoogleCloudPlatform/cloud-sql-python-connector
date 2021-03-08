@@ -36,12 +36,13 @@ import logging
 
 logger = logging.getLogger(name=__name__)
 
-APPLICATION_NAME ="cloud-sql-python-connector"
+APPLICATION_NAME = "cloud-sql-python-connector"
 
 # The default delay is set to 55 minutes since each ephemeral certificate is only
 # valid for an hour. This gives five minutes of buffer time.
 _delay: int = 55 * 60
 _sql_api_version: str = "v1beta4"
+
 
 class ConnectionSSLContext(ssl.SSLContext):
     """Subclass of ssl.SSLContext with added request_ssl attribute. This is
@@ -552,5 +553,5 @@ class InstanceConnectionManager:
             host=ip_address,
             port=3307,
             ssl_context=ctx,
-            **kwargs
+            **kwargs,
         )
