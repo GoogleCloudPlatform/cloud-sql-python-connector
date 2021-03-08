@@ -65,8 +65,7 @@ def test_InstanceConnectionManager_init(async_loop):
     """
 
     connect_string = "test-project:test-region:test-instance"
-    user_agent_string = f"cloud-sql-python-connector-pymysql/{__version__}"
-    icm = InstanceConnectionManager(connect_string, user_agent_string, async_loop)
+    icm = InstanceConnectionManager(connect_string, "pymysql", async_loop)
     project_result = icm._project
     region_result = icm._region
     instance_result = icm._instance
@@ -161,8 +160,7 @@ def test_InstanceConnectionManager_perform_refresh(async_loop, connect_string):
     Test to check whether _get_perform works as described given valid
     conditions.
     """
-    user_agent_string = f"cloud-sql-python-connector-pymysql/{__version__}"
-    icm = InstanceConnectionManager(connect_string, user_agent_string, async_loop)
+    icm = InstanceConnectionManager(connect_string, "pymysql", async_loop)
     fut = icm._perform_refresh()
 
     del icm
