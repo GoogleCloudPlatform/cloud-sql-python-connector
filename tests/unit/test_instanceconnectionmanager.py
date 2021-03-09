@@ -110,7 +110,7 @@ async def test_InstanceConnectionManager_get_ephemeral(connect_string):
             "https://www.googleapis.com/auth/cloud-platform",
         ]
     )
-    priv, pub_key = generate_keys()
+    priv, pub_key = await generate_keys()
 
     async with aiohttp.ClientSession() as client_session:
         result = await InstanceConnectionManager._get_ephemeral(
@@ -142,7 +142,7 @@ async def test_InstanceConnectionManager_get_metadata(connect_string):
             "https://www.googleapis.com/auth/cloud-platform",
         ]
     )
-    priv, pub_key = generate_keys()
+    priv, pub_key = await generate_keys()
 
     async with aiohttp.ClientSession() as client_session:
         result = await InstanceConnectionManager._get_metadata(

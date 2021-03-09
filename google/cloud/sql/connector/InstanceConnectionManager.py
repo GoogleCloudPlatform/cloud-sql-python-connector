@@ -180,8 +180,6 @@ class InstanceConnectionManager:
         self._user_agent_string = f"{APPLICATION_NAME}/{version}+{driver_name}"
         self._loop = loop
         self._auth_init()
-        self._priv_key, pub_key = generate_keys()
-        self._pub_key = pub_key.decode("UTF-8")
         self._lock = threading.Lock()
 
         logger.debug("Updating instance data")
@@ -352,6 +350,10 @@ class InstanceConnectionManager:
             and a string representing a PEM-encoded certificate authority.
         """
 
+        if self._priv_key == None or self._pub_key == None: 
+            self._priv_key, pub_key = await generate_keys()
+            self._pub_key = pub_key.decode("UTF-8")
+
         logger.debug("Creating context")
 
         metadata_task = self._loop.create_task(
@@ -377,7 +379,7 @@ class InstanceConnectionManager:
             metadata["ip_addresses"]["PRIMARY"],
             self._priv_key,
             metadata["server_ca_cert"],
-        )
+        )         
 
     def _update_current(self, future: concurrent.futures.Future) -> None:
         """A threadsafe way to update the current instance data and the

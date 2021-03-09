@@ -14,12 +14,22 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
+import asyncio
+from functools import partial, wraps
 
 import pymysql.cursors
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 
+def run_function_as_async(func):
+    @wraps(func)
+    async def wrapped_sync_function(*args, **kwargs):
+        partial_func = partial(func, *args, **kwargs)
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(None, partial_func)
+
+    return wrapped_sync_function
 
 def connect(host, user, password, db_name):
     """
@@ -41,7 +51,29 @@ def connect(host, user, password, db_name):
     )
 
 
-def generate_keys():
+@run_function_as_async
+def generate_private_key_object():
+    return rsa.generate_private_key(
+        backend=default_backend(), public_exponent=65537, key_size=2048
+    )
+
+@run_function_as_async
+def get_private_key_bytes(private_key_obj):
+    return private_key_obj.private_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PrivateFormat.TraditionalOpenSSL,
+        encryption_algorithm=serialization.NoEncryption(),
+    )
+
+@run_function_as_async
+def get_public_key_bytes(private_key_obj):
+    return private_key_obj.public_key().public_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PublicFormat.SubjectPublicKeyInfo,
+    )
+
+
+async def generate_keys():
     """
     A helper function to generate the private and public keys.
 
@@ -56,19 +88,12 @@ def generate_keys():
     key_size - The cryptography documentation recommended a key_size
     of at least 2048.
     """
-    private_key_obj = rsa.generate_private_key(
-        backend=default_backend(), public_exponent=65537, key_size=2048
+    private_key_obj = await generate_private_key_object()
+    
+    return await asyncio.gather(
+        get_private_key_bytes(private_key_obj),
+        get_public_key_bytes(private_key_obj)
     )
-    private_key = private_key_obj.private_bytes(
-        encoding=serialization.Encoding.PEM,
-        format=serialization.PrivateFormat.TraditionalOpenSSL,
-        encryption_algorithm=serialization.NoEncryption(),
-    )
-    public_key = private_key_obj.public_key().public_bytes(
-        encoding=serialization.Encoding.PEM,
-        format=serialization.PublicFormat.SubjectPublicKeyInfo,
-    )
-    return private_key, public_key
 
 
 def write_to_file(serverCaCert, ephemeralCert, priv_key):
