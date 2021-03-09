@@ -14,24 +14,30 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
+import asyncio
+
 from google.cloud.sql.connector import utils
 
+import pytest  # noqa F401 Needed to run the tests
 
-def test_generate_keys_not_return_none():
+
+@pytest.mark.asyncio
+async def test_generate_keys_not_return_none():
     """
     Test to check if objects are being produced from the generate_keys()
     function.
     """
 
-    res1, res2 = utils.generate_keys()
+    res1, res2 = await utils.generate_keys()
     assert (res1 is not None) and (res2 is not None)
 
 
-def test_generate_keys_returns_bytes():
+@pytest.mark.asyncio
+async def test_generate_keys_returns_bytes():
     """
     Test to check if objects produced from the generate_keys() function are of
     type bytes.
     """
 
-    res1, res2 = utils.generate_keys()
+    res1, res2 = await utils.generate_keys()
     assert isinstance(res1, bytes) and (isinstance(res2, bytes))
