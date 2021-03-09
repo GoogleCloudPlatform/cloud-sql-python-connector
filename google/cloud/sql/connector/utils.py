@@ -22,6 +22,7 @@ from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 
+
 def run_function_as_async(func):
     @wraps(func)
     async def wrapped_sync_function(*args, **kwargs):
@@ -30,6 +31,7 @@ def run_function_as_async(func):
         return await loop.run_in_executor(None, partial_func)
 
     return wrapped_sync_function
+
 
 def connect(host, user, password, db_name):
     """
@@ -57,6 +59,7 @@ def generate_private_key_object():
         backend=default_backend(), public_exponent=65537, key_size=2048
     )
 
+
 @run_function_as_async
 def get_private_key_bytes(private_key_obj):
     return private_key_obj.private_bytes(
@@ -64,6 +67,7 @@ def get_private_key_bytes(private_key_obj):
         format=serialization.PrivateFormat.TraditionalOpenSSL,
         encryption_algorithm=serialization.NoEncryption(),
     )
+
 
 @run_function_as_async
 def get_public_key_bytes(private_key_obj):
@@ -89,10 +93,9 @@ async def generate_keys():
     of at least 2048.
     """
     private_key_obj = await generate_private_key_object()
-    
+
     return await asyncio.gather(
-        get_private_key_bytes(private_key_obj),
-        get_public_key_bytes(private_key_obj)
+        get_private_key_bytes(private_key_obj), get_public_key_bytes(private_key_obj)
     )
 
 

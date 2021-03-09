@@ -350,7 +350,7 @@ class InstanceConnectionManager:
             and a string representing a PEM-encoded certificate authority.
         """
 
-        if self._priv_key == None or self._pub_key == None: 
+        if self._priv_key == None or self._pub_key == None:
             self._priv_key, pub_key = await generate_keys()
             self._pub_key = pub_key.decode("UTF-8")
 
@@ -379,7 +379,7 @@ class InstanceConnectionManager:
             metadata["ip_addresses"]["PRIMARY"],
             self._priv_key,
             metadata["server_ca_cert"],
-        )         
+        )
 
     def _update_current(self, future: concurrent.futures.Future) -> None:
         """A threadsafe way to update the current instance data and the
