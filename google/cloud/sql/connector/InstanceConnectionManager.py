@@ -42,6 +42,10 @@ APPLICATION_NAME = "cloud-sql-python-connector"
 _delay: int = 55 * 60
 _sql_api_version: str = "v1beta4"
 
+# Time in seconds to wait for the result of fetching instance metadata before
+# timing out.
+_instance_metadata_timeout = 30
+
 
 class ConnectionSSLContext(ssl.SSLContext):
     """Subclass of ssl.SSLContext with added request_ssl attribute. This is
@@ -476,7 +480,15 @@ class InstanceConnectionManager:
         kwargs.pop("port", None)
 
         with self._lock:
-            instance_data: InstanceMetadata = self._current.result()
+            try:
+                instance_data: InstanceMetadata = self._current.result(
+                    timeout=_instance_metadata_timeout
+                )
+            except concurrent.futures.TimeoutError:
+                raise TimeoutError(
+                    "Failed to fetch instance metadata. "
+                    f"Task timed out after {_instance_metadata_timeout}s"
+                )
 
         connect_func = {
             "pymysql": self._connect_with_pymysql,
