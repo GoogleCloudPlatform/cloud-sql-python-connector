@@ -55,32 +55,8 @@ def connect(host, user, password, db_name):
 
 @run_function_as_async
 def generate_private_key_object():
-    return rsa.generate_private_key(
-        backend=default_backend(), public_exponent=65537, key_size=2048
-    )
-
-
-@run_function_as_async
-def get_private_key_bytes(private_key_obj):
-    return private_key_obj.private_bytes(
-        encoding=serialization.Encoding.PEM,
-        format=serialization.PrivateFormat.TraditionalOpenSSL,
-        encryption_algorithm=serialization.NoEncryption(),
-    )
-
-
-@run_function_as_async
-def get_public_key_bytes(private_key_obj):
-    return private_key_obj.public_key().public_bytes(
-        encoding=serialization.Encoding.PEM,
-        format=serialization.PublicFormat.SubjectPublicKeyInfo,
-    )
-
-
-async def generate_keys():
-    """
-    A helper function to generate the private and public keys.
-
+    """Helper function to generate a private key.
+    
     backend - The value specified is default_backend(). This is because the
     cryptography library used to support different backends, but now only uses
     the default_backend().
@@ -92,6 +68,32 @@ async def generate_keys():
     key_size - The cryptography documentation recommended a key_size
     of at least 2048.
     """
+    return rsa.generate_private_key(
+        backend=default_backend(), public_exponent=65537, key_size=2048
+    )
+
+
+@run_function_as_async
+def get_private_key_bytes(private_key_obj):
+    """Helper function to get private key bytes from private key object."""
+    return private_key_obj.private_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PrivateFormat.TraditionalOpenSSL,
+        encryption_algorithm=serialization.NoEncryption(),
+    )
+
+
+@run_function_as_async
+def get_public_key_bytes(private_key_obj):
+    """Helper function to get public key bytes from private key object."""
+    return private_key_obj.public_key().public_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PublicFormat.SubjectPublicKeyInfo,
+    )
+
+
+async def generate_keys():
+    """A helper function to generate the private and public keys."""
     private_key_obj = await generate_private_key_object()
 
     return await asyncio.gather(
