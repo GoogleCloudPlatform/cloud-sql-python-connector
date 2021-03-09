@@ -30,7 +30,7 @@ import ssl
 import socket
 from tempfile import NamedTemporaryFile
 import threading
-from typing import Any, Dict, Union
+from typing import Any, Dict, Tuple, Union
 
 import logging
 
@@ -179,6 +179,7 @@ class InstanceConnectionManager:
 
         self._user_agent_string = f"{APPLICATION_NAME}/{version}+{driver_name}"
         self._loop = loop
+        self._key_generation_task = asyncio.ensure_future(self._get_keys(), loop=self._loop)
         self._auth_init()
         self._lock = threading.Lock()
 
@@ -339,6 +340,10 @@ class InstanceConnectionManager:
         ret_dict = json.loads(await resp.text())
 
         return ret_dict["cert"]
+    
+    async def _get_keys(self) -> Tuple[bytes, bytes]:
+        self._priv_key, pub_key = await generate_keys()
+        self._pub_key = pub_key.decode("UTF-8")
 
     async def _get_instance_data(self) -> InstanceMetadata:
         """Asynchronous function that takes in the futures for the ephemeral certificate
@@ -349,10 +354,7 @@ class InstanceConnectionManager:
             containing the instances IP adresses, a string representing a PEM-encoded private key
             and a string representing a PEM-encoded certificate authority.
         """
-
-        if self._priv_key is None or self._pub_key is None:
-            self._priv_key, pub_key = await generate_keys()
-            self._pub_key = pub_key.decode("UTF-8")
+        await self._key_generation_task
 
         logger.debug("Creating context")
 
