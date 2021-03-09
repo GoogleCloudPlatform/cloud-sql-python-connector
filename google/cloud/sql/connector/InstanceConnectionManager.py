@@ -350,7 +350,7 @@ class InstanceConnectionManager:
             and a string representing a PEM-encoded certificate authority.
         """
 
-        if self._priv_key == None or self._pub_key == None:
+        if self._priv_key is None or self._pub_key is None:
             self._priv_key, pub_key = await generate_keys()
             self._pub_key = pub_key.decode("UTF-8")
 
