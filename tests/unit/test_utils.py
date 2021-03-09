@@ -14,8 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-import asyncio
-
 from google.cloud.sql.connector import utils
 
 import pytest  # noqa F401 Needed to run the tests
