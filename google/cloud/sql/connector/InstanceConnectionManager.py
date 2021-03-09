@@ -179,9 +179,7 @@ class InstanceConnectionManager:
 
         self._user_agent_string = f"{APPLICATION_NAME}/{version}+{driver_name}"
         self._loop = loop
-        self._key_generation_task = asyncio.ensure_future(
-            self._get_keys(), loop=self._loop
-        )
+        self._key_generation_task = self._loop.create_task(self._get_keys())
         self._auth_init()
         self._lock = threading.Lock()
 
