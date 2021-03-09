@@ -56,7 +56,7 @@ def connect(host, user, password, db_name):
 @run_function_as_async
 def generate_private_key_object():
     """Helper function to generate a private key.
-    
+
     backend - The value specified is default_backend(). This is because the
     cryptography library used to support different backends, but now only uses
     the default_backend().

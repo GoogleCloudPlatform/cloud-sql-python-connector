@@ -30,7 +30,7 @@ import ssl
 import socket
 from tempfile import NamedTemporaryFile
 import threading
-from typing import Any, Dict, Tuple, Union
+from typing import Any, Dict, Union
 
 import logging
 
@@ -179,7 +179,9 @@ class InstanceConnectionManager:
 
         self._user_agent_string = f"{APPLICATION_NAME}/{version}+{driver_name}"
         self._loop = loop
-        self._key_generation_task = asyncio.ensure_future(self._get_keys(), loop=self._loop)
+        self._key_generation_task = asyncio.ensure_future(
+            self._get_keys(), loop=self._loop
+        )
         self._auth_init()
         self._lock = threading.Lock()
 
@@ -340,8 +342,11 @@ class InstanceConnectionManager:
         ret_dict = json.loads(await resp.text())
 
         return ret_dict["cert"]
-    
-    async def _get_keys(self) -> Tuple[bytes, bytes]:
+
+    async def _get_keys(self) -> None:
+        """Asynchronous function to generate and set values for public and
+        private keys.
+        """
         self._priv_key, pub_key = await generate_keys()
         self._pub_key = pub_key.decode("UTF-8")
 
