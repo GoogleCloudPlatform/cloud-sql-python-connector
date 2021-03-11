@@ -5,6 +5,5 @@ pg8000==1.19.2
 # python-tds==1.10.0
 git+https://github.com/denisenkom/pytds.git@refs/pull/120/merge
 pyopenssl==20.0.1
-pytest==6.2.3
 Requests==2.25.1
 google-api-python-client==2.2.0
