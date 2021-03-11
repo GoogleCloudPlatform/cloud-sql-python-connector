@@ -27,7 +27,7 @@ def run_function_as_async(func):
     @wraps(func)
     async def wrapped_sync_function(*args, **kwargs):
         partial_func = partial(func, *args, **kwargs)
-        loop = asyncio.get_event_loop()
+        loop = kwargs.pop("loop") or asyncio.get_event_loop()
         return await loop.run_in_executor(None, partial_func)
 
     return wrapped_sync_function
@@ -54,7 +54,7 @@ def connect(host, user, password, db_name):
 
 
 @run_function_as_async
-def generate_private_key_object():
+def generate_private_key_object(loop=None):
     """Helper function to generate a private key.
 
     backend - The value specified is default_backend(). This is because the
@@ -73,32 +73,22 @@ def generate_private_key_object():
     )
 
 
-@run_function_as_async
-def get_private_key_bytes(private_key_obj):
-    """Helper function to get private key bytes from private key object."""
-    return private_key_obj.private_bytes(
+async def generate_keys(loop=None):
+    """A helper function to generate the private and public keys."""
+    private_key_obj = await generate_private_key_object(loop=loop)
+
+    pub_key = private_key_obj.public_key().public_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PublicFormat.SubjectPublicKeyInfo,
+    )
+
+    priv_key = private_key_obj.private_bytes(
         encoding=serialization.Encoding.PEM,
         format=serialization.PrivateFormat.TraditionalOpenSSL,
         encryption_algorithm=serialization.NoEncryption(),
     )
 
-
-@run_function_as_async
-def get_public_key_bytes(private_key_obj):
-    """Helper function to get public key bytes from private key object."""
-    return private_key_obj.public_key().public_bytes(
-        encoding=serialization.Encoding.PEM,
-        format=serialization.PublicFormat.SubjectPublicKeyInfo,
-    )
-
-
-async def generate_keys():
-    """A helper function to generate the private and public keys."""
-    private_key_obj = await generate_private_key_object()
-
-    return await asyncio.gather(
-        get_private_key_bytes(private_key_obj), get_public_key_bytes(private_key_obj)
-    )
+    return priv_key, pub_key
 
 
 def write_to_file(serverCaCert, ephemeralCert, priv_key):

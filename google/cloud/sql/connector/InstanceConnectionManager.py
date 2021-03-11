@@ -345,7 +345,7 @@ class InstanceConnectionManager:
         """Asynchronous function to generate and set values for public and
         private keys.
         """
-        self._priv_key, pub_key = await generate_keys()
+        self._priv_key, pub_key = await generate_keys(loop=self._loop)
         self._pub_key = pub_key.decode("UTF-8")
 
     async def _get_instance_data(self) -> InstanceMetadata:
