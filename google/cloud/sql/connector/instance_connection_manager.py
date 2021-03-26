@@ -15,6 +15,8 @@ limitations under the License.
 """
 
 # Custom utils import
+from google.cloud.sql.connector.ephemeral import _get_ephemeral
+from google.cloud.sql.connector.metadata import _get_metadata
 from google.cloud.sql.connector.version import __version__ as version
 
 # Importing libraries
@@ -40,7 +42,7 @@ APPLICATION_NAME = "cloud-sql-python-connector"
 # The default delay is set to 55 minutes since each ephemeral certificate is only
 # valid for an hour. This gives five minutes of buffer time.
 _delay: int = 55 * 60
-_sql_api_version: str = "v1beta4"
+
 
 
 class ConnectionSSLContext(ssl.SSLContext):
@@ -203,139 +205,6 @@ class InstanceConnectionManager:
 
         logger.debug("Finished deconstructing")
 
-    @staticmethod
-    async def _get_metadata(
-        client_session: aiohttp.ClientSession,
-        credentials: Credentials,
-        project: str,
-        instance: str,
-    ) -> Dict[str, Union[Dict, str]]:
-        """Requests metadata from the Cloud SQL Instance
-        and returns a dictionary containing the IP addresses and certificate
-        authority of the Cloud SQL Instance.
-
-        :type credentials: google.oauth2.service_account.Credentials
-        :param service:
-            A credentials object created from the google-auth Python library.
-            Must have the SQL Admin API scopes. For more info check out
-            https://google-auth.readthedocs.io/en/latest/.
-
-        :type project: str
-        :param project:
-            A string representing the name of the project.
-
-        :type inst_name: str
-        :param project: A string representing the name of the instance.
-
-        :rtype: Dict[str: Union[Dict, str]]
-        :returns: Returns a dictionary containing a dictionary of all IP
-              addresses and their type and a string representing the
-              certificate authority.
-
-        :raises TypeError: If any of the arguments are not the specified type.
-        """
-
-        if (
-            not isinstance(credentials, Credentials)
-            or not isinstance(project, str)
-            or not isinstance(instance, str)
-        ):
-            raise TypeError(
-                "Arguments must be as follows: "
-                + "service (googleapiclient.discovery.Resource), "
-                + "proj_name (str) and inst_name (str)."
-            )
-
-        if not credentials.valid:
-            request = google.auth.transport.requests.Request()
-            credentials.refresh(request)
-
-        headers = {
-            "Authorization": "Bearer {}".format(credentials.token),
-        }
-
-        url = "https://www.googleapis.com/sql/{}/projects/{}/instances/{}".format(
-            _sql_api_version, project, instance
-        )
-
-        logger.debug("Requesting metadata")
-
-        resp = await client_session.get(url, headers=headers, raise_for_status=True)
-        ret_dict = json.loads(await resp.text())
-
-        metadata = {
-            "ip_addresses": {
-                ip["type"]: ip["ipAddress"] for ip in ret_dict["ipAddresses"]
-            },
-            "server_ca_cert": ret_dict["serverCaCert"]["cert"],
-        }
-
-        return metadata
-
-    @staticmethod
-    async def _get_ephemeral(
-        client_session: aiohttp.ClientSession,
-        credentials: Credentials,
-        project: str,
-        instance: str,
-        pub_key: str,
-    ) -> str:
-        """Asynchronously requests an ephemeral certificate from the Cloud SQL Instance.
-
-        :type credentials: google.oauth2.service_account.Credentials
-        :param credentials: A credentials object
-            created from the google-auth library. Must be
-            using the SQL Admin API scopes. For more info, check out
-            https://google-auth.readthedocs.io/en/latest/.
-
-        :type project: str
-        :param project : A string representing the name of the project.
-
-        :type instance: str
-        :param instance: A string representing the name of the instance.
-
-        :type pub_key:
-        :param str: A string representing PEM-encoded RSA public key.
-
-        :rtype: str
-        :returns: An ephemeral certificate from the Cloud SQL instance that allows
-              authorized connections to the instance.
-
-        :raises TypeError: If one of the arguments passed in is None.
-        """
-
-        logger.debug("Requesting ephemeral certificate")
-
-        if (
-            not isinstance(credentials, Credentials)
-            or not isinstance(project, str)
-            or not isinstance(instance, str)
-            or not isinstance(pub_key, str)
-        ):
-            raise TypeError("Cannot take None as an argument.")
-
-        if not credentials.valid:
-            request = google.auth.transport.requests.Request()
-            credentials.refresh(request)
-
-        headers = {
-            "Authorization": "Bearer {}".format(credentials.token),
-        }
-
-        url = "https://www.googleapis.com/sql/{}/projects/{}/instances/{}/createEphemeral".format(
-            _sql_api_version, project, instance
-        )
-
-        data = {"public_key": pub_key}
-
-        resp = await client_session.post(
-            url, headers=headers, json=data, raise_for_status=True
-        )
-
-        ret_dict = json.loads(await resp.text())
-
-        return ret_dict["cert"]
-
     async def _get_instance_data(self) -> InstanceMetadata:
         """Asynchronous function that takes in the futures for the ephemeral certificate
         and the instance metadata and generates an OpenSSL context object.
@@ -350,13 +219,13 @@ class InstanceConnectionManager:
         logger.debug("Creating context")
 
         metadata_task = self._loop.create_task(
-            self._get_metadata(
+            _get_metadata(
                 self._client_session, self._credentials, self._project, self._instance
             )
         )
 
         ephemeral_task = self._loop.create_task(
-            self._get_ephemeral(
+            _get_ephemeral(
                 self._client_session,
                 self._credentials,
                 self._project,
