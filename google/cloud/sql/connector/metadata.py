@@ -16,7 +16,6 @@ limitations under the License.
 
 
 import aiohttp
-import concurrent
 import google.auth
 from google.auth.credentials import Credentials
 import google.auth.transport.requests
@@ -28,6 +27,7 @@ import logging
 logger = logging.getLogger(name=__name__)
 
 _sql_api_version: str = "v1beta4"
+
 
 async def _get_metadata(
     client_session: aiohttp.ClientSession,

@@ -15,24 +15,17 @@ limitations under the License.
 """
 
 # Importing libraries
-import asyncio
 import aiohttp
-import concurrent
 import google.auth
 from google.auth.credentials import Credentials
 import google.auth.transport.requests
 import json
-import ssl
-import socket
-from tempfile import NamedTemporaryFile
-import threading
-from typing import Any
-
 import logging
 
 logger = logging.getLogger(name=__name__)
 
 _sql_api_version: str = "v1beta4"
+
 
 async def _get_ephemeral(
     client_session: aiohttp.ClientSession,

@@ -13,10 +13,6 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
-import asyncio
-import os
-import threading
-import concurrent
 
 import aiohttp
 import google.auth
@@ -46,9 +42,7 @@ async def test_get_metadata(connect_string):
     priv, pub_key = generate_keys()
 
     async with aiohttp.ClientSession() as client_session:
-        result = await _get_metadata(
-            client_session, credentials, project, instance
-        )
+        result = await _get_metadata(client_session, credentials, project, instance)
 
     assert result["ip_addresses"] is not None and isinstance(
         result["server_ca_cert"], str

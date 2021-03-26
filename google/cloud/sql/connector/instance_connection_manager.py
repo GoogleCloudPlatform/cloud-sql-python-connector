@@ -26,7 +26,6 @@ import concurrent
 import google.auth
 from google.auth.credentials import Credentials
 import google.auth.transport.requests
-import json
 import ssl
 import socket
 from tempfile import NamedTemporaryFile
@@ -42,7 +41,6 @@ APPLICATION_NAME = "cloud-sql-python-connector"
 # The default delay is set to 55 minutes since each ephemeral certificate is only
 # valid for an hour. This gives five minutes of buffer time.
 _delay: int = 55 * 60
-
 
 
 class ConnectionSSLContext(ssl.SSLContext):

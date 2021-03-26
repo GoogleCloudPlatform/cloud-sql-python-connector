@@ -13,10 +13,6 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
-import asyncio
-import os
-import threading
-import concurrent
 
 import aiohttp
 import google.auth
@@ -24,6 +20,7 @@ import pytest  # noqa F401 Needed to run the tests
 
 from google.cloud.sql.connector.ephemeral import _get_ephemeral
 from google.cloud.sql.connector.utils import generate_keys
+
 
 @pytest.mark.asyncio
 async def test_get_ephemeral(connect_string):
