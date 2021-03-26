@@ -30,7 +30,7 @@ import ssl
 import socket
 from tempfile import NamedTemporaryFile
 import threading
-from typing import Any, Dict, Union
+from typing import Any, Dict, Union, Awaitable
 
 import logging
 
@@ -179,7 +179,7 @@ class InstanceConnectionManager:
 
         self._user_agent_string = f"{APPLICATION_NAME}/{version}+{driver_name}"
         self._loop = loop
-        self._key_generation_task = self._loop.create_task(self._get_keys())
+        self._keys: Awaitable = self._loop.create_task(self._get_keys())
         self._auth_init()
         self._lock = threading.Lock()
 
@@ -345,8 +345,7 @@ class InstanceConnectionManager:
         """Asynchronous function to generate and set values for public and
         private keys.
         """
-        self._priv_key, pub_key = await generate_keys(loop=self._loop)
-        self._pub_key = pub_key.decode("UTF-8")
+        self._priv_key, self._pub_key = await generate_keys()
 
     async def _get_instance_data(self) -> InstanceMetadata:
         """Asynchronous function that takes in the futures for the ephemeral certificate
@@ -357,7 +356,7 @@ class InstanceConnectionManager:
             containing the instances IP adresses, a string representing a PEM-encoded private key
             and a string representing a PEM-encoded certificate authority.
         """
-        await self._key_generation_task
+        await self._keys
 
         logger.debug("Creating context")
 

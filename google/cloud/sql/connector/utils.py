@@ -27,7 +27,7 @@ def run_function_as_async(func):
     @wraps(func)
     async def wrapped_sync_function(*args, **kwargs):
         partial_func = partial(func, *args, **kwargs)
-        loop = kwargs.pop("loop") or asyncio.get_event_loop()
+        loop = asyncio.get_event_loop()
         return await loop.run_in_executor(None, partial_func)
 
     return wrapped_sync_function
@@ -54,7 +54,7 @@ def connect(host, user, password, db_name):
 
 
 @run_function_as_async
-def generate_private_key_object(loop=None):
+def generate_private_key_object():
     """Helper function to generate a private key.
 
     backend - The value specified is default_backend(). This is because the
@@ -73,14 +73,14 @@ def generate_private_key_object(loop=None):
     )
 
 
-async def generate_keys(loop=None):
+async def generate_keys():
     """A helper function to generate the private and public keys."""
-    private_key_obj = await generate_private_key_object(loop=loop)
+    private_key_obj = await generate_private_key_object()
 
     pub_key = private_key_obj.public_key().public_bytes(
         encoding=serialization.Encoding.PEM,
         format=serialization.PublicFormat.SubjectPublicKeyInfo,
-    )
+    ).decode("UTF-8")
 
     priv_key = private_key_obj.private_bytes(
         encoding=serialization.Encoding.PEM,
