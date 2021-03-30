@@ -64,7 +64,8 @@ def test_InstanceConnectionManager_init(async_loop):
     """
 
     connect_string = "test-project:test-region:test-instance"
-    icm = InstanceConnectionManager(connect_string, "pymysql", async_loop)
+    keys = asyncio.run_coroutine_threadsafe(generate_keys(), async_loop)
+    icm = InstanceConnectionManager(connect_string, "pymysql", keys, async_loop)
     project_result = icm._project
     region_result = icm._region
     instance_result = icm._instance
