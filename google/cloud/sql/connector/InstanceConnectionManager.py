@@ -15,7 +15,6 @@ limitations under the License.
 """
 
 # Custom utils import
-from google.cloud.sql.connector.utils import generate_keys
 from google.cloud.sql.connector.version import __version__ as version
 
 # Importing libraries
@@ -161,6 +160,7 @@ class InstanceConnectionManager:
         self,
         instance_connection_string: str,
         driver_name: str,
+        keys: concurrent.futures.Future,
         loop: asyncio.AbstractEventLoop,
     ) -> None:
         # Validate connection string
@@ -179,7 +179,7 @@ class InstanceConnectionManager:
 
         self._user_agent_string = f"{APPLICATION_NAME}/{version}+{driver_name}"
         self._loop = loop
-        self._keys: Awaitable = self._loop.create_task(self._get_keys())
+        self._keys: Awaitable = keys
         self._auth_init()
         self._lock = threading.Lock()
 
@@ -341,12 +341,6 @@ class InstanceConnectionManager:
 
         return ret_dict["cert"]
 
-    async def _get_keys(self) -> None:
-        """Asynchronous function to generate and set values for public and
-        private keys.
-        """
-        self._priv_key, self._pub_key = await generate_keys()
-
     async def _get_instance_data(self) -> InstanceMetadata:
         """Asynchronous function that takes in the futures for the ephemeral certificate
         and the instance metadata and generates an OpenSSL context object.
@@ -356,7 +350,8 @@ class InstanceConnectionManager:
             containing the instances IP adresses, a string representing a PEM-encoded private key
             and a string representing a PEM-encoded certificate authority.
         """
-        await self._keys
+        if not self._priv_key or not self._pub_key:
+            self._priv_key, self._pub_key = self._keys.result()
 
         logger.debug("Creating context")
 
