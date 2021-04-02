@@ -28,6 +28,7 @@ _loop: Optional[asyncio.AbstractEventLoop] = None
 
 _instances = {}
 
+
 def _get_loop() -> asyncio.AbstractEventLoop:
     global _loop
     if _loop is None:
@@ -37,12 +38,12 @@ def _get_loop() -> asyncio.AbstractEventLoop:
     return _loop
 
 
-def connect(instance_conn_str, driver: str, **kwargs):
+def connect(instance_connection_string, driver: str, **kwargs):
     """Prepares and returns a database connection object and starts a
     background thread to refresh the certificates and metadata.
 
-    :type instance_conn_str: str
-    :param instance_conn_str:
+    :type instance_connection_string: str
+    :param instance_connection_string:
         A string containing the GCP project name, region name, and instance
         name separated by colons.
 
@@ -67,11 +68,10 @@ def connect(instance_conn_str, driver: str, **kwargs):
     # Return a DBAPI connection
 
     loop = _get_loop()
-    if instance_conn_str in _instances:
-        icm = _instances[instance_conn_str]
+    if instance_connection_string in _instances:
+        icm = _instances[instance_connection_string]
     else:
-        icm = InstanceConnectionManager(instance_conn_str, driver, loop)
-        _instances[instance_conn_str] = icm
-            
+        icm = InstanceConnectionManager(instance_connection_string, driver, loop)
+        _instances[instance_connection_string] = icm
 
     return icm.connect(driver, user=kwargs.pop("user"), **kwargs)
