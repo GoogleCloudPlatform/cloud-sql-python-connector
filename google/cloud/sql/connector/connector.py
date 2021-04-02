@@ -26,6 +26,8 @@ from typing import Optional
 _thread: Optional[Thread] = None
 _loop: Optional[asyncio.AbstractEventLoop] = None
 
+_instances = {}
+
 
 def _get_loop() -> asyncio.AbstractEventLoop:
     global _loop
@@ -66,5 +68,10 @@ def connect(instance_connection_string, driver: str, **kwargs):
     # Return a DBAPI connection
 
     loop = _get_loop()
-    icm = InstanceConnectionManager(instance_connection_string, driver, loop)
+    if instance_connection_string in _instances:
+        icm = _instances[instance_connection_string]
+    else:
+        icm = InstanceConnectionManager(instance_connection_string, driver, loop)
+        _instances[instance_connection_string] = icm
+
     return icm.connect(driver, user=kwargs.pop("user"), **kwargs)
