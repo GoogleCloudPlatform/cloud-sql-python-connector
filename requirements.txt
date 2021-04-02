@@ -5,4 +5,4 @@ pg8000==1.19.0
 pyopenssl==20.0.1
 pytest==6.2.2
 Requests==2.25.1
-google-api-python-client==2.0.2
+google-api-python-client==2.1.0
