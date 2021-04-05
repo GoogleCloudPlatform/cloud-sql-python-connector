@@ -30,6 +30,7 @@ import socket
 from tempfile import NamedTemporaryFile
 from typing import Any, Dict, Union
 
+from functools import partial
 import logging
 
 logger = logging.getLogger(name=__name__)
@@ -488,7 +489,11 @@ class InstanceConnectionManager:
         except KeyError:
             raise KeyError("Driver {} is not supported.".format(driver))
 
-        return connector(instance_data.ip_address, instance_data.context, **kwargs)
+        connect_partial = partial(
+            connector, instance_data.ip_address, instance_data.context, **kwargs
+        )
+
+        return await self._loop.run_in_executor(None, connect_partial)
 
     def _connect_with_pymysql(self, ip_address: str, ctx: ssl.SSLContext, **kwargs):
         """Helper function to create a pymysql DB-API connection object.
