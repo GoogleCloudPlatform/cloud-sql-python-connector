@@ -28,8 +28,7 @@ import json
 import ssl
 import socket
 from tempfile import NamedTemporaryFile
-import threading
-from typing import Any, Dict, Union, Awaitable
+from typing import Any, Dict, Union
 
 import logging
 

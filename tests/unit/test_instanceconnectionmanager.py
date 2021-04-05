@@ -20,28 +20,10 @@ from google.cloud.sql.connector.InstanceConnectionManager import (
 )
 from google.cloud.sql.connector.utils import generate_keys
 import asyncio
-import os
 import threading
 import concurrent
 import google.auth
 import aiohttp
-
-
-@pytest.fixture
-def connect_string():
-    """
-    Retrieves a valid connection string from the environment and
-    returns it.
-    """
-    try:
-        connect_string = os.environ["INSTANCE_CONNECTION_NAME"]
-    except KeyError:
-        raise KeyError(
-            "Please set environment variable 'INSTANCE_CONNECTION"
-            + "_NAME' to a valid Cloud SQL connection string."
-        )
-
-    return connect_string
 
 
 @pytest.fixture
