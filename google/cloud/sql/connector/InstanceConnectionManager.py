@@ -351,7 +351,7 @@ class InstanceConnectionManager:
             and a string representing a PEM-encoded certificate authority.
         """
         if not self._priv_key or not self._pub_key:
-            self._priv_key, self._pub_key = self._keys.result()
+            self._priv_key, self._pub_key = await asyncio.wrap_future(self._keys)
 
         logger.debug("Creating context")
 
