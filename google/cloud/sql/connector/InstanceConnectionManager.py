@@ -156,7 +156,6 @@ class InstanceConnectionManager:
     _priv_key: str = None
     _pub_key: str = None
 
-    _lock: threading.Lock = None
     _current: concurrent.futures.Future = None
     _next: concurrent.futures.Future = None
 
@@ -185,13 +184,13 @@ class InstanceConnectionManager:
         self._loop = loop
         self._keys: Awaitable = asyncio.wrap_future(keys, loop=self._loop)
         self._auth_init()
-        self._lock = threading.Lock()
+        self._priv_key, pub_key = generate_keys()
+        self._pub_key = pub_key.decode("UTF-8")
 
         logger.debug("Updating instance data")
 
-        with self._lock:
-            self._current = self._perform_refresh()
-            self._next = self.immediate_future(self._current)
+        self._current = self._perform_refresh()
+        self._next = self.immediate_future(self._current)
 
     def __del__(self):
         """Deconstructor to make sure ClientSession is closed and tasks have
@@ -391,10 +390,9 @@ class InstanceConnectionManager:
         :param future: The future passed in by add_done_callback.
         """
         logger.debug("Entered _update_current")
-        with self._lock:
-            self._current = future
-            # Ephemeral certificate expires in 1 hour, so we schedule a refresh to happen in 55 minutes.
-            self._next = self._loop.create_task(self._schedule_refresh(_delay))
+        self._current = future
+        # Ephemeral certificate expires in 1 hour, so we schedule a refresh to happen in 55 minutes.
+        self._next = self._loop.create_task(self._schedule_refresh(_delay))
 
     def _auth_init(self) -> None:
         """Creates and assigns a Google Python API service object for
@@ -463,7 +461,7 @@ class InstanceConnectionManager:
         fut.set_result(object)
         return fut
 
-    def connect(self, driver: str, **kwargs) -> Any:
+    async def connect(self, driver: str, **kwargs) -> Any:
         """A method that returns a DB-API connection to the database.
 
         :type driver: str
@@ -479,21 +477,12 @@ class InstanceConnectionManager:
         kwargs.pop("ssl", None)
         kwargs.pop("port", None)
 
-        with self._lock:
-            try:
-                instance_data: InstanceMetadata = self._current.result(
-                    timeout=_instance_metadata_timeout
-                )
-            except concurrent.futures.TimeoutError:
-                raise TimeoutError(
-                    "Failed to fetch instance metadata. "
-                    f"Task timed out after {_instance_metadata_timeout}s"
-                )
-
         connect_func = {
             "pymysql": self._connect_with_pymysql,
             "pg8000": self._connect_with_pg8000,
         }
+
+        instance_data: InstanceMetadata = await asyncio.wrap_future(self._current)
 
         try:
             connector = connect_func[driver]

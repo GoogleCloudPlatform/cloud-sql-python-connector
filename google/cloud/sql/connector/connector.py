@@ -85,4 +85,12 @@ def connect(instance_connection_string, driver: str, **kwargs):
         icm = InstanceConnectionManager(instance_connection_string, driver, keys, loop)
         _instances[instance_connection_string] = icm
 
-    return icm.connect(driver, user=kwargs.pop("user"), **kwargs)
+    connect_future = asyncio.run_coroutine_threadsafe(
+        icm.connect(driver, **kwargs), loop
+    )
+    try:
+        connection = connect_future.result(timeout)
+    except concurrent.futures.TimeoutError:
+        raise TimeoutError(f"Connection timed out after {timeout}s")
+    else:
+        return connection
