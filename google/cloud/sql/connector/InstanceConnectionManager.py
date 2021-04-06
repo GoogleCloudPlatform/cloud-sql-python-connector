@@ -15,7 +15,6 @@ limitations under the License.
 """
 
 # Custom utils import
-from google.cloud.sql.connector.utils import generate_keys
 from google.cloud.sql.connector.version import __version__ as version
 
 # Importing libraries
@@ -30,7 +29,7 @@ import ssl
 import socket
 from tempfile import NamedTemporaryFile
 import threading
-from typing import Any, Dict, Union
+from typing import Any, Dict, Union, Awaitable
 
 import logging
 
@@ -161,6 +160,7 @@ class InstanceConnectionManager:
         self,
         instance_connection_string: str,
         driver_name: str,
+        keys: concurrent.futures.Future,
         loop: asyncio.AbstractEventLoop,
     ) -> None:
         # Validate connection string
@@ -179,9 +179,8 @@ class InstanceConnectionManager:
 
         self._user_agent_string = f"{APPLICATION_NAME}/{version}+{driver_name}"
         self._loop = loop
+        self._keys: Awaitable = asyncio.wrap_future(keys, loop=self._loop)
         self._auth_init()
-        self._priv_key, pub_key = generate_keys()
-        self._pub_key = pub_key.decode("UTF-8")
         self._lock = threading.Lock()
 
         logger.debug("Updating instance data")
@@ -351,6 +350,7 @@ class InstanceConnectionManager:
             containing the instances IP adresses, a string representing a PEM-encoded private key
             and a string representing a PEM-encoded certificate authority.
         """
+        priv_key, pub_key = await self._keys
 
         logger.debug("Creating context")
 
@@ -366,7 +366,7 @@ class InstanceConnectionManager:
                 self._credentials,
                 self._project,
                 self._instance,
-                self._pub_key,
+                pub_key,
             )
         )
 
@@ -375,7 +375,7 @@ class InstanceConnectionManager:
         return InstanceMetadata(
             ephemeral_cert,
             metadata["ip_addresses"]["PRIMARY"],
-            self._priv_key,
+            priv_key,
             metadata["server_ca_cert"],
         )
 

@@ -64,7 +64,8 @@ def test_InstanceConnectionManager_init(async_loop):
     """
 
     connect_string = "test-project:test-region:test-instance"
-    icm = InstanceConnectionManager(connect_string, "pymysql", async_loop)
+    keys = asyncio.run_coroutine_threadsafe(generate_keys(), async_loop)
+    icm = InstanceConnectionManager(connect_string, "pymysql", keys, async_loop)
     project_result = icm._project
     region_result = icm._region
     instance_result = icm._instance
@@ -110,11 +111,11 @@ async def test_InstanceConnectionManager_get_ephemeral(connect_string):
             "https://www.googleapis.com/auth/cloud-platform",
         ]
     )
-    priv, pub_key = generate_keys()
+    priv, pub_key = await generate_keys()
 
     async with aiohttp.ClientSession() as client_session:
         result = await InstanceConnectionManager._get_ephemeral(
-            client_session, credentials, project, instance, pub_key.decode("UTF-8")
+            client_session, credentials, project, instance, pub_key
         )
 
     result = result.split("\n")
@@ -142,7 +143,7 @@ async def test_InstanceConnectionManager_get_metadata(connect_string):
             "https://www.googleapis.com/auth/cloud-platform",
         ]
     )
-    priv, pub_key = generate_keys()
+    priv, pub_key = await generate_keys()
 
     async with aiohttp.ClientSession() as client_session:
         result = await InstanceConnectionManager._get_metadata(
@@ -159,7 +160,8 @@ def test_InstanceConnectionManager_perform_refresh(async_loop, connect_string):
     Test to check whether _get_perform works as described given valid
     conditions.
     """
-    icm = InstanceConnectionManager(connect_string, "pymysql", async_loop)
+    keys = asyncio.run_coroutine_threadsafe(generate_keys(), async_loop)
+    icm = InstanceConnectionManager(connect_string, "pymysql", keys, async_loop)
     fut = icm._perform_refresh()
 
     del icm

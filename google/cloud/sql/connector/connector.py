@@ -14,9 +14,11 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 import asyncio
+import concurrent
 from google.cloud.sql.connector.InstanceConnectionManager import (
     InstanceConnectionManager,
 )
+from google.cloud.sql.connector.utils import generate_keys
 
 from threading import Thread
 from typing import Optional
@@ -25,6 +27,7 @@ from typing import Optional
 # This thread is used to background processing
 _thread: Optional[Thread] = None
 _loop: Optional[asyncio.AbstractEventLoop] = None
+_keys: Optional[concurrent.futures.Future] = None
 
 _instances = {}
 
@@ -36,6 +39,13 @@ def _get_loop() -> asyncio.AbstractEventLoop:
         _thread = Thread(target=_loop.run_forever, daemon=True)
         _thread.start()
     return _loop
+
+
+def _get_keys() -> concurrent.futures.Future:
+    global _keys
+    if _keys is None:
+        _keys = asyncio.run_coroutine_threadsafe(generate_keys(), _loop)
+    return _keys
 
 
 def connect(instance_connection_string, driver: str, **kwargs):
@@ -71,7 +81,8 @@ def connect(instance_connection_string, driver: str, **kwargs):
     if instance_connection_string in _instances:
         icm = _instances[instance_connection_string]
     else:
-        icm = InstanceConnectionManager(instance_connection_string, driver, loop)
+        keys = _get_keys()
+        icm = InstanceConnectionManager(instance_connection_string, driver, keys, loop)
         _instances[instance_connection_string] = icm
 
     return icm.connect(driver, user=kwargs.pop("user"), **kwargs)
