@@ -78,10 +78,10 @@ def connect(instance_connection_string, driver: str, **kwargs):
     # Return a DBAPI connection
 
     loop = _get_loop()
-    keys = _get_keys()
     if instance_connection_string in _instances:
         icm = _instances[instance_connection_string]
     else:
+        keys = _get_keys()
         icm = InstanceConnectionManager(instance_connection_string, driver, keys, loop)
         _instances[instance_connection_string] = icm
 

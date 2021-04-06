@@ -179,7 +179,7 @@ class InstanceConnectionManager:
 
         self._user_agent_string = f"{APPLICATION_NAME}/{version}+{driver_name}"
         self._loop = loop
-        self._keys: Awaitable = keys
+        self._keys: Awaitable = asyncio.wrap_future(keys, loop=self._loop)
         self._auth_init()
         self._lock = threading.Lock()
 
@@ -350,8 +350,7 @@ class InstanceConnectionManager:
             containing the instances IP adresses, a string representing a PEM-encoded private key
             and a string representing a PEM-encoded certificate authority.
         """
-        if not self._priv_key or not self._pub_key:
-            self._priv_key, self._pub_key = await asyncio.wrap_future(self._keys)
+        priv_key, pub_key = await self._keys
 
         logger.debug("Creating context")
 
@@ -367,7 +366,7 @@ class InstanceConnectionManager:
                 self._credentials,
                 self._project,
                 self._instance,
-                self._pub_key,
+                pub_key,
             )
         )
 
@@ -376,7 +375,7 @@ class InstanceConnectionManager:
         return InstanceMetadata(
             ephemeral_cert,
             metadata["ip_addresses"]["PRIMARY"],
-            self._priv_key,
+            priv_key,
             metadata["server_ca_cert"],
         )
 
