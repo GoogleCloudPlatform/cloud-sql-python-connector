@@ -13,9 +13,24 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
-
-import pytest  # noqa F401 Needed to run the tests
 import os
+import threading
+
+import asyncio
+import pytest  # noqa F401 Needed to run the tests
+
+
+@pytest.fixture
+def async_loop():
+    """
+    Creates a loop in a background thread and returns it to use for testing.
+    """
+    loop = asyncio.new_event_loop()
+    thr = threading.Thread(target=loop.run_forever)
+    thr.start()
+    yield loop
+    loop.stop()
+    thr.join()
 
 
 @pytest.fixture

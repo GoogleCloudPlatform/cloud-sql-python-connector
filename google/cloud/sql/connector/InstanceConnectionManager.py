@@ -461,7 +461,31 @@ class InstanceConnectionManager:
         fut.set_result(object)
         return fut
 
-    async def connect(self, driver: str, **kwargs) -> Any:
+    def connect(self, driver: str, timeout: int, **kwargs):
+        """A method that returns a DB-API connection to the database.
+
+        :type driver: str
+        :param driver: A string representing the driver. e.g. "pymysql"
+
+        :type timeout: int
+        :param timeout: The time limit for the connection before raising
+        a TimeoutError
+
+        :returns: A DB-API connection to the primary IP of the database.
+        """
+
+        connect_future = asyncio.run_coroutine_threadsafe(
+            self._connect(driver, **kwargs), self._loop
+        )
+
+        try:
+            connection = connect_future.result(timeout)
+        except concurrent.futures.TimeoutError:
+            raise TimeoutError(f"Connection timed out after {timeout}s")
+        else:
+            return connection
+
+    async def _connect(self, driver: str, **kwargs) -> Any:
         """A method that returns a DB-API connection to the database.
 
         :type driver: str

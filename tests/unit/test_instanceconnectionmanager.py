@@ -19,24 +19,9 @@ from google.cloud.sql.connector.InstanceConnectionManager import (
     InstanceConnectionManager,
 )
 from google.cloud.sql.connector.utils import generate_keys
-import asyncio
-import threading
 import concurrent
 import google.auth
 import aiohttp
-
-
-@pytest.fixture
-def async_loop():
-    """
-    Creates a loop in a background thread and returns it to use for testing.
-    """
-    loop = asyncio.new_event_loop()
-    thr = threading.Thread(target=loop.run_forever)
-    thr.start()
-    yield loop
-    loop.stop()
-    thr.join()
 
 
 def test_InstanceConnectionManager_init(async_loop):

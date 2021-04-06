@@ -14,7 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 import asyncio
-import concurrent
 from google.cloud.sql.connector.InstanceConnectionManager import (
     InstanceConnectionManager,
 )
@@ -85,12 +84,4 @@ def connect(instance_connection_string, driver: str, **kwargs):
         icm = InstanceConnectionManager(instance_connection_string, driver, keys, loop)
         _instances[instance_connection_string] = icm
 
-    connect_future = asyncio.run_coroutine_threadsafe(
-        icm.connect(driver, **kwargs), loop
-    )
-    try:
-        connection = connect_future.result(timeout)
-    except concurrent.futures.TimeoutError:
-        raise TimeoutError(f"Connection timed out after {timeout}s")
-    else:
-        return connection
+    return icm.connect(driver, timeout, **kwargs)
