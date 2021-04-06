@@ -14,12 +14,12 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
+import asyncio
 import pytest  # noqa F401 Needed to run the tests
 from google.cloud.sql.connector.InstanceConnectionManager import (
     InstanceConnectionManager,
 )
 from google.cloud.sql.connector.utils import generate_keys
-import concurrent
 import google.auth
 import aiohttp
 
@@ -122,7 +122,8 @@ async def test_InstanceConnectionManager_get_metadata(connect_string):
     )
 
 
-def test_InstanceConnectionManager_perform_refresh(async_loop, connect_string):
+@pytest.mark.asyncio
+async def test_InstanceConnectionManager_perform_refresh(async_loop, connect_string):
     """
     Test to check whether _get_perform works as described given valid
     conditions.
@@ -133,4 +134,4 @@ def test_InstanceConnectionManager_perform_refresh(async_loop, connect_string):
 
     del icm
 
-    assert isinstance(fut, concurrent.futures.Future)
+    assert isinstance(task, asyncio.Task)

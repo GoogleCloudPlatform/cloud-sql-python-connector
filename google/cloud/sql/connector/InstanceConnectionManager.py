@@ -156,8 +156,8 @@ class InstanceConnectionManager:
     _priv_key: str = None
     _pub_key: str = None
 
-    _current: concurrent.futures.Future = None
-    _next: concurrent.futures.Future = None
+    _current: asyncio.Task = None
+    _next: asyncio.Task = None
 
     def __init__(
         self,
@@ -189,8 +189,7 @@ class InstanceConnectionManager:
 
         logger.debug("Updating instance data")
 
-        self._current = self._perform_refresh()
-        self._next = self.immediate_future(self._current)
+        asyncio.run_coroutine_threadsafe(self._perform_refresh(), self._loop).result()
 
     def __del__(self):
         """Deconstructor to make sure ClientSession is closed and tasks have
@@ -382,18 +381,6 @@ class InstanceConnectionManager:
             metadata["server_ca_cert"],
         )
 
-    def _update_current(self, future: concurrent.futures.Future) -> None:
-        """A threadsafe way to update the current instance data and the
-        future instance data. Only meant to be called as a callback.
-
-        :type future: asyncio.Future
-        :param future: The future passed in by add_done_callback.
-        """
-        logger.debug("Entered _update_current")
-        self._current = future
-        # Ephemeral certificate expires in 1 hour, so we schedule a refresh to happen in 55 minutes.
-        self._next = self._loop.create_task(self._schedule_refresh(_delay))
-
     def _auth_init(self) -> None:
         """Creates and assigns a Google Python API service object for
         Google Cloud SQL Admin API.
@@ -408,7 +395,7 @@ class InstanceConnectionManager:
 
         self._credentials = credentials
 
-    def _perform_refresh(self) -> concurrent.futures.Future:
+    async def _perform_refresh(self) -> asyncio.Task:
         """Retrieves instance metadata and ephemeral certificate from the
         Cloud SQL Instance.
 
@@ -418,14 +405,13 @@ class InstanceConnectionManager:
 
         logger.debug("Entered _perform_refresh")
 
-        instance_data_task = asyncio.run_coroutine_threadsafe(
-            self._get_instance_data(), loop=self._loop
-        )
-        instance_data_task.add_done_callback(self._update_current)
+        self._current = self._loop.create_task(self._get_instance_data())
+        # Ephemeral certificate expires in 1 hour, so we schedule a refresh to happen in 55 minutes.
+        self._next = self._loop.create_task(self._schedule_refresh(_delay))
 
-        return instance_data_task
+        return self._current
 
-    async def _schedule_refresh(self, delay: int) -> concurrent.futures.Future:
+    async def _schedule_refresh(self, delay: int) -> asyncio.Task:
         """A coroutine that sleeps for the specified amount of time before
         running _perform_refresh.
 
@@ -444,22 +430,6 @@ class InstanceConnectionManager:
             return None
 
         return self._perform_refresh()
-
-    @staticmethod
-    def immediate_future(object: Any) -> concurrent.futures.Future:
-        """A static method that returns an finished future representing
-        the object passed in.
-
-        :type object: Any
-        :param object: Any object.
-
-        :rtype: concurrent.futures.Future
-        :returns: A concurrent.futures.Future representing the value passed
-            in.
-        """
-        fut: concurrent.futures.Future = concurrent.futures.Future()
-        fut.set_result(object)
-        return fut
 
     def connect(self, driver: str, timeout: int, **kwargs):
         """A method that returns a DB-API connection to the database.
@@ -506,7 +476,7 @@ class InstanceConnectionManager:
             "pg8000": self._connect_with_pg8000,
         }
 
-        instance_data: InstanceMetadata = await asyncio.wrap_future(self._current)
+        instance_data: InstanceMetadata = await self._current
 
         try:
             connector = connect_func[driver]
