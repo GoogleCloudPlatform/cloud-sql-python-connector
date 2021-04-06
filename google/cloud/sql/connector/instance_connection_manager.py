@@ -185,7 +185,9 @@ class InstanceConnectionManager:
 
         logger.debug("Updating instance data")
 
-        asyncio.run_coroutine_threadsafe(self._perform_refresh(), self._loop).result()
+        self._current = self._perform_refresh()
+        self._next = self._current
+        asyncio.run_coroutine_threadsafe(self._current, self._loop)
 
     def __del__(self):
         """Deconstructor to make sure ClientSession is closed and tasks have
