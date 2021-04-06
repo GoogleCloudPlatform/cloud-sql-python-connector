@@ -42,10 +42,6 @@ APPLICATION_NAME = "cloud-sql-python-connector"
 _delay: int = 55 * 60
 _sql_api_version: str = "v1beta4"
 
-# Time in seconds to wait for the result of fetching instance metadata before
-# timing out.
-_instance_metadata_timeout = 30
-
 
 class ConnectionSSLContext(ssl.SSLContext):
     """Subclass of ssl.SSLContext with added request_ssl attribute. This is

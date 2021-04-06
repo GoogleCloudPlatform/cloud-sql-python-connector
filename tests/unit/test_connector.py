@@ -15,7 +15,7 @@ limitations under the License.
 """
 
 import pytest  # noqa F401 Needed to run the tests
-from google.cloud.sql.connector.InstanceConnectionManager import (
+from google.cloud.sql.connector.instance_connection_manager import (
     InstanceConnectionManager,
 )
 from google.cloud.sql.connector import connector
