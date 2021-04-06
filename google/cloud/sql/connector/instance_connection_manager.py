@@ -28,7 +28,7 @@ import json
 import ssl
 import socket
 from tempfile import NamedTemporaryFile
-from typing import Any, Dict, Union
+from typing import Any, Awaitable, Dict, Union
 
 from functools import partial
 import logging
@@ -149,9 +149,6 @@ class InstanceConnectionManager:
     _project: str = None
     _region: str = None
 
-    _priv_key: str = None
-    _pub_key: str = None
-
     _current: asyncio.Task = None
     _next: asyncio.Task = None
 
@@ -180,8 +177,6 @@ class InstanceConnectionManager:
         self._loop = loop
         self._keys: Awaitable = asyncio.wrap_future(keys, loop=self._loop)
         self._auth_init()
-        self._priv_key, pub_key = generate_keys()
-        self._pub_key = pub_key.decode("UTF-8")
 
         logger.debug("Updating instance data")
 

@@ -130,7 +130,7 @@ async def test_InstanceConnectionManager_perform_refresh(async_loop, connect_str
     """
     keys = asyncio.run_coroutine_threadsafe(generate_keys(), async_loop)
     icm = InstanceConnectionManager(connect_string, "pymysql", keys, async_loop)
-    fut = icm._perform_refresh()
+    task = await icm._perform_refresh()
 
     del icm
 

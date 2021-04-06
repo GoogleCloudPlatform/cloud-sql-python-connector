@@ -19,6 +19,7 @@ from google.cloud.sql.connector.instance_connection_manager import (
     InstanceConnectionManager,
 )
 from google.cloud.sql.connector import connector
+from google.cloud.sql.connector.utils import generate_keys
 import asyncio
 from unittest.mock import patch
 
@@ -29,7 +30,10 @@ def test_connect_timeout(connect_string, async_loop):
     async def timeout_stub(*args, **kwargs):
         await asyncio.sleep(timeout + 10)
 
-    icm = InstanceConnectionManager(connect_string, "pymysql", async_loop)
+
+    keys = asyncio.run_coroutine_threadsafe(generate_keys(), async_loop)
+
+    icm = InstanceConnectionManager(connect_string, "pymysql", keys, async_loop)
     icm._connect = timeout_stub
 
     mock_instances = {}
