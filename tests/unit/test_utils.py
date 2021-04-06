@@ -34,7 +34,7 @@ async def test_generate_keys_not_return_none():
 async def test_generate_keys_returns_bytes_and_str():
     """
     Test to check if objects produced from the generate_keys() function are of
-    type bytes.
+    the expected types.
     """
 
     res1, res2 = await utils.generate_keys()
