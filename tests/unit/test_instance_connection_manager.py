@@ -57,4 +57,3 @@ async def test_InstanceConnectionManager_perform_refresh(async_loop, connect_str
     assert isinstance(task, asyncio.Task)
 
     del icm
-    
