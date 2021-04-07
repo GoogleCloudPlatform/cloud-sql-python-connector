@@ -19,8 +19,6 @@ import google.auth
 import pytest  # noqa F401 Needed to run the tests
 
 from google.cloud.sql.connector.metadata import _get_metadata
-from google.cloud.sql.connector.utils import generate_keys
-
 
 @pytest.mark.asyncio
 async def test_get_metadata(connect_string):
@@ -39,7 +37,6 @@ async def test_get_metadata(connect_string):
             "https://www.googleapis.com/auth/cloud-platform",
         ]
     )
-    priv, pub_key = generate_keys()
 
     async with aiohttp.ClientSession() as client_session:
         result = await _get_metadata(client_session, credentials, project, instance)

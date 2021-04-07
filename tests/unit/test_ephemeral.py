@@ -39,11 +39,11 @@ async def test_get_ephemeral(connect_string):
             "https://www.googleapis.com/auth/cloud-platform",
         ]
     )
-    _, pub_key = generate_keys()
+    _, pub_key = await generate_keys()
 
     async with aiohttp.ClientSession() as client_session:
         result = await _get_ephemeral(
-            client_session, credentials, project, instance, pub_key.decode("UTF-8")
+            client_session, credentials, project, instance, pub_key
         )
 
     result = result.split("\n")

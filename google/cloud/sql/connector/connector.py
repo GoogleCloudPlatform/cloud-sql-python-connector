@@ -92,4 +92,4 @@ def connect(instance_connection_string, driver: str, **kwargs):
     else:
         timeout = 30  # 30s
 
-        return icm.connect(driver, timeout, **kwargs)
+    return icm.connect(driver, timeout, **kwargs)

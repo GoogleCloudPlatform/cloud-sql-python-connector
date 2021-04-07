@@ -20,8 +20,6 @@ from google.cloud.sql.connector.instance_connection_manager import (
     InstanceConnectionManager,
 )
 from google.cloud.sql.connector.utils import generate_keys
-import google.auth
-import aiohttp
 
 
 def test_InstanceConnectionManager_init(async_loop):

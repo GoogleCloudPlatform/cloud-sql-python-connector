@@ -29,7 +29,7 @@ import google.auth.transport.requests
 import ssl
 import socket
 from tempfile import NamedTemporaryFile
-from typing import Any, Awaitable, Dict, Union
+from typing import Any, Awaitable
 
 from functools import partial
 import logging
