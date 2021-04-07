@@ -18,7 +18,40 @@ import aiohttp
 import google.auth
 import pytest  # noqa F401 Needed to run the tests
 
-from google.cloud.sql.connector.metadata import _get_metadata
+from google.cloud.sql.connector.refresh_utils import _get_ephemeral, _get_metadata
+from google.cloud.sql.connector.utils import generate_keys
+
+
+@pytest.mark.asyncio
+async def test_get_ephemeral(connect_string):
+    """
+    Test to check whether _get_ephemeral runs without problems given a valid
+    connection string.
+    """
+
+    project = connect_string.split(":")[0]
+    instance = connect_string.split(":")[2]
+
+    credentials, project = google.auth.default()
+    credentials = credentials.with_scopes(
+        [
+            "https://www.googleapis.com/auth/sqlservice.admin",
+            "https://www.googleapis.com/auth/cloud-platform",
+        ]
+    )
+    _, pub_key = await generate_keys()
+
+    async with aiohttp.ClientSession() as client_session:
+        result = await _get_ephemeral(
+            client_session, credentials, project, instance, pub_key
+        )
+
+    result = result.split("\n")
+
+    assert (
+        result[0] == "-----BEGIN CERTIFICATE-----"
+        and result[len(result) - 1] == "-----END CERTIFICATE-----"
+    )
 
 
 @pytest.mark.asyncio

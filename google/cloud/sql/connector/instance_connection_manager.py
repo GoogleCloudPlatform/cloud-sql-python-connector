@@ -15,8 +15,7 @@ limitations under the License.
 """
 
 # Custom utils import
-from google.cloud.sql.connector.ephemeral import _get_ephemeral
-from google.cloud.sql.connector.metadata import _get_metadata
+from google.cloud.sql.connector.refresh_utils import _get_ephemeral, _get_metadata
 from google.cloud.sql.connector.version import __version__ as version
 
 # Importing libraries

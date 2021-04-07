@@ -54,6 +54,7 @@ async def test_InstanceConnectionManager_perform_refresh(async_loop, connect_str
     icm = InstanceConnectionManager(connect_string, "pymysql", keys, async_loop)
     task = await icm._perform_refresh()
 
-    del icm
-
     assert isinstance(task, asyncio.Task)
+
+    del icm
+    

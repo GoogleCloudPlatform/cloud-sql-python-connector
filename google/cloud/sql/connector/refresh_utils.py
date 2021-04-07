@@ -94,3 +94,71 @@ async def _get_metadata(
     }
 
     return metadata
+
+
+async def _get_ephemeral(
+    client_session: aiohttp.ClientSession,
+    credentials: Credentials,
+    project: str,
+    instance: str,
+    pub_key: str,
+) -> str:
+    """Asynchronously requests an ephemeral certificate from the Cloud SQL Instance.
+
+    :type credentials: google.oauth2.service_account.Credentials
+    :param credentials: A credentials object
+        created from the google-auth library. Must be
+        using the SQL Admin API scopes. For more info, check out
+        https://google-auth.readthedocs.io/en/latest/.
+
+    :type project: str
+    :param project : A string representing the name of the project.
+
+    :type instance: str
+    :param instance: A string representing the name of the instance.
+
+    :type pub_key:
+    :param str: A string representing PEM-encoded RSA public key.
+
+    :rtype: str
+    :returns: An ephemeral certificate from the Cloud SQL instance that allows
+          authorized connections to the instance.
+
+    :raises TypeError: If one of the arguments passed in is None.
+    """
+
+    logger.debug("Requesting ephemeral certificate")
+
+    if not isinstance(credentials, Credentials):
+        raise TypeError(
+            "credentials must be of type google.oauth2.service_account.Credentials,"
+            f"got {type(credentials)}"
+        )
+    elif not isinstance(project, str):
+        raise TypeError(f"project must be of type str, got {type(project)}")
+    elif not isinstance(instance, str):
+        raise TypeError(f"instance must be of type str, got {type(instance)}")
+    elif not isinstance(pub_key, str):
+        raise TypeError(f"pub_key must be of type str, got {type(pub_key)}")
+
+    if not credentials.valid:
+        request = google.auth.transport.requests.Request()
+        credentials.refresh(request)
+
+    headers = {
+        "Authorization": f"Bearer {credentials.token}",
+    }
+
+    url = "https://www.googleapis.com/sql/{}/projects/{}/instances/{}/createEphemeral".format(
+        _sql_api_version, project, instance
+    )
+
+    data = {"public_key": pub_key}
+
+    resp = await client_session.post(
+        url, headers=headers, json=data, raise_for_status=True
+    )
+
+    ret_dict = json.loads(await resp.text())
+
+    return ret_dict["cert"]
