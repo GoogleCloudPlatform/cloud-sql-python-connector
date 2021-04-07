@@ -20,6 +20,7 @@ import pytest  # noqa F401 Needed to run the tests
 
 from google.cloud.sql.connector.metadata import _get_metadata
 
+
 @pytest.mark.asyncio
 async def test_get_metadata(connect_string):
     """

@@ -14,29 +14,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-import concurrent
-from typing import Any
-
 import pymysql.cursors
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
-
-
-def immediate_future(object: Any) -> concurrent.futures.Future:
-    """A static method that returns an finished future representing
-    the object passed in.
-
-    :type object: Any
-    :param object: Any object.
-
-    :rtype: concurrent.futures.Future
-    :returns: A concurrent.futures.Future representing the value passed
-        in.
-    """
-    fut: concurrent.futures.Future = concurrent.futures.Future()
-    fut.set_result(object)
-    return fut
 
 
 async def generate_keys():
