@@ -14,31 +14,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-
 import pymysql.cursors
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
-
-
-def connect(host, user, password, db_name):
-    """
-    Connect method to be used as a custom creator in the SQLAlchemy engine
-    creation.
-    """
-    return pymysql.connect(
-        host=host,
-        user=user,
-        password=password,
-        db=db_name,
-        ssl={
-            "ssl": {
-                "ca": "./ca.pem",
-                "cert": "./cert.pem",
-                "key": "./priv.pem",
-            }  # noqa: E501
-        },
-    )
 
 
 async def generate_keys():
@@ -76,6 +55,26 @@ async def generate_keys():
     )
 
     return priv_key, pub_key
+
+
+def connect(host, user, password, db_name):
+    """
+    Connect method to be used as a custom creator in the SQLAlchemy engine
+    creation.
+    """
+    return pymysql.connect(
+        host=host,
+        user=user,
+        password=password,
+        db=db_name,
+        ssl={
+            "ssl": {
+                "ca": "./ca.pem",
+                "cert": "./cert.pem",
+                "key": "./priv.pem",
+            }  # noqa: E501
+        },
+    )
 
 
 def write_to_file(serverCaCert, ephemeralCert, priv_key):

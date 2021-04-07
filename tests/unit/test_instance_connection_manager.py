@@ -20,8 +20,6 @@ from google.cloud.sql.connector.instance_connection_manager import (
     InstanceConnectionManager,
 )
 from google.cloud.sql.connector.utils import generate_keys
-import google.auth
-import aiohttp
 
 
 def test_InstanceConnectionManager_init(async_loop):
@@ -46,82 +44,6 @@ def test_InstanceConnectionManager_init(async_loop):
     )
 
 
-# def test_InstanceConnectionManager_wrong_connection_string():
-# """
-# Test to check whether the __init__() method of InstanceConnectionManager
-# can tell if the connection string that's passed in is formatted correctly.
-# """
-# loop = asyncio.new_event_loop()
-# thr = threading.Thread(target=loop.run_forever)
-# thr.start()
-# icm = None
-# with pytest.raises(CloudSQLConnectionError):
-# icm = InstanceConnectionManager("test-project:test-region", loop)
-
-# del icm
-
-
-@pytest.mark.asyncio
-async def test_InstanceConnectionManager_get_ephemeral(connect_string):
-    """
-    Test to check whether _get_ephemeral runs without problems given a valid
-    connection string.
-    """
-
-    project = connect_string.split(":")[0]
-    instance = connect_string.split(":")[2]
-
-    credentials, project = google.auth.default()
-    credentials = credentials.with_scopes(
-        [
-            "https://www.googleapis.com/auth/sqlservice.admin",
-            "https://www.googleapis.com/auth/cloud-platform",
-        ]
-    )
-    priv, pub_key = await generate_keys()
-
-    async with aiohttp.ClientSession() as client_session:
-        result = await InstanceConnectionManager._get_ephemeral(
-            client_session, credentials, project, instance, pub_key
-        )
-
-    result = result.split("\n")
-
-    assert (
-        result[0] == "-----BEGIN CERTIFICATE-----"
-        and result[len(result) - 1] == "-----END CERTIFICATE-----"
-    )
-
-
-@pytest.mark.asyncio
-async def test_InstanceConnectionManager_get_metadata(connect_string):
-    """
-    Test to check whether _get_ephemeral runs without problems given a valid
-    connection string.
-    """
-
-    project = connect_string.split(":")[0]
-    instance = connect_string.split(":")[2]
-
-    credentials, project = google.auth.default()
-    credentials = credentials.with_scopes(
-        [
-            "https://www.googleapis.com/auth/sqlservice.admin",
-            "https://www.googleapis.com/auth/cloud-platform",
-        ]
-    )
-    priv, pub_key = await generate_keys()
-
-    async with aiohttp.ClientSession() as client_session:
-        result = await InstanceConnectionManager._get_metadata(
-            client_session, credentials, project, instance
-        )
-
-    assert result["ip_addresses"] is not None and isinstance(
-        result["server_ca_cert"], str
-    )
-
-
 @pytest.mark.asyncio
 async def test_InstanceConnectionManager_perform_refresh(async_loop, connect_string):
     """
@@ -132,6 +54,6 @@ async def test_InstanceConnectionManager_perform_refresh(async_loop, connect_str
     icm = InstanceConnectionManager(connect_string, "pymysql", keys, async_loop)
     task = await icm._perform_refresh()
 
-    del icm
-
     assert isinstance(task, asyncio.Task)
+
+    del icm
