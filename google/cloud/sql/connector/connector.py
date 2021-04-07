@@ -15,7 +15,7 @@ limitations under the License.
 """
 import asyncio
 import concurrent
-from google.cloud.sql.connector.InstanceConnectionManager import (
+from google.cloud.sql.connector.instance_connection_manager import (
     InstanceConnectionManager,
 )
 from google.cloud.sql.connector.utils import generate_keys
@@ -85,4 +85,11 @@ def connect(instance_connection_string, driver: str, **kwargs):
         icm = InstanceConnectionManager(instance_connection_string, driver, keys, loop)
         _instances[instance_connection_string] = icm
 
-    return icm.connect(driver, user=kwargs.pop("user"), **kwargs)
+    if "timeout" in kwargs:
+        return icm.connect(driver, **kwargs)
+    elif "connect_timeout" in kwargs:
+        timeout = kwargs["connect_timeout"]
+    else:
+        timeout = 30  # 30s
+
+        return icm.connect(driver, timeout, **kwargs)

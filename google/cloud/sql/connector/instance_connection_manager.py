@@ -28,9 +28,9 @@ import json
 import ssl
 import socket
 from tempfile import NamedTemporaryFile
-import threading
-from typing import Any, Dict, Union, Awaitable
+from typing import Any, Awaitable, Dict, Union
 
+from functools import partial
 import logging
 
 logger = logging.getLogger(name=__name__)
@@ -149,12 +149,8 @@ class InstanceConnectionManager:
     _project: str = None
     _region: str = None
 
-    _priv_key: str = None
-    _pub_key: str = None
-
-    _lock: threading.Lock = None
-    _current: concurrent.futures.Future = None
-    _next: concurrent.futures.Future = None
+    _current: asyncio.Task = None
+    _next: asyncio.Task = None
 
     def __init__(
         self,
@@ -181,13 +177,12 @@ class InstanceConnectionManager:
         self._loop = loop
         self._keys: Awaitable = asyncio.wrap_future(keys, loop=self._loop)
         self._auth_init()
-        self._lock = threading.Lock()
 
         logger.debug("Updating instance data")
 
-        with self._lock:
-            self._current = self._perform_refresh()
-            self._next = self.immediate_future(self._current)
+        self._current = self._perform_refresh()
+        self._next = self._current
+        asyncio.run_coroutine_threadsafe(self._current, self._loop)
 
     def __del__(self):
         """Deconstructor to make sure ClientSession is closed and tasks have
@@ -379,19 +374,6 @@ class InstanceConnectionManager:
             metadata["server_ca_cert"],
         )
 
-    def _update_current(self, future: concurrent.futures.Future) -> None:
-        """A threadsafe way to update the current instance data and the
-        future instance data. Only meant to be called as a callback.
-
-        :type future: asyncio.Future
-        :param future: The future passed in by add_done_callback.
-        """
-        logger.debug("Entered _update_current")
-        with self._lock:
-            self._current = future
-            # Ephemeral certificate expires in 1 hour, so we schedule a refresh to happen in 55 minutes.
-            self._next = self._loop.create_task(self._schedule_refresh(_delay))
-
     def _auth_init(self) -> None:
         """Creates and assigns a Google Python API service object for
         Google Cloud SQL Admin API.
@@ -406,7 +388,7 @@ class InstanceConnectionManager:
 
         self._credentials = credentials
 
-    def _perform_refresh(self) -> concurrent.futures.Future:
+    async def _perform_refresh(self) -> asyncio.Task:
         """Retrieves instance metadata and ephemeral certificate from the
         Cloud SQL Instance.
 
@@ -416,14 +398,13 @@ class InstanceConnectionManager:
 
         logger.debug("Entered _perform_refresh")
 
-        instance_data_task = asyncio.run_coroutine_threadsafe(
-            self._get_instance_data(), loop=self._loop
-        )
-        instance_data_task.add_done_callback(self._update_current)
+        self._current = self._loop.create_task(self._get_instance_data())
+        # Ephemeral certificate expires in 1 hour, so we schedule a refresh to happen in 55 minutes.
+        self._next = self._loop.create_task(self._schedule_refresh(_delay))
 
-        return instance_data_task
+        return self._current
 
-    async def _schedule_refresh(self, delay: int) -> concurrent.futures.Future:
+    async def _schedule_refresh(self, delay: int) -> asyncio.Task:
         """A coroutine that sleeps for the specified amount of time before
         running _perform_refresh.
 
@@ -443,23 +424,31 @@ class InstanceConnectionManager:
 
         return self._perform_refresh()
 
-    @staticmethod
-    def immediate_future(object: Any) -> concurrent.futures.Future:
-        """A static method that returns an finished future representing
-        the object passed in.
+    def connect(self, driver: str, timeout: int, **kwargs):
+        """A method that returns a DB-API connection to the database.
 
-        :type object: Any
-        :param object: Any object.
+        :type driver: str
+        :param driver: A string representing the driver. e.g. "pymysql"
 
-        :rtype: concurrent.futures.Future
-        :returns: A concurrent.futures.Future representing the value passed
-            in.
+        :type timeout: int
+        :param timeout: The time limit for the connection before raising
+        a TimeoutError
+
+        :returns: A DB-API connection to the primary IP of the database.
         """
-        fut: concurrent.futures.Future = concurrent.futures.Future()
-        fut.set_result(object)
-        return fut
 
-    def connect(self, driver: str, **kwargs) -> Any:
+        connect_future = asyncio.run_coroutine_threadsafe(
+            self._connect(driver, **kwargs), self._loop
+        )
+
+        try:
+            connection = connect_future.result(timeout)
+        except concurrent.futures.TimeoutError:
+            raise TimeoutError(f"Connection timed out after {timeout}s")
+        else:
+            return connection
+
+    async def _connect(self, driver: str, **kwargs) -> Any:
         """A method that returns a DB-API connection to the database.
 
         :type driver: str
@@ -475,20 +464,23 @@ class InstanceConnectionManager:
         kwargs.pop("ssl", None)
         kwargs.pop("port", None)
 
-        with self._lock:
-            instance_data: InstanceMetadata = self._current.result()
-
         connect_func = {
             "pymysql": self._connect_with_pymysql,
             "pg8000": self._connect_with_pg8000,
         }
+
+        instance_data: InstanceMetadata = await self._current
 
         try:
             connector = connect_func[driver]
         except KeyError:
             raise KeyError("Driver {} is not supported.".format(driver))
 
-        return connector(instance_data.ip_address, instance_data.context, **kwargs)
+        connect_partial = partial(
+            connector, instance_data.ip_address, instance_data.context, **kwargs
+        )
+
+        return await self._loop.run_in_executor(None, connect_partial)
 
     def _connect_with_pymysql(self, ip_address: str, ctx: ssl.SSLContext, **kwargs):
         """Helper function to create a pymysql DB-API connection object.

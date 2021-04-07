@@ -15,7 +15,7 @@ limitations under the License.
 """
 
 from .connector import connect
-from .InstanceConnectionManager import CloudSQLConnectionError
+from .instance_connection_manager import CloudSQLConnectionError
 
 __ALL__ = [connect, CloudSQLConnectionError]
 
