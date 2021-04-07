@@ -85,11 +85,11 @@ def connect(instance_connection_string, driver: str, **kwargs):
         icm = InstanceConnectionManager(instance_connection_string, driver, keys, loop)
         _instances[instance_connection_string] = icm
 
-    if "connect_timeout" in kwargs:
-        timeout = kwargs.pop("connect_timeout")
-    elif "timeout" in kwargs:
-        timeout = kwargs.pop("timeout")
+    if "timeout" in kwargs:
+        return icm.connect(driver, **kwargs)
+    elif "connect_timeout" in kwargs:
+        timeout = kwargs["connect_timeout"]
     else:
-        timeout = 30
+        timeout = 30  # 30s
 
-    return icm.connect(driver, timeout, **kwargs)
+        return icm.connect(driver, timeout, **kwargs)
