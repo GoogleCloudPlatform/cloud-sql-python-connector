@@ -14,47 +14,14 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
+import asyncio
 import pytest  # noqa F401 Needed to run the tests
-from google.cloud.sql.connector.InstanceConnectionManager import (
+from google.cloud.sql.connector.instance_connection_manager import (
     InstanceConnectionManager,
 )
 from google.cloud.sql.connector.utils import generate_keys
-import asyncio
-import os
-import threading
-import concurrent
 import google.auth
 import aiohttp
-
-
-@pytest.fixture
-def connect_string():
-    """
-    Retrieves a valid connection string from the environment and
-    returns it.
-    """
-    try:
-        connect_string = os.environ["INSTANCE_CONNECTION_NAME"]
-    except KeyError:
-        raise KeyError(
-            "Please set environment variable 'INSTANCE_CONNECTION"
-            + "_NAME' to a valid Cloud SQL connection string."
-        )
-
-    return connect_string
-
-
-@pytest.fixture
-def async_loop():
-    """
-    Creates a loop in a background thread and returns it to use for testing.
-    """
-    loop = asyncio.new_event_loop()
-    thr = threading.Thread(target=loop.run_forever)
-    thr.start()
-    yield loop
-    loop.stop()
-    thr.join()
 
 
 def test_InstanceConnectionManager_init(async_loop):
@@ -155,15 +122,16 @@ async def test_InstanceConnectionManager_get_metadata(connect_string):
     )
 
 
-def test_InstanceConnectionManager_perform_refresh(async_loop, connect_string):
+@pytest.mark.asyncio
+async def test_InstanceConnectionManager_perform_refresh(async_loop, connect_string):
     """
     Test to check whether _get_perform works as described given valid
     conditions.
     """
     keys = asyncio.run_coroutine_threadsafe(generate_keys(), async_loop)
     icm = InstanceConnectionManager(connect_string, "pymysql", keys, async_loop)
-    fut = icm._perform_refresh()
+    task = await icm._perform_refresh()
 
     del icm
 
-    assert isinstance(fut, concurrent.futures.Future)
+    assert isinstance(task, asyncio.Task)
