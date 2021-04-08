@@ -292,9 +292,9 @@ class InstanceConnectionManager:
 
         try:
             await asyncio.sleep(delay)
-        except asyncio.CancelledError:
+        except asyncio.CancelledError as e:
             logger.debug("Schedule refresh task cancelled.")
-            return None
+            raise e
 
         return self._perform_refresh()
 
