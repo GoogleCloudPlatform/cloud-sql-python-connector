@@ -284,7 +284,7 @@ class InstanceConnectionManager:
 
         try:
             await asyncio.sleep(delay)
-        except asyncio.CancelledException:
+        except asyncio.CancelledError:
             logger.debug("Task cancelled.")
             return None
 
