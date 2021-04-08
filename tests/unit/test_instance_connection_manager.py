@@ -25,7 +25,11 @@ from google.cloud.sql.connector.utils import generate_keys
 def icm(async_loop: asyncio.AbstractEventLoop, connect_string: str) -> None:
     keys = asyncio.run_coroutine_threadsafe(generate_keys(), async_loop)
     icm = InstanceConnectionManager(connect_string, "pymysql", keys, async_loop)
+    
     yield icm
+
+    del icm
+
 
 def test_InstanceConnectionManager_init(async_loop):
     """
@@ -59,4 +63,3 @@ async def test_InstanceConnectionManager_perform_refresh(icm):
 
     assert isinstance(task, asyncio.Task)
 
-    del icm
