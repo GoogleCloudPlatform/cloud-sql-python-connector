@@ -44,5 +44,3 @@ def test_connect_timeout(connect_string, async_loop):
         pytest.raises(
             TimeoutError, connector.connect, connect_string, "pymysql", timeout=timeout
         )
-
-    del icm

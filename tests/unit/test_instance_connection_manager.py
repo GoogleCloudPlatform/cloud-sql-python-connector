@@ -28,7 +28,6 @@ def icm(async_loop: asyncio.AbstractEventLoop, connect_string: str) -> None:
     
     yield icm
 
-    del icm
 
 
 def test_InstanceConnectionManager_init(async_loop):
@@ -43,8 +42,6 @@ def test_InstanceConnectionManager_init(async_loop):
     project_result = icm._project
     region_result = icm._region
     instance_result = icm._instance
-
-    del icm
 
     assert (
         project_result == "test-project"
