@@ -17,6 +17,7 @@ limitations under the License.
 # Custom utils import
 from google.cloud.sql.connector.refresh_utils import _get_ephemeral, _get_metadata
 from google.cloud.sql.connector.version import __version__ as version
+from google.cloud.sql.connector.utils import await_task_cancellation
 
 # Importing libraries
 import asyncio
@@ -189,17 +190,24 @@ class InstanceConnectionManager:
         """
         logger.debug("Entering deconstructor")
 
-        if self._current is not None:
-            logger.debug("Waiting for _current_instance_data to finish")
-            self._current.cancel()
+        async def _deconstruct():
+            tasks = []
+            if not self._client_session.closed:
+                logger.debug("Waiting for _client_session to close")
+                tasks.append(self._client_session.close)
+            if self._current is not None:
+                logger.debug("Waiting for _current to be cancelled")
+                tasks.append(partial(await_task_cancellation, self._current))
+            if self._next is not None:
+                logger.debug("Waiting for _next to be cancelled")
+                tasks.append(partial(await_task_cancellation, self._next))
+            await asyncio.gather(*tasks)
 
-        if not self._client_session.closed:
-            logger.debug("Waiting for _client_session to close")
-            close_future = asyncio.run_coroutine_threadsafe(
-                self.__client_session.close(), loop=self._loop
-            )
-            close_future.result()
-
+        deconstruct_future = asyncio.run_coroutine_threadsafe(
+            _deconstruct(), loop=self._loop
+        )
+        # Will attempt to safely shut down tasks for 5s
+        deconstruct_future.result(timeout=5)
         logger.debug("Finished deconstructing")
 
     async def _get_instance_data(self) -> InstanceMetadata:
@@ -285,7 +293,7 @@ class InstanceConnectionManager:
         try:
             await asyncio.sleep(delay)
         except asyncio.CancelledError:
-            logger.debug("Task cancelled.")
+            logger.debug("Schedule refresh task cancelled.")
             return None
 
         return self._perform_refresh()
@@ -309,12 +317,8 @@ class InstanceConnectionManager:
 
         try:
             connection = connect_future.result(timeout)
-        # Works with python versions < 3.8
-        except asyncio.TimeoutError:
-            connect_future.cancel()
-            raise TimeoutError(f"Connection timed out after {timeout}s")
-        # Works with python versions > 3.8
         except concurrent.futures.TimeoutError:
+            connect_future.cancel()
             raise TimeoutError(f"Connection timed out after {timeout}s")
         else:
             return connection

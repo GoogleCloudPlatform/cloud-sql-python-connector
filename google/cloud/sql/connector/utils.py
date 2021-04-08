@@ -13,7 +13,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
-
+import asyncio
 import pymysql.cursors
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
@@ -55,6 +55,15 @@ async def generate_keys():
     )
 
     return priv_key, pub_key
+
+
+async def await_task_cancellation(task: asyncio.Task) -> None:
+    """A helper coroutine to await the cancellation of a task."""
+    task.cancel()
+    try:
+        await task
+    except asyncio.CancelledError:
+        print(f"Task successfully cancelled: {task}")
 
 
 def connect(host, user, password, db_name):
