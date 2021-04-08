@@ -201,7 +201,7 @@ class InstanceConnectionManager:
             if self._next is not None:
                 logger.debug("Waiting for _next to be cancelled")
                 tasks.append(partial(await_task_cancellation, self._next))
-            await asyncio.gather([task() for task in tasks])
+            await asyncio.gather(*[task() for task in tasks])
 
         deconstruct_future = asyncio.run_coroutine_threadsafe(
             _deconstruct(), loop=self._loop
