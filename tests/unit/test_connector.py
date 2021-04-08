@@ -28,7 +28,10 @@ def test_connect_timeout(connect_string, async_loop):
     timeout = 10
 
     async def timeout_stub(*args, **kwargs):
-        await asyncio.sleep(timeout + 10)
+        try:
+            await asyncio.sleep(timeout + 10, loop=async_loop)
+        except asyncio.CancelledError:
+            return None
 
     keys = asyncio.run_coroutine_threadsafe(generate_keys(), async_loop)
 
