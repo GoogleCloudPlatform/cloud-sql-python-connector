@@ -17,11 +17,12 @@ import asyncio
 import concurrent
 from google.cloud.sql.connector.instance_connection_manager import (
     InstanceConnectionManager,
+    Connection,
 )
 from google.cloud.sql.connector.utils import generate_keys
 
 from threading import Thread
-from typing import Optional
+from typing import Any, Optional
 
 
 # This thread is used to background processing
@@ -48,7 +49,7 @@ def _get_keys() -> concurrent.futures.Future:
     return _keys
 
 
-def connect(instance_connection_string, driver: str, **kwargs):
+def connect(instance_connection_string: str, driver: str, **kwargs: Any) -> Connection:
     """Prepares and returns a database connection object and starts a
     background thread to refresh the certificates and metadata.
 

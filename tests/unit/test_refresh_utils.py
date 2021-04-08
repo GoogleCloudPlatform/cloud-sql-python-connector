@@ -23,7 +23,7 @@ from google.cloud.sql.connector.utils import generate_keys
 
 
 @pytest.mark.asyncio
-async def test_get_ephemeral(connect_string):
+async def test_get_ephemeral(connect_string: str) -> None:
     """
     Test to check whether _get_ephemeral runs without problems given a valid
     connection string.
@@ -55,7 +55,7 @@ async def test_get_ephemeral(connect_string):
 
 
 @pytest.mark.asyncio
-async def test_get_metadata(connect_string):
+async def test_get_metadata(connect_string: str) -> None:
     """
     Test to check whether _get_ephemeral runs without problems given a valid
     connection string.

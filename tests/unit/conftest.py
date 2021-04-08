@@ -21,7 +21,7 @@ import pytest  # noqa F401 Needed to run the tests
 
 
 @pytest.fixture
-def async_loop():
+def async_loop() -> asyncio.AbstractEventLoop:
     """
     Creates a loop in a background thread and returns it to use for testing.
     """
@@ -34,7 +34,7 @@ def async_loop():
 
 
 @pytest.fixture
-def connect_string():
+def connect_string() -> str:
     """
     Retrieves a valid connection string from the environment and
     returns it.

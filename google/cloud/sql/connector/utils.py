@@ -19,8 +19,10 @@ from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 
+from typing import Tuple
 
-async def generate_keys():
+
+async def generate_keys() -> Tuple[bytes, str]:
     """A helper function to generate the private and public keys.
 
     backend - The value specified is default_backend(). This is because the
@@ -57,7 +59,7 @@ async def generate_keys():
     return priv_key, pub_key
 
 
-def connect(host, user, password, db_name):
+def connect(host: str, user: str, password: str, db_name: str) -> Any:
     """
     Connect method to be used as a custom creator in the SQLAlchemy engine
     creation.
@@ -77,7 +79,7 @@ def connect(host, user, password, db_name):
     )
 
 
-def write_to_file(serverCaCert, ephemeralCert, priv_key):
+def write_to_file(serverCaCert: str, ephemeralCert: str, priv_key: bytes) -> None:
     """
     Helper function to write the serverCaCert, ephemeral certificate and
     private key to .pem files

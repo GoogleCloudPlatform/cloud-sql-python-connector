@@ -28,7 +28,7 @@ import google.auth.transport.requests
 import ssl
 import socket
 from tempfile import NamedTemporaryFile
-from typing import Any, Awaitable
+from typing import Any, Awaitable, TypeVar
 
 from functools import partial
 import logging
@@ -41,13 +41,15 @@ APPLICATION_NAME = "cloud-sql-python-connector"
 # valid for an hour. This gives five minutes of buffer time.
 _delay: int = 55 * 60
 
+Connection = TypeVar("Connection")
+
 
 class ConnectionSSLContext(ssl.SSLContext):
     """Subclass of ssl.SSLContext with added request_ssl attribute. This is
     required for compatibility with pg8000 driver.
     """
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         self.request_ssl = False
         super(ConnectionSSLContext, self).__init__(*args, **kwargs)
 
@@ -65,7 +67,7 @@ class InstanceMetadata:
         ip_address: str,
         private_key: str,
         server_ca_cert: str,
-    ):
+    ) -> None:
         self.ip_address = ip_address
 
         self._ca_fileobject = NamedTemporaryFile(suffix=".pem")
@@ -96,7 +98,7 @@ class CloudSQLConnectionError(Exception):
     correctly.
     """
 
-    def __init__(self, *args, **kwargs) -> None:
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         super(CloudSQLConnectionError, self).__init__(self, *args, **kwargs)
 
 
@@ -183,7 +185,7 @@ class InstanceConnectionManager:
         self._next = self._current
         asyncio.run_coroutine_threadsafe(self._current, self._loop)
 
-    def __del__(self):
+    def __del__(self) -> None:
         """Deconstructor to make sure ClientSession is closed and tasks have
         finished to have a graceful exit.
         """
@@ -295,7 +297,7 @@ class InstanceConnectionManager:
 
         return self._perform_refresh()
 
-    def connect(self, driver: str, timeout: int, **kwargs):
+    def connect(self, driver: str, timeout: int, **kwargs: Any) -> Connection:
         """A method that returns a DB-API connection to the database.
 
         :type driver: str
@@ -320,7 +322,7 @@ class InstanceConnectionManager:
         else:
             return connection
 
-    async def _connect(self, driver: str, **kwargs) -> Any:
+    async def _connect(self, driver: str, **kwargs: Any) -> Connection:
         """A method that returns a DB-API connection to the database.
 
         :type driver: str
@@ -354,7 +356,9 @@ class InstanceConnectionManager:
 
         return await self._loop.run_in_executor(None, connect_partial)
 
-    def _connect_with_pymysql(self, ip_address: str, ctx: ssl.SSLContext, **kwargs):
+    def _connect_with_pymysql(
+        self, ip_address: str, ctx: ssl.SSLContext, **kwargs: Any
+    ) -> Connection:
         """Helper function to create a pymysql DB-API connection object.
 
         :type ip_address: str
@@ -385,7 +389,9 @@ class InstanceConnectionManager:
         conn.connect(sock)
         return conn
 
-    def _connect_with_pg8000(self, ip_address: str, ctx: ssl.SSLContext, **kwargs):
+    def _connect_with_pg8000(
+        self, ip_address: str, ctx: ssl.SSLContext, **kwargs: Any
+    ) -> Connection:
         """Helper function to create a pg8000 DB-API connection object.
 
         :type ip_address: str

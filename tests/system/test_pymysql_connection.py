@@ -16,6 +16,7 @@ limitations under the License.
 import os
 import uuid
 
+import pymysql
 import pytest
 import sqlalchemy
 from google.cloud.sql.connector import connector
@@ -23,8 +24,8 @@ from google.cloud.sql.connector import connector
 table_name = f"books_{uuid.uuid4().hex}"
 
 
-def init_connection_engine():
-    def getconn():
+def init_connection_engine() -> sqlalchemy.engine.Engine:
+    def getconn() -> pymysql.Connection:
         conn = connector.connect(
             os.environ["MYSQL_CONNECTION_NAME"],
             "pymysql",
@@ -42,7 +43,7 @@ def init_connection_engine():
 
 
 @pytest.fixture(name="pool")
-def setup():
+def setup() -> sqlalchemy.engine.Engine:
     pool = init_connection_engine()
 
     with pool.connect() as conn:
@@ -57,7 +58,7 @@ def setup():
         conn.execute(f"DROP TABLE IF EXISTS `{table_name}`")
 
 
-def test_pooled_connection_with_pymysql(pool):
+def test_pooled_connection_with_pymysql(pool: sqlalchemy.engine.Engine) -> None:
     insert_stmt = sqlalchemy.text(
         f"INSERT INTO {table_name} (id, title) VALUES (:id, :title)",
     )

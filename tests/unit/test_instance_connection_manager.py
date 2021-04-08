@@ -23,14 +23,16 @@ from google.cloud.sql.connector.utils import generate_keys
 
 
 @pytest.fixture
-def icm(async_loop: asyncio.AbstractEventLoop, connect_string: str) -> None:
+def icm(
+    async_loop: asyncio.AbstractEventLoop, connect_string: str
+) -> InstanceConnectionManager:
     keys = asyncio.run_coroutine_threadsafe(generate_keys(), async_loop)
     icm = InstanceConnectionManager(connect_string, "pymysql", keys, async_loop)
 
     yield icm
 
 
-def test_InstanceConnectionManager_init(async_loop):
+def test_InstanceConnectionManager_init(async_loop: asyncio.AbstractEventLoop) -> None:
     """
     Test to check whether the __init__ method of InstanceConnectionManager
     can tell if the connection string that's passed in is formatted correctly.
@@ -51,7 +53,9 @@ def test_InstanceConnectionManager_init(async_loop):
 
 
 @pytest.mark.asyncio
-async def test_InstanceConnectionManager_perform_refresh(icm):
+async def test_InstanceConnectionManager_perform_refresh(
+    icm: InstanceConnectionManager,
+) -> None:
     """
     Test to check whether _get_perform works as described given valid
     conditions.
