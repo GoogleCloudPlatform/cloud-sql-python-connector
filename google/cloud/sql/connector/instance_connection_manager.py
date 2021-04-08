@@ -309,6 +309,11 @@ class InstanceConnectionManager:
 
         try:
             connection = connect_future.result(timeout)
+        # Works with python versions < 3.8
+        except asyncio.TimeoutError:
+            connect_future.cancel()
+            raise TimeoutError(f"Connection timed out after {timeout}s")
+        # Works with python versions > 3.8
         except concurrent.futures.TimeoutError:
             raise TimeoutError(f"Connection timed out after {timeout}s")
         else:

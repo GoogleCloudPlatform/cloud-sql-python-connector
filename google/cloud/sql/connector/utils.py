@@ -56,7 +56,6 @@ async def generate_keys():
 
     return priv_key, pub_key
 
-
 def connect(host, user, password, db_name):
     """
     Connect method to be used as a custom creator in the SQLAlchemy engine
