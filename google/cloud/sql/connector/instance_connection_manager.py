@@ -17,7 +17,6 @@ limitations under the License.
 # Custom utils import
 from google.cloud.sql.connector.refresh_utils import _get_ephemeral, _get_metadata
 from google.cloud.sql.connector.version import __version__ as version
-from google.cloud.sql.connector.utils import await_task_cancellation
 
 # Importing libraries
 import asyncio
@@ -190,18 +189,16 @@ class InstanceConnectionManager:
         """
         logger.debug("Entering deconstructor")
 
-        async def _deconstruct():
-            tasks = []
-            if not self._client_session.closed:
-                logger.debug("Waiting for _client_session to close")
-                tasks.append(self._client_session.close)
+        async def _deconstruct() -> None:
             if self._current is not None:
                 logger.debug("Waiting for _current to be cancelled")
-                tasks.append(partial(await_task_cancellation, self._current))
+                self._current.cancel()
             if self._next is not None:
                 logger.debug("Waiting for _next to be cancelled")
-                tasks.append(partial(await_task_cancellation, self._next))
-            await asyncio.gather(*[task() for task in tasks])
+                self._next.cancel()
+            if not self._client_session.closed:
+                logger.debug("Waiting for _client_session to close")
+                await self._client_session.close()
 
         deconstruct_future = asyncio.run_coroutine_threadsafe(
             _deconstruct(), loop=self._loop
