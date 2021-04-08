@@ -22,6 +22,14 @@ from google.cloud.sql.connector.instance_connection_manager import (
 from google.cloud.sql.connector.utils import generate_keys
 
 
+@pytest.fixture
+def icm(async_loop: asyncio.AbstractEventLoop, connect_string: str) -> None:
+    keys = asyncio.run_coroutine_threadsafe(generate_keys(), async_loop)
+    icm = InstanceConnectionManager(connect_string, "pymysql", keys, async_loop)
+
+    yield icm
+
+
 def test_InstanceConnectionManager_init(async_loop):
     """
     Test to check whether the __init__ method of InstanceConnectionManager
@@ -35,8 +43,6 @@ def test_InstanceConnectionManager_init(async_loop):
     region_result = icm._region
     instance_result = icm._instance
 
-    del icm
-
     assert (
         project_result == "test-project"
         and region_result == "test-region"
@@ -45,15 +51,11 @@ def test_InstanceConnectionManager_init(async_loop):
 
 
 @pytest.mark.asyncio
-async def test_InstanceConnectionManager_perform_refresh(async_loop, connect_string):
+async def test_InstanceConnectionManager_perform_refresh(icm):
     """
     Test to check whether _get_perform works as described given valid
     conditions.
     """
-    keys = asyncio.run_coroutine_threadsafe(generate_keys(), async_loop)
-    icm = InstanceConnectionManager(connect_string, "pymysql", keys, async_loop)
     task = await icm._perform_refresh()
 
     assert isinstance(task, asyncio.Task)
-
-    del icm

@@ -189,17 +189,22 @@ class InstanceConnectionManager:
         """
         logger.debug("Entering deconstructor")
 
-        if self._current is not None:
-            logger.debug("Waiting for _current_instance_data to finish")
-            self._current.cancel()
+        async def _deconstruct() -> None:
+            if self._current is not None:
+                logger.debug("Waiting for _current to be cancelled")
+                self._current.cancel()
+            if self._next is not None:
+                logger.debug("Waiting for _next to be cancelled")
+                self._next.cancel()
+            if not self._client_session.closed:
+                logger.debug("Waiting for _client_session to close")
+                await self._client_session.close()
 
-        if not self._client_session.closed:
-            logger.debug("Waiting for _client_session to close")
-            close_future = asyncio.run_coroutine_threadsafe(
-                self.__client_session.close(), loop=self._loop
-            )
-            close_future.result()
-
+        deconstruct_future = asyncio.run_coroutine_threadsafe(
+            _deconstruct(), loop=self._loop
+        )
+        # Will attempt to safely shut down tasks for 5s
+        deconstruct_future.result(timeout=5)
         logger.debug("Finished deconstructing")
 
     async def _get_instance_data(self) -> InstanceMetadata:
@@ -284,9 +289,9 @@ class InstanceConnectionManager:
 
         try:
             await asyncio.sleep(delay)
-        except asyncio.CancelledException:
-            logger.debug("Task cancelled.")
-            return None
+        except asyncio.CancelledError as e:
+            logger.debug("Schedule refresh task cancelled.")
+            raise e
 
         return self._perform_refresh()
 
@@ -310,6 +315,7 @@ class InstanceConnectionManager:
         try:
             connection = connect_future.result(timeout)
         except concurrent.futures.TimeoutError:
+            connect_future.cancel()
             raise TimeoutError(f"Connection timed out after {timeout}s")
         else:
             return connection
