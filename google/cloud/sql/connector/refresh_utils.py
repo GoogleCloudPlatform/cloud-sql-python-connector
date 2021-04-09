@@ -20,7 +20,7 @@ import google.auth
 from google.auth.credentials import Credentials
 import google.auth.transport.requests
 import json
-from typing import Dict, Union
+from typing import Any, Dict
 
 import logging
 
@@ -34,7 +34,7 @@ async def _get_metadata(
     credentials: Credentials,
     project: str,
     instance: str,
-) -> Dict[str, Union[Dict, str]]:
+) -> Dict[str, Any]:
     """Requests metadata from the Cloud SQL Instance
     and returns a dictionary containing the IP addresses and certificate
     authority of the Cloud SQL Instance.

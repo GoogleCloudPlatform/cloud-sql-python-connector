@@ -26,17 +26,17 @@ BLACK_PATHS = ["google", "tests"]
 if os.path.exists("samples"):
     BLACK_PATHS.append("samples")
 
-
 @nox.session(python="3.7")
 def lint(session):
     """Run linters.
     Returns a failure if the linters find linting errors or sufficiently
     serious code quality issues.
     """
-    session.install("flake8", "black")
+    session.install("flake8", "flake8-annotations", "black", "mypy", "sqlalchemy-stubs")
     session.install("-r", "requirements.txt")
     session.run("black", "--check", *BLACK_PATHS)
     session.run("flake8", "google", "tests")
+    session.run("mypy", "google", "tests")
 
 
 @nox.session(python="3.6")

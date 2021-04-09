@@ -22,12 +22,15 @@ from google.cloud.sql.connector import connector
 from google.cloud.sql.connector.utils import generate_keys
 import asyncio
 from unittest.mock import patch
+from typing import Any
 
 
-def test_connect_timeout(connect_string, async_loop):
+def test_connect_timeout(
+    connect_string: str, async_loop: asyncio.AbstractEventLoop
+) -> None:
     timeout = 10
 
-    async def timeout_stub(*args, **kwargs):
+    async def timeout_stub(*args: Any, **kwargs: Any) -> None:
         try:
             await asyncio.sleep(timeout + 10, loop=async_loop)
         except asyncio.CancelledError:
@@ -36,7 +39,7 @@ def test_connect_timeout(connect_string, async_loop):
     keys = asyncio.run_coroutine_threadsafe(generate_keys(), async_loop)
 
     icm = InstanceConnectionManager(connect_string, "pymysql", keys, async_loop)
-    icm._connect = timeout_stub
+    setattr(icm, "_connect", timeout_stub)
 
     mock_instances = {}
     mock_instances[connect_string] = icm

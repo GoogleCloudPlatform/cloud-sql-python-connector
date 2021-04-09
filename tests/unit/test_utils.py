@@ -20,7 +20,7 @@ import pytest  # noqa F401 Needed to run the tests
 
 
 @pytest.mark.asyncio
-async def test_generate_keys_not_return_none():
+async def test_generate_keys_not_return_none() -> None:
     """
     Test to check if objects are being produced from the generate_keys()
     function.
@@ -31,7 +31,7 @@ async def test_generate_keys_not_return_none():
 
 
 @pytest.mark.asyncio
-async def test_generate_keys_returns_bytes_and_str():
+async def test_generate_keys_returns_bytes_and_str() -> None:
     """
     Test to check if objects produced from the generate_keys() function are of
     the expected types.

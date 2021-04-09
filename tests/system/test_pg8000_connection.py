@@ -15,7 +15,9 @@ limitations under the License.
 """
 import os
 import uuid
+from typing import Generator
 
+import pg8000
 import pytest
 import sqlalchemy
 from google.cloud.sql.connector import connector
@@ -23,9 +25,9 @@ from google.cloud.sql.connector import connector
 table_name = f"books_{uuid.uuid4().hex}"
 
 
-def init_connection_engine():
-    def getconn():
-        conn = connector.connect(
+def init_connection_engine() -> sqlalchemy.engine.Engine:
+    def getconn() -> pg8000.dbapi.Connection:
+        conn: pg8000.dbapi.Connection = connector.connect(
             os.environ["POSTGRES_CONNECTION_NAME"],
             "pg8000",
             user=os.environ["POSTGRES_USER"],
@@ -43,7 +45,7 @@ def init_connection_engine():
 
 
 @pytest.fixture(name="pool")
-def setup():
+def setup() -> Generator:
     pool = init_connection_engine()
 
     with pool.connect() as conn:
@@ -58,7 +60,7 @@ def setup():
         conn.execute(f"DROP TABLE IF EXISTS {table_name}")
 
 
-def test_pooled_connection_with_pg8000(pool):
+def test_pooled_connection_with_pg8000(pool: sqlalchemy.engine.Engine) -> None:
     insert_stmt = sqlalchemy.text(
         f"INSERT INTO {table_name} (id, title) VALUES (:id, :title)",
     )
