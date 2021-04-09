@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from typing import Iterable
+
 try:
     import pkg_resources
 
@@ -19,4 +21,4 @@ try:
 except ImportError:
     import pkgutil
 
-    __path__ = pkgutil.extend_path(__path__, __name__)
+    __path__: Iterable[str] = pkgutil.extend_path(__path__, __name__)

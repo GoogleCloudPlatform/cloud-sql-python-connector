@@ -15,6 +15,7 @@ limitations under the License.
 """
 import os
 import uuid
+from typing import Generator
 
 import pymysql
 import pytest
@@ -25,8 +26,8 @@ table_name = f"books_{uuid.uuid4().hex}"
 
 
 def init_connection_engine() -> sqlalchemy.engine.Engine:
-    def getconn() -> pymysql.Connection:
-        conn = connector.connect(
+    def getconn() -> pymysql.connections.Connection:
+        conn: pymysql.connections.Connection = connector.connect(
             os.environ["MYSQL_CONNECTION_NAME"],
             "pymysql",
             user=os.environ["MYSQL_USER"],
@@ -43,7 +44,7 @@ def init_connection_engine() -> sqlalchemy.engine.Engine:
 
 
 @pytest.fixture(name="pool")
-def setup() -> sqlalchemy.engine.Engine:
+def setup() -> Generator:
     pool = init_connection_engine()
 
     with pool.connect() as conn:

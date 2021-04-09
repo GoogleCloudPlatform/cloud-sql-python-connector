@@ -17,12 +17,11 @@ import asyncio
 import concurrent
 from google.cloud.sql.connector.instance_connection_manager import (
     InstanceConnectionManager,
-    Connection,
 )
 from google.cloud.sql.connector.utils import generate_keys
 
 from threading import Thread
-from typing import Any, Optional
+from typing import Any, Dict, Optional
 
 
 # This thread is used to background processing
@@ -30,7 +29,7 @@ _thread: Optional[Thread] = None
 _loop: Optional[asyncio.AbstractEventLoop] = None
 _keys: Optional[concurrent.futures.Future] = None
 
-_instances = {}
+_instances: Dict[str, InstanceConnectionManager] = {}
 
 
 def _get_loop() -> asyncio.AbstractEventLoop:
@@ -42,14 +41,14 @@ def _get_loop() -> asyncio.AbstractEventLoop:
     return _loop
 
 
-def _get_keys() -> concurrent.futures.Future:
+def _get_keys(loop: asyncio.AbstractEventLoop) -> concurrent.futures.Future:
     global _keys
     if _keys is None:
-        _keys = asyncio.run_coroutine_threadsafe(generate_keys(), _loop)
+        _keys = asyncio.run_coroutine_threadsafe(generate_keys(), loop)
     return _keys
 
 
-def connect(instance_connection_string: str, driver: str, **kwargs: Any) -> Connection:
+def connect(instance_connection_string: str, driver: str, **kwargs: Any) -> Any:
     """Prepares and returns a database connection object and starts a
     background thread to refresh the certificates and metadata.
 
@@ -82,7 +81,7 @@ def connect(instance_connection_string: str, driver: str, **kwargs: Any) -> Conn
     if instance_connection_string in _instances:
         icm = _instances[instance_connection_string]
     else:
-        keys = _get_keys()
+        keys = _get_keys(loop)
         icm = InstanceConnectionManager(instance_connection_string, driver, keys, loop)
         _instances[instance_connection_string] = icm
 

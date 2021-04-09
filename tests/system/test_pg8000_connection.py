@@ -15,6 +15,7 @@ limitations under the License.
 """
 import os
 import uuid
+from typing import Generator
 
 import pg8000
 import pytest
@@ -26,7 +27,7 @@ table_name = f"books_{uuid.uuid4().hex}"
 
 def init_connection_engine() -> sqlalchemy.engine.Engine:
     def getconn() -> pg8000.dbapi.Connection:
-        conn = connector.connect(
+        conn: pg8000.dbapi.Connection = connector.connect(
             os.environ["POSTGRES_CONNECTION_NAME"],
             "pg8000",
             user=os.environ["POSTGRES_USER"],
@@ -44,7 +45,7 @@ def init_connection_engine() -> sqlalchemy.engine.Engine:
 
 
 @pytest.fixture(name="pool")
-def setup() -> sqlalchemy.engine.Engine:
+def setup() -> Generator:
     pool = init_connection_engine()
 
     with pool.connect() as conn:

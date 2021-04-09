@@ -13,6 +13,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
+from typing import Any
 
 import aiohttp
 import google.auth
@@ -42,7 +43,7 @@ async def test_get_ephemeral(connect_string: str) -> None:
     _, pub_key = await generate_keys()
 
     async with aiohttp.ClientSession() as client_session:
-        result = await _get_ephemeral(
+        result: Any = await _get_ephemeral(
             client_session, credentials, project, instance, pub_key
         )
 

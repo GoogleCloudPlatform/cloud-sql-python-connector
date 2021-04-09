@@ -39,7 +39,7 @@ def test_connect_timeout(
     keys = asyncio.run_coroutine_threadsafe(generate_keys(), async_loop)
 
     icm = InstanceConnectionManager(connect_string, "pymysql", keys, async_loop)
-    icm._connect = timeout_stub
+    setattr(icm, "_connect", timeout_stub)
 
     mock_instances = {}
     mock_instances[connect_string] = icm

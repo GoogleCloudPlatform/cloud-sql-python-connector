@@ -28,11 +28,22 @@ import google.auth.transport.requests
 import ssl
 import socket
 from tempfile import NamedTemporaryFile
-from typing import Any, Awaitable, TypeVar
+from typing import (
+    Any,
+    Awaitable,
+    Coroutine,
+    IO,
+    Optional,
+    TYPE_CHECKING,
+    Union,
+)
 
 from functools import partial
 import logging
 
+if TYPE_CHECKING:
+    import pymysql
+    import pg8000
 logger = logging.getLogger(name=__name__)
 
 APPLICATION_NAME = "cloud-sql-python-connector"
@@ -40,8 +51,6 @@ APPLICATION_NAME = "cloud-sql-python-connector"
 # The default delay is set to 55 minutes since each ephemeral certificate is only
 # valid for an hour. This gives five minutes of buffer time.
 _delay: int = 55 * 60
-
-Connection = TypeVar("Connection")
 
 
 class ConnectionSSLContext(ssl.SSLContext):
@@ -56,16 +65,16 @@ class ConnectionSSLContext(ssl.SSLContext):
 
 class InstanceMetadata:
     ip_address: str
-    _ca_fileobject: NamedTemporaryFile
-    _cert_fileobject: NamedTemporaryFile
-    _key_fileobject: NamedTemporaryFile
+    _ca_fileobject: IO
+    _cert_fileobject: IO
+    _key_fileobject: IO
     context: ssl.SSLContext
 
     def __init__(
         self,
         ephemeral_cert: str,
         ip_address: str,
-        private_key: str,
+        private_key: bytes,
         server_ca_cert: str,
     ) -> None:
         self.ip_address = ip_address
@@ -98,8 +107,8 @@ class CloudSQLConnectionError(Exception):
     correctly.
     """
 
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
-        super(CloudSQLConnectionError, self).__init__(self, *args, **kwargs)
+    def __init__(self, *args: Any) -> None:
+        super(CloudSQLConnectionError, self).__init__(self, *args)
 
 
 class InstanceConnectionManager:
@@ -126,9 +135,9 @@ class InstanceConnectionManager:
     # while developing on Windows.
     # Link to Github issue:
     # https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/22
-    _loop: asyncio.AbstractEventLoop = None
+    _loop: asyncio.AbstractEventLoop
 
-    __client_session: aiohttp.ClientSession = None
+    __client_session: Optional[aiohttp.ClientSession] = None
 
     @property
     def _client_session(self) -> aiohttp.ClientSession:
@@ -142,16 +151,17 @@ class InstanceConnectionManager:
             )
         return self.__client_session
 
-    _credentials: Credentials = None
+    _credentials: Optional[Credentials] = None
+    _keys: Awaitable
 
-    _instance_connection_string: str = None
-    _user_agent_string: str = None
-    _instance: str = None
-    _project: str = None
-    _region: str = None
+    _instance_connection_string: str
+    _user_agent_string: str
+    _instance: str
+    _project: str
+    _region: str
 
-    _current: asyncio.Task = None
-    _next: asyncio.Task = None
+    _current: Union[Coroutine, asyncio.Task]
+    _next: Union[Coroutine, asyncio.Task]
 
     def __init__(
         self,
@@ -176,7 +186,7 @@ class InstanceConnectionManager:
 
         self._user_agent_string = f"{APPLICATION_NAME}/{version}+{driver_name}"
         self._loop = loop
-        self._keys: Awaitable = asyncio.wrap_future(keys, loop=self._loop)
+        self._keys = asyncio.wrap_future(keys, loop=self._loop)
         self._auth_init()
 
         logger.debug("Updating instance data")
@@ -192,10 +202,10 @@ class InstanceConnectionManager:
         logger.debug("Entering deconstructor")
 
         async def _deconstruct() -> None:
-            if self._current is not None:
+            if isinstance(self._current, asyncio.Task):
                 logger.debug("Waiting for _current to be cancelled")
                 self._current.cancel()
-            if self._next is not None:
+            if isinstance(self._next, asyncio.Task):
                 logger.debug("Waiting for _next to be cancelled")
                 self._next.cancel()
             if not self._client_session.closed:
@@ -295,9 +305,9 @@ class InstanceConnectionManager:
             logger.debug("Schedule refresh task cancelled.")
             raise e
 
-        return self._perform_refresh()
+        return await self._perform_refresh()
 
-    def connect(self, driver: str, timeout: int, **kwargs: Any) -> Connection:
+    def connect(self, driver: str, timeout: int, **kwargs: Any) -> Any:
         """A method that returns a DB-API connection to the database.
 
         :type driver: str
@@ -310,7 +320,7 @@ class InstanceConnectionManager:
         :returns: A DB-API connection to the primary IP of the database.
         """
 
-        connect_future = asyncio.run_coroutine_threadsafe(
+        connect_future: concurrent.futures.Future = asyncio.run_coroutine_threadsafe(
             self._connect(driver, **kwargs), self._loop
         )
 
@@ -322,7 +332,7 @@ class InstanceConnectionManager:
         else:
             return connection
 
-    async def _connect(self, driver: str, **kwargs: Any) -> Connection:
+    async def _connect(self, driver: str, **kwargs: Any) -> Any:
         """A method that returns a DB-API connection to the database.
 
         :type driver: str
@@ -358,7 +368,7 @@ class InstanceConnectionManager:
 
     def _connect_with_pymysql(
         self, ip_address: str, ctx: ssl.SSLContext, **kwargs: Any
-    ) -> Connection:
+    ) -> "pymysql.connections.Connection":
         """Helper function to create a pymysql DB-API connection object.
 
         :type ip_address: str
@@ -391,7 +401,7 @@ class InstanceConnectionManager:
 
     def _connect_with_pg8000(
         self, ip_address: str, ctx: ssl.SSLContext, **kwargs: Any
-    ) -> Connection:
+    ) -> "pg8000.dbapi.Connection":
         """Helper function to create a pg8000 DB-API connection object.
 
         :type ip_address: str
@@ -415,7 +425,7 @@ class InstanceConnectionManager:
         user = kwargs.pop("user")
         db = kwargs.pop("db")
         passwd = kwargs.pop("password")
-        ctx.request_ssl = False
+        setattr(ctx, "request_ssl", False)
         return pg8000.dbapi.connect(
             user,
             database=db,

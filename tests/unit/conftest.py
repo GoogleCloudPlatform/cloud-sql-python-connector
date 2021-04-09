@@ -15,13 +15,14 @@ limitations under the License.
 """
 import os
 import threading
+from typing import Generator
 
 import asyncio
 import pytest  # noqa F401 Needed to run the tests
 
 
 @pytest.fixture
-def async_loop() -> asyncio.AbstractEventLoop:
+def async_loop() -> Generator:
     """
     Creates a loop in a background thread and returns it to use for testing.
     """
