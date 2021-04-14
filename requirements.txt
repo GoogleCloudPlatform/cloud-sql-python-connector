@@ -3,7 +3,7 @@ cryptography==3.4.7
 PyMySQL==1.0.2
 pg8000==1.19.2
 # python-tds==1.10.0
-git+https://github.com/denisenkom/pytds.git@refs/pull/120/merge
+git+https://github.com/denisenkom/pytds.git
 pyopenssl==20.0.1
 Requests==2.25.1
 google-api-python-client==2.2.0
