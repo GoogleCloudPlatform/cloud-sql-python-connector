@@ -44,6 +44,7 @@ import logging
 if TYPE_CHECKING:
     import pymysql
     import pg8000
+    import pytds
 logger = logging.getLogger(name=__name__)
 
 APPLICATION_NAME = "cloud-sql-python-connector"
@@ -439,7 +440,9 @@ class InstanceConnectionManager:
             **kwargs,
         )
 
-    def _connect_with_pytds(self, ip_address: str, ctx: ssl.SSLContext, **kwargs):
+    def _connect_with_pytds(
+        self, ip_address: str, ctx: ssl.SSLContext, **kwargs: Any
+    ) -> "pytds.Connection":
         """Helper function to create a pg8000 DB-API connection object.
 
         :type ip_address: str

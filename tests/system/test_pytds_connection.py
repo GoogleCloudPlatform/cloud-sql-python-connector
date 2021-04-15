@@ -15,7 +15,9 @@ limitations under the License.
 """
 import os
 import uuid
+from typing import Generator
 
+import pytds
 import pytest
 import sqlalchemy
 from google.cloud.sql.connector import connector
@@ -23,8 +25,8 @@ from google.cloud.sql.connector import connector
 table_name = f"books_{uuid.uuid4().hex}"
 
 
-def init_connection_engine():
-    def getconn():
+def init_connection_engine() -> sqlalchemy.engine.Engine:
+    def getconn() -> pytds.Connection:
         conn = connector.connect(
             os.environ["SQLSERVER_CONNECTION_NAME"],
             "pytds",
@@ -43,7 +45,7 @@ def init_connection_engine():
 
 
 @pytest.fixture(name="pool")
-def setup():
+def setup() -> Generator:
     pool = init_connection_engine()
 
     with pool.connect() as conn:
@@ -58,7 +60,7 @@ def setup():
         conn.execute(f"DROP TABLE {table_name}")
 
 
-def test_pooled_connection_with_pytds(pool):
+def test_pooled_connection_with_pytds(pool: sqlalchemy.engine.Engine) -> None:
     insert_stmt = sqlalchemy.text(
         f"INSERT INTO {table_name} (id, title) VALUES (:id, :title)",
     )
