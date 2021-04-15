@@ -17,6 +17,7 @@ limitations under the License.
 import pytest  # noqa F401 Needed to run the tests
 from google.cloud.sql.connector.instance_connection_manager import (
     InstanceConnectionManager,
+    DEFAULT_IP_TYPES,
 )
 from google.cloud.sql.connector import connector
 from google.cloud.sql.connector.utils import generate_keys
@@ -45,5 +46,10 @@ def test_connect_timeout(
     mock_instances[connect_string] = icm
     with patch.dict(connector._instances, mock_instances):
         pytest.raises(
-            TimeoutError, connector.connect, connect_string, "pymysql", timeout=timeout
+            TimeoutError,
+            connector.connect,
+            connect_string,
+            "pymysql",
+            ip_types=DEFAULT_IP_TYPES,
+            timeout=timeout,
         )

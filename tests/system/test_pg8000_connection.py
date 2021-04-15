@@ -21,6 +21,7 @@ import pg8000
 import pytest
 import sqlalchemy
 from google.cloud.sql.connector import connector
+from google.cloud.sql.connector.instance_connection_manager import DEFAULT_IP_TYPES
 
 table_name = f"books_{uuid.uuid4().hex}"
 
@@ -30,6 +31,7 @@ def init_connection_engine() -> sqlalchemy.engine.Engine:
         conn: pg8000.dbapi.Connection = connector.connect(
             os.environ["POSTGRES_CONNECTION_NAME"],
             "pg8000",
+            ip_types=DEFAULT_IP_TYPES,
             user=os.environ["POSTGRES_USER"],
             password=os.environ["POSTGRES_PASS"],
             db=os.environ["POSTGRES_DB"],

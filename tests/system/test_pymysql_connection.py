@@ -21,6 +21,7 @@ import pymysql
 import pytest
 import sqlalchemy
 from google.cloud.sql.connector import connector
+from google.cloud.sql.connector.instance_connection_manager import DEFAULT_IP_TYPES
 
 table_name = f"books_{uuid.uuid4().hex}"
 
@@ -30,6 +31,7 @@ def init_connection_engine() -> sqlalchemy.engine.Engine:
         conn: pymysql.connections.Connection = connector.connect(
             os.environ["MYSQL_CONNECTION_NAME"],
             "pymysql",
+            ip_types=DEFAULT_IP_TYPES,
             user=os.environ["MYSQL_USER"],
             password=os.environ["MYSQL_PASS"],
             db=os.environ["MYSQL_DB"],

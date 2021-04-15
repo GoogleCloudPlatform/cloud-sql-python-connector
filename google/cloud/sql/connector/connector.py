@@ -17,12 +17,13 @@ import asyncio
 import concurrent
 from google.cloud.sql.connector.instance_connection_manager import (
     InstanceConnectionManager,
+    IPTypes,
+    DEFAULT_IP_TYPES,
 )
 from google.cloud.sql.connector.utils import generate_keys
 
 from threading import Thread
-from typing import Any, Dict, Optional
-
+from typing import Any, Dict, List, Optional
 
 # This thread is used to background processing
 _thread: Optional[Thread] = None
@@ -48,7 +49,12 @@ def _get_keys(loop: asyncio.AbstractEventLoop) -> concurrent.futures.Future:
     return _keys
 
 
-def connect(instance_connection_string: str, driver: str, **kwargs: Any) -> Any:
+def connect(
+    instance_connection_string: str,
+    driver: str,
+    ip_types: List[IPTypes] = DEFAULT_IP_TYPES,
+    **kwargs: Any
+) -> Any:
     """Prepares and returns a database connection object and starts a
     background thread to refresh the certificates and metadata.
 
@@ -86,10 +92,10 @@ def connect(instance_connection_string: str, driver: str, **kwargs: Any) -> Any:
         _instances[instance_connection_string] = icm
 
     if "timeout" in kwargs:
-        return icm.connect(driver, **kwargs)
+        return icm.connect(driver, ip_types, **kwargs)
     elif "connect_timeout" in kwargs:
         timeout = kwargs["connect_timeout"]
     else:
         timeout = 30  # 30s
 
-    return icm.connect(driver, timeout, **kwargs)
+    return icm.connect(driver, ip_types, timeout, **kwargs)
