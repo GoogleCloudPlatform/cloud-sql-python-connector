@@ -44,9 +44,11 @@ import logging
 if TYPE_CHECKING:
     import pymysql
     import pg8000
+    import pytds
 logger = logging.getLogger(name=__name__)
 
 APPLICATION_NAME = "cloud-sql-python-connector"
+SERVER_PROXY_PORT = 3307
 
 # The default delay is set to 55 minutes since each ephemeral certificate is only
 # valid for an hour. This gives five minutes of buffer time.
@@ -351,6 +353,7 @@ class InstanceConnectionManager:
         connect_func = {
             "pymysql": self._connect_with_pymysql,
             "pg8000": self._connect_with_pg8000,
+            "pytds": self._connect_with_pytds,
         }
 
         instance_data: InstanceMetadata = await self._current
@@ -391,7 +394,8 @@ class InstanceConnectionManager:
 
         # Create socket and wrap with context.
         sock = ctx.wrap_socket(
-            socket.create_connection((ip_address, 3307)), server_hostname=ip_address
+            socket.create_connection((ip_address, SERVER_PROXY_PORT)),
+            server_hostname=ip_address,
         )
 
         # Create pymysql connection object and hand in pre-made connection
@@ -431,7 +435,43 @@ class InstanceConnectionManager:
             database=db,
             password=passwd,
             host=ip_address,
-            port=3307,
+            port=SERVER_PROXY_PORT,
             ssl_context=ctx,
             **kwargs,
+        )
+
+    def _connect_with_pytds(
+        self, ip_address: str, ctx: ssl.SSLContext, **kwargs: Any
+    ) -> "pytds.Connection":
+        """Helper function to create a pg8000 DB-API connection object.
+
+        :type ip_address: str
+        :param ip_address: A string containing an IP address for the Cloud SQL
+            instance.
+
+        :type ctx: ssl.SSLContext
+        :param ctx: An SSLContext object created from the Cloud SQL server CA
+            cert and ephemeral cert.
+
+
+        :rtype: pytds.Connection
+        :returns: A pytds Connection object for the Cloud SQL instance.
+        """
+        try:
+            import pytds
+        except ImportError:
+            raise ImportError(
+                'Unable to import module "pytds." Please install and try again.'
+            )
+        user = kwargs.pop("user")
+        db = kwargs.pop("db")
+        passwd = kwargs.pop("password")
+
+        # Create socket and wrap with context.
+        sock = ctx.wrap_socket(
+            socket.create_connection((ip_address, SERVER_PROXY_PORT)),
+            server_hostname=ip_address,
+        )
+        return pytds.connect(
+            ip_address, database=db, user=user, password=passwd, sock=sock, **kwargs
         )

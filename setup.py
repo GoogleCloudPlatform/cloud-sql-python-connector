@@ -37,11 +37,10 @@ with open("google/cloud/sql/connector/version.py") as fp:
 version = version["__version__"]
 
 release_status = "Development Status :: 3 - Alpha"
-dependencies = [
+core_dependencies = [
     "aiohttp",
     "cryptography",
-    "PyMySQL",
-    "pytest",
+    "pyopenssl",
     "Requests",
     "google-api-python-client",
 ]
@@ -67,7 +66,12 @@ setup(
     platforms="Posix; MacOS X",
     packages=packages,
     namespace_packages=namespaces,
-    install_requires=dependencies,
+    install_requires=core_dependencies,
+    extras_require={
+        "pymysql": ["PyMySQL==1.0.2"],
+        "pg8000": ["pg8000==1.19.2"],
+        "pytds": ["python-tds @ git+https://github.com/denisenkom/pytds.git"]
+    },
     python_requires=">=3.6",
     include_package_data=True,
     zip_safe=False,
