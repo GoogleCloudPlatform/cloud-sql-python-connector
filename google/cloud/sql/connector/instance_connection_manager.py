@@ -63,7 +63,7 @@ class IPTypes(Enum):
     PRIVATE: str = "PRIVATE"
 
 
-DEFAULT_IP_TYPES = [IPTypes.PUBLIC, IPTypes.PRIVATE]
+DEFAULT_IP_TYPES = [IPTypes.PUBLIC]
 
 
 class ConnectionSSLContext(ssl.SSLContext):
@@ -85,6 +85,7 @@ class CloudSQLConnectionError(Exception):
     def __init__(self, *args: Any) -> None:
         super(CloudSQLConnectionError, self).__init__(self, *args)
 
+
 class CloudSQLIPTypeError(Exception):
     """
     Raised when IP address for the preferred IP type is not found.
@@ -95,14 +96,7 @@ class CloudSQLIPTypeError(Exception):
 
 
 class InstanceMetadata:
-<<<<<<< HEAD
-    ip_address: str
-=======
     ip_addrs: Dict[str, Any]
-    _ca_fileobject: IO
-    _cert_fileobject: IO
-    _key_fileobject: IO
->>>>>>> 90b1f19 (feat: allow specifying ip address type as public and/or private when connecting)
     context: ssl.SSLContext
 
     def __init__(
@@ -112,27 +106,7 @@ class InstanceMetadata:
         private_key: bytes,
         server_ca_cert: str,
     ) -> None:
-<<<<<<< HEAD
-        self.ip_address = ip_address
-=======
         self.ip_addrs = ip_addrs
-
-        self._ca_fileobject = NamedTemporaryFile(suffix=".pem")
-        self._cert_fileobject = NamedTemporaryFile(suffix=".pem")
-        self._key_fileobject = NamedTemporaryFile(suffix=".pem")
-
-        # Write each file and reset to beginning
-        # TODO: Write tests on Windows and convert writing of temp
-        # files to be compatible with Windows.
-        self._ca_fileobject.write(server_ca_cert.encode())
-        self._cert_fileobject.write(ephemeral_cert.encode())
-        self._key_fileobject.write(private_key)
-
-        self._ca_fileobject.seek(0)
-        self._cert_fileobject.seek(0)
-        self._key_fileobject.seek(0)
-
->>>>>>> 90b1f19 (feat: allow specifying ip address type as public and/or private when connecting)
         self.context = ConnectionSSLContext()
 
         # tmpdir and its contents are automatically deleted after the CA cert

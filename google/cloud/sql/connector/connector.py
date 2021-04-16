@@ -66,7 +66,7 @@ def connect(
         Example: example-proj:example-region-us6:example-instance
 
     :type driver: str
-    :param: driver: 
+    :param: driver:
         A string representing the driver to connect with. Supported drivers are
         pymysql, pg8000, and pytds.
 
