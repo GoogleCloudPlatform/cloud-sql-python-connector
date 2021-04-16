@@ -65,6 +65,17 @@ def connect(
 
         Example: example-proj:example-region-us6:example-instance
 
+    :type driver: str
+    :param: driver: 
+        A string representing the driver to connect with. Supported drivers are
+        pymysql, pg8000, and pytds.
+
+    :type ip_types: List[IPTypes]
+        A list of IP types (public or private) that can be used to connect. IP types
+        can be either IPTypes.PUBLIC or IPTypes.PRIVATE. When two IP types are passed
+        in (ex: [IPTypes.PRIVATE, IPTypes.PUBLIC]) the connector will check if the first
+        IP type is available, then fall back to the second.
+
     :param kwargs:
         Pass in any driver-specific arguments needed to connect to the Cloud
         SQL instance.

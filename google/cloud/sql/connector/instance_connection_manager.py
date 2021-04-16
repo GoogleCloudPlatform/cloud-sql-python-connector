@@ -85,6 +85,14 @@ class CloudSQLConnectionError(Exception):
     def __init__(self, *args: Any) -> None:
         super(CloudSQLConnectionError, self).__init__(self, *args)
 
+class CloudSQLIPTypeError(Exception):
+    """
+    Raised when IP address for the preferred IP type is not found.
+    """
+
+    def __init__(self, *args: Any) -> None:
+        super(CloudSQLIPTypeError, self).__init__(self, *args)
+
 
 class InstanceMetadata:
 <<<<<<< HEAD
@@ -144,7 +152,7 @@ class InstanceMetadata:
         for ip_type in ip_types:
             if ip_type.value in self.ip_addrs:
                 return self.ip_addrs[ip_type.value]
-        raise CloudSQLConnectionError(
+        raise CloudSQLIPTypeError(
             "Cloud SQL instance does not have any IP addresses matching "
             f"preferences: {[ip_type.value for ip_type in ip_types]})"
         )
