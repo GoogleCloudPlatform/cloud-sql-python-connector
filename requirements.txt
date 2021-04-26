@@ -1,7 +1,7 @@
 aiohttp==3.7.4.post0
 cryptography==3.4.7
 PyMySQL==1.0.2
-pg8000==1.19.2
+pg8000==1.19.3
 # python-tds==1.10.0
 git+https://github.com/denisenkom/pytds.git
 pyopenssl==20.0.1
