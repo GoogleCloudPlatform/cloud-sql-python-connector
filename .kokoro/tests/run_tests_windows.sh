@@ -16,7 +16,7 @@
 # `-e` enables the script to automatically fail when a command fails
 set -e
 
-export PATH=/c/python37:/c/python37/scripts:$PATH
+
 
 # Kokoro setup
 if [ -n "$KOKORO_GFILE_DIR" ]; then
@@ -27,11 +27,14 @@ if [ -n "$KOKORO_GFILE_DIR" ]; then
   export GOOGLE_APPLICATION_CREDENTIALS="${KOKORO_GFILE_DIR}/testing-service-account.json"
 fi
 
-# add user's pip binary path to PATH
-export PATH="${HOME}/.local/bin:${PATH}"
+# Add python and pip to PATH
+export PATH=/c/python37:/c/python37/scripts:$PATH
 
 # install nox for testing
 pip install --user -q nox
+
+# add nox to path
+export PATH="/c/Users/kbuilder/AppData/Roaming/Python/Python37/Scripts:$PATH"
 
 echo -e "******************** Running tests... ********************\n"
 nox -s "$RUN_TESTS_SESSION"
