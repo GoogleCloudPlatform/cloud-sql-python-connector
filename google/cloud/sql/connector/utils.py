@@ -58,14 +58,22 @@ async def generate_keys() -> Tuple[bytes, str]:
     return priv_key, pub_key
 
 
-def write_to_file(serverCaCert: str, ephemeralCert: str, priv_key: bytes) -> None:
+def write_to_file(
+    dir_path: str, serverCaCert: str, ephemeralCert: str, priv_key: bytes
+) -> Tuple[str, str, str]:
     """
     Helper function to write the serverCaCert, ephemeral certificate and
-    private key to .pem files
+    private key to .pem files in a given directory
     """
-    with open("keys/ca.pem", "w+") as ca_out:
+    ca_filename = f"{dir_path}/ca.pem"
+    cert_filename = f"{dir_path}/cert.pem"
+    key_filename = f"{dir_path}/priv.pem"
+
+    with open(ca_filename, "w+") as ca_out:
         ca_out.write(serverCaCert)
-    with open("keys/cert.pem", "w+") as ephemeral_out:
+    with open(cert_filename, "w+") as ephemeral_out:
         ephemeral_out.write(ephemeralCert)
-    with open("keys/priv.pem", "wb") as priv_out:
+    with open(key_filename, "wb") as priv_out:
         priv_out.write(priv_key)
+
+    return (ca_filename, cert_filename, key_filename)
