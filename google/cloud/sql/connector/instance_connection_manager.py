@@ -16,6 +16,7 @@ limitations under the License.
 
 # Custom utils import
 from google.cloud.sql.connector.refresh_utils import _get_ephemeral, _get_metadata
+from google.cloud.sql.connector.utils import write_to_file
 from google.cloud.sql.connector.version import __version__ as version
 
 # Importing libraries
@@ -27,12 +28,11 @@ from google.auth.credentials import Credentials
 import google.auth.transport.requests
 import ssl
 import socket
-from tempfile import NamedTemporaryFile
+from tempfile import TemporaryDirectory
 from typing import (
     Any,
     Awaitable,
     Coroutine,
-    IO,
     Optional,
     TYPE_CHECKING,
     Union,
@@ -67,9 +67,6 @@ class ConnectionSSLContext(ssl.SSLContext):
 
 class InstanceMetadata:
     ip_address: str
-    _ca_fileobject: IO
-    _cert_fileobject: IO
-    _key_fileobject: IO
     context: ssl.SSLContext
 
     def __init__(
@@ -80,27 +77,17 @@ class InstanceMetadata:
         server_ca_cert: str,
     ) -> None:
         self.ip_address = ip_address
-
-        self._ca_fileobject = NamedTemporaryFile(suffix=".pem")
-        self._cert_fileobject = NamedTemporaryFile(suffix=".pem")
-        self._key_fileobject = NamedTemporaryFile(suffix=".pem")
-
-        # Write each file and reset to beginning
-        # TODO: Write tests on Windows and convert writing of temp
-        # files to be compatible with Windows.
-        self._ca_fileobject.write(server_ca_cert.encode())
-        self._cert_fileobject.write(ephemeral_cert.encode())
-        self._key_fileobject.write(private_key)
-
-        self._ca_fileobject.seek(0)
-        self._cert_fileobject.seek(0)
-        self._key_fileobject.seek(0)
-
         self.context = ConnectionSSLContext()
-        self.context.load_cert_chain(
-            self._cert_fileobject.name, keyfile=self._key_fileobject.name
-        )
-        self.context.load_verify_locations(cafile=self._ca_fileobject.name)
+
+        # tmpdir and its contents are automatically deleted after the CA cert
+        # and ephemeral cert are loaded into the SSLcontext. The values
+        # need to be written to files in order to be loaded by the SSLContext
+        with TemporaryDirectory() as tmpdir:
+            ca_filename, cert_filename, key_filename = write_to_file(
+                tmpdir, server_ca_cert, ephemeral_cert, private_key
+            )
+            self.context.load_cert_chain(cert_filename, keyfile=key_filename)
+            self.context.load_verify_locations(cafile=ca_filename)
 
 
 class CloudSQLConnectionError(Exception):
