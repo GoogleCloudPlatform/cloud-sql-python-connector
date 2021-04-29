@@ -79,6 +79,9 @@ class InstanceMetadata:
         self.ip_address = ip_address
         self.context = ConnectionSSLContext()
 
+        # tmpdir and its contents are automatically deleted after the CA cert
+        # and ephemeral cert are loaded into the SSLcontext. The values
+        # need to be written to files in order to be loaded by the SSLContext
         with TemporaryDirectory() as tmpdir:
             ca_filename, cert_filename, key_filename = write_to_file(
                 tmpdir, server_ca_cert, ephemeral_cert, private_key
