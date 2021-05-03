@@ -16,7 +16,7 @@ limitations under the License.
 import logging
 import os
 import uuid
-from typing import Generator, List
+from typing import List
 
 import pymysql
 import pytest
@@ -24,14 +24,6 @@ import sqlalchemy
 from google.cloud.sql.connector import connector, IPTypes
 
 table_name = f"books_{uuid.uuid4().hex}"
-
-
-def pytest_addoption(parser):
-    parser.addoption(
-        "--private_ip",
-        action="store_true",
-        help="run tests that need to be running in VPC network",
-    )
 
 
 def init_connection_engine(ip_types: List[IPTypes]) -> sqlalchemy.engine.Engine:
@@ -56,8 +48,8 @@ def init_connection_engine(ip_types: List[IPTypes]) -> sqlalchemy.engine.Engine:
 def test_public_ip() -> None:
     try:
         pool = init_connection_engine([IPTypes.PUBLIC])
-    except e:
-        logging.exception("Failed to initialize pool", e)
+    except Exception as e:
+        logging.exception("Failed to initialize pool with public IP", e)
     with pool.connect() as conn:
         conn.execute("SELECT 1")
 
@@ -66,7 +58,7 @@ def test_public_ip() -> None:
 def test_private_ip() -> None:
     try:
         pool = init_connection_engine([IPTypes.PRIVATE])
-    except e:
-        logging.exception("Failed to initialize pool", e)
+    except Exception as e:
+        logging.exception("Failed to initialize pool with private IP", e)
     with pool.connect() as conn:
         conn.execute("SELECT 1")
