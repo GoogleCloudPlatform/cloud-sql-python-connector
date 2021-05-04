@@ -29,7 +29,12 @@ if "google.cloud" in packages:
     namespaces.append("google.cloud")
 
 name = "cloud-sql-python-connector"
-description = ""
+description = (
+    "The Cloud SQL Python Connector is a library that can be used"
+    " alongside a database driver to allow users with sufficient"
+    " permissions to connect to a Cloud SQL database without having"
+    " to manually allowlist IPs or manage SSL certificates."
+)
 
 version = {}
 with open("google/cloud/sql/connector/version.py") as fp:
@@ -51,6 +56,7 @@ setup(
     description=description,
     long_description=readme,
     author="Google LLC",
+    author_email="googleapis-packages@google.com",
     license="Apache 2.0",
     url="https://github.com/GoogleCloudPlatform/cloud-sql-python-connector",
     classifiers=[
