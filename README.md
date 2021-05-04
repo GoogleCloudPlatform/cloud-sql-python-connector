@@ -57,13 +57,13 @@ connector.connect(
 **Note for SQL Server users**: If your SQL Server instance requires SSL, you need to download the CA certificate for your instance and include `cafile={path to downloaded certificate}` and `validate_host=False`. This is a workaround for a [known issue](https://issuetracker.google.com/184867147).
 
 ### Specifying Public or Private IP
-The Cloud SQL Connector for Python can be used to connect to Cloud SQL instances using both public and private IP addresses. To specify which IP address to use to connect, set the `ip_types` keyword argument to a list of the IP types to use in order of preference. Possible values are `IPTypes.PUBLIC` and `IPTypes.PRIVATE`. 
+The Cloud SQL Connector for Python can be used to connect to Cloud SQL instances using both public and private IP addresses. To specify which IP address to use to connect, set the `ip_type` keyword argument Possible values are `IPTypes.PUBLIC` and `IPTypes.PRIVATE`. 
 Example:
 ```
 connector.connect(
     "your:connection:string:", 
     "pymysql",
-    ip_types=[IPTypes.PRIVATE, IPTypes.PUBLIC] # Prefer private IP and fall back to public.
+    ip_types=IPTypes.PRIVATE # Prefer private IP
 ... insert other kwargs ...
 )
 ```
