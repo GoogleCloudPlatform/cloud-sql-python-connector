@@ -42,7 +42,7 @@ To use the connector: import the connector by including the following statement 
 from google.cloud.sql.connector import connector
 ```
 
-Use the connector to create a connection object by calling the connect method. Input your connection string as the first positional argument and the name of the database driver for the second positional argument. Insert the rest of your connection keyword arguments like user, password and database. You can also set the optional `timeout` or `ip_types` keyword arguments.
+Use the connector to create a connection object by calling the connect method. Input your connection string as the first positional argument and the name of the database driver for the second positional argument. Insert the rest of your connection keyword arguments like user, password and database. You can also set the optional `timeout` or `ip_type` keyword arguments.
 
 ```
 connector.connect(
