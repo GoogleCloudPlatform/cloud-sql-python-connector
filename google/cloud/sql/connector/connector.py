@@ -18,12 +18,12 @@ import concurrent
 from google.cloud.sql.connector.instance_connection_manager import (
     InstanceConnectionManager,
     IPTypes,
-    DEFAULT_IP_TYPES,
+    DEFAULT_IP_TYPE,
 )
 from google.cloud.sql.connector.utils import generate_keys
 
 from threading import Thread
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 # This thread is used to background processing
 _thread: Optional[Thread] = None
@@ -52,7 +52,7 @@ def _get_keys(loop: asyncio.AbstractEventLoop) -> concurrent.futures.Future:
 def connect(
     instance_connection_string: str,
     driver: str,
-    ip_types: List[IPTypes] = DEFAULT_IP_TYPES,
+    ip_types: IPTypes = DEFAULT_IP_TYPE,
     **kwargs: Any
 ) -> Any:
     """Prepares and returns a database connection object and starts a
@@ -70,11 +70,9 @@ def connect(
         A string representing the driver to connect with. Supported drivers are
         pymysql, pg8000, and pytds.
 
-    :type ip_types: List[IPTypes]
-        A list of IP types (public or private) that can be used to connect. IP types
-        can be either IPTypes.PUBLIC or IPTypes.PRIVATE. When two IP types are passed
-        in (ex: [IPTypes.PRIVATE, IPTypes.PUBLIC]) the connector will check if the first
-        IP type is available, then fall back to the second.
+    :type ip_types: IPTypes
+        The IP type (public or private)  used to connect. IP types
+        can be either IPTypes.PUBLIC or IPTypes.PRIVATE.
 
     :param kwargs:
         Pass in any driver-specific arguments needed to connect to the Cloud

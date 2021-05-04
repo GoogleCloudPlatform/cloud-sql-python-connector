@@ -35,7 +35,6 @@ from typing import (
     Awaitable,
     Coroutine,
     Dict,
-    List,
     Optional,
     TYPE_CHECKING,
     Union,
@@ -63,7 +62,7 @@ class IPTypes(Enum):
     PRIVATE: str = "PRIVATE"
 
 
-DEFAULT_IP_TYPES = [IPTypes.PUBLIC]
+DEFAULT_IP_TYPE = IPTypes.PUBLIC
 
 
 class ConnectionSSLContext(ssl.SSLContext):
@@ -119,16 +118,15 @@ class InstanceMetadata:
             self.context.load_cert_chain(cert_filename, keyfile=key_filename)
             self.context.load_verify_locations(cafile=ca_filename)
 
-    def get_preferred_ip(self, ip_types: List[IPTypes]) -> str:
-        """Returns the first IP address for the instance, in order of the
-        preference supplied by ip_types. If no IP addressess with the given
-        preference are found, an error is raised."""
-        for ip_type in ip_types:
-            if ip_type.value in self.ip_addrs:
-                return self.ip_addrs[ip_type.value]
+    def get_preferred_ip(self, ip_type: IPTypes) -> str:
+        """Returns the first IP address for the instance, according to the preference
+        supplied by ip_type. If no IP addressess with the given preference are found,
+        an error is raised."""
+        if ip_type.value in self.ip_addrs:
+            return self.ip_addrs[ip_type.value]
         raise CloudSQLIPTypeError(
             "Cloud SQL instance does not have any IP addresses matching "
-            f"preferences: {[ip_type.value for ip_type in ip_types]})"
+            f"preference: {ip_type.value})"
         )
 
 
@@ -331,7 +329,7 @@ class InstanceConnectionManager:
     def connect(
         self,
         driver: str,
-        ip_types: List[IPTypes],
+        ip_type: IPTypes,
         timeout: int,
         **kwargs: Any,
     ) -> Any:
@@ -348,7 +346,7 @@ class InstanceConnectionManager:
         """
 
         connect_future: concurrent.futures.Future = asyncio.run_coroutine_threadsafe(
-            self._connect(driver, ip_types, **kwargs), self._loop
+            self._connect(driver, ip_type, **kwargs), self._loop
         )
 
         try:
@@ -362,7 +360,7 @@ class InstanceConnectionManager:
     async def _connect(
         self,
         driver: str,
-        ip_types: List[IPTypes],
+        ip_type: IPTypes,
         **kwargs: Any,
     ) -> Any:
         """A method that returns a DB-API connection to the database.
@@ -387,7 +385,7 @@ class InstanceConnectionManager:
         }
 
         instance_data: InstanceMetadata = await self._current
-        ip_address: str = instance_data.get_preferred_ip(ip_types)
+        ip_address: str = instance_data.get_preferred_ip(ip_type)
 
         try:
             connector = connect_func[driver]
