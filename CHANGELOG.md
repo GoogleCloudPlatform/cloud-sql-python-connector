@@ -1,0 +1,22 @@
+# Changelog
+
+## 0.1.0 (2021-05-04)
+
+
+### Features
+
+* add pg8000 support ([#40](https://www.github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/40)) ([d810d7d](https://www.github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/d810d7da9a5048714ad1e1ad28e681e0f679e1a4))
+* add pytds support ([#57](https://www.github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/57)) ([060a78f](https://www.github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/060a78f906ba833b6e411d3c9ccb3ad41a6db355))
+* allow specifying ip address type ([#79](https://www.github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/79)) ([b3f80c9](https://www.github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/b3f80c94a662169ad555371342b6a3a4871b20de))
+* reuse instance connection managers ([#69](https://www.github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/69)) ([72c05ec](https://www.github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/72c05ece4f24fe686a0e1ea70b53a4abb827b2d1))
+* set User-Agent to include version and SQL driver info ([#54](https://www.github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/54)) ([851d110](https://www.github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/851d1109d8f79f7e0a362aeb97d0512d7f162aa6))
+
+
+### Bug Fixes
+
+* add timeout in InstanceConnectionManager.connect ([#60](https://www.github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/60)) ([816019b](https://www.github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/816019bebcb7037ffe81f70ce1dc19c39a8d508b))
+* avoid hang on connector.connect ([#27](https://www.github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/27)) ([e043fe6](https://www.github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/e043fe68acb9d02b278000e2a4b2317f7ba0ab78))
+* cancel all async resources when an ICM is destroyed ([#76](https://www.github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/76)) ([07de2a2](https://www.github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/07de2a203fcdba9130ca7013c63d3d778e2c4324))
+* correct variable name and credential copying ([#25](https://www.github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/25)) ([41e317e](https://www.github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/41e317ecdf6131d933ee455cd68fc4006aac8584))
+* generate keys asynchronously ([#59](https://www.github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/59)) ([56d2c70](https://www.github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/56d2c70c73e4496d1407d06eb4b398b99d55a3a5))
+* use temporary directory instead of tempfile for Windows compatibility ([#84](https://www.github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/84)) ([ef46607](https://www.github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/ef46607adbeaaf34811f7352b1bcc6b4c2c80a06))
