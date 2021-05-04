@@ -4,7 +4,10 @@
 The Cloud SQL Python Connector is a library that can be used alongside a database driver to allow users with sufficient permissions to connect to a Cloud SQL
 database without having to manually allowlist IPs or manage SSL certificates.
 
-Currently supported drivers are [`pymysql`](https://github.com/PyMySQL/PyMySQL) (MySQL), [`pg8000`](https://github.com/tlocke/pg8000) (PostgreSQL), and [`pytds`](https://github.com/denisenkom/pytds) (SQL Server)
+Currently supported drivers are 
+ - [`pymysql`](https://github.com/PyMySQL/PyMySQL) (MySQL)
+ - [`pg8000`](https://github.com/tlocke/pg8000) (PostgreSQL)
+ - [`pytds`](https://github.com/denisenkom/pytds) (SQL Server)
 
 # Supported Python Versions
 Currently Python versions >= 3.6 are supported.
