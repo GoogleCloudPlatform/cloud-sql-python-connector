@@ -1,11 +1,10 @@
 # Cloud SQL Connector for Python Drivers
 *Warning*: This project is experimental, and is not an officially supported Google product.
 
-The Cloud SQL Python Connector library is a library for MySQL/Postgres Python
-drivers that allows users with sufficient permissions to connect  to a Cloud SQL
+The Cloud SQL Python Connector is a library that can be used alongside a database driver to allow users with sufficient permissions to connect to a Cloud SQL
 database without having to manually allowlist IPs or manage SSL certificates.
 
-Currently only supports MySQL through the `pymysql` driver.
+Currently supported drivers are [`pymysql`](https://github.com/PyMySQL/PyMySQL) (MySQL), [`pg8000`](https://github.com/tlocke/pg8000) (PostgreSQL), and [`pytds`](https://github.com/denisenkom/pytds) (SQL Server)
 
 # Supported Python Versions
 Currently Python versions >= 3.6 are supported.
@@ -40,7 +39,7 @@ To use the connector: import the connector by including the following statement 
 from google.cloud.sql.connector import connector
 ```
 
-Use the connector to create a connection object by calling the connect method. Input your connection string as the first positional argument and “mysql-connector” for the second positional argument. Insert the rest of your connection keyword arguments like user, password and database.
+Use the connector to create a connection object by calling the connect method. Input your connection string as the first positional argument and the name of the database driver for the second positional argument. Insert the rest of your connection keyword arguments like user, password and database. You can also set the optional `timeout` or `ip_types` keyword arguments.
 
 ```
 connector.connect(
@@ -52,7 +51,7 @@ connector.connect(
 ... insert other kwargs ...
 )
 ```
-
+**Note for SQL Server users**: If your SQL Server instance requires SSL, you need to download the CA certificate for your instance and include `cafile={path to downloaded certificate}` and `validate_host=False`. This is a workaround for a [known issue](https://issuetracker.google.com/184867147).
 
 ### Setup for development
 
