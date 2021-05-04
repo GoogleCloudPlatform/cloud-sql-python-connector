@@ -62,9 +62,6 @@ class IPTypes(Enum):
     PRIVATE: str = "PRIVATE"
 
 
-DEFAULT_IP_TYPE = IPTypes.PUBLIC
-
-
 class ConnectionSSLContext(ssl.SSLContext):
     """Subclass of ssl.SSLContext with added request_ssl attribute. This is
     required for compatibility with pg8000 driver.

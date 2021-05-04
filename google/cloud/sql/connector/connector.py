@@ -18,7 +18,6 @@ import concurrent
 from google.cloud.sql.connector.instance_connection_manager import (
     InstanceConnectionManager,
     IPTypes,
-    DEFAULT_IP_TYPE,
 )
 from google.cloud.sql.connector.utils import generate_keys
 
@@ -52,7 +51,7 @@ def _get_keys(loop: asyncio.AbstractEventLoop) -> concurrent.futures.Future:
 def connect(
     instance_connection_string: str,
     driver: str,
-    ip_types: IPTypes = DEFAULT_IP_TYPE,
+    ip_types: IPTypes = IPTypes.PUBLIC,
     **kwargs: Any
 ) -> Any:
     """Prepares and returns a database connection object and starts a
