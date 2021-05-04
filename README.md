@@ -1,5 +1,5 @@
 # Cloud SQL Connector for Python Drivers
-*Warning*: This project is experimental, and is not an officially supported Google product.
+*Warning*: This project is in an alpha stage and the API is not guaranteed to be stable.
 
 The Cloud SQL Python Connector is a library that can be used alongside a database driver to allow users with sufficient permissions to connect to a Cloud SQL
 database without having to manually allowlist IPs or manage SSL certificates.
