@@ -23,6 +23,7 @@ from google.cloud.sql.connector.version import __version__ as version
 import asyncio
 import aiohttp
 import concurrent
+from enum import Enum
 import google.auth
 from google.auth.credentials import Credentials
 import google.auth.transport.requests
@@ -33,6 +34,7 @@ from typing import (
     Any,
     Awaitable,
     Coroutine,
+    Dict,
     Optional,
     TYPE_CHECKING,
     Union,
@@ -55,6 +57,11 @@ SERVER_PROXY_PORT = 3307
 _delay: int = 55 * 60
 
 
+class IPTypes(Enum):
+    PUBLIC: str = "PRIMARY"
+    PRIVATE: str = "PRIVATE"
+
+
 class ConnectionSSLContext(ssl.SSLContext):
     """Subclass of ssl.SSLContext with added request_ssl attribute. This is
     required for compatibility with pg8000 driver.
@@ -65,18 +72,37 @@ class ConnectionSSLContext(ssl.SSLContext):
         super(ConnectionSSLContext, self).__init__(*args, **kwargs)
 
 
+class CloudSQLConnectionError(Exception):
+    """
+    Raised when the provided connection string is not formatted
+    correctly.
+    """
+
+    def __init__(self, *args: Any) -> None:
+        super(CloudSQLConnectionError, self).__init__(self, *args)
+
+
+class CloudSQLIPTypeError(Exception):
+    """
+    Raised when IP address for the preferred IP type is not found.
+    """
+
+    def __init__(self, *args: Any) -> None:
+        super(CloudSQLIPTypeError, self).__init__(self, *args)
+
+
 class InstanceMetadata:
-    ip_address: str
+    ip_addrs: Dict[str, Any]
     context: ssl.SSLContext
 
     def __init__(
         self,
         ephemeral_cert: str,
-        ip_address: str,
+        ip_addrs: Dict[str, Any],
         private_key: bytes,
         server_ca_cert: str,
     ) -> None:
-        self.ip_address = ip_address
+        self.ip_addrs = ip_addrs
         self.context = ConnectionSSLContext()
 
         # tmpdir and its contents are automatically deleted after the CA cert
@@ -89,15 +115,16 @@ class InstanceMetadata:
             self.context.load_cert_chain(cert_filename, keyfile=key_filename)
             self.context.load_verify_locations(cafile=ca_filename)
 
-
-class CloudSQLConnectionError(Exception):
-    """
-    Raised when the provided connection string is not formatted
-    correctly.
-    """
-
-    def __init__(self, *args: Any) -> None:
-        super(CloudSQLConnectionError, self).__init__(self, *args)
+    def get_preferred_ip(self, ip_type: IPTypes) -> str:
+        """Returns the first IP address for the instance, according to the preference
+        supplied by ip_type. If no IP addressess with the given preference are found,
+        an error is raised."""
+        if ip_type.value in self.ip_addrs:
+            return self.ip_addrs[ip_type.value]
+        raise CloudSQLIPTypeError(
+            "Cloud SQL instance does not have any IP addresses matching "
+            f"preference: {ip_type.value})"
+        )
 
 
 class InstanceConnectionManager:
@@ -241,7 +268,7 @@ class InstanceConnectionManager:
 
         return InstanceMetadata(
             ephemeral_cert,
-            metadata["ip_addresses"]["PRIMARY"],
+            metadata["ip_addresses"],
             priv_key,
             metadata["server_ca_cert"],
         )
@@ -296,7 +323,13 @@ class InstanceConnectionManager:
 
         return await self._perform_refresh()
 
-    def connect(self, driver: str, timeout: int, **kwargs: Any) -> Any:
+    def connect(
+        self,
+        driver: str,
+        ip_type: IPTypes,
+        timeout: int,
+        **kwargs: Any,
+    ) -> Any:
         """A method that returns a DB-API connection to the database.
 
         :type driver: str
@@ -310,7 +343,7 @@ class InstanceConnectionManager:
         """
 
         connect_future: concurrent.futures.Future = asyncio.run_coroutine_threadsafe(
-            self._connect(driver, **kwargs), self._loop
+            self._connect(driver, ip_type, **kwargs), self._loop
         )
 
         try:
@@ -321,7 +354,12 @@ class InstanceConnectionManager:
         else:
             return connection
 
-    async def _connect(self, driver: str, **kwargs: Any) -> Any:
+    async def _connect(
+        self,
+        driver: str,
+        ip_type: IPTypes,
+        **kwargs: Any,
+    ) -> Any:
         """A method that returns a DB-API connection to the database.
 
         :type driver: str
@@ -344,6 +382,7 @@ class InstanceConnectionManager:
         }
 
         instance_data: InstanceMetadata = await self._current
+        ip_address: str = instance_data.get_preferred_ip(ip_type)
 
         try:
             connector = connect_func[driver]
@@ -351,7 +390,7 @@ class InstanceConnectionManager:
             raise KeyError("Driver {} is not supported.".format(driver))
 
         connect_partial = partial(
-            connector, instance_data.ip_address, instance_data.context, **kwargs
+            connector, ip_address, instance_data.context, **kwargs
         )
 
         return await self._loop.run_in_executor(None, connect_partial)

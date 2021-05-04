@@ -45,5 +45,9 @@ def test_connect_timeout(
     mock_instances[connect_string] = icm
     with patch.dict(connector._instances, mock_instances):
         pytest.raises(
-            TimeoutError, connector.connect, connect_string, "pymysql", timeout=timeout
+            TimeoutError,
+            connector.connect,
+            connect_string,
+            "pymysql",
+            timeout=timeout,
         )

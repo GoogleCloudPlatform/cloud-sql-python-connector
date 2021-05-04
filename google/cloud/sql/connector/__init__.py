@@ -17,10 +17,10 @@ limitations under the License.
 from typing import Iterable
 
 from .connector import connect
-from .instance_connection_manager import CloudSQLConnectionError
+from .instance_connection_manager import CloudSQLConnectionError, IPTypes
 
 
-__ALL__ = [connect, CloudSQLConnectionError]
+__ALL__ = [connect, CloudSQLConnectionError, IPTypes]
 
 try:
     import pkg_resources

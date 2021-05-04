@@ -17,12 +17,12 @@ import asyncio
 import concurrent
 from google.cloud.sql.connector.instance_connection_manager import (
     InstanceConnectionManager,
+    IPTypes,
 )
 from google.cloud.sql.connector.utils import generate_keys
 
 from threading import Thread
 from typing import Any, Dict, Optional
-
 
 # This thread is used to background processing
 _thread: Optional[Thread] = None
@@ -48,7 +48,12 @@ def _get_keys(loop: asyncio.AbstractEventLoop) -> concurrent.futures.Future:
     return _keys
 
 
-def connect(instance_connection_string: str, driver: str, **kwargs: Any) -> Any:
+def connect(
+    instance_connection_string: str,
+    driver: str,
+    ip_types: IPTypes = IPTypes.PUBLIC,
+    **kwargs: Any
+) -> Any:
     """Prepares and returns a database connection object and starts a
     background thread to refresh the certificates and metadata.
 
@@ -58,6 +63,15 @@ def connect(instance_connection_string: str, driver: str, **kwargs: Any) -> Any:
         name separated by colons.
 
         Example: example-proj:example-region-us6:example-instance
+
+    :type driver: str
+    :param: driver:
+        A string representing the driver to connect with. Supported drivers are
+        pymysql, pg8000, and pytds.
+
+    :type ip_types: IPTypes
+        The IP type (public or private)  used to connect. IP types
+        can be either IPTypes.PUBLIC or IPTypes.PRIVATE.
 
     :param kwargs:
         Pass in any driver-specific arguments needed to connect to the Cloud
@@ -86,10 +100,10 @@ def connect(instance_connection_string: str, driver: str, **kwargs: Any) -> Any:
         _instances[instance_connection_string] = icm
 
     if "timeout" in kwargs:
-        return icm.connect(driver, **kwargs)
+        return icm.connect(driver, ip_types, **kwargs)
     elif "connect_timeout" in kwargs:
         timeout = kwargs["connect_timeout"]
     else:
         timeout = 30  # 30s
 
-    return icm.connect(driver, timeout, **kwargs)
+    return icm.connect(driver, ip_types, timeout, **kwargs)

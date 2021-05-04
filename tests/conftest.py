@@ -15,10 +15,34 @@ limitations under the License.
 """
 import os
 import threading
-from typing import Generator
+from typing import Any, Generator
 
 import asyncio
 import pytest  # noqa F401 Needed to run the tests
+
+
+def pytest_addoption(parser: Any) -> None:
+    parser.addoption(
+        "--run_private_ip",
+        action="store_true",
+        default=False,
+        help="run tests that need to be running in VPC network",
+    )
+
+
+def pytest_configure(config: Any) -> None:
+    config.addinivalue_line(
+        "markers", "private_ip: mark test as requiring private IP access"
+    )
+
+
+def pytest_collection_modifyitems(config: Any, items: Any) -> None:
+    if config.getoption("--run_private_ip"):
+        return
+    skip_private_ip = pytest.mark.skip(reason="need --run_private_ip option to run")
+    for item in items:
+        if "private_ip" in item.keywords:
+            item.add_marker(skip_private_ip)
 
 
 @pytest.fixture
