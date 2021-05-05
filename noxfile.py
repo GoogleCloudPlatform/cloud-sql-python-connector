@@ -32,11 +32,14 @@ def lint(session):
     Returns a failure if the linters find linting errors or sufficiently
     serious code quality issues.
     """
-    session.install("flake8", "flake8-annotations", "black", "mypy", "sqlalchemy-stubs")
+    session.install(
+        "flake8", "flake8-annotations", "black", "mypy", "sqlalchemy-stubs", "twine")
     session.install("-r", "requirements.txt")
     session.run("black", "--check", *BLACK_PATHS)
     session.run("flake8", "google", "tests")
     session.run("mypy", "google", "tests")
+    session.run("python", "setup.py", "sdist")
+    session.run("twine", "check", "dist/*")
 
 
 @nox.session(python="3.6")
