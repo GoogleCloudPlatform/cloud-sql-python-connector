@@ -26,6 +26,14 @@ gcloud auth application-default login
 
 ### How to install this connector
 
+#### Install latest release from PyPI
+Upgrade to the latest version of `pip`, then run the following command, replacing `driver` with one of the driver names listed above.
+```
+pip install cloud-sql-python-connector[driver]
+```
+For example, to use the Python connector with `pymysql`, run `pip install cloud-sql-python-connector[pymysql]`
+
+#### Install dev version
 Clone this repo, `cd` into the `cloud-sql-python-connector` directory then run the following command to install the package:
 ```
 pip install .
