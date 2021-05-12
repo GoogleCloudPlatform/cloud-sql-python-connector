@@ -57,7 +57,7 @@ SERVER_PROXY_PORT = 3307
 # default_refresh_buffer is the minimum amount of time for which a
 # certificate must be valid to ensure the next refresh attempt has adequate
 # time to complete.
-_default_refresh_buffer: int = 5 * 60
+_default_refresh_buffer: int = 5 * 60 # 5 minutes
 
 # iamAuthRefreshBuffer is the minimum amount of time for which a
 # certificate holding an Access Token must be valid. Because some token
