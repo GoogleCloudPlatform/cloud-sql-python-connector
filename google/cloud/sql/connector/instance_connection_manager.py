@@ -103,7 +103,8 @@ class CloudSQLIPTypeError(Exception):
 class InstanceMetadata:
     ip_addrs: Dict[str, Any]
     context: ssl.SSLContext
-    cert_expiration: datetime.datetime
+    expiration: datetime.datetime
+    seconds_until_refresh: int
 
     def __init__(
         self,
@@ -111,16 +112,13 @@ class InstanceMetadata:
         ip_addrs: Dict[str, Any],
         private_key: bytes,
         server_ca_cert: str,
+        expiration: datetime.datetime,
+        seconds_until_refresh: int
     ) -> None:
         self.ip_addrs = ip_addrs
         self.context = ConnectionSSLContext()
-
-        x509 = OpenSSL.crypto.load_certificate(
-            OpenSSL.crypto.FILETYPE_PEM, ephemeral_cert
-        )
-        self.cert_expiration = datetime.datetime.strptime(
-            x509.get_notAfter().decode("ascii"), "%Y%m%d%H%M%SZ"
-        )
+        self.expiration = expiration
+        self.seconds_until_refresh = seconds_until_refresh
 
         # tmpdir and its contents are automatically deleted after the CA cert
         # and ephemeral cert are loaded into the SSLcontext. The values
@@ -293,11 +291,26 @@ class InstanceConnectionManager:
 
         metadata, ephemeral_cert = await asyncio.gather(metadata_task, ephemeral_task)
 
+        x509 = OpenSSL.crypto.load_certificate(
+            OpenSSL.crypto.FILETYPE_PEM, ephemeral_cert
+        )
+        expiration = datetime.datetime.strptime(
+            x509.get_notAfter().decode("ascii"), "%Y%m%d%H%M%SZ"
+        )
+        token_expiration: datetime.datetime = self._credentials.expiry
+
+        if expiration > token_expiration:
+            expiration = token_expiration
+
+        seconds_until_refresh = self.seconds_until_refresh(expiration)
+
         return InstanceMetadata(
             ephemeral_cert,
             metadata["ip_addresses"],
             priv_key,
             metadata["server_ca_cert"],
+            expiration, 
+            seconds_until_refresh
         )
 
     def _auth_init(self) -> None:
@@ -314,27 +327,20 @@ class InstanceConnectionManager:
 
         self._credentials = credentials
 
-    async def seconds_until_refresh(self) -> int:
+    async def seconds_until_refresh(self, expiration: datetime.datetime) -> int:
         if self._enable_iam_auth:
             refresh_buffer = _iam_auth_refresh_buffer
         else:
             refresh_buffer = _default_refresh_buffer
 
-        cert_expiration: datetime.datetime = (await self._current).cert_expiration
-        if self._credentials is not None:
-            token_expiration: datetime.datetime = self._credentials.expiry
-
-        if cert_expiration > token_expiration:
-            cert_expiration = token_expiration
-
-        delay = (cert_expiration - datetime.datetime.now()) - datetime.timedelta(
+        delay = (expiration - datetime.datetime.now()) - datetime.timedelta(
             seconds=refresh_buffer
         )
 
         if delay.total_seconds() < 0:
             # If the time until the certificate expires is less than the buffer,
             # schedule the refresh closer to the expiration time
-            delay = (cert_expiration - datetime.datetime.now()) - datetime.timedelta(
+            delay = (expiration - datetime.datetime.now()) - datetime.timedelta(
                 seconds=5
             )
 
@@ -356,7 +362,7 @@ class InstanceConnectionManager:
 
         return self._current
 
-    async def _schedule_refresh(self) -> asyncio.Task:
+    async def _schedule_refresh(self, delay: int = None) -> asyncio.Task:
         """A coroutine that sleeps for the specified amount of time before
         running _perform_refresh.
 
@@ -365,7 +371,8 @@ class InstanceConnectionManager:
         """
         logger.debug("Entering sleep")
 
-        delay = await self.seconds_until_refresh()
+        if delay is None:
+            delay = (await self._current).seconds_until_refresh
 
         try:
             await asyncio.sleep(delay)
