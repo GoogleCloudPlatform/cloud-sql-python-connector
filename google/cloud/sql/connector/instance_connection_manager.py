@@ -54,16 +54,15 @@ logger = logging.getLogger(name=__name__)
 APPLICATION_NAME = "cloud-sql-python-connector"
 SERVER_PROXY_PORT = 3307
 
-# default_refresh_buffer is the minimum amount of time for which a
-# certificate must be valid to ensure the next refresh attempt has adequate
-# time to complete.
-_default_refresh_buffer: int = 5 * 60
+# default_refresh_buffer is the amount of time before a refresh's result expires
+# that a new refresh operation begins.
+_default_refresh_buffer: int = 5 * 60  # 5 minutes
 
-# iamAuthRefreshBuffer is the minimum amount of time for which a
-# certificate holding an Access Token must be valid. Because some token
-# sources are refreshed with only ~60 seconds before expiration, this value
-# must be smaller than the defaultRefreshBuffer.
-_iam_auth_refresh_buffer: int = 55
+# _iam_auth_refresh_buffer is the amount of time before a refresh's result expires
+# that a new refresh operation begins when IAM DB AuthN is enabled. Because token
+# sources may be cached until ~60 seconds before expiration, this value must be smaller
+# than default_refresh_buffer.
+_iam_auth_refresh_buffer: int = 55  # seconds
 
 
 class IPTypes(Enum):
@@ -113,7 +112,7 @@ class InstanceMetadata:
         private_key: bytes,
         server_ca_cert: str,
         expiration: datetime.datetime,
-        seconds_until_refresh: int
+        seconds_until_refresh: int,
     ) -> None:
         self.ip_addrs = ip_addrs
         self.context = ConnectionSSLContext()
@@ -297,20 +296,21 @@ class InstanceConnectionManager:
         expiration = datetime.datetime.strptime(
             x509.get_notAfter().decode("ascii"), "%Y%m%d%H%M%SZ"
         )
-        token_expiration: datetime.datetime = self._credentials.expiry
+        if self._credentials is not None:
+            token_expiration: datetime.datetime = self._credentials.expiry
 
         if expiration > token_expiration:
             expiration = token_expiration
 
-        seconds_until_refresh = self.seconds_until_refresh(expiration)
+        seconds_until_refresh = await self.seconds_until_refresh(expiration)
 
         return InstanceMetadata(
             ephemeral_cert,
             metadata["ip_addresses"],
             priv_key,
             metadata["server_ca_cert"],
-            expiration, 
-            seconds_until_refresh
+            expiration,
+            seconds_until_refresh,
         )
 
     def _auth_init(self) -> None:
