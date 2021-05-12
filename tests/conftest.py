@@ -65,7 +65,7 @@ def connect_string() -> str:
     returns it.
     """
     try:
-        connect_string = os.environ["INSTANCE_CONNECTION_NAME"]
+        connect_string = os.environ["MYSQL_CONNECTION_NAME"]
     except KeyError:
         raise KeyError(
             "Please set environment variable 'INSTANCE_CONNECTION"

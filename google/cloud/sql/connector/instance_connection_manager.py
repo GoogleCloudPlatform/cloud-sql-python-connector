@@ -23,10 +23,12 @@ from google.cloud.sql.connector.version import __version__ as version
 import asyncio
 import aiohttp
 import concurrent
+import datetime
 from enum import Enum
 import google.auth
 from google.auth.credentials import Credentials
 import google.auth.transport.requests
+import OpenSSL
 import ssl
 import socket
 from tempfile import TemporaryDirectory
@@ -52,9 +54,16 @@ logger = logging.getLogger(name=__name__)
 APPLICATION_NAME = "cloud-sql-python-connector"
 SERVER_PROXY_PORT = 3307
 
-# The default delay is set to 55 minutes since each ephemeral certificate is only
-# valid for an hour. This gives five minutes of buffer time.
-_delay: int = 55 * 60
+# default_refresh_buffer is the minimum amount of time for which a
+# certificate must be valid to ensure the next refresh attempt has adequate
+# time to complete.
+_default_refresh_buffer: int = 5 * 60
+
+# iamAuthRefreshBuffer is the minimum amount of time for which a
+# certificate holding an Access Token must be valid. Because some token
+# sources are refreshed with only ~60 seconds before expiration, this value
+# must be smaller than the defaultRefreshBuffer.
+_iam_auth_refresh_buffer: int = 55
 
 
 class IPTypes(Enum):
@@ -94,6 +103,7 @@ class CloudSQLIPTypeError(Exception):
 class InstanceMetadata:
     ip_addrs: Dict[str, Any]
     context: ssl.SSLContext
+    cert_expiration: datetime.datetime
 
     def __init__(
         self,
@@ -104,6 +114,13 @@ class InstanceMetadata:
     ) -> None:
         self.ip_addrs = ip_addrs
         self.context = ConnectionSSLContext()
+
+        x509 = OpenSSL.crypto.load_certificate(
+            OpenSSL.crypto.FILETYPE_PEM, ephemeral_cert
+        )
+        self.cert_expiration = datetime.datetime.strptime(
+            x509.get_notAfter().decode("ascii"), "%Y%m%d%H%M%SZ"
+        )
 
         # tmpdir and its contents are automatically deleted after the CA cert
         # and ephemeral cert are loaded into the SSLcontext. The values
@@ -140,6 +157,10 @@ class InstanceConnectionManager:
         The user agent string to append to SQLAdmin API requests
     :type user_agent_string: str
 
+    :param enable_iam_auth
+        Enables IAM based authentication for Postgres instances.
+    :type enable_iam_auth: bool
+
     :param loop:
         A new event loop for the refresh function to run in.
     :type loop: asyncio.AbstractEventLoop
@@ -152,6 +173,8 @@ class InstanceConnectionManager:
     # Link to Github issue:
     # https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/22
     _loop: asyncio.AbstractEventLoop
+
+    _enable_iam_auth: bool
 
     __client_session: Optional[aiohttp.ClientSession] = None
 
@@ -185,6 +208,7 @@ class InstanceConnectionManager:
         driver_name: str,
         keys: concurrent.futures.Future,
         loop: asyncio.AbstractEventLoop,
+        enable_iam_auth: bool = False,
     ) -> None:
         # Validate connection string
         connection_string_split = instance_connection_string.split(":")
@@ -199,6 +223,8 @@ class InstanceConnectionManager:
                 "Arg instance_connection_string must be in "
                 + "format: project:region:instance."
             )
+
+        self._enable_iam_auth = enable_iam_auth
 
         self._user_agent_string = f"{APPLICATION_NAME}/{version}+{driver_name}"
         self._loop = loop
@@ -261,6 +287,7 @@ class InstanceConnectionManager:
                 self._project,
                 self._instance,
                 pub_key,
+                self._enable_iam_auth,
             )
         )
 
@@ -287,6 +314,32 @@ class InstanceConnectionManager:
 
         self._credentials = credentials
 
+    async def seconds_until_refresh(self) -> int:
+        if self._enable_iam_auth:
+            refresh_buffer = _iam_auth_refresh_buffer
+        else:
+            refresh_buffer = _default_refresh_buffer
+
+        cert_expiration: datetime.datetime = (await self._current).cert_expiration
+        if self._credentials is not None:
+            token_expiration: datetime.datetime = self._credentials.expiry
+
+        if cert_expiration > token_expiration:
+            cert_expiration = token_expiration
+
+        delay = (cert_expiration - datetime.datetime.now()) - datetime.timedelta(
+            seconds=refresh_buffer
+        )
+
+        if delay.total_seconds() < 0:
+            # If the time until the certificate expires is less than the buffer,
+            # schedule the refresh closer to the expiration time
+            delay = (cert_expiration - datetime.datetime.now()) - datetime.timedelta(
+                seconds=5
+            )
+
+        return int(delay.total_seconds())
+
     async def _perform_refresh(self) -> asyncio.Task:
         """Retrieves instance metadata and ephemeral certificate from the
         Cloud SQL Instance.
@@ -299,21 +352,20 @@ class InstanceConnectionManager:
 
         self._current = self._loop.create_task(self._get_instance_data())
         # Ephemeral certificate expires in 1 hour, so we schedule a refresh to happen in 55 minutes.
-        self._next = self._loop.create_task(self._schedule_refresh(_delay))
+        self._next = self._loop.create_task(self._schedule_refresh())
 
         return self._current
 
-    async def _schedule_refresh(self, delay: int) -> asyncio.Task:
+    async def _schedule_refresh(self) -> asyncio.Task:
         """A coroutine that sleeps for the specified amount of time before
         running _perform_refresh.
-
-        :type delay: int
-        :param delay: An integer representing the number of seconds for delay.
 
         :rtype: asyncio.Task
         :returns: A Task representing _get_instance_data.
         """
         logger.debug("Entering sleep")
+
+        delay = await self.seconds_until_refresh()
 
         try:
             await asyncio.sleep(delay)
@@ -454,7 +506,7 @@ class InstanceConnectionManager:
             )
         user = kwargs.pop("user")
         db = kwargs.pop("db")
-        passwd = kwargs.pop("password")
+        passwd = kwargs.pop("password", None)
         setattr(ctx, "request_ssl", False)
         return pg8000.dbapi.connect(
             user,

@@ -52,6 +52,7 @@ def connect(
     instance_connection_string: str,
     driver: str,
     ip_types: IPTypes = IPTypes.PUBLIC,
+    enable_iam_auth: bool = False,
     **kwargs: Any
 ) -> Any:
     """Prepares and returns a database connection object and starts a
@@ -72,6 +73,10 @@ def connect(
     :type ip_types: IPTypes
         The IP type (public or private)  used to connect. IP types
         can be either IPTypes.PUBLIC or IPTypes.PRIVATE.
+
+    :param enable_iam_auth
+        Enables IAM based authentication for Postgres instances.
+    :type enable_iam_auth: bool
 
     :param kwargs:
         Pass in any driver-specific arguments needed to connect to the Cloud
@@ -96,7 +101,9 @@ def connect(
         icm = _instances[instance_connection_string]
     else:
         keys = _get_keys(loop)
-        icm = InstanceConnectionManager(instance_connection_string, driver, keys, loop)
+        icm = InstanceConnectionManager(
+            instance_connection_string, driver, keys, loop, enable_iam_auth
+        )
         _instances[instance_connection_string] = icm
 
     if "timeout" in kwargs:
