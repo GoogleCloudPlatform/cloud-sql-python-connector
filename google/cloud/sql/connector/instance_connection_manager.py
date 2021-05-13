@@ -103,7 +103,6 @@ class InstanceMetadata:
     ip_addrs: Dict[str, Any]
     context: ssl.SSLContext
     expiration: datetime.datetime
-    seconds_until_refresh: int
 
     def __init__(
         self,
@@ -356,13 +355,11 @@ class InstanceConnectionManager:
         self._current = self._loop.create_task(self._get_instance_data())
         # Ephemeral certificate expires in 1 hour, so we schedule a refresh to happen in 55 minutes.
 
-        self._next = self._loop.create_task(
-            self._schedule_refresh(await self.seconds_until_refresh())
-        )
+        self._next = self._loop.create_task(self._schedule_refresh())
 
         return self._current
 
-    async def _schedule_refresh(self, delay: int) -> asyncio.Task:
+    async def _schedule_refresh(self, delay: Optional[int] = None) -> asyncio.Task:
         """A coroutine that sleeps for the specified amount of time before
         running _perform_refresh.
 
@@ -370,6 +367,9 @@ class InstanceConnectionManager:
         :returns: A Task representing _get_instance_data.
         """
         logger.debug("Entering sleep")
+
+        if delay is None:
+            delay = await self.seconds_until_refresh()
 
         try:
             await asyncio.sleep(delay)
