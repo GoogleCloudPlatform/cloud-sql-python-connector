@@ -112,12 +112,10 @@ class InstanceMetadata:
         private_key: bytes,
         server_ca_cert: str,
         expiration: datetime.datetime,
-        seconds_until_refresh: int,
     ) -> None:
         self.ip_addrs = ip_addrs
         self.context = ConnectionSSLContext()
         self.expiration = expiration
-        self.seconds_until_refresh = seconds_until_refresh
 
         # tmpdir and its contents are automatically deleted after the CA cert
         # and ephemeral cert are loaded into the SSLcontext. The values
@@ -302,15 +300,12 @@ class InstanceConnectionManager:
         if expiration > token_expiration:
             expiration = token_expiration
 
-        seconds_until_refresh = await self.seconds_until_refresh(expiration)
-
         return InstanceMetadata(
             ephemeral_cert,
             metadata["ip_addresses"],
             priv_key,
             metadata["server_ca_cert"],
             expiration,
-            seconds_until_refresh,
         )
 
     def _auth_init(self) -> None:
@@ -327,7 +322,9 @@ class InstanceConnectionManager:
 
         self._credentials = credentials
 
-    async def seconds_until_refresh(self, expiration: datetime.datetime) -> int:
+    async def seconds_until_refresh(self) -> int:
+        expiration = (await self._current).expiration
+
         if self._enable_iam_auth:
             refresh_buffer = _iam_auth_refresh_buffer
         else:
@@ -358,11 +355,14 @@ class InstanceConnectionManager:
 
         self._current = self._loop.create_task(self._get_instance_data())
         # Ephemeral certificate expires in 1 hour, so we schedule a refresh to happen in 55 minutes.
-        self._next = self._loop.create_task(self._schedule_refresh())
+
+        self._next = self._loop.create_task(
+            self._schedule_refresh(await self.seconds_until_refresh())
+        )
 
         return self._current
 
-    async def _schedule_refresh(self, delay: int = None) -> asyncio.Task:
+    async def _schedule_refresh(self, delay: int) -> asyncio.Task:
         """A coroutine that sleeps for the specified amount of time before
         running _perform_refresh.
 
@@ -370,9 +370,6 @@ class InstanceConnectionManager:
         :returns: A Task representing _get_instance_data.
         """
         logger.debug("Entering sleep")
-
-        if delay is None:
-            delay = (await self._current).seconds_until_refresh
 
         try:
             await asyncio.sleep(delay)
