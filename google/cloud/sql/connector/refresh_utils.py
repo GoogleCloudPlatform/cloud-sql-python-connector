@@ -102,6 +102,7 @@ async def _get_ephemeral(
     project: str,
     instance: str,
     pub_key: str,
+    enable_iam_auth: bool = False,
 ) -> str:
     """Asynchronously requests an ephemeral certificate from the Cloud SQL Instance.
 
@@ -119,6 +120,10 @@ async def _get_ephemeral(
 
     :type pub_key:
     :param str: A string representing PEM-encoded RSA public key.
+
+    :type enable_iam_auth: bool
+    :param enable_iam_auth
+        Enables IAM based authentication for Postgres instances.
 
     :rtype: str
     :returns: An ephemeral certificate from the Cloud SQL instance that allows
@@ -141,7 +146,7 @@ async def _get_ephemeral(
     elif not isinstance(pub_key, str):
         raise TypeError(f"pub_key must be of type str, got {type(pub_key)}")
 
-    if not credentials.valid:
+    if not credentials.valid or enable_iam_auth:
         request = google.auth.transport.requests.Request()
         credentials.refresh(request)
 
@@ -154,6 +159,9 @@ async def _get_ephemeral(
     )
 
     data = {"public_key": pub_key}
+
+    if enable_iam_auth:
+        data["access_token"] = credentials.token
 
     resp = await client_session.post(
         url, headers=headers, json=data, raise_for_status=True

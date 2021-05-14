@@ -54,10 +54,10 @@ def test_InstanceConnectionManager_init(async_loop: asyncio.AbstractEventLoop) -
 
 @pytest.mark.asyncio
 async def test_InstanceConnectionManager_perform_refresh(
-    icm: InstanceConnectionManager,
+    icm: InstanceConnectionManager, async_loop: asyncio.AbstractEventLoop
 ) -> None:
     """
-    Test to check whether _get_perform works as described given valid
+    Test to check whether _perform_refresh works as described given valid
     conditions.
     """
     task = await icm._perform_refresh()

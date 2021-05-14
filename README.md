@@ -82,9 +82,9 @@ Note: If specifying Private IP, your application must already be in the same VPC
 Tests can be run with `nox`. Change directory into the `cloud-sql-python-connector` and just run `nox` to run the tests.
 
 1. Create a MySQL instance on Google Cloud SQL. Make sure to note your root password when creating the MySQL instance. 
-2. When the MySQL instance has finished creating, go to the overview page and set the instance’s connection string to the environment variable INSTANCE_CONNECTION_NAME using the following command:
+2. When the MySQL instance has finished creating, go to the overview page and set the instance’s connection string to the environment variable MYSQL_CONNECTION_NAME using the following command:
 ```
-export INSTANCE_CONNECTION_NAME=your:connection:string
+export MYSQL_CONNECTION_NAME=your:connection:string
 ```
 3. Enable SSL for your Cloud SQL instance by following [these instructions](https://cloud.google.com/sql/docs/mysql/configure-ssl-instance).
 4. Create a service account with Cloud SQL Admin and Cloud SQL Client roles, then download the key and save it in a safe location. Set the path to the json file to the environment variable GOOGLE_APPLICATION_CREDENTIALS using the following command:

@@ -33,13 +33,13 @@ async def test_get_ephemeral(connect_string: str) -> None:
     project = connect_string.split(":")[0]
     instance = connect_string.split(":")[2]
 
-    credentials, project = google.auth.default()
-    credentials = credentials.with_scopes(
-        [
+    credentials, project = google.auth.default(
+        scopes=[
             "https://www.googleapis.com/auth/sqlservice.admin",
             "https://www.googleapis.com/auth/cloud-platform",
         ]
     )
+
     _, pub_key = await generate_keys()
 
     async with aiohttp.ClientSession() as client_session:
@@ -65,9 +65,8 @@ async def test_get_metadata(connect_string: str) -> None:
     project = connect_string.split(":")[0]
     instance = connect_string.split(":")[2]
 
-    credentials, project = google.auth.default()
-    credentials = credentials.with_scopes(
-        [
+    credentials, project = google.auth.default(
+        scopes=[
             "https://www.googleapis.com/auth/sqlservice.admin",
             "https://www.googleapis.com/auth/cloud-platform",
         ]
