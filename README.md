@@ -76,6 +76,25 @@ result = cursor.fetchall()
 for row in result:
     print(row)
 ```
+
+To use this connector with SQLAlchemy, use the `creator` argument for `sqlalchemy.create_engine`:
+```
+def getconn() -> pymysql.connections.Connection:
+    conn: pymysql.connections.Connection = connector.connect(
+        "project:region:instance",
+        "pymysql",
+        user="root",
+        password="shhh",
+        db="your-db-name"
+    )
+    return conn
+
+engine = sqlalchemy.create_engine(
+    "mysql+pymysql://",
+    creator=getconn,
+)
+```
+
 **Note for SQL Server users**: If your SQL Server instance requires SSL, you need to download the CA certificate for your instance and include `cafile={path to downloaded certificate}` and `validate_host=False`. This is a workaround for a [known issue](https://issuetracker.google.com/184867147).
 
 ### Specifying Public or Private IP
@@ -93,7 +112,10 @@ connector.connect(
 Note: If specifying Private IP, your application must already be in the same VPC network as your Cloud SQL Instance. 
 
 ### IAM Authentication
-Connections using [IAM database authentication](https://cloud.google.com/sql/docs/postgres/iam-logins) are supported when using the Postgres driver. First, make sure to [configure your Cloud SQL Instance to allow IAM authentication](https://cloud.google.com/sql/docs/postgres/create-edit-iam-instances#configure-iam-db-instance) and [add an IAM database user](https://cloud.google.com/sql/docs/postgres/create-manage-iam-users#creating-a-database-user). Then, you can connect using user or service account credentials instead of a password when the `enable_iam_auth` keyword argument is set to true, and `user` is set to the email address associated with the IAM user.
+Connections using [IAM database authentication](https://cloud.google.com/sql/docs/postgres/iam-logins) are supported when using the Postgres driver. 
+First, make sure to [configure your Cloud SQL Instance to allow IAM authentication](https://cloud.google.com/sql/docs/postgres/create-edit-iam-instances#configure-iam-db-instance) and [add an IAM database user](https://cloud.google.com/sql/docs/postgres/create-manage-iam-users#creating-a-database-user). 
+Now, you can connect using user or service account credentials instead of a password. 
+In the call to connect, set the `enable_iam_auth` keyword argument to true and user to the email address associated with your IAM user.
 Example:
 ```
 connector.connect(
