@@ -76,7 +76,7 @@ setup(
     install_requires=core_dependencies,
     extras_require={
         "pymysql": ["PyMySQL==1.0.2"],
-        "pg8000": ["pg8000==1.19.4"],
+        "pg8000": ["pg8000==1.19.5"],
         "pytds": ["python-tds==1.11.0"]
     },
     python_requires=">=3.6",
