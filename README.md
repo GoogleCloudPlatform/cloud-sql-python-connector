@@ -53,8 +53,8 @@ from google.cloud.sql.connector import connector
 Use the connector to create a connection object by calling the connect method. Input your connection string as the first positional argument and the name of the database driver for the second positional argument. Insert the rest of your connection keyword arguments like user, password and database. You can also set the optional `timeout` or `ip_type` keyword arguments.
 
 ```
-connector.connect(
-    "your:connection:string:", 
+conn = connector.connect(
+    "project:region:instance", 
     "pymysql",
     user="root",
     password="shhh",
@@ -62,6 +62,39 @@ connector.connect(
 ... insert other kwargs ...
 )
 ```
+
+The returned DB-API 2.0 compliant connection object can then be used to query and modify the database:
+```
+# Execute a query
+cursor = conn.cursor()
+cursor.execute("SELECT * from my_table")
+
+# Fetch the results
+result = cursor.fetchall()
+
+# Do something with the results
+for row in result:
+    print(row)
+```
+
+To use this connector with SQLAlchemy, use the `creator` argument for `sqlalchemy.create_engine`:
+```
+def getconn() -> pymysql.connections.Connection:
+    conn: pymysql.connections.Connection = connector.connect(
+        "project:region:instance",
+        "pymysql",
+        user="root",
+        password="shhh",
+        db="your-db-name"
+    )
+    return conn
+
+engine = sqlalchemy.create_engine(
+    "mysql+pymysql://",
+    creator=getconn,
+)
+```
+
 **Note for SQL Server users**: If your SQL Server instance requires SSL, you need to download the CA certificate for your instance and include `cafile={path to downloaded certificate}` and `validate_host=False`. This is a workaround for a [known issue](https://issuetracker.google.com/184867147).
 
 ### Specifying Public or Private IP
@@ -69,7 +102,7 @@ The Cloud SQL Connector for Python can be used to connect to Cloud SQL instances
 Example:
 ```
 connector.connect(
-    "your:connection:string:", 
+    "project:region:instance", 
     "pymysql",
     ip_types=IPTypes.PRIVATE # Prefer private IP
 ... insert other kwargs ...
@@ -77,6 +110,22 @@ connector.connect(
 ```
 
 Note: If specifying Private IP, your application must already be in the same VPC network as your Cloud SQL Instance. 
+
+### IAM Authentication
+Connections using [IAM database authentication](https://cloud.google.com/sql/docs/postgres/iam-logins) are supported when using the Postgres driver. 
+First, make sure to [configure your Cloud SQL Instance to allow IAM authentication](https://cloud.google.com/sql/docs/postgres/create-edit-iam-instances#configure-iam-db-instance) and [add an IAM database user](https://cloud.google.com/sql/docs/postgres/create-manage-iam-users#creating-a-database-user). 
+Now, you can connect using user or service account credentials instead of a password. 
+In the call to connect, set the `enable_iam_auth` keyword argument to true and `user` to the email address associated with your IAM user.
+Example:
+```
+connector.connect(
+     "project:region:instance",
+     "pg8000",
+     user="postgres-iam-user@gmail.com",
+     db="my_database",
+     enable_iam_auth=True,
+ )
+```
 ### Setup for development
 
 Tests can be run with `nox`. Change directory into the `cloud-sql-python-connector` and just run `nox` to run the tests.
