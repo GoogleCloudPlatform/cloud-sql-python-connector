@@ -27,6 +27,7 @@ fi
 
 # Add python and pip to PATH
 export PATH=/c/python37:/c/python37/scripts:$PATH
+python --version
 
 # install nox for testing
 pip install --user -q nox

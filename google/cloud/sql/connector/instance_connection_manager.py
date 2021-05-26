@@ -80,6 +80,15 @@ class ConnectionSSLContext(ssl.SSLContext):
         super(ConnectionSSLContext, self).__init__(*args, **kwargs)
 
 
+class TLSVersionError(Exception):
+    """
+    Raised when the required TLS protocol version is not supported.
+    """
+
+    def __init__(self, *args: Any) -> None:
+        super(TLSVersionError, self).__init__(self, *args)
+
+
 class CloudSQLConnectionError(Exception):
     """
     Raised when the provided connection string is not formatted
@@ -111,8 +120,16 @@ class InstanceMetadata:
         private_key: bytes,
         server_ca_cert: str,
         expiration: datetime.datetime,
+        enable_iam_auth: bool,
     ) -> None:
         self.ip_addrs = ip_addrs
+
+        if enable_iam_auth and not ssl.HAS_TLSv1_3:  # type: ignore
+            raise TLSVersionError(
+                "Your current version of OpenSSL does not support TLSv1.3, "
+                "which is required to use IAM Authentication."
+            )
+
         self.context = ConnectionSSLContext()
         self.expiration = expiration
 
@@ -293,11 +310,12 @@ class InstanceConnectionManager:
         expiration = datetime.datetime.strptime(
             x509.get_notAfter().decode("ascii"), "%Y%m%d%H%M%SZ"
         )
-        if self._credentials is not None:
-            token_expiration: datetime.datetime = self._credentials.expiry
 
-        if expiration > token_expiration:
-            expiration = token_expiration
+        if self._enable_iam_auth:
+            if self._credentials is not None:
+                token_expiration: datetime.datetime = self._credentials.expiry
+            if expiration > token_expiration:
+                expiration = token_expiration
 
         return InstanceMetadata(
             ephemeral_cert,
@@ -305,6 +323,7 @@ class InstanceConnectionManager:
             priv_key,
             metadata["server_ca_cert"],
             expiration,
+            self._enable_iam_auth,
         )
 
     def _auth_init(self) -> None:
