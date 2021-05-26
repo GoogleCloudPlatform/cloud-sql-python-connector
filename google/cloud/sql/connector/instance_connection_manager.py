@@ -124,7 +124,7 @@ class InstanceMetadata:
     ) -> None:
         self.ip_addrs = ip_addrs
 
-        if enable_iam_auth and not ssl.HAS_TLSv1_3:
+        if enable_iam_auth and not ssl.HAS_TLSv1_3:  # type: ignore
             raise TLSVersionError(
                 "Your current version of OpenSSL does not support TLSv1.3, "
                 "which is required to use IAM Authentication."
