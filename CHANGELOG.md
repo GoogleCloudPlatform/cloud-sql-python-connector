@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.2.0](https://www.github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v0.1.0...v0.2.0) (2021-06-01)
+
+
+### Features
+
+* add support for IAM auth with pg8000 driver ([#101](https://www.github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/101)) ([6703232](https://www.github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/6703232d6ea624f868e750c8c49c3bb1151f1f1e))
+
+
+### Bug Fixes
+
+* force use of TLSv1.3 when IAM auth enabled ([#108](https://www.github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/108)) ([a10aa5a](https://www.github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/a10aa5ad1f5c4f372914ee11f1180ad0c5f3b703))
+
 ## 0.1.0 (2021-05-04)
 
 
