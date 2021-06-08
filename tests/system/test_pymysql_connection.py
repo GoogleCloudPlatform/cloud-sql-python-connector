@@ -24,7 +24,9 @@ from google.cloud.sql.connector import connector
 
 table_name = f"books_{uuid.uuid4().hex}"
 
-
+# [START cloud_sql_connector_mysql_pymysql]
+# The Cloud SQL Python Connector can be used along with SQLAlchemy using the
+# 'creator' argument to 'create_engine'
 def init_connection_engine() -> sqlalchemy.engine.Engine:
     def getconn() -> pymysql.connections.Connection:
         conn: pymysql.connections.Connection = connector.connect(
@@ -41,7 +43,7 @@ def init_connection_engine() -> sqlalchemy.engine.Engine:
         creator=getconn,
     )
     return engine
-
+# [END cloud_sql_connector_mysql_pymysql]
 
 @pytest.fixture(name="pool")
 def setup() -> Generator:

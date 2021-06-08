@@ -24,7 +24,10 @@ from google.cloud.sql.connector import connector
 
 table_name = f"books_{uuid.uuid4().hex}"
 
-
+# [START cloud_sql_connector_mysql_pytds]
+# The Cloud SQL Python Connector can be used along with SQLAlchemy using the
+# 'creator' argument to 'create_engine'. To use SQLAlchemy with pytds, include
+# 'sqlalchemy-pytds` in your dependencies
 def init_connection_engine() -> sqlalchemy.engine.Engine:
     def getconn() -> pytds.Connection:
         conn = connector.connect(
@@ -42,7 +45,7 @@ def init_connection_engine() -> sqlalchemy.engine.Engine:
     )
     engine.dialect.description_encoding = None
     return engine
-
+# [END cloud_sql_connector_mysql_pytds]
 
 @pytest.fixture(name="pool")
 def setup() -> Generator:
