@@ -33,7 +33,8 @@ def lint(session):
     serious code quality issues.
     """
     session.install(
-        "flake8", "flake8-annotations", "black", "mypy", "sqlalchemy-stubs", "twine")
+        "flake8", "flake8-annotations", "black", "mypy", "sqlalchemy-stubs",
+        "types-pkg-resources", "types-PyMySQL", "twine")
     session.install("-r", "requirements.txt")
     session.run("black", "--check", *BLACK_PATHS)
     session.run("flake8", "google", "tests")
