@@ -75,7 +75,7 @@ def connect(
         can be either IPTypes.PUBLIC or IPTypes.PRIVATE.
 
     :param enable_iam_auth
-        Enables IAM based authentication for Postgres instances.
+    Enables IAM based authentication (PostgreSQL only).
     :type enable_iam_auth: bool
 
     :param kwargs:
