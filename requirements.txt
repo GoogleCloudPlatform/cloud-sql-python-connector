@@ -5,4 +5,4 @@ pg8000==1.20.0
 python-tds==1.11.0
 pyopenssl==20.0.1
 Requests==2.26.0
-google-api-python-client==2.13.0
+google-api-python-client==2.14.0
