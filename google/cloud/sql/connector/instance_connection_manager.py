@@ -29,6 +29,7 @@ import google.auth
 from google.auth.credentials import Credentials
 import google.auth.transport.requests
 import OpenSSL
+import platform
 import ssl
 import socket
 from tempfile import TemporaryDirectory
@@ -106,6 +107,15 @@ class CloudSQLIPTypeError(Exception):
 
     def __init__(self, *args: Any) -> None:
         super(CloudSQLIPTypeError, self).__init__(self, *args)
+
+
+class PlatformNotSupportedError(Exception):
+    """
+    Raised when a feature is not supported on the current platform.
+    """
+
+    def __init__(self, *args: Any) -> None:
+        super(PlatformNotSupportedError, self).__init__(self, *args)
 
 
 class InstanceMetadata:
@@ -564,15 +574,31 @@ class InstanceConnectionManager:
             raise ImportError(
                 'Unable to import module "pytds." Please install and try again.'
             )
-        user = kwargs.pop("user")
-        db = kwargs.pop("db")
-        passwd = kwargs.pop("password")
+
+        db = kwargs.pop("db", None)
 
         # Create socket and wrap with context.
         sock = ctx.wrap_socket(
             socket.create_connection((ip_address, SERVER_PROXY_PORT)),
             server_hostname=ip_address,
         )
+        if kwargs.pop("integrated_security", False):
+            if platform.system() == "Windows":
+                # Ignore username and password if using integrated auth
+                server_name = kwargs.pop("server_name")
+                return pytds.connect(
+                    database=db,
+                    auth=pytds.login.SspiAuth(port=1433, server_name=server_name),
+                    sock=sock,
+                    **kwargs,
+                )
+            else:
+                raise PlatformNotSupportedError(
+                    "Integrated security is currently only supported on Windows."
+                )
+
+        user = kwargs.pop("user")
+        passwd = kwargs.pop("password")
         return pytds.connect(
             ip_address, database=db, user=user, password=passwd, sock=sock, **kwargs
         )
