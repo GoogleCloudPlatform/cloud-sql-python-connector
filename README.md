@@ -128,7 +128,7 @@ connector.connect(
  )
 ```
 
-### SQL Server Active Directory Authentication (Integrated Security)
+### SQL Server Active Directory Authentication
 Active Directory authentication for SQL Server instances is currently only supported on Windows. First, make sure to follow [these steps](https://cloud.google.com/blog/topics/developers-practitioners/creating-sql-server-instance-integrated-active-directory-using-google-cloud-sql) to set up a Managed AD domain and join your Cloud SQL instance to the domain. [See here for more info on Cloud SQL Active Directory integration](https://cloud.google.com/sql/docs/sqlserver/ad).
 
 Once you have followed the steps linked above, you can run the following code to return a connection object:
@@ -137,7 +137,7 @@ connector.connect(
     "project:region:instance",
     "pytds",
     db="my_database",
-    integrated_security=True,
+    active_directory_auth=True,
     server_name="public.[instance].[location].[project].cloudsql.[domain]",
 )
 ``` 
@@ -147,7 +147,7 @@ connector.connect(
     "project:region:instance",
     "pytds",
     db="my_database",
-    integrated_security=True,
+    active_directory_auth=True,
     server_name="private.[instance].[location].[project].cloudsql.[domain]",
     ip_types=IPTypes.PRIVATE
 )
