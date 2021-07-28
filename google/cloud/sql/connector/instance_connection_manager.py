@@ -582,9 +582,9 @@ class InstanceConnectionManager:
             socket.create_connection((ip_address, SERVER_PROXY_PORT)),
             server_hostname=ip_address,
         )
-        if kwargs.pop("integrated_security", False):
+        if kwargs.pop("active_directory_auth", False):
             if platform.system() == "Windows":
-                # Ignore username and password if using integrated auth
+                # Ignore username and password if using active directory auth
                 server_name = kwargs.pop("server_name")
                 return pytds.connect(
                     database=db,
@@ -594,7 +594,7 @@ class InstanceConnectionManager:
                 )
             else:
                 raise PlatformNotSupportedError(
-                    "Integrated security is currently only supported on Windows."
+                    "Active Directory authentication is currently only supported on Windows."
                 )
 
         user = kwargs.pop("user")
