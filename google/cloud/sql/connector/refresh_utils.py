@@ -152,7 +152,7 @@ async def _get_ephemeral(
 
     # TODO: remove this once issue with OAuth2 Tokens is resolved.
     # See https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/137
-    
+
     headers = {
         "Authorization": f"Bearer {credentials.token.rstrip('.')}",
     }
