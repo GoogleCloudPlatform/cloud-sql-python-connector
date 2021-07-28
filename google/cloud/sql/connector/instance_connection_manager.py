@@ -36,7 +36,6 @@ from tempfile import TemporaryDirectory
 from typing import (
     Any,
     Awaitable,
-    Coroutine,
     Dict,
     Optional,
     TYPE_CHECKING,
@@ -220,8 +219,8 @@ class InstanceConnectionManager:
     _project: str
     _region: str
 
-    _current: Union[Coroutine, asyncio.Task]
-    _next: Union[Coroutine, asyncio.Task]
+    _current: Union[concurrent.futures.Future, asyncio.Task]
+    _next: Union[concurrent.futures.Future, asyncio.Task]
 
     def __init__(
         self,
@@ -254,9 +253,10 @@ class InstanceConnectionManager:
 
         logger.debug("Updating instance data")
 
-        self._current = self._perform_refresh()
+        self._current = asyncio.run_coroutine_threadsafe(
+            self._perform_refresh(), self._loop
+        )
         self._next = self._current
-        asyncio.run_coroutine_threadsafe(self._current, self._loop)
 
     def __del__(self) -> None:
         """Deconstructor to make sure ClientSession is closed and tasks have
@@ -351,7 +351,7 @@ class InstanceConnectionManager:
         self._credentials = credentials
 
     async def seconds_until_refresh(self) -> int:
-        expiration = (await self._current).expiration
+        expiration = self._current.result().expiration
 
         if self._enable_iam_auth:
             refresh_buffer = _iam_auth_refresh_buffer
@@ -393,7 +393,8 @@ class InstanceConnectionManager:
                 )
                 instance_data = None
                 try:
-                    instance_data = self._current.result()
+                    if isinstance(self._current, asyncio.Task):
+                        instance_data = self._current.result()
                 except Exception:
                     # Current result is invalid, no-op
                     logger.debug("Current instance data is invalid.")
@@ -493,7 +494,13 @@ class InstanceConnectionManager:
             "pytds": self._connect_with_pytds,
         }
 
-        instance_data: InstanceMetadata = self._current.result()
+        instance_data: InstanceMetadata
+
+        if isinstance(self._current, concurrent.futures.Future):
+            refresh_task = await asyncio.wrap_future(self._current)
+            instance_data = await refresh_task
+        elif isinstance(self._current, asyncio.Task):
+            instance_data = self._current.result()
         ip_address: str = instance_data.get_preferred_ip(ip_type)
 
         try:
