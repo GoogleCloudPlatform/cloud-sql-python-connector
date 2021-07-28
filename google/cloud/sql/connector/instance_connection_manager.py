@@ -395,7 +395,7 @@ class InstanceConnectionManager:
                 try:
                     if isinstance(self._current, asyncio.Task):
                         # if _current is a completed asyncio.Task we check its result
-                        # and only replace it if it's invalid. 
+                        # and only replace it if it's invalid.
                         # Otherwise, if _current is a Future (first request), we always
                         # replace it
                         instance_data = self._current.result()
