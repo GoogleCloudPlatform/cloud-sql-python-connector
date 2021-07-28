@@ -152,9 +152,9 @@ async def _get_ephemeral(
 
     # TODO: remove this once issue with OAuth2 Tokens is resolved.
     # See https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/137
-    stripped_token = credentials.token.rstrip(".")
+    
     headers = {
-        "Authorization": f"Bearer {stripped_token}",
+        "Authorization": f"Bearer {credentials.token.rstrip('.')}",
     }
 
     url = "https://www.googleapis.com/sql/{}/projects/{}/instances/{}/createEphemeral".format(
