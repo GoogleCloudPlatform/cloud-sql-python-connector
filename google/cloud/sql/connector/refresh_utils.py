@@ -150,6 +150,7 @@ async def _get_ephemeral(
         request = google.auth.transport.requests.Request()
         credentials.refresh(request)
 
+    # TODO: remove this once issue with OAuth2 Tokens is resolved.
     stripped_token = credentials.token.rstrip(".")
     headers = {
         "Authorization": f"Bearer {stripped_token}",
