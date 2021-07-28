@@ -150,8 +150,9 @@ async def _get_ephemeral(
         request = google.auth.transport.requests.Request()
         credentials.refresh(request)
 
+    stripped_token = credentials.token.rstrip(".")
     headers = {
-        "Authorization": f"Bearer {credentials.token}",
+        "Authorization": f"Bearer {stripped_token}",
     }
 
     url = "https://www.googleapis.com/sql/{}/projects/{}/instances/{}/createEphemeral".format(
