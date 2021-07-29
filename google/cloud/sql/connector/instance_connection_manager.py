@@ -383,7 +383,7 @@ class InstanceConnectionManager:
 
         refresh_task = self._loop.create_task(self._get_instance_data())
 
-        async def _refresh_callback(task: asyncio.Task) -> None:
+        def _refresh_callback(task: asyncio.Task) -> None:
             try:
                 task.result()
             except Exception as e:
