@@ -150,11 +150,8 @@ async def _get_ephemeral(
         request = google.auth.transport.requests.Request()
         credentials.refresh(request)
 
-    # TODO: remove this once issue with OAuth2 Tokens is resolved.
-    # See https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/137
-
     headers = {
-        "Authorization": f"Bearer {credentials.token.rstrip('.')}",
+        "Authorization": f"Bearer {credentials.token}",
     }
 
     url = "https://www.googleapis.com/sql/{}/projects/{}/instances/{}/createEphemeral".format(
@@ -164,7 +161,9 @@ async def _get_ephemeral(
     data = {"public_key": pub_key}
 
     if enable_iam_auth:
-        data["access_token"] = credentials.token
+        # TODO: remove this once issue with OAuth2 Tokens is resolved.
+        # See https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/137
+        data["access_token"] = credentials.token.rstrip('.')
 
     resp = await client_session.post(
         url, headers=headers, json=data, raise_for_status=True
