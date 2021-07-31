@@ -163,7 +163,7 @@ async def _get_ephemeral(
     if enable_iam_auth:
         # TODO: remove this once issue with OAuth2 Tokens is resolved.
         # See https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/137
-        data["access_token"] = credentials.token.rstrip('.')
+        data["access_token"] = credentials.token.rstrip(".")
 
     resp = await client_session.post(
         url, headers=headers, json=data, raise_for_status=True
