@@ -39,7 +39,6 @@ from typing import (
     Dict,
     Optional,
     TYPE_CHECKING,
-    Union,
 )
 
 from functools import partial
@@ -219,8 +218,8 @@ class InstanceConnectionManager:
     _project: str
     _region: str
 
-    _current: Union[concurrent.futures.Future, asyncio.Task]
-    _next: Union[concurrent.futures.Future, asyncio.Task]
+    _current: asyncio.Task
+    _next: asyncio.Task
 
     def __init__(
         self,
@@ -251,12 +250,13 @@ class InstanceConnectionManager:
         self._keys = asyncio.wrap_future(keys, loop=self._loop)
         self._auth_init()
 
-        logger.debug("Updating instance data")
+        async def _set_instance_data() -> None:
+            logger.debug("Updating instance data")
+            self._current = self._loop.create_task(self._get_instance_data())
+            self._next = self._loop.create_task(self._schedule_refresh())
 
-        self._current = asyncio.run_coroutine_threadsafe(
-            self._perform_refresh(), self._loop
-        )
-        self._next = self._current
+        init_future = asyncio.run_coroutine_threadsafe(_set_instance_data(), self._loop)
+        init_future.result()
 
     def __del__(self) -> None:
         """Deconstructor to make sure ClientSession is closed and tasks have
@@ -351,7 +351,7 @@ class InstanceConnectionManager:
         self._credentials = credentials
 
     async def seconds_until_refresh(self) -> int:
-        expiration = self._current.result().expiration
+        expiration = (await self._current).expiration
 
         if self._enable_iam_auth:
             refresh_buffer = _iam_auth_refresh_buffer
@@ -393,12 +393,7 @@ class InstanceConnectionManager:
                 )
                 instance_data = None
                 try:
-                    if isinstance(self._current, asyncio.Task):
-                        # if _current is a completed asyncio.Task we check its result
-                        # and only replace it if it's invalid.
-                        # Otherwise, if _current is a Future (first request), we always
-                        # replace it
-                        instance_data = self._current.result()
+                    instance_data = self._current.result()
                 except Exception:
                     # Current result is invalid, no-op
                     logger.debug("Current instance data is invalid.")
@@ -406,7 +401,7 @@ class InstanceConnectionManager:
                     instance_data is None
                     or instance_data.expiration < datetime.datetime.now()
                 ):
-                    self._current = refresh_task
+                    self._current = task
                     # TODO: Implement force refresh method and a rate-limiter for perform_refresh
                     # Retry by scheduling a refresh 60s from now.
                     self._next = self._loop.create_task(self._schedule_refresh(60))
@@ -500,11 +495,7 @@ class InstanceConnectionManager:
 
         instance_data: InstanceMetadata
 
-        if isinstance(self._current, concurrent.futures.Future):
-            refresh_task = await asyncio.wrap_future(self._current)
-            instance_data = await refresh_task
-        elif isinstance(self._current, asyncio.Task):
-            instance_data = self._current.result()
+        instance_data = await self._current
         ip_address: str = instance_data.get_preferred_ip(ip_type)
 
         try:
