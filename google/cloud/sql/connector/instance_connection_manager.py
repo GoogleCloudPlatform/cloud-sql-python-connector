@@ -36,11 +36,9 @@ from tempfile import TemporaryDirectory
 from typing import (
     Any,
     Awaitable,
-    Coroutine,
     Dict,
     Optional,
     TYPE_CHECKING,
-    Union,
 )
 
 from functools import partial
@@ -220,8 +218,8 @@ class InstanceConnectionManager:
     _project: str
     _region: str
 
-    _current: Union[Coroutine, asyncio.Task]
-    _next: Union[Coroutine, asyncio.Task]
+    _current: asyncio.Task
+    _next: asyncio.Task
 
     def __init__(
         self,
@@ -252,11 +250,13 @@ class InstanceConnectionManager:
         self._keys = asyncio.wrap_future(keys, loop=self._loop)
         self._auth_init()
 
-        logger.debug("Updating instance data")
+        async def _set_instance_data() -> None:
+            logger.debug("Updating instance data")
+            self._current = self._loop.create_task(self._get_instance_data())
+            self._next = self._loop.create_task(self._schedule_refresh())
 
-        self._current = self._perform_refresh()
-        self._next = self._current
-        asyncio.run_coroutine_threadsafe(self._current, self._loop)
+        init_future = asyncio.run_coroutine_threadsafe(_set_instance_data(), self._loop)
+        init_future.result()
 
     def __del__(self) -> None:
         """Deconstructor to make sure ClientSession is closed and tasks have
@@ -381,12 +381,39 @@ class InstanceConnectionManager:
 
         logger.debug("Entered _perform_refresh")
 
-        self._current = self._loop.create_task(self._get_instance_data())
-        # Ephemeral certificate expires in 1 hour, so we schedule a refresh to happen in 55 minutes.
+        refresh_task = self._loop.create_task(self._get_instance_data())
 
-        self._next = self._loop.create_task(self._schedule_refresh())
+        def _refresh_callback(task: asyncio.Task) -> None:
+            try:
+                task.result()
+            except Exception as e:
+                logger.warn(
+                    "An error occurred while performing refresh. Retrying immediately.",
+                    e,
+                )
+                instance_data = None
+                try:
+                    instance_data = self._current.result()
+                except Exception:
+                    # Current result is invalid, no-op
+                    logger.debug("Current instance data is invalid.")
+                if (
+                    instance_data is None
+                    or instance_data.expiration < datetime.datetime.now()
+                ):
+                    self._current = task
+                    # TODO: Implement force refresh method and a rate-limiter for perform_refresh
+                    # Retry by scheduling a refresh 60s from now.
+                    self._next = self._loop.create_task(self._schedule_refresh(60))
 
-        return self._current
+            else:
+                self._current = refresh_task
+                # Ephemeral certificate expires in 1 hour, so we schedule a refresh to happen in 55 minutes.
+                self._next = self._loop.create_task(self._schedule_refresh())
+
+        refresh_task.add_done_callback(_refresh_callback)
+
+        return refresh_task
 
     async def _schedule_refresh(self, delay: Optional[int] = None) -> asyncio.Task:
         """A coroutine that sleeps for the specified amount of time before
@@ -466,7 +493,9 @@ class InstanceConnectionManager:
             "pytds": self._connect_with_pytds,
         }
 
-        instance_data: InstanceMetadata = await self._current
+        instance_data: InstanceMetadata
+
+        instance_data = await self._current
         ip_address: str = instance_data.get_preferred_ip(ip_type)
 
         try:
