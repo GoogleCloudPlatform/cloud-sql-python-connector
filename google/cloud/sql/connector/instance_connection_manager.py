@@ -389,7 +389,7 @@ class InstanceConnectionManager:
             except Exception as e:
                 logger.exception(
                     "An error occurred while performing refresh. Retrying in 60s.",
-                    exc_info=e
+                    exc_info=e,
                 )
                 instance_data = None
                 try:
