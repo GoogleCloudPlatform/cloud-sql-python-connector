@@ -383,35 +383,32 @@ class InstanceConnectionManager:
 
         refresh_task = self._loop.create_task(self._get_instance_data())
 
-        def _refresh_callback(task: asyncio.Task) -> None:
+        try:
+            await refresh_task
+        except Exception as e:
+            logger.exception(
+                "An error occurred while performing refresh. Retrying in 60s.",
+                exc_info=e,
+            )
+            instance_data = None
             try:
-                task.result()
-            except Exception as e:
-                logger.exception(
-                    "An error occurred while performing refresh. Retrying in 60s.",
-                    exc_info=e,
-                )
-                instance_data = None
-                try:
-                    instance_data = self._current.result()
-                except Exception:
-                    # Current result is invalid, no-op
-                    logger.debug("Current instance data is invalid.")
-                if (
-                    instance_data is None
-                    or instance_data.expiration < datetime.datetime.now()
-                ):
-                    self._current = task
-                    # TODO: Implement force refresh method and a rate-limiter for perform_refresh
-                    # Retry by scheduling a refresh 60s from now.
-                    self._next = self._loop.create_task(self._schedule_refresh(60))
-
-            else:
+                instance_data = await self._current
+            except Exception:
+                # Current result is invalid, no-op
+                logger.debug("Current instance data is invalid.")
+            if (
+                instance_data is None
+                or instance_data.expiration < datetime.datetime.now()
+            ):
                 self._current = refresh_task
-                # Ephemeral certificate expires in 1 hour, so we schedule a refresh to happen in 55 minutes.
-                self._next = self._loop.create_task(self._schedule_refresh())
+                # TODO: Implement force refresh method and a rate-limiter for perform_refresh
+                # Retry by scheduling a refresh 60s from now.
+                self._next = self._loop.create_task(self._schedule_refresh(60))
 
-        refresh_task.add_done_callback(_refresh_callback)
+        else:
+            self._current = refresh_task
+            # Ephemeral certificate expires in 1 hour, so we schedule a refresh to happen in 55 minutes.
+            self._next = self._loop.create_task(self._schedule_refresh())
 
         return refresh_task
 

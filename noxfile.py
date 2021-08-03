@@ -65,6 +65,7 @@ def default(session, path):
         "py.test",
         # "--cov=util",
         # "--cov=connector",
+        "-v",
         "--cov-append",
         "--cov-config=.coveragerc",
         "--cov-report=",
