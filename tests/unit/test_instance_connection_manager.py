@@ -34,6 +34,19 @@ def icm(
     return icm
 
 
+class MockMetadata:
+    def __init__(self, expiration: datetime.datetime) -> None:
+        self.expiration = expiration
+
+
+async def _get_metadata_success(*args: Any, **kwargs: Any) -> MockMetadata:
+    return MockMetadata(datetime.datetime.now() + datetime.timedelta(minutes=10))
+
+
+async def _get_metadata_error(*args: Any, **kwargs: Any) -> None:
+    raise Exception("something went wrong...")
+
+
 def test_InstanceConnectionManager_init(async_loop: asyncio.AbstractEventLoop) -> None:
     """
     Test to check whether the __init__ method of InstanceConnectionManager
@@ -60,13 +73,6 @@ async def test_perform_refresh_replaces_result(icm: InstanceConnectionManager) -
     Test to check whether _perform_refresh replaces a valid result with another valid result
     """
 
-    class MockMetadata:
-        def __init__(self, expiration: datetime.datetime) -> None:
-            self.expiration = expiration
-
-    async def _get_metadata_success(*args: Any, **kwargs: Any) -> MockMetadata:
-        return MockMetadata(datetime.datetime.now() + datetime.timedelta(minutes=10))
-
     # stub _get_instance_data to return a "valid" MockMetadata object
     setattr(icm, "_get_instance_data", _get_metadata_success)
     new_task = await icm._perform_refresh()
@@ -86,16 +92,6 @@ async def test_perform_refresh_wont_replace_valid_result_with_invalid(
     Test to check whether _perform_refresh won't replace a valid _current
     value with an invalid one
     """
-
-    class MockMetadata:
-        def __init__(self, expiration: datetime.datetime) -> None:
-            self.expiration = expiration
-
-    async def _get_metadata_success(*args: Any, **kwargs: Any) -> MockMetadata:
-        return MockMetadata(datetime.datetime.now() + datetime.timedelta(minutes=10))
-
-    async def _get_metadata_error(*args: Any, **kwargs: Any) -> None:
-        raise Exception("something went wrong...")
 
     # stub _get_instance_data to return a "valid" MockMetadata object
     setattr(icm, "_get_instance_data", _get_metadata_success)
@@ -124,16 +120,6 @@ async def test_perform_refresh_replaces_invalid_result(
     Test to check whether _perform_refresh will replace an invalid refresh result with
     a valid one
     """
-
-    class MockMetadata:
-        def __init__(self, expiration: datetime.datetime) -> None:
-            self.expiration = expiration
-
-    async def _get_metadata_success(*args: Any, **kwargs: Any) -> MockMetadata:
-        return MockMetadata(datetime.datetime.now() + datetime.timedelta(minutes=10))
-
-    async def _get_metadata_error(*args: Any, **kwargs: Any) -> None:
-        raise Exception("something went wrong...")
 
     # stub _get_instance_data to throw an error
     setattr(icm, "_get_instance_data", _get_metadata_error)
