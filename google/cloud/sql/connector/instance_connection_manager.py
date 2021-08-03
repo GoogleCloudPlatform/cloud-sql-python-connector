@@ -387,9 +387,9 @@ class InstanceConnectionManager:
             try:
                 task.result()
             except Exception as e:
-                logger.warn(
-                    "An error occurred while performing refresh. Retrying immediately.",
-                    e,
+                logger.exception(
+                    "An error occurred while performing refresh. Retrying in 60s.",
+                    exc_info=e,
                 )
                 instance_data = None
                 try:
