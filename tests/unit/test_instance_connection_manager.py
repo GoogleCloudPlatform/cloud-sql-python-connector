@@ -75,10 +75,7 @@ async def test_perform_refresh_replaces_result(icm: InstanceConnectionManager) -
 
     # stub _get_instance_data to return a "valid" MockMetadata object
     setattr(icm, "_get_instance_data", _get_metadata_success)
-    new_task = await icm._perform_refresh()
-
-    # allow enough time for the task to complete
-    await asyncio.sleep(10)
+    new_task = asyncio.run_coroutine_threadsafe(icm._perform_refresh(), icm._loop).result(timeout=10)
 
     assert icm._current == new_task
     assert isinstance(icm._current.result(), MockMetadata)
@@ -95,18 +92,12 @@ async def test_perform_refresh_wont_replace_valid_result_with_invalid(
 
     # stub _get_instance_data to return a "valid" MockMetadata object
     setattr(icm, "_get_instance_data", _get_metadata_success)
-    icm._current = await icm._perform_refresh()
+    icm._current = asyncio.run_coroutine_threadsafe(icm._perform_refresh(), icm._loop).result(timeout=10)
     old_task = icm._current
-
-    # allow enough time for the task to complete
-    await asyncio.sleep(10)
 
     # stub _get_instance_data to throw an error, then await _perform_refresh
     setattr(icm, "_get_instance_data", _get_metadata_error)
-    await icm._perform_refresh()
-
-    # allow enough time for the task to complete
-    await asyncio.sleep(10)
+    asyncio.run_coroutine_threadsafe(icm._perform_refresh(), icm._loop).result(timeout=10)
 
     assert icm._current == old_task
     assert isinstance(icm._current.result(), MockMetadata)
@@ -123,17 +114,12 @@ async def test_perform_refresh_replaces_invalid_result(
 
     # stub _get_instance_data to throw an error
     setattr(icm, "_get_instance_data", _get_metadata_error)
-    icm._current = await icm._perform_refresh()
-
-    # allow enough time for the task to complete
-    await asyncio.sleep(10)
+    icm._current = asyncio.run_coroutine_threadsafe(icm._perform_refresh(), icm._loop).result(timeout=10)
 
     # stub _get_instance_data to return a MockMetadata instance
     setattr(icm, "_get_instance_data", _get_metadata_success)
-    new_task = await icm._perform_refresh()
+    new_task = asyncio.run_coroutine_threadsafe(icm._perform_refresh(), icm._loop).result(timeout=10)
 
-    # allow enough time for the task to complete
-    await asyncio.sleep(10)
 
     assert icm._current == new_task
     assert isinstance(icm._current.result(), MockMetadata)
