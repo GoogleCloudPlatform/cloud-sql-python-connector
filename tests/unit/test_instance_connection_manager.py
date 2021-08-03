@@ -15,6 +15,8 @@ limitations under the License.
 """
 
 import asyncio
+import datetime
+from typing import Any
 import pytest  # noqa F401 Needed to run the tests
 from google.cloud.sql.connector.instance_connection_manager import (
     InstanceConnectionManager,
@@ -53,13 +55,99 @@ def test_InstanceConnectionManager_init(async_loop: asyncio.AbstractEventLoop) -
 
 
 @pytest.mark.asyncio
-async def test_InstanceConnectionManager_perform_refresh(
-    icm: InstanceConnectionManager, async_loop: asyncio.AbstractEventLoop
+async def test_perform_refresh_replaces_result(icm: InstanceConnectionManager) -> None:
+    """
+    Test to check whether _perform_refresh replaces a valid result with another valid result
+    """
+
+    class MockMetadata:
+        def __init__(self, expiration: datetime.datetime) -> None:
+            self.expiration = expiration
+
+    async def _get_metadata_success(*args: Any, **kwargs: Any) -> MockMetadata:
+        return MockMetadata(datetime.datetime.now() + datetime.timedelta(minutes=10))
+
+    # stub _get_instance_data to return a "valid" MockMetadata object
+    setattr(icm, "_get_instance_data", _get_metadata_success)
+    new_task = await icm._perform_refresh()
+
+    # allow enough time for the task to complete
+    await asyncio.sleep(10)
+
+    assert icm._current == new_task
+    assert isinstance(icm._current.result(), MockMetadata)
+
+
+@pytest.mark.asyncio
+async def test_perform_refresh_wont_replace_valid_result_with_invalid(
+    icm: InstanceConnectionManager,
 ) -> None:
     """
-    Test to check whether _perform_refresh works as described given valid
-    conditions.
+    Test to check whether _perform_refresh won't replace a valid _current
+    value with an invalid one
     """
-    task = await icm._perform_refresh()
 
-    assert isinstance(task, asyncio.Task)
+    class MockMetadata:
+        def __init__(self, expiration: datetime.datetime) -> None:
+            self.expiration = expiration
+
+    async def _get_metadata_success(*args: Any, **kwargs: Any) -> MockMetadata:
+        return MockMetadata(datetime.datetime.now() + datetime.timedelta(minutes=10))
+
+    async def _get_metadata_error(*args: Any, **kwargs: Any) -> None:
+        raise Exception("something went wrong...")
+
+    # stub _get_instance_data to return a "valid" MockMetadata object
+    setattr(icm, "_get_instance_data", _get_metadata_success)
+    icm._current = await icm._perform_refresh()
+    old_task = icm._current
+
+    # allow enough time for the task to complete
+    await asyncio.sleep(10)
+
+    # stub _get_instance_data to throw an error, then await _perform_refresh
+    setattr(icm, "_get_instance_data", _get_metadata_error)
+    await icm._perform_refresh()
+
+    # allow enough time for the task to complete
+    await asyncio.sleep(10)
+
+    assert icm._current == old_task
+    assert isinstance(icm._current.result(), MockMetadata)
+
+
+@pytest.mark.asyncio
+async def test_perform_refresh_replaces_invalid_result(
+    icm: InstanceConnectionManager,
+) -> None:
+    """
+    Test to check whether _perform_refresh will replace an invalid refresh result with
+    a valid one
+    """
+
+    class MockMetadata:
+        def __init__(self, expiration: datetime.datetime) -> None:
+            self.expiration = expiration
+
+    async def _get_metadata_success(*args: Any, **kwargs: Any) -> MockMetadata:
+        return MockMetadata(datetime.datetime.now() + datetime.timedelta(minutes=10))
+
+    async def _get_metadata_error(*args: Any, **kwargs: Any) -> None:
+        raise Exception("something went wrong...")
+
+    # stub _get_instance_data to throw an error
+    setattr(icm, "_get_instance_data", _get_metadata_error)
+    icm._current = await icm._perform_refresh()
+
+    # allow enough time for the task to complete
+    await asyncio.sleep(10)
+
+    # stub _get_instance_data to return a MockMetadata instance
+    setattr(icm, "_get_instance_data", _get_metadata_success)
+    new_task = await icm._perform_refresh()
+
+    # allow enough time for the task to complete
+    await asyncio.sleep(10)
+
+    assert icm._current == new_task
+    assert isinstance(icm._current.result(), MockMetadata)
