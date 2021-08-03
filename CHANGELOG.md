@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.3.0](https://www.github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v0.2.1...v0.3.0) (2021-08-03)
+
+
+### Features
+
+* support Active Directory auth for Windows ([#131](https://www.github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/131)) ([66e4e2e](https://www.github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/66e4e2e6b688bb5e9d7e41b72c5466128b4128e9))
+
+
+### Bug Fixes
+
+* only replace refresh result if successful or current is invalid ([#135](https://www.github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/135)) ([9c8ed67](https://www.github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/9c8ed670377e3b2f9570d0bba7933ca8caf83d0d))
+* strip padding from access tokens if present ([#138](https://www.github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/138)) ([1bc2ee4](https://www.github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/1bc2ee4753bef515d79fcc15bd2ed804e01c47f2)), closes [#137](https://www.github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/137)
+
 ### [0.2.1](https://www.github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v0.2.0...v0.2.1) (2021-07-13)
 
 
