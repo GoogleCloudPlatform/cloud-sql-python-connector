@@ -15,6 +15,7 @@ limitations under the License.
 """
 
 # Custom utils import
+from google.cloud.sql.connector.rate_limiter import AsyncRateLimiter
 from google.cloud.sql.connector.refresh_utils import _get_ephemeral, _get_metadata
 from google.cloud.sql.connector.utils import write_to_file
 from google.cloud.sql.connector.version import __version__ as version
@@ -250,6 +251,9 @@ class InstanceConnectionManager:
         self._keys = asyncio.wrap_future(keys, loop=self._loop)
         self._auth_init()
 
+        self._refresh_rate_limiter = AsyncRateLimiter(
+            burst_size=1, interval=60, queue_size=1, loop=self._loop)
+
         async def _set_instance_data() -> None:
             logger.debug("Updating instance data")
             self._current = self._loop.create_task(self._get_instance_data())
@@ -378,7 +382,7 @@ class InstanceConnectionManager:
         :rtype: concurrent.future.Futures
         :returns: A future representing the creation of an SSLcontext.
         """
-
+        await self._refresh_rate_limiter.acquire()
         logger.debug("Entered _perform_refresh")
 
         refresh_task = self._loop.create_task(self._get_instance_data())
@@ -387,7 +391,8 @@ class InstanceConnectionManager:
             await refresh_task
         except Exception as e:
             logger.exception(
-                "An error occurred while performing refresh. Retrying in 60s.",
+                "An error occurred while performing refresh."
+                "Scheduling another refresh attempt immediately",
                 exc_info=e,
             )
             instance_data = None
@@ -401,9 +406,7 @@ class InstanceConnectionManager:
                 or instance_data.expiration < datetime.datetime.now()
             ):
                 self._current = refresh_task
-                # TODO: Implement force refresh method and a rate-limiter for perform_refresh
-                # Retry by scheduling a refresh 60s from now.
-                self._next = self._loop.create_task(self._schedule_refresh(60))
+                self._next = self._loop.create_task(self._perform_refresh())
 
         else:
             self._current = refresh_task
