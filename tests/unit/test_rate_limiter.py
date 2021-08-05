@@ -26,7 +26,7 @@ from google.cloud.sql.connector.rate_limiter import (
 async def test_rate_limiter_throttles_requests() -> None:
     counter = 0
     # allow 2 requests to go through every 5 seconds
-    limiter = AsyncRateLimiter(burst_size=2, interval=5)
+    limiter = AsyncRateLimiter(burst_size=2, interval=10)
 
     async def increment() -> None:
         async with limiter:
@@ -37,9 +37,9 @@ async def test_rate_limiter_throttles_requests() -> None:
 
     done, pending = await asyncio.wait(tasks, timeout=11)
 
-    assert counter == 4
-    assert len(done) == 4
-    assert len(pending) == 6
+    assert counter == 3
+    assert len(done) == 3
+    assert len(pending) == 7
 
 
 @pytest.mark.asyncio
@@ -59,8 +59,8 @@ async def test_rate_limiter_rejects_if_queue_full() -> None:
 
     errors = [r for r in results if isinstance(r, asyncio.queues.QueueFull)]
 
-    assert counter == 6
-    assert len(errors) == 4
+    assert counter == 7 # one task completes immediately and the rest are queued
+    assert len(errors) == 3
 
 
 @pytest.mark.asyncio

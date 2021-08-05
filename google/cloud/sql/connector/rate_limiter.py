@@ -62,7 +62,7 @@ class AsyncRateLimiter(object):
         self.interval = interval
         self.burst_size = burst_size
         self._loop = loop or asyncio.get_event_loop()
-        self._last_leak = time.time()
+        self._last_leak: float = 0  # first request happens without delay
         self._queue: asyncio.Queue = asyncio.Queue(queue_size, loop=self._loop)
 
     def _leak(self) -> None:
