@@ -15,6 +15,7 @@ limitations under the License.
 """
 import asyncio
 import concurrent
+import logging
 from google.cloud.sql.connector.instance_connection_manager import (
     InstanceConnectionManager,
     IPTypes,
@@ -30,6 +31,8 @@ _loop: Optional[asyncio.AbstractEventLoop] = None
 _keys: Optional[concurrent.futures.Future] = None
 
 _instances: Dict[str, InstanceConnectionManager] = {}
+
+logger = logging.getLogger(name=__name__)
 
 
 def _get_loop() -> asyncio.AbstractEventLoop:
@@ -112,5 +115,11 @@ def connect(
         timeout = kwargs["connect_timeout"]
     else:
         timeout = 30  # 30s
-
-    return icm.connect(driver, ip_types, timeout, **kwargs)
+    try:
+        return icm.connect(driver, ip_types, timeout, **kwargs)
+    except TimeoutError as e:
+        raise (e)  # if the error is because of a timeout, let it bubble up
+    except Exception as e:
+        # with any other exception, we attempt a force refresh, then throw the error
+        icm.force_refresh()
+        raise (e)

@@ -59,7 +59,7 @@ async def test_rate_limiter_rejects_if_queue_full() -> None:
 
     errors = [r for r in results if isinstance(r, asyncio.queues.QueueFull)]
 
-    assert counter == 7 # one task completes immediately and the rest are queued
+    assert counter == 7  # one task completes immediately and the rest are queued
     assert len(errors) == 3
 
 
