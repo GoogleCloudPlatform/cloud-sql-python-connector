@@ -252,7 +252,8 @@ class InstanceConnectionManager:
         self._auth_init()
 
         self._refresh_rate_limiter = AsyncRateLimiter(
-            burst_size=1, interval=60, queue_size=1, loop=self._loop)
+            burst_size=1, interval=60, queue_size=1, loop=self._loop
+        )
 
         async def _set_instance_data() -> None:
             logger.debug("Updating instance data")
@@ -353,28 +354,24 @@ class InstanceConnectionManager:
         )
 
         self._credentials = credentials
-    
+
     async def _force_refresh(self) -> bool:
-            try:
-                self._current = await self._perform_refresh()
-                return True
-            except asyncio.queues.QueueFull: 
-                # a refresh attempt is already queued, so just block on the result
-                self._current = await self._next
-                return True
-            except Exception as e:
-                # if anything else goes wrong, log the error and return false
-                logger.exception(
-                    "Error occurred during force refresh attempt",
-                    exc_info=e
-                )
-                return False
+        try:
+            self._current = await self._perform_refresh()
+            return True
+        except asyncio.queues.QueueFull:
+            # a refresh attempt is already queued, so just block on the result
+            self._current = await self._next
+            return True
+        except Exception as e:
+            # if anything else goes wrong, log the error and return false
+            logger.exception("Error occurred during force refresh attempt", exc_info=e)
+            return False
 
-
-    def force_refresh(self, timeout: Optional[int]=None) -> bool:
-        return asyncio.run_coroutine_threadsafe(self._force_refresh, self._loop).result(timeout=timeout)
-        
-        
+    def force_refresh(self, timeout: Optional[int] = None) -> bool:
+        return asyncio.run_coroutine_threadsafe(
+            self._force_refresh(), self._loop
+        ).result(timeout=timeout)
 
     async def seconds_until_refresh(self) -> int:
         expiration = (await self._current).expiration

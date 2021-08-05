@@ -16,6 +16,7 @@ limitations under the License.
 
 import asyncio
 import datetime
+from google.cloud.sql.connector.rate_limiter import AsyncRateLimiter
 from typing import Any
 import pytest  # noqa F401 Needed to run the tests
 from google.cloud.sql.connector.instance_connection_manager import (
@@ -32,6 +33,11 @@ def icm(
     icm = InstanceConnectionManager(connect_string, "pymysql", keys, async_loop)
 
     return icm
+
+
+@pytest.fixture
+def test_rate_limiter(async_loop: asyncio.AbstractEventLoop) -> AsyncRateLimiter:
+    return AsyncRateLimiter(burst_size=1, interval=2, loop=async_loop)
 
 
 class MockMetadata:
@@ -68,10 +74,14 @@ def test_InstanceConnectionManager_init(async_loop: asyncio.AbstractEventLoop) -
 
 
 @pytest.mark.asyncio
-async def test_perform_refresh_replaces_result(icm: InstanceConnectionManager) -> None:
+async def test_perform_refresh_replaces_result(
+    icm: InstanceConnectionManager, test_rate_limiter: AsyncRateLimiter
+) -> None:
     """
     Test to check whether _perform_refresh replaces a valid result with another valid result
     """
+    # allow more frequent refreshes for tests
+    setattr(icm, "_refresh_rate_limiter", test_rate_limiter)
 
     # stub _get_instance_data to return a "valid" MockMetadata object
     setattr(icm, "_get_instance_data", _get_metadata_success)
@@ -85,12 +95,14 @@ async def test_perform_refresh_replaces_result(icm: InstanceConnectionManager) -
 
 @pytest.mark.asyncio
 async def test_perform_refresh_wont_replace_valid_result_with_invalid(
-    icm: InstanceConnectionManager,
+    icm: InstanceConnectionManager, test_rate_limiter: AsyncRateLimiter
 ) -> None:
     """
     Test to check whether _perform_refresh won't replace a valid _current
     value with an invalid one
     """
+    # allow more frequent refreshes for tests
+    setattr(icm, "_refresh_rate_limiter", test_rate_limiter)
 
     # stub _get_instance_data to return a "valid" MockMetadata object
     setattr(icm, "_get_instance_data", _get_metadata_success)
@@ -111,12 +123,14 @@ async def test_perform_refresh_wont_replace_valid_result_with_invalid(
 
 @pytest.mark.asyncio
 async def test_perform_refresh_replaces_invalid_result(
-    icm: InstanceConnectionManager,
+    icm: InstanceConnectionManager, test_rate_limiter: AsyncRateLimiter
 ) -> None:
     """
     Test to check whether _perform_refresh will replace an invalid refresh result with
     a valid one
     """
+    # allow more frequent refreshes for tests
+    setattr(icm, "_refresh_rate_limiter", test_rate_limiter)
 
     # stub _get_instance_data to throw an error
     setattr(icm, "_get_instance_data", _get_metadata_error)
