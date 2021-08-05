@@ -23,7 +23,8 @@ from types import TracebackType
 class AsyncRateLimiter(object):
     """
     An asyncio-compatible rate limiter which uses the Leaky Bucket algorithm
-    (https://en.wikipedia.org/wiki/Leaky_bucket) to limit the number of function calls over a time interval using an event queue.
+    (https://en.wikipedia.org/wiki/Leaky_bucket) to limit the number of function
+    calls over a time interval using an event queue.
 
     :type burst_size: int
     :param: burst_size:
@@ -32,11 +33,16 @@ class AsyncRateLimiter(object):
 
     :type interval: int
     :param: interval:
-        The period of time over which a number of calls equal to burst_size are allowed to complete. Default: 60s
+        The period of time over which a number of calls equal to burst_size
+        are allowed to complete. Default: 60s
 
     :type queue_size: int
     :param: interval:
-        The number of tasks that are allowed to be queued if rate limiter cannot be acquired. If exceeded, a QueueFull error will be thrown. A queue size of zero means the queue length has no upper bound. If setting queue size to a value greater than zero, queue_size must be greater than or equal to burst_size
+        The number of tasks that are allowed to be queued if rate limiter cannot
+        be acquired. If exceeded, a QueueFull error will be thrown. A queue size
+        of zero means the queue length has no upper bound. If setting queue size
+        to a value greater than zero, queue_size must be greater than or equal
+        to burst_size
         Default: 0
 
     :type loop: asyncio.AbstractEventLoop
@@ -96,7 +102,7 @@ class AsyncRateLimiter(object):
         waiter_task = self._loop.create_task(event.wait())
         while not self._release_from_queue(waiter_task):
             try:
-                # await until enough time has passed that another event is 
+                # await until enough time has passed that another event is
                 # released from the queue. If an event is released before this
                 #  time, the waiter_task will complete and we will break out of the loop.
                 await asyncio.wait_for(
