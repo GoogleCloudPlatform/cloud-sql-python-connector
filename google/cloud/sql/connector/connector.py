@@ -117,8 +117,6 @@ def connect(
         timeout = 30  # 30s
     try:
         return icm.connect(driver, ip_types, timeout, **kwargs)
-    except TimeoutError as e:
-        raise (e)  # if the error is because of a timeout, let it bubble up
     except Exception as e:
         # with any other exception, we attempt a force refresh, then throw the error
         icm.force_refresh()
