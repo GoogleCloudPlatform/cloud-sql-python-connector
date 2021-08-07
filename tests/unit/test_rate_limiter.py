@@ -37,9 +37,9 @@ async def test_rate_limiter_throttles_requests() -> None:
 
     done, pending = await asyncio.wait(tasks, timeout=11)
 
-    assert counter == 3
-    assert len(done) == 3
-    assert len(pending) == 7
+    assert counter == 4
+    assert len(done) == 4
+    assert len(pending) == 6
 
 
 @pytest.mark.asyncio
