@@ -219,6 +219,7 @@ class InstanceConnectionManager:
     _project: str
     _region: str
 
+    _refresh_in_progress: asyncio.locks.Event
     _current: asyncio.Task
     _next: asyncio.Task
 
@@ -252,11 +253,12 @@ class InstanceConnectionManager:
         self._auth_init()
 
         self._refresh_rate_limiter = AsyncRateLimiter(
-            burst_size=2, interval=60, queue_size=2, loop=self._loop
+            burst_size=2, interval=60, loop=self._loop
         )
 
         async def _set_instance_data() -> None:
             logger.debug("Updating instance data")
+            self._refresh_in_progress = asyncio.locks.Event(loop=self._loop)
             self._current = self._loop.create_task(self._get_instance_data())
             self._next = self._loop.create_task(self._schedule_refresh())
 
@@ -356,17 +358,23 @@ class InstanceConnectionManager:
         self._credentials = credentials
 
     async def _force_refresh(self) -> bool:
-        try:
-            self._current = await self._perform_refresh()
-            return True
-        except asyncio.queues.QueueFull:
-            # a refresh attempt is already queued, so just block on the result
+        if self._refresh_in_progress.is_set():
+            # if a refresh is in progress, then block on the result
             self._current = await self._next
             return True
-        except Exception as e:
-            # if anything else goes wrong, log the error and return false
-            logger.exception("Error occurred during force refresh attempt", exc_info=e)
-            return False
+        else:
+            try:
+                self._next.cancel()
+                # schedule a refresh immediately with no delay
+                self._next = self._loop.create_task(self._schedule_refresh(0))
+                self._current = await self._next
+                return True
+            except Exception as e:
+                # if anything else goes wrong, log the error and return false
+                logger.exception(
+                    "Error occurred during force refresh attempt", exc_info=e
+                )
+                return False
 
     def force_refresh(self, timeout: Optional[int] = None) -> bool:
         return asyncio.run_coroutine_threadsafe(
@@ -401,6 +409,7 @@ class InstanceConnectionManager:
         :rtype: concurrent.future.Futures
         :returns: A future representing the creation of an SSLcontext.
         """
+        self._refresh_in_progress.set()
         await self._refresh_rate_limiter.acquire()
         logger.debug("Entered _perform_refresh")
 
@@ -431,6 +440,8 @@ class InstanceConnectionManager:
             self._current = refresh_task
             # Ephemeral certificate expires in 1 hour, so we schedule a refresh to happen in 55 minutes.
             self._next = self._loop.create_task(self._schedule_refresh())
+        finally:
+            self._refresh_in_progress.clear()
 
         return refresh_task
 
@@ -441,17 +452,15 @@ class InstanceConnectionManager:
         :rtype: asyncio.Task
         :returns: A Task representing _get_instance_data.
         """
-        logger.debug("Entering sleep")
 
+        logger.debug("Entering sleep")
         if delay is None:
             delay = await self.seconds_until_refresh()
-
         try:
             await asyncio.sleep(delay)
         except asyncio.CancelledError as e:
             logger.debug("Schedule refresh task cancelled.")
             raise e
-
         return await self._perform_refresh()
 
     def connect(

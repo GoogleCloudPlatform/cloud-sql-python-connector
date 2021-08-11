@@ -146,3 +146,28 @@ async def test_perform_refresh_replaces_invalid_result(
 
     assert icm._current == new_task
     assert isinstance(icm._current.result(), MockMetadata)
+
+
+@pytest.mark.asyncio
+async def test_force_refresh_cancels_pending_refresh(
+    icm: InstanceConnectionManager,
+    test_rate_limiter: AsyncRateLimiter,
+) -> None:
+    """
+    Test that force_refresh cancels pending task if refresh_in_progress event is not set.
+    """
+    # allow more frequent refreshes for tests
+    setattr(icm, "_refresh_rate_limiter", test_rate_limiter)
+
+    # stub _get_instance_data to return a MockMetadata instance
+    setattr(icm, "_get_instance_data", _get_metadata_success)
+
+    # since the pending refresh isn't for another 55 min, the refresh_in_progress event
+    # shouldn't be set
+    pending_refresh = icm._next
+    assert icm._refresh_in_progress.is_set() is False
+
+    icm.force_refresh()
+
+    assert pending_refresh.cancelled() is True
+    assert isinstance(icm._current.result(), MockMetadata)
