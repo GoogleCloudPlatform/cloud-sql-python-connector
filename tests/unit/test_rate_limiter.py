@@ -43,31 +43,10 @@ async def test_rate_limiter_throttles_requests() -> None:
 
 
 @pytest.mark.asyncio
-async def test_rate_limiter_rejects_if_queue_full() -> None:
+async def test_rate_limiter_completes_all_tasks() -> None:
     counter = 0
     # allow 1 request to go through per second
-    limiter = AsyncRateLimiter(burst_size=1, interval=1, queue_size=6)
-
-    async def increment() -> None:
-        async with limiter:
-            nonlocal counter
-            counter += 1
-
-    tasks = [increment() for _ in range(10)]
-
-    results = await asyncio.gather(*tasks, return_exceptions=True)
-
-    errors = [r for r in results if isinstance(r, asyncio.queues.QueueFull)]
-
-    assert counter == 7  # one task completes immediately and the rest are queued
-    assert len(errors) == 3
-
-
-@pytest.mark.asyncio
-async def test_rate_limiter_completes_all_tasks_in_queue() -> None:
-    counter = 0
-    # allow 1 request to go through per second
-    limiter = AsyncRateLimiter(burst_size=1, interval=1, queue_size=10)
+    limiter = AsyncRateLimiter(burst_size=1, interval=1)
 
     async def increment() -> None:
         async with limiter:
