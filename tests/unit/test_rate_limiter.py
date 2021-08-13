@@ -29,9 +29,9 @@ async def test_rate_limiter_throttles_requests() -> None:
     limiter = AsyncRateLimiter(burst_size=2, interval=10)
 
     async def increment() -> None:
-        async with limiter:
-            nonlocal counter
-            counter += 1
+        await limiter.acquire()
+        nonlocal counter
+        counter += 1
 
     tasks = [increment() for _ in range(10)]
 
@@ -49,9 +49,9 @@ async def test_rate_limiter_completes_all_tasks() -> None:
     limiter = AsyncRateLimiter(burst_size=1, interval=1)
 
     async def increment() -> None:
-        async with limiter:
-            nonlocal counter
-            counter += 1
+        await limiter.acquire()
+        nonlocal counter
+        counter += 1
 
     tasks = [increment() for _ in range(10)]
 

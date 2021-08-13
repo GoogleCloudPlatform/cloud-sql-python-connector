@@ -220,8 +220,8 @@ class InstanceConnectionManager:
     _region: str
 
     _refresh_in_progress: asyncio.locks.Event
-    _current: asyncio.Task[InstanceMetadata]
-    _next: asyncio.Task[asyncio.Task[InstanceMetadata]]
+    _current: asyncio.Task  # task wraps coroutine that returns InstanceMetadata
+    _next: asyncio.Task  # task wraps coroutine that returns another task
 
     def __init__(
         self,

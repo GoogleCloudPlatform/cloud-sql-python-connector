@@ -16,8 +16,6 @@ limitations under the License.
 import asyncio
 import math
 import time
-from typing import Optional, Type
-from types import TracebackType
 
 
 class AsyncRateLimiter(object):
@@ -95,15 +93,3 @@ class AsyncRateLimiter(object):
             except asyncio.TimeoutError:
                 # allow for another call to self._release_from_queue() which will remove and set events from the queue
                 pass
-
-    async def __aenter__(self) -> None:
-        await self.acquire()
-        return None
-
-    async def __aexit__(
-        self,
-        exc_type: Optional[Type[BaseException]],
-        exc: Optional[BaseException],
-        tb: Optional[TracebackType],
-    ) -> None:
-        return None
