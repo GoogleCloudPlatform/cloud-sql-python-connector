@@ -25,6 +25,9 @@ from google.cloud.sql.connector import connector
 table_name = f"books_{uuid.uuid4().hex}"
 
 
+# [START cloud_sql_connector_postgres_pg8000_iam_auth]
+# The Cloud SQL Python Connector can be used along with SQLAlchemy using the
+# 'creator' argument to 'create_engine'
 def init_connection_engine() -> sqlalchemy.engine.Engine:
     def getconn() -> pg8000.dbapi.Connection:
         conn: pg8000.dbapi.Connection = connector.connect(
@@ -42,6 +45,9 @@ def init_connection_engine() -> sqlalchemy.engine.Engine:
     )
     engine.dialect.description_encoding = None
     return engine
+
+
+# [END cloud_sql_connector_postgres_pg8000_iam_auth]
 
 
 @pytest.fixture(name="pool")
