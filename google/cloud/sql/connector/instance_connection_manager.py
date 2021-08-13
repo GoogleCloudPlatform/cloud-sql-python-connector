@@ -370,9 +370,7 @@ class InstanceConnectionManager:
             return True
         except Exception as e:
             # if anything else goes wrong, log the error and return false
-            logger.exception(
-                "Error occurred during force refresh attempt", exc_info=e
-            )
+            logger.exception("Error occurred during force refresh attempt", exc_info=e)
             return False
 
     def force_refresh(self, timeout: Optional[int] = None) -> bool:
@@ -451,7 +449,7 @@ class InstanceConnectionManager:
         :rtype: asyncio.Task
         :returns: A Task representing _get_instance_data.
         """
-                
+
         if delay is None:
             delay = await self.seconds_until_refresh()
         try:
