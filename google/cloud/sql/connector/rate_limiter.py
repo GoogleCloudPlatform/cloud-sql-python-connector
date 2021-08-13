@@ -27,17 +27,12 @@ class AsyncRateLimiter(object):
 
     :type burst_size: int
     :param: burst_size:
-        The max number of function calls that can occur at the same time
+        the maximum capacity of the bucket will store at any one time.
         Default: 1
 
     :type interval: int
     :param: interval:
         The period of time over which a number of calls equal to burst_size are allowed to complete. Default: 60s
-
-    :type queue_size: int
-    :param: interval:
-        The number of tasks that are allowed to be queued if rate limiter cannot be acquired. If exceeded, a QueueFull error will be thrown. A queue size of zero means the queue length has no upper bound. If setting queue size to a value greater than zero, queue_size must be greater than or equal to burst_size
-        Default: 0
 
     :type loop: asyncio.AbstractEventLoop
     :param: loop:
@@ -67,11 +62,11 @@ class AsyncRateLimiter(object):
         """
         time_elapsed = time.time() - self._last_token_update
         amount = math.floor(time_elapsed * self.burst_size / self.interval)
-        # don't allow more than burst_size to leak at once
-        leak_amount = min(amount, self.burst_size)
+        # don't allow more tokens than burst_size to be added at once
+        amount = min(amount, self.burst_size)
         if amount > 0:
             self._last_token_update = time.time()
-        for _ in range(leak_amount):
+        for _ in range(amount):
             try:
                 self._tokens.release()
             except ValueError:

@@ -359,22 +359,21 @@ class InstanceConnectionManager:
 
     async def _force_refresh(self) -> bool:
         if self._refresh_in_progress.is_set():
-            # if a refresh is in progress, then block on the result
+            # if a new refresh is already in progress, then block on the result
             self._current = await self._next
             return True
-        else:
-            try:
-                self._next.cancel()
-                # schedule a refresh immediately with no delay
-                self._next = self._loop.create_task(self._schedule_refresh(0))
-                self._current = await self._next
-                return True
-            except Exception as e:
-                # if anything else goes wrong, log the error and return false
-                logger.exception(
-                    "Error occurred during force refresh attempt", exc_info=e
-                )
-                return False
+        try:
+            self._next.cancel()
+            # schedule a refresh immediately with no delay
+            self._next = self._loop.create_task(self._schedule_refresh(0))
+            self._current = await self._next
+            return True
+        except Exception as e:
+            # if anything else goes wrong, log the error and return false
+            logger.exception(
+                "Error occurred during force refresh attempt", exc_info=e
+            )
+            return False
 
     def force_refresh(self, timeout: Optional[int] = None) -> bool:
         return asyncio.run_coroutine_threadsafe(
@@ -452,11 +451,11 @@ class InstanceConnectionManager:
         :rtype: asyncio.Task
         :returns: A Task representing _get_instance_data.
         """
-
-        logger.debug("Entering sleep")
+                
         if delay is None:
             delay = await self.seconds_until_refresh()
         try:
+            logger.debug("Entering sleep")
             await asyncio.sleep(delay)
         except asyncio.CancelledError as e:
             logger.debug("Schedule refresh task cancelled.")
