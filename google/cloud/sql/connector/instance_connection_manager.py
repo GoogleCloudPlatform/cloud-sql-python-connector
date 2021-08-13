@@ -220,8 +220,8 @@ class InstanceConnectionManager:
     _region: str
 
     _refresh_in_progress: asyncio.locks.Event
-    _current: asyncio.Task
-    _next: asyncio.Task
+    _current: asyncio.Task[InstanceMetadata]
+    _next: asyncio.Task[asyncio.Task[InstanceMetadata]]
 
     def __init__(
         self,
