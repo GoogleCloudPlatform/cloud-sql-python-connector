@@ -253,7 +253,7 @@ class InstanceConnectionManager:
         self._auth_init()
 
         self._refresh_rate_limiter = AsyncRateLimiter(
-            burst_size=2, interval=60, loop=self._loop
+            max_capacity=2, rate=1 / 30, loop=self._loop
         )
 
         async def _set_instance_data() -> None:

@@ -26,7 +26,7 @@ from google.cloud.sql.connector.rate_limiter import (
 async def test_rate_limiter_throttles_requests() -> None:
     counter = 0
     # allow 2 requests to go through every 5 seconds
-    limiter = AsyncRateLimiter(burst_size=2, interval=10)
+    limiter = AsyncRateLimiter(max_capacity=2, rate=1 / 5)
 
     async def increment() -> None:
         await limiter.acquire()
@@ -46,7 +46,7 @@ async def test_rate_limiter_throttles_requests() -> None:
 async def test_rate_limiter_completes_all_tasks() -> None:
     counter = 0
     # allow 1 request to go through per second
-    limiter = AsyncRateLimiter(burst_size=1, interval=1)
+    limiter = AsyncRateLimiter(max_capacity=1, rate=1)
 
     async def increment() -> None:
         await limiter.acquire()

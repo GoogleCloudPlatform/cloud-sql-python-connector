@@ -14,7 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 import asyncio
-import math
 
 
 class AsyncRateLimiter(object):
@@ -22,14 +21,14 @@ class AsyncRateLimiter(object):
     An asyncio-compatible rate limiter which uses the Token Bucket algorithm
     (https://en.wikipedia.org/wiki/Token_bucket) to limit the number of function calls over a time interval using an event queue.
 
-    :type burst_size: int
+    :type max_capacity: int
     :param: burst_size:
-        the maximum capacity of the bucket will store at any one time.
+        The maximum capacity of the bucket will store at any one time.
         Default: 1
 
-    :type interval: int
-    :param: interval:
-        The period of time over which a number of calls equal to burst_size are allowed to complete. Default: 60s
+    :type rate: float
+    :param: rate:
+        The number of tokens that should be added per second.
 
     :type loop: asyncio.AbstractEventLoop
     :param: loop:
@@ -40,55 +39,47 @@ class AsyncRateLimiter(object):
 
     def __init__(
         self,
-        burst_size: int = 1,
-        interval: float = 60,
+        max_capacity: int = 1,
+        rate: float = 1 / 60,
         loop: asyncio.AbstractEventLoop = None,
     ) -> None:
-        self.interval = interval
-        self.burst_size = burst_size
+        self.rate = rate
+        self.max_capacity = max_capacity
         self._loop = loop or asyncio.get_event_loop()
-        self._tokens = asyncio.BoundedSemaphore(burst_size, loop=self._loop)
+        self._lock = asyncio.Lock(loop=self._loop)
+        self._tokens: float = max_capacity
         self._last_token_update = self._loop.time()
 
-    def _add_tokens(self) -> None:
+    def _update_token_count(self) -> None:
         """
         Calculates how much time has passed since the last leak and removes the
         appropriate amount of events from the queue.
         Leaking is done lazily, meaning that if there is a large time gap between
         leaks, the next set of calls might be a burst if burst_size > 1
         """
-        time_elapsed = self._loop.time() - self._last_token_update
-        amount = math.floor(time_elapsed * self.burst_size / self.interval)
-        # don't allow more tokens than burst_size to be added at once
-        amount = min(amount, self.burst_size)
-        if amount > 0:
-            self._last_token_update = self._loop.time()
-        for _ in range(amount):
-            try:
-                self._tokens.release()
-            except ValueError:
-                # we want to keep adding tokens until the semaphore reaches its upper bound
-                break
+        now = self._loop.time()
+        time_elapsed = now - self._last_token_update
+        new_tokens = time_elapsed * self.rate
+        self._tokens = min(new_tokens + self._tokens, self.max_capacity)
+        self._last_token_update = now
 
-    def _token_acquired(self, waiter_task: asyncio.Task) -> bool:
+    async def _wait_for_next_token(self) -> None:
         """
-        Releases tasks out of the queue if enough time has elapsed.
+        Wait until enough time has elapsed to add another token.
         """
-        self._add_tokens()
-        return waiter_task.done()
+        token_deficit = 1 - self._tokens
+        if token_deficit > 0:
+            wait_time = token_deficit / self.rate
+            await asyncio.sleep(wait_time, loop=self._loop)
 
     async def acquire(self) -> None:
         """
-        Adds an event to the queue and creates a waiter task to wait
-        for the event's turn in the queue.
+        Waits for a token to become available, if necessary, then subtracts token and allows
+        request to go through.
         """
-        waiter_task = self._loop.create_task(self._tokens.acquire())
-        while not self._token_acquired(waiter_task):
-            try:
-                # await until enough time has passed that another event is released from the queue. If an event is released before this time, the waiter_task will complete and we will break out of the loop.
-                await asyncio.wait_for(
-                    asyncio.shield(waiter_task), timeout=self.interval / self.burst_size
-                )
-            except asyncio.TimeoutError:
-                # allow for another call to self._release_from_queue() which will remove and set events from the queue
-                pass
+        async with self._lock:
+            self._update_token_count()
+            if self._tokens < 1:
+                await self._wait_for_next_token()
+                self._update_token_count()
+            self._tokens -= 1
