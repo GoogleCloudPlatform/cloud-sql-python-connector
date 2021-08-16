@@ -15,7 +15,6 @@ limitations under the License.
 """
 import asyncio
 import math
-import time
 
 
 class AsyncRateLimiter(object):
@@ -49,7 +48,7 @@ class AsyncRateLimiter(object):
         self.burst_size = burst_size
         self._loop = loop or asyncio.get_event_loop()
         self._tokens = asyncio.BoundedSemaphore(burst_size, loop=self._loop)
-        self._last_token_update = time.time()
+        self._last_token_update = self._loop.time()
 
     def _add_tokens(self) -> None:
         """
@@ -58,12 +57,12 @@ class AsyncRateLimiter(object):
         Leaking is done lazily, meaning that if there is a large time gap between
         leaks, the next set of calls might be a burst if burst_size > 1
         """
-        time_elapsed = time.time() - self._last_token_update
+        time_elapsed = self._loop.time() - self._last_token_update
         amount = math.floor(time_elapsed * self.burst_size / self.interval)
         # don't allow more tokens than burst_size to be added at once
         amount = min(amount, self.burst_size)
         if amount > 0:
-            self._last_token_update = time.time()
+            self._last_token_update = self._loop.time()
         for _ in range(amount):
             try:
                 self._tokens.release()
