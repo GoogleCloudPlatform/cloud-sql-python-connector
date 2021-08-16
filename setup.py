@@ -41,7 +41,7 @@ with open("google/cloud/sql/connector/version.py") as fp:
     exec(fp.read(), version)
 version = version["__version__"]
 
-release_status = "Development Status :: 3 - Alpha"
+release_status = "Development Status :: 4 - Beta"
 core_dependencies = [
     "aiohttp",
     "cryptography",
@@ -63,12 +63,14 @@ setup(
     classifiers=[
         release_status,
         "Intended Audience :: Developers",
-        "Development Status :: 3 - Alpha",
+        "Development Status :: 4 - Beta",
         "Intended Audience :: Developers",
         "License :: OSI Approved :: Apache Software License",
         "Programming Language :: Python",
         "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.7",
+        "Programming Language :: Python :: 3.8",
+        "Programming Language :: Python :: 3.9",
     ],
     platforms="Posix; MacOS X; Windows",
     packages=packages,
