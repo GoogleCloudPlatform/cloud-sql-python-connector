@@ -22,8 +22,8 @@ class AsyncRateLimiter(object):
     (https://en.wikipedia.org/wiki/Token_bucket) to limit the number of function calls over a time interval using an event queue.
 
     :type max_capacity: int
-    :param: burst_size:
-        The maximum capacity of the bucket will store at any one time.
+    :param: max_capacity:
+        The maximum capacity of tokens the bucket will store at any one time.
         Default: 1
 
     :type rate: float
