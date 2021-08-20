@@ -153,6 +153,26 @@ connector.connect(
 )
 ``` 
 
+## Support policy
+
+### Major version lifecycle
+This project uses [semantic versioning](https://semver.org/), and uses the
+following lifecycle regarding support for a major version:
+
+**Active** - Active versions get all new features and security fixes (that
+wouldn’t otherwise introduce a breaking change). New major versions are
+guaranteed to be "active" for a minimum of 1 year.
+**Deprecated** - Deprecated versions continue to receive security and critical
+bug fixes, but do not receive new features. Deprecated versions will be publicly
+supported for 1 year.
+**Unsupported** - Any major version that has been deprecated for >=1 year is
+considered publicly unsupported.
+
+### Release cadence
+This project aims for a minimum monthly release cadence. If no new
+features or fixes have been added, a new PATCH version with the latest
+dependencies is released.
+
 ### Setup for development
 
 Tests can be run with `nox`. Change directory into the `cloud-sql-python-connector` and just run `nox` to run the tests.
