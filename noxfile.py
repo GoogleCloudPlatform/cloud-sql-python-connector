@@ -26,7 +26,7 @@ BLACK_PATHS = ["google", "tests"]
 if os.path.exists("samples"):
     BLACK_PATHS.append("samples")
 
-@nox.session(python="3.7")
+@nox.session
 def lint(session):
     """Run linters.
     Returns a failure if the linters find linting errors or sufficiently
@@ -43,7 +43,7 @@ def lint(session):
     session.run("twine", "check", "dist/*")
 
 
-@nox.session(python="3.6")
+@nox.session
 def blacken(session):
     """Run black.
     Format code to uniform standard.

@@ -173,24 +173,7 @@ This project aims for a minimum monthly release cadence. If no new
 features or fixes have been added, a new PATCH version with the latest
 dependencies is released.
 
-### Setup for development
+### Contributing
 
-Tests can be run with `nox`. Change directory into the `cloud-sql-python-connector` and just run `nox` to run the tests.
-
-1. Create a MySQL instance on Google Cloud SQL. Make sure to note your root password when creating the MySQL instance.
-2. When the MySQL instance has finished creating, go to the overview page and set the instance’s connection string to the environment variable MYSQL_CONNECTION_NAME using the following command:
-```
-export MYSQL_CONNECTION_NAME=your:connection:string
-```
-3. Enable SSL for your Cloud SQL instance by following [these instructions](https://cloud.google.com/sql/docs/mysql/configure-ssl-instance).
-4. Create a service account with Cloud SQL Admin and Cloud SQL Client roles, then download the key and save it in a safe location. Set the path to the json file to the environment variable GOOGLE_APPLICATION_CREDENTIALS using the following command:
-```
-export GOOGLE_APPLICATION_CREDENTIALS=/path/to/auth/./json
-```
-5. Enable the SQL Admin API.
-6. Clone the [repository](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector).
-7. Create a virtual environment and change directory into the `cloud-sql-python-connector` folder.
-8. Install the package by running the following command:
-```
-pip install .
-```
+We welcome outside contributions. Please see our 
+[Contributing Guide](CONTRIBUTING.md) for details on how best to contribute. 
