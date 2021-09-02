@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.4.0](https://www.github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v0.3.0...v0.4.0) (2021-09-02)
+
+
+### Features
+
+* add rate limiter and force refresh function ([#146](https://www.github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/146)) ([b390fac](https://www.github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/b390fac132c55a1b5bc4bfa2270b8a9d572c4f53))
+* switch development status to beta ([#149](https://www.github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/149)) ([b415e03](https://www.github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/b415e0380ccbb365640550f03c3bbc9f04d07862))
+
+
+### Documentation
+
+* Add Support policy to README ([#151](https://www.github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/151)) ([7dbc4b5](https://www.github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/7dbc4b53a28b11a3d9a91f5704b7a3fda9cd37e9))
+
 ## [0.3.0](https://www.github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v0.2.1...v0.3.0) (2021-08-03)
 
 
