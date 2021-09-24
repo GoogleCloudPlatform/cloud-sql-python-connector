@@ -112,8 +112,7 @@ connector.connect(
 Note: If specifying Private IP, your application must already be in the same VPC network as your Cloud SQL Instance.
 
 ### IAM Authentication
-Connections using [IAM database authentication](https://cloud.google.com/sql/docs/postgres/iam-logins) are supported when using the Postgres driver.
-This feature is unsupported for other drivers.
+Connections using [Automatic IAM database authentication](https://cloud.google.com/sql/docs/postgres/authentication#automatic) are supported when using the Postgres driver. This feature is unsupported for other drivers. If automatic IAM authentication is not supported for your driver, you can use [Manual IAM database authentication](https://cloud.google.com/sql/docs/postgres/authentication#manual) to connect.
 First, make sure to [configure your Cloud SQL Instance to allow IAM authentication](https://cloud.google.com/sql/docs/postgres/create-edit-iam-instances#configure-iam-db-instance) and [add an IAM database user](https://cloud.google.com/sql/docs/postgres/create-manage-iam-users#creating-a-database-user).
 Now, you can connect using user or service account credentials instead of a password.
 In the call to connect, set the `enable_iam_auth` keyword argument to true and `user` to the email address associated with your IAM user.
