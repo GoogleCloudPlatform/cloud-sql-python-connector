@@ -3,6 +3,6 @@ cryptography==3.4.8
 PyMySQL==1.0.2
 pg8000==1.21.2
 python-tds==1.11.0
-pyopenssl==20.0.1
+pyopenssl==21.0.0
 Requests==2.26.0
 google-api-python-client==2.23.0
