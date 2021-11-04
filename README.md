@@ -77,6 +77,9 @@ for row in result:
     print(row)
 ```
 
+#### Using a Connection Pool (RECOMMENDED)
+The connector itself creates connection objects but does not manage database connection pooling. For this reason, it is recommended to use the connector alongside a library that can create connection pools, such as [SQLAlchemy](https://www.sqlalchemy.org/). This will allow for connections to remain open and be reused, reducing connection overhead and the number of connections needed.
+
 To use this connector with SQLAlchemy, use the `creator` argument for `sqlalchemy.create_engine`:
 ```
 def getconn() -> pymysql.connections.Connection:
@@ -94,6 +97,7 @@ engine = sqlalchemy.create_engine(
     creator=getconn,
 )
 ```
+**Note**: For more examples of using SQLAlchemy to manage connection pooling with the connector, please see [SQLAlchemy Samples](https://github.com/GoogleCloudPlatform/python-docs-samples/tree/master/cloud-sql).
 
 **Note for SQL Server users**: If your SQL Server instance requires SSL, you need to download the CA certificate for your instance and include `cafile={path to downloaded certificate}` and `validate_host=False`. This is a workaround for a [known issue](https://issuetracker.google.com/184867147).
 
