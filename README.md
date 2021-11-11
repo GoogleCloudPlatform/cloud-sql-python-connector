@@ -57,8 +57,8 @@ In the connector's `connect` method below, input your connection string as the f
 
 To use this connector with SQLAlchemy, use the `creator` argument for `sqlalchemy.create_engine`:
 ```
-def getconn():
-    conn = connector.connect(
+def getconn() -> pymysql.connections.Connection:
+    conn: pymysql.connections.Connection = connector.connect(
         "project:region:instance",
         "pymysql",
         user="root",
