@@ -96,35 +96,6 @@ with pool.connect() as db_conn:
 
 **Note for SQL Server users**: If your SQL Server instance requires SSL, you need to download the CA certificate for your instance and include `cafile={path to downloaded certificate}` and `validate_host=False`. This is a workaround for a [known issue](https://issuetracker.google.com/184867147).
 
-#### Using the Connector Without Connecting Pooling
-The connector can also be used as is without a connection pooling library. However, the above approach is recommended for almost all use-cases.
-
-Connector usage without connection pooling:
-```
-conn = connector.connect(
-    "project:region:instance",
-    "pymysql",
-    user="root",
-    password="shhh",
-    db="your-db-name"
-... insert other kwargs ...
-)
-```
-
-The returned DB-API 2.0 compliant connection object can then be used to query and modify the database:
-```
-# Execute a query
-cursor = conn.cursor()
-cursor.execute("SELECT * from my_table")
-
-# Fetch the results
-result = cursor.fetchall()
-
-# Do something with the results
-for row in result:
-    print(row)
-```
-
 ### Specifying Public or Private IP
 The Cloud SQL Connector for Python can be used to connect to Cloud SQL instances using both public and private IP addresses. To specify which IP address to use to connect, set the `ip_type` keyword argument Possible values are `IPTypes.PUBLIC` and `IPTypes.PRIVATE`.
 Example:
