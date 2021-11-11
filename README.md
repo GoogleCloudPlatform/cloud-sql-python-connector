@@ -45,37 +45,15 @@ pip install git+https://github.com/GoogleCloudPlatform/cloud-sql-python-connecto
 
 ### How to use this connector
 
-To use the connector: import the connector by including the following statement at the top of your Python file:
+To use the connector: import the connector and SQLAlchemy by including the following statements at the top of your Python file:
 ```Python
 from google.cloud.sql.connector import connector
+import sqlalchemy
 ```
 
-Use the connector to create a connection object by calling the connect method. Input your connection string as the first positional argument and the name of the database driver for the second positional argument. Insert the rest of your connection keyword arguments like user, password and database. You can also set the optional `timeout` or `ip_type` keyword arguments.
+The connector itself creates connection objects by calling its `connect` method but does not manage database connection pooling. For this reason, it is recommended to use the connector alongside a library that can create connection pools, such as [SQLAlchemy](https://www.sqlalchemy.org/). This will allow for connections to remain open and be reused, reducing connection overhead and the number of connections needed.
 
-```
-conn = connector.connect(
-    "project:region:instance",
-    "pymysql",
-    user="root",
-    password="shhh",
-    db="your-db-name"
-... insert other kwargs ...
-)
-```
-
-The returned DB-API 2.0 compliant connection object can then be used to query and modify the database:
-```
-# Execute a query
-cursor = conn.cursor()
-cursor.execute("SELECT * from my_table")
-
-# Fetch the results
-result = cursor.fetchall()
-
-# Do something with the results
-for row in result:
-    print(row)
-```
+In the connector's `connect` method below, input your connection string as the first positional argument and the name of the database driver for the second positional argument. Insert the rest of your connection keyword arguments like user, password and database. You can also set the optional `timeout` or `ip_type` keyword arguments.
 
 To use this connector with SQLAlchemy, use the `creator` argument for `sqlalchemy.create_engine`:
 ```
@@ -89,11 +67,32 @@ def getconn() -> pymysql.connections.Connection:
     )
     return conn
 
-engine = sqlalchemy.create_engine(
+pool = sqlalchemy.create_engine(
     "mysql+pymysql://",
     creator=getconn,
 )
 ```
+
+The returned connection pool engine can then be used to query and modify the database.
+```
+# insert statement
+insert_stmt = sqlalchemy.text(
+    "INSERT INTO my_table (id, title) VALUES (:id, :title)",
+)
+
+with pool.connect() as db_conn:
+    # insert into database
+    db_conn.execute(insert_stmt, id="book1", title="Book One")
+
+    # query database
+    result = db_conn.execute("SELECT * from my_table").fetchall()
+
+    # Do something with the results
+    for row in result:
+        print(row)
+```
+
+**Note**: For more examples of using SQLAlchemy to manage connection pooling with the connector, please see [Cloud SQL SQLAlchemy Samples](https://cloud.google.com/sql/docs/postgres/connect-connectors#python_1).
 
 **Note for SQL Server users**: If your SQL Server instance requires SSL, you need to download the CA certificate for your instance and include `cafile={path to downloaded certificate}` and `validate_host=False`. This is a workaround for a [known issue](https://issuetracker.google.com/184867147).
 
