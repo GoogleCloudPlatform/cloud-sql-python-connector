@@ -1,7 +1,7 @@
 aiohttp==3.8.1
 cryptography==35.0.0
 PyMySQL==1.0.2
-pg8000==1.22.1
+pg8000==1.23.0
 python-tds==1.11.0
 pyopenssl==21.0.0
 Requests==2.26.0
