@@ -40,7 +40,7 @@ async def _get_metadata(
     authority of the Cloud SQL Instance.
 
     :type credentials: google.oauth2.service_account.Credentials
-    :param service:
+    :param credentials:
         A credentials object created from the google-auth Python library.
         Must have the SQL Admin API scopes. For more info check out
         https://google-auth.readthedocs.io/en/latest/.
@@ -49,8 +49,8 @@ async def _get_metadata(
     :param project:
         A string representing the name of the project.
 
-    :type inst_name: str
-    :param project: A string representing the name of the instance.
+    :type instance: str
+    :param instance: A string representing the name of the instance.
 
     :rtype: Dict[str: Union[Dict, str]]
     :returns: Returns a dictionary containing a dictionary of all IP
