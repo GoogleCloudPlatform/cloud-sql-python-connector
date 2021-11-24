@@ -154,7 +154,7 @@ async def _get_ephemeral(
         "Authorization": f"Bearer {credentials.token}",
     }
 
-    url = "https://www.googleapis.com/sql/{}/projects/{}/instances/{}/createEphemeral".format(
+    url = "https://sqladmin.googleapis.com/sql/{}/projects/{}/instances/{}:generateEphemeralCert".format(
         _sql_api_version, project, instance
     )
 
@@ -171,4 +171,4 @@ async def _get_ephemeral(
 
     ret_dict = json.loads(await resp.text())
 
-    return ret_dict["cert"]
+    return ret_dict["ephemeralCert"]["cert"]
