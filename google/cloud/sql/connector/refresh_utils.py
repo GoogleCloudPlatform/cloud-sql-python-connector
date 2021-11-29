@@ -79,7 +79,7 @@ async def _get_metadata(
         "Authorization": "Bearer {}".format(credentials.token),
     }
 
-    url = "https://www.googleapis.com/sql/{}/projects/{}/instances/{}".format(
+    url = "https://sqladmin.googleapis.com/sql/{}/projects/{}/instances/{}/connectSettings".format(
         _sql_api_version, project, instance
     )
 
