@@ -67,8 +67,8 @@ async def _get_metadata(
     ):
         raise TypeError(
             "Arguments must be as follows: "
-            + "service (googleapiclient.discovery.Resource), "
-            + "proj_name (str) and inst_name (str)."
+            + "credentials (google.oauth2.service_account.Credentials), "
+            + "project (str) and instance (str)."
         )
 
     if not credentials.valid:
