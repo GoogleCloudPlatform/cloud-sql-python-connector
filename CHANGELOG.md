@@ -1,5 +1,12 @@
 # Changelog
 
+### [0.4.3](https://www.github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v0.4.2...v0.4.3) (2021-12-07)
+
+
+### Documentation
+
+* update README with connection pooling ([#196](https://www.github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/196)) ([af05cf5](https://www.github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/af05cf532566d5b8ef2e5930d05a8f4fb5979b48))
+
 ### [0.4.2](https://www.github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v0.4.1...v0.4.2) (2021-11-02)
 
 
