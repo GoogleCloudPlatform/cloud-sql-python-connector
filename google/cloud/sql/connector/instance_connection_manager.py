@@ -49,6 +49,7 @@ if TYPE_CHECKING:
     import pymysql
     import pg8000
     import pytds
+    import aiomysql
 logger = logging.getLogger(name=__name__)
 
 APPLICATION_NAME = "cloud-sql-python-connector"
@@ -524,6 +525,7 @@ class InstanceConnectionManager:
             "pymysql": self._connect_with_pymysql,
             "pg8000": self._connect_with_pg8000,
             "pytds": self._connect_with_pytds,
+            "aiomysql": self._connect_with_aiomysql,
         }
 
         instance_data: InstanceMetadata
@@ -573,6 +575,40 @@ class InstanceConnectionManager:
 
         # Create pymysql connection object and hand in pre-made connection
         conn = pymysql.Connection(host=ip_address, defer_connect=True, **kwargs)
+        conn.connect(sock)
+        return conn
+
+    def _connect_with_aiomysql(
+        self, ip_address: str, ctx: ssl.SSLContext, **kwargs: Any
+    ) -> "pymysql.connections.Connection":
+        """Helper function to create a aiomysql DB-API connection object.
+
+        :type ip_address: str
+        :param ip_address: A string containing an IP address for the Cloud SQL
+            instance.
+
+        :type ctx: ssl.SSLContext
+        :param ctx: An SSLContext object created from the Cloud SQL server CA
+            cert and ephemeral cert.
+
+        :rtype: aiomysql.Connection
+        :returns: A aiomysql Connection object for the Cloud SQL instance.
+        """
+        try:
+            import aiomysql
+        except ImportError:
+            raise ImportError(
+                'Unable to import module "aiomysql." Please install and try again.'
+            )
+
+        # Create socket and wrap with context.
+        sock = ctx.wrap_socket(
+            socket.create_connection((ip_address, SERVER_PROXY_PORT)),
+            server_hostname=ip_address,
+        )
+
+        # Create pymysql connection object and hand in pre-made connection
+        conn = aiomysql.Connection(host=ip_address, **kwargs)
         conn.connect(sock)
         return conn
 
