@@ -27,13 +27,17 @@ from typing import Any, Dict, Optional
 
 logger = logging.getLogger(name=__name__)
 
-class Connector():
-    def __init__(self, **cfg):
-        # This thread is used to background processing
+
+class Connector:
+    def __init__(self, **config: Any):
+        # This thread is used for background processing
         self._thread: Optional[Thread] = None
         self._loop: Optional[asyncio.AbstractEventLoop] = None
         self._keys: Optional[concurrent.futures.Future] = None
         self._instances: Dict[str, InstanceConnectionManager] = {}
+
+        # check for timeout, default to 30s
+        self._timeout = config.get("timeout", 30)
 
     def _get_loop(self) -> asyncio.AbstractEventLoop:
         if self._loop is None:
@@ -111,7 +115,7 @@ class Connector():
         elif "connect_timeout" in kwargs:
             timeout = kwargs["connect_timeout"]
         else:
-            timeout = 30  # 30s
+            timeout = self._timeout
         try:
             return icm.connect(driver, ip_types, timeout, **kwargs)
         except Exception as e:
@@ -119,7 +123,9 @@ class Connector():
             icm.force_refresh()
             raise (e)
 
+
 _default_connector: Optional[Connector] = None
+
 
 def connect(
     instance_connection_string: str,
@@ -162,4 +168,6 @@ def connect(
     global _default_connector
     if _default_connector is None:
         _default_connector = Connector()
-    return _default_connector.connect(instance_connection_string, driver, ip_types, enable_iam_auth, **kwargs)
+    return _default_connector.connect(
+        instance_connection_string, driver, ip_types, enable_iam_auth, **kwargs
+    )
