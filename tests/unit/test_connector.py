@@ -43,7 +43,9 @@ def test_connect_timeout(
 
     mock_instances = {}
     mock_instances[connect_string] = icm
-    with patch.dict(connector._instances, mock_instances):
+    mock_connector = connector.Connector()
+    connector._default_connector = mock_connector
+    with patch.dict(mock_connector._instances, mock_instances):
         pytest.raises(
             TimeoutError,
             connector.connect,
