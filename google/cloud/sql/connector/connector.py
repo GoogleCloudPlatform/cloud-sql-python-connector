@@ -51,13 +51,14 @@ class Connector:
         ip_types: IPTypes = IPTypes.PUBLIC,
         enable_iam_auth: bool = False,
         timeout: int = 30,
-    ):
+    ) -> None:
         # This thread is used for background processing
         self._thread: Optional[Thread] = None
         self._loop: Optional[asyncio.AbstractEventLoop] = None
         self._keys: Optional[concurrent.futures.Future] = None
         self._instances: Dict[str, InstanceConnectionManager] = {}
 
+        # set default params for connections
         self._timeout = timeout
         self._enable_iam_auth = enable_iam_auth
         self._ip_types = ip_types
