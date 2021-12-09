@@ -142,8 +142,6 @@ _default_connector: Optional[Connector] = None
 def connect(
     instance_connection_string: str,
     driver: str,
-    ip_types: IPTypes = IPTypes.PUBLIC,
-    enable_iam_auth: bool = False,
     **kwargs: Any
 ) -> Any:
     """Creates default Connector object and returns a database connection object
@@ -162,14 +160,6 @@ def connect(
         A string representing the driver to connect with. Supported drivers are
         pymysql, pg8000, and pytds.
 
-    :type ip_types: IPTypes
-        The IP type (public or private)  used to connect. IP types
-        can be either IPTypes.PUBLIC or IPTypes.PRIVATE.
-
-    :param enable_iam_auth
-    Enables IAM based authentication (Postgres only).
-    :type enable_iam_auth: bool
-
     :param kwargs:
         Pass in any driver-specific arguments needed to connect to the Cloud
         SQL instance.
@@ -182,5 +172,5 @@ def connect(
     if _default_connector is None:
         _default_connector = Connector()
     return _default_connector.connect(
-        instance_connection_string, driver, ip_types, enable_iam_auth, **kwargs
+        instance_connection_string, driver, **kwargs
     )
