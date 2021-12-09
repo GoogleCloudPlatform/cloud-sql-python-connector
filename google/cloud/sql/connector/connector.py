@@ -29,15 +29,38 @@ logger = logging.getLogger(name=__name__)
 
 
 class Connector:
-    def __init__(self, **config: Any):
+    """A class to configure and create connections to Cloud SQL instances.
+
+    :type ip_types: IPTypes
+    :param ip_types
+        The IP type (public or private)  used to connect. IP types
+        can be either IPTypes.PUBLIC or IPTypes.PRIVATE.
+
+    :type enable_iam_auth: bool
+    :param enable_iam_auth
+        Enables IAM based authentication (Postgres only).
+
+    :type timeout: int
+    :param timeout:
+        The time limit for a connection before raising a TimeoutError.
+
+    """
+
+    def __init__(
+        self,
+        ip_types: IPTypes = IPTypes.PUBLIC,
+        enable_iam_auth: bool = False,
+        timeout: int = 30,
+    ):
         # This thread is used for background processing
         self._thread: Optional[Thread] = None
         self._loop: Optional[asyncio.AbstractEventLoop] = None
         self._keys: Optional[concurrent.futures.Future] = None
         self._instances: Dict[str, InstanceConnectionManager] = {}
 
-        # check for timeout, default to 30s
-        self._timeout = config.get("timeout", 30)
+        self._timeout = timeout
+        self._enable_iam_auth = enable_iam_auth
+        self._ip_types = ip_types
 
     def _get_loop(self) -> asyncio.AbstractEventLoop:
         if self._loop is None:
@@ -52,12 +75,7 @@ class Connector:
         return self._keys
 
     def connect(
-        self,
-        instance_connection_string: str,
-        driver: str,
-        ip_types: IPTypes = IPTypes.PUBLIC,
-        enable_iam_auth: bool = False,
-        **kwargs: Any
+        self, instance_connection_string: str, driver: str, **kwargs: Any
     ) -> Any:
         """Prepares and returns a database connection object and starts a
         background thread to refresh the certificates and metadata.
@@ -73,14 +91,6 @@ class Connector:
         :param: driver:
             A string representing the driver to connect with. Supported drivers are
             pymysql, pg8000, and pytds.
-
-        :type ip_types: IPTypes
-            The IP type (public or private)  used to connect. IP types
-            can be either IPTypes.PUBLIC or IPTypes.PRIVATE.
-
-        :param enable_iam_auth
-        Enables IAM based authentication (Postgres only).
-        :type enable_iam_auth: bool
 
         :param kwargs:
             Pass in any driver-specific arguments needed to connect to the Cloud
@@ -105,11 +115,13 @@ class Connector:
             icm = self._instances[instance_connection_string]
         else:
             keys = self._get_keys(loop)
+            enable_iam_auth = kwargs.get("enable_iam_auth", self._enable_iam_auth)
             icm = InstanceConnectionManager(
                 instance_connection_string, driver, keys, loop, enable_iam_auth
             )
             self._instances[instance_connection_string] = icm
 
+        ip_types = kwargs.get("ip_types", self._ip_types)
         if "timeout" in kwargs:
             return icm.connect(driver, ip_types, **kwargs)
         elif "connect_timeout" in kwargs:
@@ -134,8 +146,9 @@ def connect(
     enable_iam_auth: bool = False,
     **kwargs: Any
 ) -> Any:
-    """Prepares and returns a database connection object and starts a
-    background thread to refresh the certificates and metadata.
+    """Creates default Connector object and returns a database connection object
+    with a background thread to refresh the certificates and metadata.
+    For more advanced configurations, callers should instantiate Connector on their own.
 
     :type instance_connection_string: str
     :param instance_connection_string:
