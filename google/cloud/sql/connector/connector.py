@@ -115,13 +115,13 @@ class Connector:
             icm = self._instances[instance_connection_string]
         else:
             keys = self._get_keys(loop)
-            enable_iam_auth = kwargs.get("enable_iam_auth", self._enable_iam_auth)
+            enable_iam_auth = kwargs.pop("enable_iam_auth", self._enable_iam_auth)
             icm = InstanceConnectionManager(
                 instance_connection_string, driver, keys, loop, enable_iam_auth
             )
             self._instances[instance_connection_string] = icm
 
-        ip_types = kwargs.get("ip_types", self._ip_types)
+        ip_types = kwargs.pop("ip_types", self._ip_types)
         if "timeout" in kwargs:
             return icm.connect(driver, ip_types, **kwargs)
         elif "connect_timeout" in kwargs:
