@@ -132,8 +132,8 @@ class Connector:
 
 
 def connect(instance_connection_string: str, driver: str, **kwargs: Any) -> Any:
-    """Creates default Connector object and returns a database connection object
-    with a background thread to refresh the certificates and metadata.
+    """Uses a Connector object with default settings and returns a database 
+    connection object with a background thread to refresh the certificates and metadata.
     For more advanced configurations, callers should instantiate Connector on their own.
 
     :type instance_connection_string: str
