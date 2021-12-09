@@ -139,11 +139,7 @@ class Connector:
 _default_connector: Optional[Connector] = None
 
 
-def connect(
-    instance_connection_string: str,
-    driver: str,
-    **kwargs: Any
-) -> Any:
+def connect(instance_connection_string: str, driver: str, **kwargs: Any) -> Any:
     """Creates default Connector object and returns a database connection object
     with a background thread to refresh the certificates and metadata.
     For more advanced configurations, callers should instantiate Connector on their own.
@@ -171,6 +167,4 @@ def connect(
     global _default_connector
     if _default_connector is None:
         _default_connector = Connector()
-    return _default_connector.connect(
-        instance_connection_string, driver, **kwargs
-    )
+    return _default_connector.connect(instance_connection_string, driver, **kwargs)
