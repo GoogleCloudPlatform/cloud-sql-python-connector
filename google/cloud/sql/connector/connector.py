@@ -23,16 +23,18 @@ from google.cloud.sql.connector.instance_connection_manager import (
 from google.cloud.sql.connector.utils import generate_keys
 
 from threading import Thread
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 logger = logging.getLogger(name=__name__)
+
+_default_connector = None
 
 
 class Connector:
     """A class to configure and create connections to Cloud SQL instances.
 
-    :type ip_types: IPTypes
-    :param ip_types
+    :type ip_type: IPTypes
+    :param ip_type
         The IP type (public or private)  used to connect. IP types
         can be either IPTypes.PUBLIC or IPTypes.PRIVATE.
 
@@ -48,32 +50,22 @@ class Connector:
 
     def __init__(
         self,
-        ip_types: IPTypes = IPTypes.PUBLIC,
+        ip_type: IPTypes = IPTypes.PUBLIC,
         enable_iam_auth: bool = False,
         timeout: int = 30,
     ) -> None:
-        # This thread is used for background processing
-        self._thread: Optional[Thread] = None
-        self._loop: Optional[asyncio.AbstractEventLoop] = None
-        self._keys: Optional[concurrent.futures.Future] = None
+        self._loop: asyncio.AbstractEventLoop = asyncio.new_event_loop()
+        self._thread: Thread = Thread(target=self._loop.run_forever, daemon=True)
+        self._thread.start()
+        self._keys: concurrent.futures.Future = asyncio.run_coroutine_threadsafe(
+            generate_keys(), self._loop
+        )
         self._instances: Dict[str, InstanceConnectionManager] = {}
 
         # set default params for connections
         self._timeout = timeout
         self._enable_iam_auth = enable_iam_auth
-        self._ip_types = ip_types
-
-    def _get_loop(self) -> asyncio.AbstractEventLoop:
-        if self._loop is None:
-            self._loop = asyncio.new_event_loop()
-            self._thread = Thread(target=self._loop.run_forever, daemon=True)
-            self._thread.start()
-        return self._loop
-
-    def _get_keys(self, loop: asyncio.AbstractEventLoop) -> concurrent.futures.Future:
-        if self._keys is None:
-            self._keys = asyncio.run_coroutine_threadsafe(generate_keys(), loop)
-        return self._keys
+        self._ip_type = ip_type
 
     def connect(
         self, instance_connection_string: str, driver: str, **kwargs: Any
@@ -111,33 +103,32 @@ class Connector:
         #
         # Return a DBAPI connection
 
-        loop = self._get_loop()
         if instance_connection_string in self._instances:
             icm = self._instances[instance_connection_string]
         else:
-            keys = self._get_keys(loop)
             enable_iam_auth = kwargs.pop("enable_iam_auth", self._enable_iam_auth)
             icm = InstanceConnectionManager(
-                instance_connection_string, driver, keys, loop, enable_iam_auth
+                instance_connection_string,
+                driver,
+                self._keys,
+                self._loop,
+                enable_iam_auth,
             )
             self._instances[instance_connection_string] = icm
 
-        ip_types = kwargs.pop("ip_types", self._ip_types)
+        ip_type = kwargs.pop("ip_types", self._ip_type)
         if "timeout" in kwargs:
-            return icm.connect(driver, ip_types, **kwargs)
+            return icm.connect(driver, ip_type, **kwargs)
         elif "connect_timeout" in kwargs:
             timeout = kwargs["connect_timeout"]
         else:
             timeout = self._timeout
         try:
-            return icm.connect(driver, ip_types, timeout, **kwargs)
+            return icm.connect(driver, ip_type, timeout, **kwargs)
         except Exception as e:
             # with any other exception, we attempt a force refresh, then throw the error
             icm.force_refresh()
             raise (e)
-
-
-_default_connector: Optional[Connector] = None
 
 
 def connect(instance_connection_string: str, driver: str, **kwargs: Any) -> Any:
