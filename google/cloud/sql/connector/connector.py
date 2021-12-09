@@ -132,7 +132,7 @@ class Connector:
 
 
 def connect(instance_connection_string: str, driver: str, **kwargs: Any) -> Any:
-    """Uses a Connector object with default settings and returns a database 
+    """Uses a Connector object with default settings and returns a database
     connection object with a background thread to refresh the certificates and metadata.
     For more advanced configurations, callers should instantiate Connector on their own.
 
