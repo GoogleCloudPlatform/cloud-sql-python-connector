@@ -117,7 +117,7 @@ class Connector:
             self._instances[instance_connection_string] = icm
 
         if "ip_types" in kwargs:
-            ip_type = kwargs["ip_types"]
+            ip_type = kwargs.pop("ip_types")
             logger.warning(
                 "Deprecation Warning: Parameter `ip_types` is deprecated and may be removed"
                 "in a future release. Please use `ip_type` instead."
