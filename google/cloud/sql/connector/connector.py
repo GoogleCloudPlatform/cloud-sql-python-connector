@@ -33,8 +33,8 @@ _default_connector = None
 class Connector:
     """A class to configure and create connections to Cloud SQL instances.
 
-    :type ip_types: IPTypes
-    :param ip_types
+    :type ip_type: IPTypes
+    :param ip_type
         The IP type (public or private)  used to connect. IP types
         can be either IPTypes.PUBLIC or IPTypes.PRIVATE.
 
@@ -50,7 +50,7 @@ class Connector:
 
     def __init__(
         self,
-        ip_types: IPTypes = IPTypes.PUBLIC,
+        ip_type: IPTypes = IPTypes.PUBLIC,
         enable_iam_auth: bool = False,
         timeout: int = 30,
     ) -> None:
@@ -65,7 +65,7 @@ class Connector:
         # set default params for connections
         self._timeout = timeout
         self._enable_iam_auth = enable_iam_auth
-        self._ip_types = ip_types
+        self._ip_type = ip_type
 
     def connect(
         self, instance_connection_string: str, driver: str, **kwargs: Any
@@ -116,15 +116,22 @@ class Connector:
             )
             self._instances[instance_connection_string] = icm
 
-        ip_types = kwargs.pop("ip_types", self._ip_types)
+        if "ip_types" in kwargs:
+            ip_type = kwargs["ip_types"]
+            logger.warning(
+                "Deprecation Warning: Parameter `ip_types` is deprecated and may be removed"
+                "in a future release. Please use `ip_type` instead."
+            )
+        else:
+            ip_type = kwargs.pop("ip_type", self._ip_type)
         if "timeout" in kwargs:
-            return icm.connect(driver, ip_types, **kwargs)
+            return icm.connect(driver, ip_type, **kwargs)
         elif "connect_timeout" in kwargs:
             timeout = kwargs["connect_timeout"]
         else:
             timeout = self._timeout
         try:
-            return icm.connect(driver, ip_types, timeout, **kwargs)
+            return icm.connect(driver, ip_type, timeout, **kwargs)
         except Exception as e:
             # with any other exception, we attempt a force refresh, then throw the error
             icm.force_refresh()
