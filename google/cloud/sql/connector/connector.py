@@ -21,9 +21,9 @@ from google.cloud.sql.connector.instance_connection_manager import (
     IPTypes,
 )
 from google.cloud.sql.connector.utils import generate_keys
-
+from google.auth.credentials import Credentials
 from threading import Thread
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Union
 
 logger = logging.getLogger(name=__name__)
 
@@ -46,11 +46,10 @@ class Connector:
     :param timeout
         The time limit for a connection before raising a TimeoutError.
 
-    :type service_account_file: Optional (str)
-    :param service_account_file
+    :type service_account_creds: Optional (str)
+    :param service_account_creds
         Path to JSON service account key file to be used for authentication.
         If not specified, Application Default Credentials are used.
-
     """
 
     def __init__(
@@ -58,7 +57,7 @@ class Connector:
         ip_types: IPTypes = IPTypes.PUBLIC,
         enable_iam_auth: bool = False,
         timeout: int = 30,
-        service_account_file: Optional[str] = None,
+        service_account_creds: Union[str, Credentials, None] = None,
     ) -> None:
         self._loop: asyncio.AbstractEventLoop = asyncio.new_event_loop()
         self._thread: Thread = Thread(target=self._loop.run_forever, daemon=True)
@@ -72,7 +71,7 @@ class Connector:
         self._timeout = timeout
         self._enable_iam_auth = enable_iam_auth
         self._ip_types = ip_types
-        self._service_account_file = service_account_file
+        self._service_account_creds = service_account_creds
 
     def connect(
         self, instance_connection_string: str, driver: str, **kwargs: Any
@@ -119,7 +118,7 @@ class Connector:
                 driver,
                 self._keys,
                 self._loop,
-                self._service_account_file,
+                self._service_account_creds,
                 enable_iam_auth,
             )
             self._instances[instance_connection_string] = icm
