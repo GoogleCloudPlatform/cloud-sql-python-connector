@@ -229,6 +229,7 @@ class InstanceConnectionManager:
         driver_name: str,
         keys: concurrent.futures.Future,
         loop: asyncio.AbstractEventLoop,
+        service_account_file: Optional[str],
         enable_iam_auth: bool = False,
     ) -> None:
         # Validate connection string
@@ -250,7 +251,7 @@ class InstanceConnectionManager:
         self._user_agent_string = f"{APPLICATION_NAME}/{version}+{driver_name}"
         self._loop = loop
         self._keys = asyncio.wrap_future(keys, loop=self._loop)
-        self._auth_init()
+        self._auth_init(service_account_file)
 
         self._refresh_rate_limiter = AsyncRateLimiter(
             max_capacity=2, rate=1 / 30, loop=self._loop
@@ -343,17 +344,25 @@ class InstanceConnectionManager:
             self._enable_iam_auth,
         )
 
-    def _auth_init(self) -> None:
+    def _auth_init(self, service_account_file) -> None:
         """Creates and assigns a Google Python API service object for
         Google Cloud SQL Admin API.
-        """
 
-        credentials, project = google.auth.default(
-            scopes=[
-                "https://www.googleapis.com/auth/sqlservice.admin",
-                "https://www.googleapis.com/auth/cloud-platform",
-            ]
-        )
+        :type service_account_file: Optional (str)
+        :param service_account_file
+            Path to JSON service account key file to be used for authentication.
+            If not specified, Application Default Credentials are used.
+        """
+        scopes = [
+            "https://www.googleapis.com/auth/sqlservice.admin",
+            "https://www.googleapis.com/auth/cloud-platform",
+        ]
+        if service_account_file:
+            credentials, project = google.auth.load_credentials_from_file(
+                filename=service_account_file, scopes=scopes
+            )
+        else:
+            credentials, project = google.auth.default(scopes=scopes)
 
         self._credentials = credentials
 

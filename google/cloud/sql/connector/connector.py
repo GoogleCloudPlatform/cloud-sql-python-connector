@@ -23,7 +23,7 @@ from google.cloud.sql.connector.instance_connection_manager import (
 from google.cloud.sql.connector.utils import generate_keys
 
 from threading import Thread
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 logger = logging.getLogger(name=__name__)
 
@@ -43,8 +43,13 @@ class Connector:
         Enables IAM based authentication (Postgres only).
 
     :type timeout: int
-    :param timeout:
+    :param timeout
         The time limit for a connection before raising a TimeoutError.
+
+    :type service_account_file: Optional (str)
+    :param service_account_file
+        Path to JSON service account key file to be used for authentication.
+        If not specified, Application Default Credentials are used.
 
     """
 
@@ -53,6 +58,7 @@ class Connector:
         ip_types: IPTypes = IPTypes.PUBLIC,
         enable_iam_auth: bool = False,
         timeout: int = 30,
+        service_account_file: Optional[str] = None,
     ) -> None:
         self._loop: asyncio.AbstractEventLoop = asyncio.new_event_loop()
         self._thread: Thread = Thread(target=self._loop.run_forever, daemon=True)
@@ -66,6 +72,7 @@ class Connector:
         self._timeout = timeout
         self._enable_iam_auth = enable_iam_auth
         self._ip_types = ip_types
+        self._service_account_file = service_account_file
 
     def connect(
         self, instance_connection_string: str, driver: str, **kwargs: Any
@@ -112,6 +119,7 @@ class Connector:
                 driver,
                 self._keys,
                 self._loop,
+                self._service_account_file,
                 enable_iam_auth,
             )
             self._instances[instance_connection_string] = icm
