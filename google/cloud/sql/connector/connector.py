@@ -46,9 +46,11 @@ class Connector:
     :param timeout
         The time limit for a connection before raising a TimeoutError.
 
-    :type service_account_creds: Optional (str)
+    :type service_account_creds:
+        Optional [str | google.auth.credentials.Credentials]
     :param service_account_creds
-        Path to JSON service account key file to be used for authentication.
+        Path to JSON service account key file to be used for authentication
+        or google.auth.credentials.Credentials object.
         If not specified, Application Default Credentials are used.
     """
 

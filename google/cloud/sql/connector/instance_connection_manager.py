@@ -377,8 +377,7 @@ class InstanceConnectionManager:
         """Creates and assigns a Google Python API service object for
         Google Cloud SQL Admin API.
 
-        :type service_account_creds:
-            Optional [str | google.auth.credentials.Credentials]
+        :type service_account_creds: str | google.auth.credentials.Credentials | None
         :param service_account_creds
             Path to JSON service account key file to be used for authentication
             or google.auth.credentials.Credentials object.
