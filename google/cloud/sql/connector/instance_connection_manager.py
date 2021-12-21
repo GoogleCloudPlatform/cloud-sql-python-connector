@@ -118,6 +118,15 @@ class PlatformNotSupportedError(Exception):
         super(PlatformNotSupportedError, self).__init__(self, *args)
 
 
+class ServiceAccountCredentialsTypeError(Exception):
+    """
+    Raised when service account credentials type is not proper type.
+    """
+
+    def __init__(self, *args: Any) -> None:
+        super(ServiceAccountCredentialsTypeError, self).__init__(self, *args)
+
+
 class InstanceMetadata:
     ip_addrs: Dict[str, Any]
     context: ssl.SSLContext
@@ -177,6 +186,13 @@ class InstanceConnectionManager:
     :param user_agent_string:
         The user agent string to append to SQLAdmin API requests
     :type user_agent_string: str
+
+    :type service_account_creds:
+        Optional [str | google.auth.credentials.Credentials]
+    :param service_account_creds
+        Path to JSON service account key file to be used for authentication
+        or google.auth.credentials.Credentials object.
+        If not specified, Application Default Credentials are used.
 
     :param enable_iam_auth
         Enables IAM based authentication for Postgres instances.
@@ -252,6 +268,18 @@ class InstanceConnectionManager:
         self._user_agent_string = f"{APPLICATION_NAME}/{version}+{driver_name}"
         self._loop = loop
         self._keys = asyncio.wrap_future(keys, loop=self._loop)
+        # validate credentials type
+        if (
+            not isinstance(service_account_creds, str)
+            and not isinstance(service_account_creds, Credentials)
+            and service_account_creds is not None
+        ):
+            raise ServiceAccountCredentialsTypeError(
+                "Arg service_account_creds must be type 'str' (path to valid credentials "
+                "key file), or type 'google.auth.credentials.Credentials' or None "
+                "(Application Default Credentials)"
+            )
+
         self._auth_init(service_account_creds)
 
         self._refresh_rate_limiter = AsyncRateLimiter(
