@@ -15,7 +15,6 @@ limitations under the License.
 """
 
 import asyncio
-from unittest import mock
 from unittest.mock import Mock, patch
 import datetime
 from google.cloud.sql.connector.rate_limiter import AsyncRateLimiter
