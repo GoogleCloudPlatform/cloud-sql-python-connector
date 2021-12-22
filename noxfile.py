@@ -81,17 +81,17 @@ def default(session, path):
     )
 
 
-@nox.session(python=["3.6", "3.7", "3.8", "3.9"])
+@nox.session(python=["3.6", "3.7", "3.8", "3.9", "3.10"])
 def unit(session):
     default(session, os.path.join("tests", "unit"))
 
 
-@nox.session(python=["3.6", "3.7", "3.8", "3.9"])
+@nox.session(python=["3.6", "3.7", "3.8", "3.9", "3.10"])
 def system(session):
     default(session, os.path.join("tests", "system"))
 
 
-@nox.session(python=["3.6", "3.7", "3.8", "3.9"])
+@nox.session(python=["3.6", "3.7", "3.8", "3.9", "3.10"])
 def test(session):
     default(session, os.path.join("tests", "unit"))
     default(session, os.path.join("tests", "system"))
