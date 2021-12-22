@@ -21,6 +21,7 @@ from google.cloud.sql.connector.utils import write_to_file
 from google.cloud.sql.connector.version import __version__ as version
 
 # Importing libraries
+import sys
 import asyncio
 import aiohttp
 import concurrent
@@ -258,7 +259,11 @@ class InstanceConnectionManager:
 
         async def _set_instance_data() -> None:
             logger.debug("Updating instance data")
-            self._refresh_in_progress = asyncio.locks.Event()
+            # set based on python version
+            if sys.version_info[:3] >= (3, 8):
+                self._refresh_in_progress = asyncio.locks.Event()
+            else:
+                self._refresh_in_progress = asyncio.locks.Event(loop=self._loop)
             self._current = self._loop.create_task(self._get_instance_data())
             self._next = self._loop.create_task(self._schedule_refresh())
 
