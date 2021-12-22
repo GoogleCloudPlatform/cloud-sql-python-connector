@@ -373,7 +373,7 @@ class InstanceConnectionManager:
             self._enable_iam_auth,
         )
 
-    def _auth_init(self, service_account_creds) -> None:
+    def _auth_init(self, service_account_creds: Union[str, Credentials, None]) -> None:
         """Creates and assigns a Google Python API service object for
         Google Cloud SQL Admin API.
 
