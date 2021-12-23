@@ -208,7 +208,7 @@ def test_auth_init_with_credentials_object(
         "google.cloud.sql.connector.instance_connection_manager.with_scopes_if_required"
     ) as mock_auth:
         mock_auth.return_value = mock_credentials
-        icm._auth_init(service_account_creds=mock_credentials)
+        icm._auth_init(credentials=mock_credentials)
         assert isinstance(icm._credentials, Credentials)
         mock_auth.assert_called_once()
 
@@ -223,6 +223,6 @@ def test_auth_init_with_default_credentials(
     setattr(icm, "_credentials", None)
     with patch("google.auth.default") as mock_auth:
         mock_auth.return_value = mock_credentials, None
-        icm._auth_init(service_account_creds=None)
+        icm._auth_init(credentials=None)
         assert isinstance(icm._credentials, Credentials)
         mock_auth.assert_called_once()
