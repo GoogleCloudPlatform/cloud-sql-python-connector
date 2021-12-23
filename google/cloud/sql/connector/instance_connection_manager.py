@@ -39,7 +39,6 @@ from typing import (
     Awaitable,
     Dict,
     Optional,
-    Union,
     TYPE_CHECKING,
 )
 
@@ -118,13 +117,13 @@ class PlatformNotSupportedError(Exception):
         super(PlatformNotSupportedError, self).__init__(self, *args)
 
 
-class ServiceAccountCredentialsTypeError(Exception):
+class CredentialsTypeError(Exception):
     """
-    Raised when service account credentials type is not proper type.
+    Raised when credentials parameter is not proper type.
     """
 
     def __init__(self, *args: Any) -> None:
-        super(ServiceAccountCredentialsTypeError, self).__init__(self, *args)
+        super(CredentialsTypeError, self).__init__(self, *args)
 
 
 class InstanceMetadata:
@@ -187,11 +186,9 @@ class InstanceConnectionManager:
         The user agent string to append to SQLAdmin API requests
     :type user_agent_string: str
 
-    :type service_account_creds:
-        Optional [str | google.auth.credentials.Credentials]
-    :param service_account_creds
-        Path to JSON service account key file to be used for authentication
-        or google.auth.credentials.Credentials object.
+    :type credentials: google.auth.credentials.Credentials
+    :param credentials
+        Credentials object used to authenticate connections to Cloud SQL server.
         If not specified, Application Default Credentials are used.
 
     :param enable_iam_auth
@@ -246,7 +243,7 @@ class InstanceConnectionManager:
         driver_name: str,
         keys: concurrent.futures.Future,
         loop: asyncio.AbstractEventLoop,
-        service_account_creds: Union[str, Credentials, None] = None,
+        credentials: Optional[Credentials] = None,
         enable_iam_auth: bool = False,
     ) -> None:
         # Validate connection string
@@ -269,18 +266,13 @@ class InstanceConnectionManager:
         self._loop = loop
         self._keys = asyncio.wrap_future(keys, loop=self._loop)
         # validate credentials type
-        if (
-            not isinstance(service_account_creds, str)
-            and not isinstance(service_account_creds, Credentials)
-            and service_account_creds is not None
-        ):
-            raise ServiceAccountCredentialsTypeError(
-                "Arg service_account_creds must be type 'str' (path to valid credentials "
-                "key file), or type 'google.auth.credentials.Credentials' or None "
-                "(Application Default Credentials)"
+        if not isinstance(credentials, Credentials) and credentials is not None:
+            raise CredentialsTypeError(
+                "Arg credentials must be type 'google.auth.credentials.Credentials' "
+                "or None (to use Application Default Credentials)"
             )
 
-        self._auth_init(service_account_creds)
+        self._auth_init(credentials)
 
         self._refresh_rate_limiter = AsyncRateLimiter(
             max_capacity=2, rate=1 / 30, loop=self._loop
@@ -373,14 +365,13 @@ class InstanceConnectionManager:
             self._enable_iam_auth,
         )
 
-    def _auth_init(self, service_account_creds: Union[str, Credentials, None]) -> None:
+    def _auth_init(self, credentials: Optional[Credentials]) -> None:
         """Creates and assigns a Google Python API service object for
         Google Cloud SQL Admin API.
 
-        :type service_account_creds: str | google.auth.credentials.Credentials | None
-        :param service_account_creds
-            Path to JSON service account key file to be used for authentication
-            or google.auth.credentials.Credentials object.
+        :type credentials: google.auth.credentials.Credentials
+        :param credentials
+            Credentials object used to authenticate connections to Cloud SQL server.
             If not specified, Application Default Credentials are used.
         """
         scopes = [
@@ -388,13 +379,8 @@ class InstanceConnectionManager:
             "https://www.googleapis.com/auth/cloud-platform",
         ]
         # if Credentials object is passed in, use for authentication
-        if isinstance(service_account_creds, Credentials):
-            credentials = with_scopes_if_required(service_account_creds, scopes=scopes)
-        # if string is passed in, load credentials from file
-        elif isinstance(service_account_creds, str):
-            credentials, project = google.auth.load_credentials_from_file(
-                filename=service_account_creds, scopes=scopes
-            )
+        if isinstance(credentials, Credentials):
+            credentials = with_scopes_if_required(credentials, scopes=scopes)
         # otherwise use application default credentials
         else:
             credentials, project = google.auth.default(scopes=scopes)

@@ -23,7 +23,7 @@ import pytest  # noqa F401 Needed to run the tests
 from google.auth.credentials import Credentials
 from google.cloud.sql.connector.instance_connection_manager import (
     InstanceConnectionManager,
-    ServiceAccountCredentialsTypeError,
+    CredentialsTypeError,
 )
 from google.cloud.sql.connector.utils import generate_keys
 
@@ -81,18 +81,18 @@ def test_InstanceConnectionManager_init(async_loop: asyncio.AbstractEventLoop) -
     )
 
 
-def test_InstanceConnectionManager_init_bad_service_account_creds(
+def test_InstanceConnectionManager_init_bad_credentials(
     async_loop: asyncio.AbstractEventLoop,
 ) -> None:
     """
     Test to check whether the __init__ method of InstanceConnectionManager
-    throws proper error for bad service_account_creds arg type.
+    throws proper error for bad credentials arg type.
     """
     connect_string = "test-project:test-region:test-instance"
     keys = asyncio.run_coroutine_threadsafe(generate_keys(), async_loop)
-    with pytest.raises(ServiceAccountCredentialsTypeError):
+    with pytest.raises(CredentialsTypeError):
         assert InstanceConnectionManager(
-            connect_string, "pymysql", keys, async_loop, service_account_creds=1
+            connect_string, "pymysql", keys, async_loop, credentials=1
         )
 
 
@@ -209,21 +209,6 @@ def test_auth_init_with_credentials_object(
     ) as mock_auth:
         mock_auth.return_value = mock_credentials
         icm._auth_init(service_account_creds=mock_credentials)
-        assert isinstance(icm._credentials, Credentials)
-        mock_auth.assert_called_once()
-
-
-def test_auth_init_with_credentials_file(
-    icm: InstanceConnectionManager, mock_credentials: Credentials
-) -> None:
-    """
-    Test that InstanceConnectionManager's _auth_init initializes _credentials
-    when passed a service account key file.
-    """
-    setattr(icm, "_credentials", None)
-    with patch("google.auth.load_credentials_from_file") as mock_auth:
-        mock_auth.return_value = mock_credentials, None
-        icm._auth_init(service_account_creds="credentials.json")
         assert isinstance(icm._credentials, Credentials)
         mock_auth.assert_called_once()
 
