@@ -14,7 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 import asyncio
-import sys
 
 
 class AsyncRateLimiter(object):
@@ -48,11 +47,6 @@ class AsyncRateLimiter(object):
         self.max_capacity = max_capacity
         self._loop = loop or asyncio.get_event_loop()
         self._lock = asyncio.Lock()
-        # set based on python version
-        if sys.version_info[:3] >= (3, 8):
-            self._lock = asyncio.Lock()
-        else:
-            self._lock = asyncio.Lock(loop=self._loop)
         self._tokens: float = max_capacity
         self._last_token_update = self._loop.time()
 
