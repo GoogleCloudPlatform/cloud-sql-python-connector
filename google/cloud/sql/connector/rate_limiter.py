@@ -70,7 +70,7 @@ class AsyncRateLimiter(object):
         token_deficit = 1 - self._tokens
         if token_deficit > 0:
             wait_time = token_deficit / self.rate
-            await asyncio.sleep(wait_time, loop=self._loop)
+            await asyncio.sleep(wait_time)
 
     async def acquire(self) -> None:
         """
