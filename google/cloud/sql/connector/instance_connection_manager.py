@@ -280,7 +280,7 @@ class InstanceConnectionManager:
 
         async def _set_instance_data() -> None:
             logger.debug("Updating instance data")
-            self._refresh_in_progress = asyncio.locks.Event(loop=self._loop)
+            self._refresh_in_progress = asyncio.locks.Event()
             self._current = self._loop.create_task(self._get_instance_data())
             self._next = self._loop.create_task(self._schedule_refresh())
 
