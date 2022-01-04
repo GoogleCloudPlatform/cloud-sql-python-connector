@@ -72,7 +72,7 @@ class Connector:
         self._enable_iam_auth = enable_iam_auth
         self._ip_type = ip_type
         self._credentials = credentials
-        
+
     def connect(
         self, instance_connection_string: str, driver: str, **kwargs: Any
     ) -> Any:
