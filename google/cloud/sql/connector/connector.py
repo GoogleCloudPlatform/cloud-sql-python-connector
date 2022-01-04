@@ -21,9 +21,9 @@ from google.cloud.sql.connector.instance_connection_manager import (
     IPTypes,
 )
 from google.cloud.sql.connector.utils import generate_keys
-
+from google.auth.credentials import Credentials
 from threading import Thread
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 logger = logging.getLogger(name=__name__)
 
@@ -43,9 +43,13 @@ class Connector:
         Enables IAM based authentication (Postgres only).
 
     :type timeout: int
-    :param timeout:
+    :param timeout
         The time limit for a connection before raising a TimeoutError.
 
+    :type credentials: google.auth.credentials.Credentials
+    :param credentials
+        Credentials object used to authenticate connections to Cloud SQL server.
+        If not specified, Application Default Credentials are used.
     """
 
     def __init__(
@@ -53,6 +57,7 @@ class Connector:
         ip_types: IPTypes = IPTypes.PUBLIC,
         enable_iam_auth: bool = False,
         timeout: int = 30,
+        credentials: Optional[Credentials] = None,
     ) -> None:
         self._loop: asyncio.AbstractEventLoop = asyncio.new_event_loop()
         self._thread: Thread = Thread(target=self._loop.run_forever, daemon=True)
@@ -66,6 +71,7 @@ class Connector:
         self._timeout = timeout
         self._enable_iam_auth = enable_iam_auth
         self._ip_types = ip_types
+        self._credentials = credentials
 
     def connect(
         self, instance_connection_string: str, driver: str, **kwargs: Any
@@ -112,6 +118,7 @@ class Connector:
                 driver,
                 self._keys,
                 self._loop,
+                self._credentials,
                 enable_iam_auth,
             )
             self._instances[instance_connection_string] = icm
