@@ -3,10 +3,6 @@
 ## [0.5.0](https://www.github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v0.4.3...v0.5.0) (2022-01-04)
 
 
-### ⚠ BREAKING CHANGES
-
-* consolidate to 'ip_type' instead of 'ip_types' for connect args (#220)
-
 ### Features
 
 * add arg for specifying credentials ([#226](https://www.github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/226)) ([85f5476](https://www.github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/85f547696b76ad9634273caf68cf6ea93023b3ea))
