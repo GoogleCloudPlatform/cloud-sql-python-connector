@@ -15,14 +15,22 @@ limitations under the License.
 """
 
 import asyncio
+from unittest.mock import Mock, patch
 import datetime
 from google.cloud.sql.connector.rate_limiter import AsyncRateLimiter
 from typing import Any
 import pytest  # noqa F401 Needed to run the tests
+from google.auth.credentials import Credentials
 from google.cloud.sql.connector.instance_connection_manager import (
     InstanceConnectionManager,
+    CredentialsTypeError,
 )
 from google.cloud.sql.connector.utils import generate_keys
+
+
+@pytest.fixture
+def mock_credentials() -> Credentials:
+    return Mock(spec=Credentials)
 
 
 @pytest.fixture
@@ -71,6 +79,21 @@ def test_InstanceConnectionManager_init(async_loop: asyncio.AbstractEventLoop) -
         and region_result == "test-region"
         and instance_result == "test-instance"
     )
+
+
+def test_InstanceConnectionManager_init_bad_credentials(
+    async_loop: asyncio.AbstractEventLoop,
+) -> None:
+    """
+    Test to check whether the __init__ method of InstanceConnectionManager
+    throws proper error for bad credentials arg type.
+    """
+    connect_string = "test-project:test-region:test-instance"
+    keys = asyncio.run_coroutine_threadsafe(generate_keys(), async_loop)
+    with pytest.raises(CredentialsTypeError):
+        assert InstanceConnectionManager(
+            connect_string, "pymysql", keys, async_loop, credentials=1
+        )
 
 
 @pytest.mark.asyncio
@@ -171,3 +194,35 @@ async def test_force_refresh_cancels_pending_refresh(
 
     assert pending_refresh.cancelled() is True
     assert isinstance(icm._current.result(), MockMetadata)
+
+
+def test_auth_init_with_credentials_object(
+    icm: InstanceConnectionManager, mock_credentials: Credentials
+) -> None:
+    """
+    Test that InstanceConnectionManager's _auth_init initializes _credentials
+    when passed a google.auth.credentials.Credentials object.
+    """
+    setattr(icm, "_credentials", None)
+    with patch(
+        "google.cloud.sql.connector.instance_connection_manager.with_scopes_if_required"
+    ) as mock_auth:
+        mock_auth.return_value = mock_credentials
+        icm._auth_init(credentials=mock_credentials)
+        assert isinstance(icm._credentials, Credentials)
+        mock_auth.assert_called_once()
+
+
+def test_auth_init_with_default_credentials(
+    icm: InstanceConnectionManager, mock_credentials: Credentials
+) -> None:
+    """
+    Test that InstanceConnectionManager's _auth_init initializes _credentials
+    with application default credentials when credentials are not specified.
+    """
+    setattr(icm, "_credentials", None)
+    with patch("google.auth.default") as mock_auth:
+        mock_auth.return_value = mock_credentials, None
+        icm._auth_init(credentials=None)
+        assert isinstance(icm._credentials, Credentials)
+        mock_auth.assert_called_once()

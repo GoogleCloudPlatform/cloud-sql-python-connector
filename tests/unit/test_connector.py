@@ -32,7 +32,7 @@ def test_connect_timeout(
 
     async def timeout_stub(*args: Any, **kwargs: Any) -> None:
         try:
-            await asyncio.sleep(timeout + 10, loop=async_loop)
+            await asyncio.sleep(timeout + 10)
         except asyncio.CancelledError:
             return None
 
