@@ -27,11 +27,10 @@ from google.cloud.sql.connector.utils import generate_keys
 
 @pytest.fixture
 def icm(
-    async_loop: asyncio.AbstractEventLoop, connect_string: str
+    async_loop: asyncio.AbstractEventLoop,
 ) -> InstanceConnectionManager:
     keys = asyncio.run_coroutine_threadsafe(generate_keys(), async_loop)
-    icm = InstanceConnectionManager(connect_string, "pymysql", keys, async_loop)
-
+    icm = InstanceConnectionManager("my-project:my-region:my-instance", "pymysql", keys, async_loop)
     return icm
 
 
@@ -131,6 +130,12 @@ async def test_perform_refresh_replaces_invalid_result(
     """
     # allow more frequent refreshes for tests
     setattr(icm, "_refresh_rate_limiter", test_rate_limiter)
+
+    # set current to valid MockMetadata instance
+    setattr(icm, "_get_instance_data", _get_metadata_success)
+    icm._current = asyncio.run_coroutine_threadsafe(
+        icm._perform_refresh(), icm._loop
+    ).result(timeout=10)
 
     # stub _get_instance_data to throw an error
     setattr(icm, "_get_instance_data", _get_metadata_error)
