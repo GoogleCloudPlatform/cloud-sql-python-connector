@@ -103,7 +103,7 @@ Example:
 connector.connect(
     "project:region:instance",
     "pymysql",
-    ip_types=IPTypes.PRIVATE # Prefer private IP
+    ip_type=IPTypes.PRIVATE # Prefer private IP
 ... insert other kwargs ...
 )
 ```
@@ -147,7 +147,7 @@ connector.connect(
     db="my_database",
     active_directory_auth=True,
     server_name="private.[instance].[location].[project].cloudsql.[domain]",
-    ip_types=IPTypes.PRIVATE
+    ip_type=IPTypes.PRIVATE
 )
 ``` 
 

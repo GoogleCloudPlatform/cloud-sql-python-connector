@@ -27,7 +27,7 @@ import concurrent
 import datetime
 from enum import Enum
 import google.auth
-from google.auth.credentials import Credentials
+from google.auth.credentials import Credentials, with_scopes_if_required
 import google.auth.transport.requests
 import OpenSSL
 import platform
@@ -117,6 +117,15 @@ class PlatformNotSupportedError(Exception):
         super(PlatformNotSupportedError, self).__init__(self, *args)
 
 
+class CredentialsTypeError(Exception):
+    """
+    Raised when credentials parameter is not proper type.
+    """
+
+    def __init__(self, *args: Any) -> None:
+        super(CredentialsTypeError, self).__init__(self, *args)
+
+
 class InstanceMetadata:
     ip_addrs: Dict[str, Any]
     context: ssl.SSLContext
@@ -177,6 +186,11 @@ class InstanceConnectionManager:
         The user agent string to append to SQLAdmin API requests
     :type user_agent_string: str
 
+    :type credentials: google.auth.credentials.Credentials
+    :param credentials
+        Credentials object used to authenticate connections to Cloud SQL server.
+        If not specified, Application Default Credentials are used.
+
     :param enable_iam_auth
         Enables IAM based authentication for Postgres instances.
     :type enable_iam_auth: bool
@@ -229,6 +243,7 @@ class InstanceConnectionManager:
         driver_name: str,
         keys: concurrent.futures.Future,
         loop: asyncio.AbstractEventLoop,
+        credentials: Optional[Credentials] = None,
         enable_iam_auth: bool = False,
     ) -> None:
         # Validate connection string
@@ -250,7 +265,14 @@ class InstanceConnectionManager:
         self._user_agent_string = f"{APPLICATION_NAME}/{version}+{driver_name}"
         self._loop = loop
         self._keys = asyncio.wrap_future(keys, loop=self._loop)
-        self._auth_init()
+        # validate credentials type
+        if not isinstance(credentials, Credentials) and credentials is not None:
+            raise CredentialsTypeError(
+                "Arg credentials must be type 'google.auth.credentials.Credentials' "
+                "or None (to use Application Default Credentials)"
+            )
+
+        self._auth_init(credentials)
 
         self._refresh_rate_limiter = AsyncRateLimiter(
             max_capacity=2, rate=1 / 30, loop=self._loop
@@ -343,17 +365,25 @@ class InstanceConnectionManager:
             self._enable_iam_auth,
         )
 
-    def _auth_init(self) -> None:
+    def _auth_init(self, credentials: Optional[Credentials]) -> None:
         """Creates and assigns a Google Python API service object for
         Google Cloud SQL Admin API.
-        """
 
-        credentials, project = google.auth.default(
-            scopes=[
-                "https://www.googleapis.com/auth/sqlservice.admin",
-                "https://www.googleapis.com/auth/cloud-platform",
-            ]
-        )
+        :type credentials: google.auth.credentials.Credentials
+        :param credentials
+            Credentials object used to authenticate connections to Cloud SQL server.
+            If not specified, Application Default Credentials are used.
+        """
+        scopes = [
+            "https://www.googleapis.com/auth/sqlservice.admin",
+            "https://www.googleapis.com/auth/cloud-platform",
+        ]
+        # if Credentials object is passed in, use for authentication
+        if isinstance(credentials, Credentials):
+            credentials = with_scopes_if_required(credentials, scopes=scopes)
+        # otherwise use application default credentials
+        else:
+            credentials, project = google.auth.default(scopes=scopes)
 
         self._credentials = credentials
 
