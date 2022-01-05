@@ -30,7 +30,9 @@ def icm(
     async_loop: asyncio.AbstractEventLoop,
 ) -> InstanceConnectionManager:
     keys = asyncio.run_coroutine_threadsafe(generate_keys(), async_loop)
-    icm = InstanceConnectionManager("my-project:my-region:my-instance", "pymysql", keys, async_loop)
+    icm = InstanceConnectionManager(
+        "my-project:my-region:my-instance", "pymysql", keys, async_loop
+    )
     return icm
 
 
