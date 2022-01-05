@@ -76,7 +76,7 @@ def credentials() -> Credentials:
 
 @pytest.mark.asyncio
 @patch("aiohttp.ClientSession.post", new_callable=AsyncMock)
-async def test_get_ephemeral(mock_post, credentials) -> None:
+async def test_get_ephemeral(mock_post: AsyncMock, credentials: Credentials) -> None:
     """
     Test to check whether _get_ephemeral runs without problems given valid
     parameters.
@@ -103,7 +103,7 @@ async def test_get_ephemeral(mock_post, credentials) -> None:
 
 @pytest.mark.asyncio
 @patch("aiohttp.ClientSession.get", new_callable=AsyncMock)
-async def test_get_metadata(mock_get, credentials) -> None:
+async def test_get_metadata(mock_get: AsyncMock, credentials: Credentials) -> None:
     """
     Test to check whether _get_metadata runs without problems given valid
     parameters.
