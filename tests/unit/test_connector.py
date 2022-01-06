@@ -56,10 +56,10 @@ def test_connect_timeout(
         )
 
 
-def test_default_Connector_Init():
+def test_default_Connector_Init() -> None:
     """Test that default Connector __init__ sets properties properly."""
     default_connector = connector.Connector()
     assert default_connector._ip_type == IPTypes.PUBLIC
-    assert default_connector._enable_iam_auth == False
+    assert default_connector._enable_iam_auth is False
     assert default_connector._timeout == 30
-    assert default_connector._credentials == None
+    assert default_connector._credentials is None

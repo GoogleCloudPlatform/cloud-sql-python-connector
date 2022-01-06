@@ -28,7 +28,7 @@ from google.cloud.sql.connector.utils import generate_keys
 class FakeClientSessionGet:
     """Helper class to return mock data for get request."""
 
-    async def text(self):
+    async def text(self) -> str:
         response = {
             "kind": "sql#connectSettings",
             "serverCaCert": {
@@ -55,7 +55,7 @@ class FakeClientSessionGet:
 class FakeClientSessionPost:
     """Helper class to return mock data for post request."""
 
-    async def text(self):
+    async def text(self) -> str:
         response = {
             "ephemeralCert": {
                 "kind": "sql#sslCert",
