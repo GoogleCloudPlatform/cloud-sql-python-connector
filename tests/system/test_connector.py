@@ -14,14 +14,11 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 import os
-import uuid
 import pymysql
 import sqlalchemy
 import logging
 import google.auth
 from google.cloud.sql.connector import connector
-
-table_name = f"books_{uuid.uuid4().hex}"
 
 
 def init_connection_engine(
@@ -56,3 +53,28 @@ def test_connector_with_credentials() -> None:
 
     except Exception as e:
         logging.exception("Failed to connect with credentials from file!", e)
+
+
+def test_multiple_connectors() -> None:
+    """Test that same Cloud SQL instance can connect with two Connector objects."""
+    first_connector = connector.Connector()
+    second_connector = connector.Connector()
+    try:
+        pool = init_connection_engine(first_connector)
+        pool2 = init_connection_engine(second_connector)
+
+        with pool.connect() as conn:
+            conn.execute("SELECT 1")
+
+        with pool2.connect() as conn:
+            conn.execute("SELECT 1")
+
+        instance_connection_string = os.environ["MYSQL_CONNECTION_NAME"]
+        assert instance_connection_string in first_connector._instances
+        assert instance_connection_string in second_connector._instances
+        assert (
+            first_connector._instances[instance_connection_string]
+            != second_connector._instances[instance_connection_string]
+        )
+    except Exception as e:
+        logging.exception("Failed to connect with multiple Connector objects!", e)
