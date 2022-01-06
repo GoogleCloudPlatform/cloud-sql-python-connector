@@ -39,6 +39,7 @@ def lint(session):
         "sqlalchemy-stubs==0.4",
         "types-pkg-resources==0.1.3",
         "types-PyMySQL==1.0.6",
+        "types-mock==4.0.5",
         "twine==3.7.1",
     )
     session.install("-r", "requirements.txt")
