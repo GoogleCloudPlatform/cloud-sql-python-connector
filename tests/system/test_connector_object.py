@@ -24,17 +24,19 @@ from google.cloud.sql.connector import connector
 def init_connection_engine(
     custom_connector: connector.Connector,
 ) -> sqlalchemy.engine.Engine:
-    conn = lambda: custom_connector.connect(
-        os.environ["MYSQL_CONNECTION_NAME"],
-        "pymysql",
-        user=os.environ["MYSQL_USER"],
-        password=os.environ["MYSQL_PASS"],
-        db=os.environ["MYSQL_DB"],
-    )
+    def getconn() -> pymysql.connections.Connection:
+        conn = custom_connector.connect(
+            os.environ["MYSQL_CONNECTION_NAME"],
+            "pymysql",
+            user=os.environ["MYSQL_USER"],
+            password=os.environ["MYSQL_PASS"],
+            db=os.environ["MYSQL_DB"],
+        )
+        return conn
 
     engine = sqlalchemy.create_engine(
         "mysql+pymysql://",
-        creator=conn,
+        creator=getconn,
     )
     return engine
 
