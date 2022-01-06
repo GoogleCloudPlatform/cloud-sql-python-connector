@@ -47,7 +47,6 @@ def test_connector_with_credentials() -> None:
     credentials, project = google.auth.load_credentials_from_file(
         os.environ["GOOGLE_APPLICATION_CREDENTIALS"]
     )
-    print(type(credentials))
     custom_connector = connector.Connector(credentials=credentials)
     try:
         pool = init_connection_engine(custom_connector)
