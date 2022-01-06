@@ -19,7 +19,7 @@ import aiohttp
 from google.auth.credentials import Credentials
 import json
 import pytest  # noqa F401 Needed to run the tests
-from unittest.mock import AsyncMock, Mock, patch
+from mock import AsyncMock, Mock, patch
 
 from google.cloud.sql.connector.refresh_utils import _get_ephemeral, _get_metadata
 from google.cloud.sql.connector.utils import generate_keys
