@@ -18,7 +18,7 @@ This library uses the [Application Default Credentials](https://cloud.google.com
 connection to the Cloud SQL server. For more details, see the previously
 mentioned link.
 
-To activate credentials locally, use the following `gcloud` command:
+To activate credentials locally ensure the Google Cloud SDK is installed on your machine. For manual installation see [Installing Cloud SDK](https://cloud.google.com/sdk/docs/install). Once installed, use the following `gcloud` command:
 
 ```
 gcloud auth application-default login
