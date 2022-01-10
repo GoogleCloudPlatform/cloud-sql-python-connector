@@ -16,29 +16,75 @@ limitations under the License.
 from typing import Any
 
 import aiohttp
-import google.auth
+from google.auth.credentials import Credentials
+import json
 import pytest  # noqa F401 Needed to run the tests
+from mock import AsyncMock, Mock, patch
 
 from google.cloud.sql.connector.refresh_utils import _get_ephemeral, _get_metadata
 from google.cloud.sql.connector.utils import generate_keys
 
 
+class FakeClientSessionGet:
+    """Helper class to return mock data for get request."""
+
+    async def text(self) -> str:
+        response = {
+            "kind": "sql#connectSettings",
+            "serverCaCert": {
+                "kind": "sql#sslCert",
+                "certSerialNumber": "0",
+                "cert": "-----BEGIN CERTIFICATE-----\nabc123\n-----END CERTIFICATE-----",
+                "commonName": "Google",
+                "sha1Fingerprint": "abc",
+                "instance": "my-instance",
+                "createTime": "2021-10-18T18:48:03.785Z",
+                "expirationTime": "2031-10-16T18:49:03.785Z",
+            },
+            "ipAddresses": [
+                {"type": "PRIMARY", "ipAddress": "0.0.0.0"},
+                {"type": "PRIVATE", "ipAddress": "1.0.0.0"},
+            ],
+            "region": "my-region",
+            "databaseVersion": "MYSQL_8_0",
+            "backendType": "SECOND_GEN",
+        }
+        return json.dumps(response)
+
+
+class FakeClientSessionPost:
+    """Helper class to return mock data for post request."""
+
+    async def text(self) -> str:
+        response = {
+            "ephemeralCert": {
+                "kind": "sql#sslCert",
+                "certSerialNumber": "",
+                "cert": "-----BEGIN CERTIFICATE-----\nabc123\n-----END CERTIFICATE-----",
+            }
+        }
+        return json.dumps(response)
+
+
+@pytest.fixture
+def credentials() -> Credentials:
+    credentials = Mock(spec=Credentials)
+    credentials.valid = True
+    credentials.token = "12345"
+    return credentials
+
+
 @pytest.mark.asyncio
-async def test_get_ephemeral(connect_string: str) -> None:
+@patch("aiohttp.ClientSession.post", new_callable=AsyncMock)
+async def test_get_ephemeral(mock_post: AsyncMock, credentials: Credentials) -> None:
     """
-    Test to check whether _get_ephemeral runs without problems given a valid
-    connection string.
+    Test to check whether _get_ephemeral runs without problems given valid
+    parameters.
     """
+    mock_post.return_value = FakeClientSessionPost()
 
-    project = connect_string.split(":")[0]
-    instance = connect_string.split(":")[2]
-
-    credentials, project = google.auth.default(
-        scopes=[
-            "https://www.googleapis.com/auth/sqlservice.admin",
-            "https://www.googleapis.com/auth/cloud-platform",
-        ]
-    )
+    project = "my-project"
+    instance = "my-instance"
 
     _, pub_key = await generate_keys()
 
@@ -56,21 +102,16 @@ async def test_get_ephemeral(connect_string: str) -> None:
 
 
 @pytest.mark.asyncio
-async def test_get_metadata(connect_string: str) -> None:
+@patch("aiohttp.ClientSession.get", new_callable=AsyncMock)
+async def test_get_metadata(mock_get: AsyncMock, credentials: Credentials) -> None:
     """
-    Test to check whether _get_metadata runs without problems given a valid
-    connection string.
+    Test to check whether _get_metadata runs without problems given valid
+    parameters.
     """
+    mock_get.return_value = FakeClientSessionGet()
 
-    project = connect_string.split(":")[0]
-    instance = connect_string.split(":")[2]
-
-    credentials, project = google.auth.default(
-        scopes=[
-            "https://www.googleapis.com/auth/sqlservice.admin",
-            "https://www.googleapis.com/auth/cloud-platform",
-        ]
-    )
+    project = "my-project"
+    instance = "my-instance"
 
     async with aiohttp.ClientSession() as client_session:
         result = await _get_metadata(client_session, credentials, project, instance)
