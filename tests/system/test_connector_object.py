@@ -89,7 +89,8 @@ def test_connector_in_ThreadPoolExecutor() -> None:
     This helps simulate how connector works in Cloud Run and Cloud Functions.
     """
 
-    def threaded_connector() -> datetime.datetime:
+    def get_time() -> datetime.datetime:
+        """Helper method for getting current time from database."""
         default_connector = connector.Connector()
         pool = init_connection_engine(default_connector)
 
@@ -100,6 +101,6 @@ def test_connector_in_ThreadPoolExecutor() -> None:
 
     # try running connector in ThreadPoolExecutor as Cloud Run does
     with concurrent.futures.ThreadPoolExecutor() as executor:
-        future = executor.submit(threaded_connector)
+        future = executor.submit(get_time)
         return_value = future.result()
         assert isinstance(return_value, datetime.datetime)
