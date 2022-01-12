@@ -98,7 +98,7 @@ def test_connector_in_ThreadPoolExecutor() -> None:
             current_time = conn.execute("SELECT NOW()").fetchone()
         return current_time[0]
 
-    # try running connector in threadPoolExectutor as Cloud Run does
+    # try running connector in ThreadPoolExecutor as Cloud Run does
     with concurrent.futures.ThreadPoolExecutor() as executor:
         future = executor.submit(threaded_connector)
         return_value = future.result()
