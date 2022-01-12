@@ -14,6 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 import asyncio
+import threading
 
 
 class AsyncRateLimiter(object):
@@ -46,7 +47,7 @@ class AsyncRateLimiter(object):
         self.rate = rate
         self.max_capacity = max_capacity
         self._loop = loop or asyncio.get_event_loop()
-        self._lock = asyncio.Lock()
+        self._lock = threading.Lock()
         self._tokens: float = max_capacity
         self._last_token_update = self._loop.time()
 

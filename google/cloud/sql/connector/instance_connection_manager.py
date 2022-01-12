@@ -24,6 +24,7 @@ from google.cloud.sql.connector.version import __version__ as version
 import asyncio
 import aiohttp
 import concurrent
+import threading
 import datetime
 from enum import Enum
 import google.auth
@@ -233,7 +234,7 @@ class InstanceConnectionManager:
     _project: str
     _region: str
 
-    _refresh_in_progress: asyncio.locks.Event
+    _refresh_in_progress: threading.Event
     _current: asyncio.Task  # task wraps coroutine that returns InstanceMetadata
     _next: asyncio.Task  # task wraps coroutine that returns another task
 
@@ -280,7 +281,7 @@ class InstanceConnectionManager:
 
         async def _set_instance_data() -> None:
             logger.debug("Updating instance data")
-            self._refresh_in_progress = asyncio.locks.Event()
+            self._refresh_in_progress = threading.Event()
             self._current = self._loop.create_task(self._get_instance_data())
             self._next = self._loop.create_task(self._schedule_refresh())
 
