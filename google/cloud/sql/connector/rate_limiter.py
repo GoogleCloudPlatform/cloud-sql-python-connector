@@ -14,8 +14,9 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 import asyncio
+import concurrent.futures
 import threading
-
+import contextlib
 
 class AsyncRateLimiter(object):
     """
@@ -50,6 +51,7 @@ class AsyncRateLimiter(object):
         self._lock = threading.Lock()
         self._tokens: float = max_capacity
         self._last_token_update = self._loop.time()
+        self._pool = concurrent.futures.ThreadPoolExecutor()
 
     def _update_token_count(self) -> None:
         """
@@ -73,12 +75,23 @@ class AsyncRateLimiter(object):
             wait_time = token_deficit / self.rate
             await asyncio.sleep(wait_time)
 
+
+    @contextlib.asynccontextmanager
+    async def async_lock(self, lock) -> None:
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(self._pool, lock.acquire)
+        try:
+            yield  # the lock is held
+        finally:
+            lock.release()
+
+
     async def acquire(self) -> None:
         """
         Waits for a token to become available, if necessary, then subtracts token and allows
         request to go through.
         """
-        async with self._lock:
+        async with self.async_lock(self._lock):
             self._update_token_count()
             if self._tokens < 1:
                 await self._wait_for_next_token()
