@@ -18,6 +18,7 @@ import concurrent.futures
 import threading
 import contextlib
 
+
 class AsyncRateLimiter(object):
     """
     An asyncio-compatible rate limiter which uses the Token Bucket algorithm
@@ -75,16 +76,17 @@ class AsyncRateLimiter(object):
             wait_time = token_deficit / self.rate
             await asyncio.sleep(wait_time)
 
-
     @contextlib.asynccontextmanager
-    async def async_lock(self, lock) -> None:
-        loop = asyncio.get_event_loop()
+    async def async_lock(self, lock: threading.Lock) -> None:
+        try:
+            loop = asyncio.get_event_loop()
+        except:
+            loop = asyncio.new_event_loop()
         await loop.run_in_executor(self._pool, lock.acquire)
         try:
             yield  # the lock is held
         finally:
             lock.release()
-
 
     async def acquire(self) -> None:
         """
