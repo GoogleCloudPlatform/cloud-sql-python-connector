@@ -6,3 +6,4 @@ python-tds==1.11.0
 pyopenssl==21.0.0
 Requests==2.27.1
 google-api-python-client==2.35.0
+async_generator==1.10; python_version == '3.6'
