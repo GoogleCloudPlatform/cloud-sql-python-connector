@@ -16,10 +16,11 @@ limitations under the License.
 import asyncio
 import concurrent.futures
 import threading
+from typing import AsyncGenerator
 
 # python 3.6 does not have support for contextlib.asynccontextmanager
 try:
-    from contextlib import asynccontextmanager
+    from contextlib import asynccontextmanager  # type: ignore
 except ImportError:
     from async_generator import asynccontextmanager
 
@@ -82,7 +83,7 @@ class AsyncRateLimiter(object):
             await asyncio.sleep(wait_time)
 
     @asynccontextmanager
-    async def async_lock(self, lock: threading.Lock) -> None:
+    async def async_lock(self, lock: threading.Lock) -> AsyncGenerator:
         try:
             loop = asyncio.get_event_loop()
         except RuntimeError:
