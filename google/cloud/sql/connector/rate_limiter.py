@@ -46,6 +46,8 @@ class AsyncRateLimiter(object):
         self.rate = rate
         self.max_capacity = max_capacity
         self._loop = loop or asyncio.get_event_loop()
+        # set current event loop in thread to event loop of background thread
+        asyncio.set_event_loop(self._loop)
         self._lock = asyncio.Lock()
         self._tokens: float = max_capacity
         self._last_token_update = self._loop.time()
