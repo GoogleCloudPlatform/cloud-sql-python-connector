@@ -14,7 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 import asyncio
-from asyncio.coroutines import coroutine
 import concurrent.futures
 
 
@@ -76,7 +75,7 @@ class AsyncRateLimiter(object):
         token_deficit = 1 - self._tokens
         if token_deficit > 0:
             wait_time = token_deficit / self.rate
-            await asyncio.run_coroutine_threadsafe(asyncio.sleep(wait_time), self._loop)
+            await asyncio.sleep(wait_time)
 
     async def acquire(self) -> None:
         """
@@ -91,6 +90,6 @@ class AsyncRateLimiter(object):
             self._tokens -= 1
 
 
-@coroutine
-def _create_lock():
+async def _create_lock() -> asyncio.Lock:
+    "Function to create an async lock."
     return asyncio.Lock()
