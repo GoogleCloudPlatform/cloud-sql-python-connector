@@ -14,6 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 import asyncio
+from asyncio.coroutines import coroutine
+import concurrent.futures
 
 
 class AsyncRateLimiter(object):
@@ -46,11 +48,13 @@ class AsyncRateLimiter(object):
         self.rate = rate
         self.max_capacity = max_capacity
         self._loop = loop or asyncio.get_event_loop()
-        # set current event loop in thread to event loop of background thread
-        asyncio.set_event_loop(self._loop)
-        self._lock = asyncio.Lock()
         self._tokens: float = max_capacity
         self._last_token_update = self._loop.time()
+
+        lock_future: concurrent.futures.Future = asyncio.run_coroutine_threadsafe(
+            _create_lock(), self._loop
+        )
+        self._lock = lock_future.result()
 
     def _update_token_count(self) -> None:
         """
@@ -72,7 +76,7 @@ class AsyncRateLimiter(object):
         token_deficit = 1 - self._tokens
         if token_deficit > 0:
             wait_time = token_deficit / self.rate
-            await asyncio.sleep(wait_time)
+            await asyncio.run_coroutine_threadsafe(asyncio.sleep(wait_time), self._loop)
 
     async def acquire(self) -> None:
         """
@@ -85,3 +89,8 @@ class AsyncRateLimiter(object):
                 await self._wait_for_next_token()
                 self._update_token_count()
             self._tokens -= 1
+
+
+@coroutine
+def _create_lock():
+    return asyncio.Lock()
