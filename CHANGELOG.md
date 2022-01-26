@@ -1,5 +1,12 @@
 # Changelog
 
+### [0.5.1](https://www.github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v0.5.0...v0.5.1) (2022-01-26)
+
+
+### Bug Fixes
+
+* remove token padding strip ([#245](https://www.github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/245)) ([cb77021](https://www.github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/cb77021d3c6a3f25a8281f57c481737fd2ee792e))
+
 ## [0.5.0](https://www.github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v0.4.3...v0.5.0) (2022-01-04)
 
 
