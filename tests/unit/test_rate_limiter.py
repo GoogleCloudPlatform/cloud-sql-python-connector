@@ -14,7 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 import asyncio
-from threading import Thread
 
 import pytest  # noqa F401 Needed to run the tests
 
