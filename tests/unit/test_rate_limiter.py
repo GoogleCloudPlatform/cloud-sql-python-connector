@@ -24,16 +24,13 @@ from google.cloud.sql.connector.rate_limiter import (
 
 
 @pytest.mark.asyncio
-async def test_rate_limiter_throttles_requests() -> None:
+async def test_rate_limiter_throttles_requests(
+    async_loop: asyncio.AbstractEventLoop,
+) -> None:
     """Test to check whether rate limiter will throttle incoming requests."""
-    # create background thread with event loop
-    loop = asyncio.new_event_loop()
-    thread: Thread = Thread(target=loop.run_forever, daemon=True)
-    thread.start()
-
     counter = 0
     # allow 2 requests to go through every 5 seconds
-    limiter = AsyncRateLimiter(max_capacity=2, rate=1 / 5, loop=loop)
+    limiter = AsyncRateLimiter(max_capacity=2, rate=1 / 5, loop=async_loop)
 
     async def increment() -> None:
         await limiter.acquire()
@@ -41,11 +38,11 @@ async def test_rate_limiter_throttles_requests() -> None:
         counter += 1
 
     # create 10 tasks calling increment()
-    tasks = [loop.create_task(increment()) for _ in range(10)]
+    tasks = [async_loop.create_task(increment()) for _ in range(10)]
 
     # wait 10 seconds and check tasks
     done, pending = asyncio.run_coroutine_threadsafe(
-        asyncio.wait(tasks, timeout=11), loop
+        asyncio.wait(tasks, timeout=11), async_loop
     ).result()
 
     # verify 4 tasks completed and 6 pending due to rate limiter
@@ -55,16 +52,13 @@ async def test_rate_limiter_throttles_requests() -> None:
 
 
 @pytest.mark.asyncio
-async def test_rate_limiter_completes_all_tasks() -> None:
+async def test_rate_limiter_completes_all_tasks(
+    async_loop: asyncio.AbstractEventLoop,
+) -> None:
     """Test to check all requests will go through rate limiter successfully."""
-    # create background thread with event loop
-    loop = asyncio.new_event_loop()
-    thread: Thread = Thread(target=loop.run_forever, daemon=True)
-    thread.start()
-
     counter = 0
     # allow 1 request to go through per second
-    limiter = AsyncRateLimiter(max_capacity=1, rate=1, loop=loop)
+    limiter = AsyncRateLimiter(max_capacity=1, rate=1, loop=async_loop)
 
     async def increment() -> None:
         await limiter.acquire()
@@ -72,10 +66,10 @@ async def test_rate_limiter_completes_all_tasks() -> None:
         counter += 1
 
     # create 10 tasks calling increment()
-    tasks = [loop.create_task(increment()) for _ in range(10)]
+    tasks = [async_loop.create_task(increment()) for _ in range(10)]
 
     done, pending = asyncio.run_coroutine_threadsafe(
-        asyncio.wait(tasks, timeout=30), loop
+        asyncio.wait(tasks, timeout=30), async_loop
     ).result()
 
     # verify all tasks done and none pending
