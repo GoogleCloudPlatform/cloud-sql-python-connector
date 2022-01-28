@@ -144,6 +144,77 @@ class Connector:
             icm.force_refresh()
             raise (e)
 
+    async def async_connect(
+        self, instance_connection_string: str, driver: str, **kwargs: Any
+    ) -> Any:
+        """Prepares and returns an async database connection object and starts a
+        background thread to refresh the certificates and metadata.
+
+        :type instance_connection_string: str
+        :param instance_connection_string:
+            A string containing the GCP project name, region name, and instance
+            name separated by colons.
+
+            Example: example-proj:example-region-us6:example-instance
+
+        :type driver: str
+        :param: driver:
+            A string representing the driver to connect with. Supported drivers are
+            pymysql, pg8000, and pytds.
+
+        :param kwargs:
+            Pass in any driver-specific arguments needed to connect to the Cloud
+            SQL instance.
+
+        :rtype: Connection
+        :returns:
+            A DB-API connection to the specified Cloud SQL instance.
+        """
+        if instance_connection_string in self._instances:
+            icm = self._instances[instance_connection_string]
+        else:
+            enable_iam_auth = kwargs.pop("enable_iam_auth", self._enable_iam_auth)
+            icm = InstanceConnectionManager(
+                instance_connection_string,
+                driver,
+                self._keys,
+                self._loop,
+                self._credentials,
+                enable_iam_auth,
+            )
+            self._instances[instance_connection_string] = icm
+
+        if "ip_types" in kwargs:
+            ip_type = kwargs.pop("ip_types")
+            logger.warning(
+                "Deprecation Warning: Parameter `ip_types` is deprecated and may be removed"
+                "in a future release. Please use `ip_type` instead."
+            )
+        else:
+            ip_type = kwargs.pop("ip_type", self._ip_type)
+        if "timeout" in kwargs:
+            timeout = kwargs["timeout"]
+        elif "connect_timeout" in kwargs:
+            timeout = kwargs["connect_timeout"]
+        else:
+            timeout = self._timeout
+        try:
+            connect_future: concurrent.futures.Future = (
+                asyncio.run_coroutine_threadsafe(
+                    icm._connect(driver, ip_type, **kwargs), self._loop
+                )
+            )
+            conn = connect_future.result(timeout)
+        except concurrent.futures.TimeoutError:
+            connect_future.cancel()
+            raise TimeoutError(f"Connection timed out after {timeout}s")
+        try:
+            return conn
+        except Exception as e:
+            # with any other exception, we attempt a force refresh, then throw the error
+            icm.force_refresh()
+            raise (e)
+
 
 def connect(instance_connection_string: str, driver: str, **kwargs: Any) -> Any:
     """Uses a Connector object with default settings and returns a database

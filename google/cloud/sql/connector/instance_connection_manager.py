@@ -564,7 +564,12 @@ class InstanceConnectionManager:
         ip_address: str = instance_data.get_preferred_ip(ip_type)
 
         try:
-            connector = connect_func[driver]
+            if driver == "asyncpg":
+                return await self._connect_with_asyncpg(
+                    ip_address, instance_data.context, **kwargs
+                )
+            else:
+                connector = connect_func[driver]
         except KeyError:
             raise KeyError("Driver {} is not supported.".format(driver))
 
@@ -645,7 +650,7 @@ class InstanceConnectionManager:
             **kwargs,
         )
 
-    def _connect_with_asyncpg(
+    async def _connect_with_asyncpg(
         self, ip_address: str, ctx: ssl.SSLContext, **kwargs: Any
     ) -> "asyncpg.Connection":
         """Helper function to create an asyncpg DB-API connection object.
@@ -670,7 +675,7 @@ class InstanceConnectionManager:
         user = kwargs.pop("user")
         db = kwargs.pop("db")
         passwd = kwargs.pop("password", None)
-        return asyncpg.connect(
+        return await asyncpg.connect(
             user=user,
             database=db,
             password=passwd,
