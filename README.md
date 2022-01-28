@@ -74,7 +74,7 @@ pool = sqlalchemy.create_engine(
 ```
 
 The returned connection pool engine can then be used to query and modify the database.
-```Python
+```python
 # insert statement
 insert_stmt = sqlalchemy.text(
     "INSERT INTO my_table (id, title) VALUES (:id, :title)",
