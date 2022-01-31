@@ -279,7 +279,6 @@ class InstanceConnectionManager:
             """Initialize InstanceConnectionManager's variables that require the
             event loop running in background thread.
             """
-            logger.debug("Updating instance data")
             self._refresh_rate_limiter = AsyncRateLimiter(
                 max_capacity=2, rate=1 / 30, loop=self._loop
             )

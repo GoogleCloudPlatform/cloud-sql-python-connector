@@ -46,7 +46,16 @@ def icm(
 
 @pytest.fixture
 def test_rate_limiter(async_loop: asyncio.AbstractEventLoop) -> AsyncRateLimiter:
-    return AsyncRateLimiter(max_capacity=1, rate=1 / 2, loop=async_loop)
+    async def rate_limiter_in_loop(
+        async_loop: asyncio.AbstractEventLoop,
+    ) -> AsyncRateLimiter:
+        return AsyncRateLimiter(max_capacity=1, rate=1 / 2, loop=async_loop)
+
+    limiter_future = asyncio.run_coroutine_threadsafe(
+        rate_limiter_in_loop(async_loop), async_loop
+    )
+    limiter = limiter_future.result()
+    return limiter
 
 
 class MockMetadata:

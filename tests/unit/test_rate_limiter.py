@@ -22,7 +22,9 @@ from google.cloud.sql.connector.rate_limiter import (
 )
 
 
-async def rate_limiter_in_loop(max_capacity, rate, loop) -> AsyncRateLimiter:
+async def rate_limiter_in_loop(
+    max_capacity: int, rate: float, loop: asyncio.AbstractEventLoop
+) -> AsyncRateLimiter:
     """Helper function to create AsyncRateLimiter object inside given event loop."""
     limiter = AsyncRateLimiter(max_capacity=max_capacity, rate=rate, loop=loop)
     return limiter
