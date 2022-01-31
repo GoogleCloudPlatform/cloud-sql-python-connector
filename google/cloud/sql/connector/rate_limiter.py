@@ -49,11 +49,7 @@ class AsyncRateLimiter(object):
         self._loop = loop or asyncio.get_event_loop()
         self._tokens: float = max_capacity
         self._last_token_update = self._loop.time()
-
-        lock_future: concurrent.futures.Future = asyncio.run_coroutine_threadsafe(
-            _create_lock(), self._loop
-        )
-        self._lock = lock_future.result()
+        self._lock = asyncio.Lock()
 
     def _update_token_count(self) -> None:
         """
@@ -88,8 +84,3 @@ class AsyncRateLimiter(object):
                 await self._wait_for_next_token()
                 self._update_token_count()
             self._tokens -= 1
-
-
-async def _create_lock() -> asyncio.Lock:
-    "Function to create an async lock."
-    return asyncio.Lock()

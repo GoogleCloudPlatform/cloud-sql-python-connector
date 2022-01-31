@@ -22,6 +22,12 @@ from google.cloud.sql.connector.rate_limiter import (
 )
 
 
+async def rate_limiter_in_loop(max_capacity, rate, loop) -> AsyncRateLimiter:
+    """Helper function to create AsyncRateLimiter object inside given event loop."""
+    limiter = AsyncRateLimiter(max_capacity=max_capacity, rate=rate, loop=loop)
+    return limiter
+
+
 @pytest.mark.asyncio
 async def test_rate_limiter_throttles_requests(
     async_loop: asyncio.AbstractEventLoop,
@@ -29,7 +35,10 @@ async def test_rate_limiter_throttles_requests(
     """Test to check whether rate limiter will throttle incoming requests."""
     counter = 0
     # allow 2 requests to go through every 5 seconds
-    limiter = AsyncRateLimiter(max_capacity=2, rate=1 / 5, loop=async_loop)
+    limiter_future = asyncio.run_coroutine_threadsafe(
+        rate_limiter_in_loop(max_capacity=2, rate=1 / 5, loop=async_loop), async_loop
+    )
+    limiter = limiter_future.result()
 
     async def increment() -> None:
         await limiter.acquire()
@@ -57,7 +66,10 @@ async def test_rate_limiter_completes_all_tasks(
     """Test to check all requests will go through rate limiter successfully."""
     counter = 0
     # allow 1 request to go through per second
-    limiter = AsyncRateLimiter(max_capacity=1, rate=1, loop=async_loop)
+    limiter_future = asyncio.run_coroutine_threadsafe(
+        rate_limiter_in_loop(max_capacity=1, rate=1, loop=async_loop), async_loop
+    )
+    limiter = limiter_future.result()
 
     async def increment() -> None:
         await limiter.acquire()
