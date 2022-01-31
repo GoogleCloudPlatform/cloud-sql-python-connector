@@ -56,7 +56,7 @@ The connector itself creates connection objects by calling its `connect` method 
 In the connector's `connect` method below, input your connection string as the first positional argument and the name of the database driver for the second positional argument. Insert the rest of your connection keyword arguments like user, password and database. You can also set the optional `timeout` or `ip_type` keyword arguments.
 
 To use this connector with SQLAlchemy, use the `creator` argument for `sqlalchemy.create_engine`:
-```
+```python
 def getconn() -> pymysql.connections.Connection:
     conn: pymysql.connections.Connection = connector.connect(
         "project:region:instance",
@@ -74,7 +74,7 @@ pool = sqlalchemy.create_engine(
 ```
 
 The returned connection pool engine can then be used to query and modify the database.
-```
+```python
 # insert statement
 insert_stmt = sqlalchemy.text(
     "INSERT INTO my_table (id, title) VALUES (:id, :title)",
@@ -99,7 +99,7 @@ with pool.connect() as db_conn:
 ### Specifying Public or Private IP
 The Cloud SQL Connector for Python can be used to connect to Cloud SQL instances using both public and private IP addresses. To specify which IP address to use to connect, set the `ip_type` keyword argument Possible values are `IPTypes.PUBLIC` and `IPTypes.PRIVATE`.
 Example:
-```
+```python
 connector.connect(
     "project:region:instance",
     "pymysql",
@@ -116,7 +116,7 @@ First, make sure to [configure your Cloud SQL Instance to allow IAM authenticati
 Now, you can connect using user or service account credentials instead of a password.
 In the call to connect, set the `enable_iam_auth` keyword argument to true and `user` to the email address associated with your IAM user.
 Example:
-```
+```python
 connector.connect(
      "project:region:instance",
      "pg8000",
