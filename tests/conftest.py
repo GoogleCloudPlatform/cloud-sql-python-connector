@@ -51,11 +51,10 @@ def async_loop() -> Generator:
     Creates a loop in a background thread and returns it to use for testing.
     """
     loop = asyncio.new_event_loop()
-    thr = threading.Thread(target=loop.run_forever)
+    thr = threading.Thread(target=loop.run_forever, daemon=True)
     thr.start()
     yield loop
     loop.stop()
-    thr.join()
 
 
 @pytest.fixture
