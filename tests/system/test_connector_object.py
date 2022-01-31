@@ -19,6 +19,8 @@ import sqlalchemy
 import logging
 import google.auth
 from google.cloud.sql.connector import connector
+import datetime
+import concurrent.futures
 
 
 def init_connection_engine(
@@ -80,3 +82,25 @@ def test_multiple_connectors() -> None:
         )
     except Exception as e:
         logging.exception("Failed to connect with multiple Connector objects!", e)
+
+
+def test_connector_in_ThreadPoolExecutor() -> None:
+    """Test that Connector can connect from ThreadPoolExecutor thread.
+    This helps simulate how connector works in Cloud Run and Cloud Functions.
+    """
+
+    def get_time() -> datetime.datetime:
+        """Helper method for getting current time from database."""
+        default_connector = connector.Connector()
+        pool = init_connection_engine(default_connector)
+
+        # connect to database and get current time
+        with pool.connect() as conn:
+            current_time = conn.execute("SELECT NOW()").fetchone()
+        return current_time[0]
+
+    # try running connector in ThreadPoolExecutor as Cloud Run does
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        future = executor.submit(get_time)
+        return_value = future.result()
+        assert isinstance(return_value, datetime.datetime)

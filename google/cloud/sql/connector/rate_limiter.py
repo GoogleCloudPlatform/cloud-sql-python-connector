@@ -46,9 +46,9 @@ class AsyncRateLimiter(object):
         self.rate = rate
         self.max_capacity = max_capacity
         self._loop = loop or asyncio.get_event_loop()
-        self._lock = asyncio.Lock()
         self._tokens: float = max_capacity
         self._last_token_update = self._loop.time()
+        self._lock = asyncio.Lock()
 
     def _update_token_count(self) -> None:
         """
