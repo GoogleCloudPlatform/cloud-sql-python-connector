@@ -127,7 +127,7 @@ class Connector:
             ip_type = kwargs.pop("ip_types")
             logger.warning(
                 "Deprecation Warning: Parameter `ip_types` is deprecated and may be removed"
-                "in a future release. Please use `ip_type` instead."
+                " in a future release. Please use `ip_type` instead."
             )
         else:
             ip_type = kwargs.pop("ip_type", self._ip_type)

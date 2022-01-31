@@ -648,7 +648,7 @@ class InstanceConnectionManager:
     def _connect_with_pytds(
         self, ip_address: str, ctx: ssl.SSLContext, **kwargs: Any
     ) -> "pytds.Connection":
-        """Helper function to create a pg8000 DB-API connection object.
+        """Helper function to create a pytds DB-API connection object.
 
         :type ip_address: str
         :param ip_address: A string containing an IP address for the Cloud SQL
