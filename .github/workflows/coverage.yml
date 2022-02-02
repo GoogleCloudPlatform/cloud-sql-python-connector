@@ -13,7 +13,6 @@
 # limitations under the License.
 
 name: Code Coverage
-
 on: [pull_request]
 
 jobs:
