@@ -26,9 +26,7 @@ from unittest.mock import patch
 from typing import Any
 
 
-def test_connect_timeout(
-    async_loop: asyncio.AbstractEventLoop
-) -> None:
+def test_connect_timeout(async_loop: asyncio.AbstractEventLoop) -> None:
     timeout = 10
     connect_string = "test-project:test-region:test-instance"
 
