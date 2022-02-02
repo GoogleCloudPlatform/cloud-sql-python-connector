@@ -20,10 +20,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Setup Python
-      uses: actions/setup-python@v2
-      with:
-        python-version: 3.10
-      run: pip install nox
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.10
+        run: pip install nox
       
       - name: Checkout base branch
         uses: actions/checkout@v2
