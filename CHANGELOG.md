@@ -1,5 +1,13 @@
 # Changelog
 
+### [0.5.1](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v0.5.0...v0.5.1) (2022-02-01)
+
+
+### Bug Fixes
+
+* make asyncio.Lock() run in background thread ([#252](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/252)) ([f52ba7e](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/f52ba7ec4aa916bc6bb0062eb1b29ac0611b45f5))
+* remove token padding strip ([#245](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/245)) ([cb77021](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/cb77021d3c6a3f25a8281f57c481737fd2ee792e))
+
 ## [0.5.0](https://www.github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v0.4.3...v0.5.0) (2022-01-04)
 
 
