@@ -27,9 +27,10 @@ from typing import Any
 
 
 def test_connect_timeout(
-    connect_string: str, async_loop: asyncio.AbstractEventLoop
+    async_loop: asyncio.AbstractEventLoop
 ) -> None:
     timeout = 10
+    connect_string = "test-project:test-region:test-instance"
 
     async def timeout_stub(*args: Any, **kwargs: Any) -> None:
         try:
