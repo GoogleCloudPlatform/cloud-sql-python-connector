@@ -73,7 +73,9 @@ class Connector:
         self._ip_type = ip_type
         self._credentials = credentials
 
-    def connect(self, instance_connection_string: str, driver: str, **kwargs: Any):
+    def connect(
+        self, instance_connection_string: str, driver: str, **kwargs: Any
+    ) -> Any:
         """Prepares and returns a database connection object and starts a
         background thread to refresh the certificates and metadata.
 
