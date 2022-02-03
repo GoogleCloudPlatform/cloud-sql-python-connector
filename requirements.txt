@@ -6,3 +6,4 @@ python-tds==1.11.0
 pyopenssl==22.0.0
 Requests==2.27.1
 google-api-python-client==2.36.0
+google-auth==2.6.0
