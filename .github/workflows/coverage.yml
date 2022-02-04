@@ -32,6 +32,7 @@ jobs:
       - name: Calculate base code coverage
         run: |
           nox --sessions unit-3.10
+          coverage report --show-missing
           export CUR_COVER=$(coverage report | awk '$1 == "TOTAL" {print $NF+0}')
           echo "CUR_COVER=$CUR_COVER" >> $GITHUB_ENV
           coverage erase
