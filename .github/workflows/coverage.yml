@@ -51,6 +51,6 @@ jobs:
         run: |
           echo "BASE BRANCH CODE COVERAGE is ${{ env.CUR_COVER }}%"
           echo "PULL REQUEST CODE COVERAGE is ${{ env.PR_COVER }}%"
-          if [ "${{ env.PR_COVER }}" -ge "${{ env.CUR_COVER }}"  ]; then
+          if [ "${{ env.PR_COVER }}" -lt "${{ env.CUR_COVER }}"  ]; then
             exit 1;
           fi
