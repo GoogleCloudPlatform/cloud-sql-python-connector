@@ -15,7 +15,7 @@ limitations under the License.
 """
 
 import asyncio
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 import datetime
 from google.cloud.sql.connector.rate_limiter import AsyncRateLimiter
 from typing import Any
@@ -29,19 +29,17 @@ from google.cloud.sql.connector.utils import generate_keys
 
 
 @pytest.fixture
-def credentials() -> Credentials:
-    return Mock(spec=Credentials)
-
-
-@pytest.fixture
 def icm(
+    fake_credentials: Credentials,
     async_loop: asyncio.AbstractEventLoop,
 ) -> InstanceConnectionManager:
-    keys = asyncio.run_coroutine_threadsafe(generate_keys(), async_loop)
-    icm = InstanceConnectionManager(
-        "my-project:my-region:my-instance", "pymysql", keys, async_loop
-    )
-    return icm
+    with patch("google.auth.default") as mock_auth:
+        mock_auth.return_value = fake_credentials, None
+        keys = asyncio.run_coroutine_threadsafe(generate_keys(), async_loop)
+        icm = InstanceConnectionManager(
+            "my-project:my-region:my-instance", "pymysql", keys, async_loop
+        )
+        return icm
 
 
 @pytest.fixture
@@ -71,7 +69,9 @@ async def _get_metadata_error(*args: Any, **kwargs: Any) -> None:
     raise Exception("something went wrong...")
 
 
-def test_InstanceConnectionManager_init(async_loop: asyncio.AbstractEventLoop) -> None:
+def test_InstanceConnectionManager_init(
+    fake_credentials: Credentials, async_loop: asyncio.AbstractEventLoop
+) -> None:
     """
     Test to check whether the __init__ method of InstanceConnectionManager
     can tell if the connection string that's passed in is formatted correctly.
@@ -79,7 +79,9 @@ def test_InstanceConnectionManager_init(async_loop: asyncio.AbstractEventLoop) -
 
     connect_string = "test-project:test-region:test-instance"
     keys = asyncio.run_coroutine_threadsafe(generate_keys(), async_loop)
-    icm = InstanceConnectionManager(connect_string, "pymysql", keys, async_loop)
+    with patch("google.auth.default") as mock_auth:
+        mock_auth.return_value = fake_credentials, None
+        icm = InstanceConnectionManager(connect_string, "pymysql", keys, async_loop)
     project_result = icm._project
     region_result = icm._region
     instance_result = icm._instance
@@ -201,6 +203,11 @@ async def test_force_refresh_cancels_pending_refresh(
     # stub _get_instance_data to return a MockMetadata instance
     setattr(icm, "_get_instance_data", _get_metadata_success)
 
+    # set _current to MockMetadata
+    icm._current = asyncio.run_coroutine_threadsafe(
+        icm._perform_refresh(), icm._loop
+    ).result(timeout=10)
+
     # since the pending refresh isn't for another 55 min, the refresh_in_progress event
     # shouldn't be set
     pending_refresh = icm._next
@@ -213,7 +220,7 @@ async def test_force_refresh_cancels_pending_refresh(
 
 
 def test_auth_init_with_credentials_object(
-    icm: InstanceConnectionManager, credentials: Credentials
+    icm: InstanceConnectionManager, fake_credentials: Credentials
 ) -> None:
     """
     Test that InstanceConnectionManager's _auth_init initializes _credentials
@@ -223,14 +230,14 @@ def test_auth_init_with_credentials_object(
     with patch(
         "google.cloud.sql.connector.instance_connection_manager.with_scopes_if_required"
     ) as mock_auth:
-        mock_auth.return_value = credentials
-        icm._auth_init(credentials=credentials)
+        mock_auth.return_value = fake_credentials
+        icm._auth_init(credentials=fake_credentials)
         assert isinstance(icm._credentials, Credentials)
         mock_auth.assert_called_once()
 
 
 def test_auth_init_with_default_credentials(
-    icm: InstanceConnectionManager, credentials: Credentials
+    icm: InstanceConnectionManager, fake_credentials: Credentials
 ) -> None:
     """
     Test that InstanceConnectionManager's _auth_init initializes _credentials
@@ -238,7 +245,7 @@ def test_auth_init_with_default_credentials(
     """
     setattr(icm, "_credentials", None)
     with patch("google.auth.default") as mock_auth:
-        mock_auth.return_value = credentials, None
+        mock_auth.return_value = fake_credentials, None
         icm._auth_init(credentials=None)
         assert isinstance(icm._credentials, Credentials)
         mock_auth.assert_called_once()

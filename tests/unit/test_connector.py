@@ -21,12 +21,15 @@ from google.cloud.sql.connector.instance_connection_manager import (
 )
 from google.cloud.sql.connector import connector
 from google.cloud.sql.connector.utils import generate_keys
+from google.auth.credentials import Credentials
 import asyncio
 from unittest.mock import patch
 from typing import Any
 
 
-def test_connect_timeout(async_loop: asyncio.AbstractEventLoop) -> None:
+def test_connect_timeout(
+    fake_credentials: Credentials, async_loop: asyncio.AbstractEventLoop
+) -> None:
     timeout = 10
     connect_string = "test-project:test-region:test-instance"
 
@@ -37,8 +40,9 @@ def test_connect_timeout(async_loop: asyncio.AbstractEventLoop) -> None:
             return None
 
     keys = asyncio.run_coroutine_threadsafe(generate_keys(), async_loop)
-
-    icm = InstanceConnectionManager(connect_string, "pymysql", keys, async_loop)
+    with patch("google.auth.default") as mock_auth:
+        mock_auth.return_value = fake_credentials, None
+        icm = InstanceConnectionManager(connect_string, "pymysql", keys, async_loop)
     setattr(icm, "_connect", timeout_stub)
 
     mock_instances = {}
