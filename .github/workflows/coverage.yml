@@ -1,0 +1,56 @@
+# Copyright 2022 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+name: Code Coverage
+on: [pull_request]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: "3.10"
+      - run: pip install nox coverage
+      
+      - name: Checkout base branch
+        uses: actions/checkout@v2
+        with:
+          ref: ${{ github.base_ref }}
+      - name: Calculate base code coverage
+        run: |
+          nox --sessions unit-3.10
+          coverage report --show-missing
+          export CUR_COVER=$(coverage report | awk '$1 == "TOTAL" {print $NF+0}')
+          echo "CUR_COVER=$CUR_COVER" >> $GITHUB_ENV
+          coverage erase
+
+      - name: Checkout PR branch
+        uses: actions/checkout@v2
+      - name: Calculate PR code coverage
+        run: |
+          nox --sessions unit-3.10
+          coverage report --show-missing
+          export PR_COVER=$(coverage report | awk '$1 == "TOTAL" {print $NF+0}')
+          echo "PR_COVER=$PR_COVER" >> $GITHUB_ENV
+          coverage erase
+
+      - name: Verify code coverage. If your reading this and the step has failed, please add tests to cover your changes.
+        run: |
+          echo "BASE BRANCH CODE COVERAGE is ${{ env.CUR_COVER }}%"
+          echo "PULL REQUEST CODE COVERAGE is ${{ env.PR_COVER }}%"
+          if [ "${{ env.PR_COVER }}" -lt "${{ env.CUR_COVER }}"  ]; then
+            exit 1;
+          fi
