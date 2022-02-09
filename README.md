@@ -1,5 +1,5 @@
 # Cloud SQL Connector for Python Drivers
-![CI](https://storage.googleapis.com/bigstore/cloud-devrel-public/cloud-sql-connectors/python/python3.10_linux.svg)
+![CI](https://storage.googleapis.com/cloud-devrel-public/cloud-sql-connectors/python/python3.10_linux.svg)
 [![pypi](https://img.shields.io/pypi/v/cloud-sql-python-connector)](https://pypi.org/project/cloud-sql-python-connector)
 [![python](https://img.shields.io/pypi/pyversions/cloud-sql-python-connector)](https://pypi.org/project/cloud-sql-python-connector)
 
