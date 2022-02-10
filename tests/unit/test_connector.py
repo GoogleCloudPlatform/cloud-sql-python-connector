@@ -59,6 +59,33 @@ def test_connect_timeout(
         )
 
 
+def test_connect_enable_iam_auth_error(
+    fake_credentials: Credentials, async_loop: asyncio.AbstractEventLoop
+) -> None:
+    """Test that giving different enable_iam_auth argument values throws error."""
+    connect_string = "test-project:test-region:test-instance"
+    keys = asyncio.run_coroutine_threadsafe(generate_keys(), async_loop)
+    with patch("google.auth.default") as mock_auth:
+        mock_auth.return_value = fake_credentials, None
+        # set InstanceConnectionManager's enable_iam_auth=False
+        icm = InstanceConnectionManager(
+            connect_string, "pymysql", keys, async_loop, enable_iam_auth=False
+        )
+        mock_instances = {}
+        mock_instances[connect_string] = icm
+        mock_connector = connector.Connector()
+        connector._default_connector = mock_connector
+        # try to connect using enable_iam_auth=True
+        with patch.dict(mock_connector._instances, mock_instances):
+            pytest.raises(
+                ValueError,
+                connector.connect,
+                connect_string,
+                "pymysql",
+                enable_iam_auth=True,
+            )
+
+
 def test_default_Connector_Init() -> None:
     """Test that default Connector __init__ sets properties properly."""
     default_connector = connector.Connector()
