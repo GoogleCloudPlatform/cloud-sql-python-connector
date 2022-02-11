@@ -27,6 +27,25 @@ from unittest.mock import patch
 from typing import Any
 
 
+class MockInstanceConnectionManager:
+    _enable_iam_auth: bool
+
+    def __init__(
+        self,
+        enable_iam_auth: bool = False,
+    ) -> None:
+        self._enable_iam_auth = enable_iam_auth
+
+    def connect(
+        self,
+        driver: str,
+        ip_type: IPTypes,
+        timeout: int,
+        **kwargs: Any,
+    ) -> Any:
+        return True
+
+
 def test_connect_timeout(
     fake_credentials: Credentials, async_loop: asyncio.AbstractEventLoop
 ) -> None:
@@ -56,6 +75,31 @@ def test_connect_timeout(
             connect_string,
             "pymysql",
             timeout=timeout,
+        )
+
+
+def test_connect_enable_iam_auth_error() -> None:
+    """Test that calling connect() with different enable_iam_auth
+    argument values throws error."""
+    connect_string = "my-project:my-region:my-instance"
+    default_connector = connector.Connector()
+    with patch(
+        "google.cloud.sql.connector.connector.InstanceConnectionManager"
+    ) as mock_icm:
+        mock_icm.return_value = MockInstanceConnectionManager(enable_iam_auth=False)
+        conn = default_connector.connect(
+            connect_string,
+            "pg8000",
+            enable_iam_auth=False,
+        )
+        assert conn is True
+        # try to connect using enable_iam_auth=True, should raise error
+        pytest.raises(
+            ValueError,
+            default_connector.connect,
+            connect_string,
+            "pg8000",
+            enable_iam_auth=True,
         )
 
 

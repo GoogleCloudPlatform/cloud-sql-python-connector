@@ -108,11 +108,18 @@ class Connector:
         # Use the InstanceConnectionManager to establish an SSL Connection.
         #
         # Return a DBAPI connection
-
+        enable_iam_auth = kwargs.pop("enable_iam_auth", self._enable_iam_auth)
         if instance_connection_string in self._instances:
             icm = self._instances[instance_connection_string]
+            if enable_iam_auth != icm._enable_iam_auth:
+                raise ValueError(
+                    "connect() called with `enable_iam_auth={}`, but previously used "
+                    "enable_iam_auth={}`. If you require both for your use case, "
+                    "please use a new connector.Connector object.".format(
+                        enable_iam_auth, icm._enable_iam_auth
+                    )
+                )
         else:
-            enable_iam_auth = kwargs.pop("enable_iam_auth", self._enable_iam_auth)
             icm = InstanceConnectionManager(
                 instance_connection_string,
                 driver,
