@@ -27,6 +27,25 @@ from unittest.mock import patch
 from typing import Any
 
 
+class MockInstanceConnectionManager:
+    _enable_iam_auth: bool
+
+    def __init__(
+        self,
+        enable_iam_auth: bool = False,
+    ) -> None:
+        self._enable_iam_auth = enable_iam_auth
+
+    def connect(
+        self,
+        driver: str,
+        ip_type: IPTypes,
+        timeout: int,
+        **kwargs: Any,
+    ) -> Any:
+        return True
+
+
 def test_connect_timeout(
     fake_credentials: Credentials, async_loop: asyncio.AbstractEventLoop
 ) -> None:
@@ -59,31 +78,29 @@ def test_connect_timeout(
         )
 
 
-def test_connect_enable_iam_auth_error(
-    fake_credentials: Credentials, async_loop: asyncio.AbstractEventLoop
-) -> None:
-    """Test that giving different enable_iam_auth argument values throws error."""
-    connect_string = "test-project:test-region:test-instance"
-    keys = asyncio.run_coroutine_threadsafe(generate_keys(), async_loop)
-    with patch("google.auth.default") as mock_auth:
-        mock_auth.return_value = fake_credentials, None
-        # set InstanceConnectionManager's enable_iam_auth=False
-        icm = InstanceConnectionManager(
-            connect_string, "pymysql", keys, async_loop, enable_iam_auth=False
+def test_connect_enable_iam_auth_error() -> None:
+    """Test that calling connect() with different enable_iam_auth
+    argument values throws error."""
+    connect_string = "my-project:my-region:my-instance"
+    default_connector = connector.Connector()
+    with patch(
+        "google.cloud.sql.connector.connector.InstanceConnectionManager"
+    ) as mock_icm:
+        mock_icm.return_value = MockInstanceConnectionManager(enable_iam_auth=False)
+        conn = default_connector.connect(
+            connect_string,
+            "pg8000",
+            enable_iam_auth=False,
         )
-        mock_instances = {}
-        mock_instances[connect_string] = icm
-        mock_connector = connector.Connector()
-        connector._default_connector = mock_connector
-        # try to connect using enable_iam_auth=True
-        with patch.dict(mock_connector._instances, mock_instances):
-            pytest.raises(
-                ValueError,
-                connector.connect,
-                connect_string,
-                "pymysql",
-                enable_iam_auth=True,
-            )
+        assert conn is True
+        # try to connect using enable_iam_auth=True, should raise error
+        pytest.raises(
+            ValueError,
+            default_connector.connect,
+            connect_string,
+            "pg8000",
+            enable_iam_auth=True,
+        )
 
 
 def test_default_Connector_Init() -> None:
