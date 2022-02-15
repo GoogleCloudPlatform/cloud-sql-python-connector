@@ -13,7 +13,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
-from typing import Any
+from typing import Any, no_type_check
 
 import aiohttp
 from google.auth.credentials import Credentials
@@ -102,6 +102,7 @@ async def test_get_ephemeral(mock_post: AsyncMock, credentials: Credentials) -> 
 
 
 @pytest.mark.asyncio
+@no_type_check
 async def test_get_ephemeral_TypeError(credentials: Credentials) -> None:
     """
     Test to check whether _get_ephemeral throws proper TypeError
@@ -171,6 +172,7 @@ async def test_get_metadata(mock_get: AsyncMock, credentials: Credentials) -> No
 
 
 @pytest.mark.asyncio
+@no_type_check
 async def test_get_metadata_TypeError(credentials: Credentials) -> None:
     """
     Test to check whether _get_metadata throws proper TypeError
