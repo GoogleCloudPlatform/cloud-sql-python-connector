@@ -17,10 +17,10 @@ limitations under the License.
 from typing import List
 
 from .connector import connect
-from .instance_connection_manager import CloudSQLConnectionError, IPTypes
+from .instance_connection_manager import IPTypes
 
 
-__ALL__ = [connect, CloudSQLConnectionError, IPTypes]
+__ALL__ = [connect, IPTypes]
 
 try:
     import pkg_resources

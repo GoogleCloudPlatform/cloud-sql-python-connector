@@ -89,14 +89,14 @@ class TLSVersionError(Exception):
         super(TLSVersionError, self).__init__(self, *args)
 
 
-class CloudSQLConnectionError(Exception):
+class CloudSQLConnectionStringError(Exception):
     """
     Raised when the provided connection string is not formatted
     correctly.
     """
 
     def __init__(self, *args: Any) -> None:
-        super(CloudSQLConnectionError, self).__init__(self, *args)
+        super(CloudSQLConnectionStringError, self).__init__(self, *args)
 
 
 class CloudSQLIPTypeError(Exception):
@@ -256,9 +256,10 @@ class InstanceConnectionManager:
             self._region = connection_string_split[1]
             self._instance = connection_string_split[2]
         else:
-            raise CloudSQLConnectionError(
-                "Arg instance_connection_string must be in "
-                + "format: project:region:instance."
+            raise CloudSQLConnectionStringError(
+                "Arg `instance_connection_string` must have "
+                "format: PROJECT:REGION:INSTANCE, "
+                f"got {instance_connection_string}."
             )
 
         self._enable_iam_auth = enable_iam_auth
@@ -566,7 +567,7 @@ class InstanceConnectionManager:
         try:
             connector = connect_func[driver]
         except KeyError:
-            raise KeyError("Driver {} is not supported.".format(driver))
+            raise KeyError(f"Driver {driver} is not supported.")
 
         connect_partial = partial(
             connector, ip_address, instance_data.context, **kwargs

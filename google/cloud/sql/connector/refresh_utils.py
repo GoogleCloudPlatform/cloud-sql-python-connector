@@ -39,7 +39,7 @@ async def _get_metadata(
     and returns a dictionary containing the IP addresses and certificate
     authority of the Cloud SQL Instance.
 
-    :type credentials: google.oauth2.service_account.Credentials
+    :type credentials: google.auth.credentials.Credentials
     :param credentials:
         A credentials object created from the google-auth Python library.
         Must have the SQL Admin API scopes. For more info check out
@@ -60,16 +60,15 @@ async def _get_metadata(
     :raises TypeError: If any of the arguments are not the specified type.
     """
 
-    if (
-        not isinstance(credentials, Credentials)
-        or not isinstance(project, str)
-        or not isinstance(instance, str)
-    ):
+    if not isinstance(credentials, Credentials):
         raise TypeError(
-            "Arguments must be as follows: "
-            + "credentials (google.oauth2.service_account.Credentials), "
-            + "project (str) and instance (str)."
+            "credentials must be of type google.auth.credentials.Credentials,"
+            f" got {type(credentials)}"
         )
+    elif not isinstance(project, str):
+        raise TypeError(f"project must be of type str, got {type(project)}")
+    elif not isinstance(instance, str):
+        raise TypeError(f"instance must be of type str, got {type(instance)}")
 
     if not credentials.valid:
         request = google.auth.transport.requests.Request()
@@ -106,7 +105,7 @@ async def _get_ephemeral(
 ) -> str:
     """Asynchronously requests an ephemeral certificate from the Cloud SQL Instance.
 
-    :type credentials: google.oauth2.service_account.Credentials
+    :type credentials: google.auth.credentials.Credentials
     :param credentials: A credentials object
         created from the google-auth library. Must be
         using the SQL Admin API scopes. For more info, check out
@@ -136,8 +135,8 @@ async def _get_ephemeral(
 
     if not isinstance(credentials, Credentials):
         raise TypeError(
-            "credentials must be of type google.oauth2.service_account.Credentials,"
-            f"got {type(credentials)}"
+            "credentials must be of type google.auth.credentials.Credentials,"
+            f" got {type(credentials)}"
         )
     elif not isinstance(project, str):
         raise TypeError(f"project must be of type str, got {type(project)}")
