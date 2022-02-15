@@ -89,16 +89,6 @@ class TLSVersionError(Exception):
         super(TLSVersionError, self).__init__(self, *args)
 
 
-class CloudSQLConnectionStringError(Exception):
-    """
-    Raised when the provided connection string is not formatted
-    correctly.
-    """
-
-    def __init__(self, *args: Any) -> None:
-        super(CloudSQLConnectionStringError, self).__init__(self, *args)
-
-
 class CloudSQLIPTypeError(Exception):
     """
     Raised when IP address for the preferred IP type is not found.
@@ -256,7 +246,7 @@ class InstanceConnectionManager:
             self._region = connection_string_split[1]
             self._instance = connection_string_split[2]
         else:
-            raise CloudSQLConnectionStringError(
+            raise ValueError(
                 "Arg `instance_connection_string` must have "
                 "format: PROJECT:REGION:INSTANCE, "
                 f"got {instance_connection_string}."
