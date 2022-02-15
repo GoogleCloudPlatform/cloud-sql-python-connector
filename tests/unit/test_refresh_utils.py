@@ -102,6 +102,55 @@ async def test_get_ephemeral(mock_post: AsyncMock, credentials: Credentials) -> 
 
 
 @pytest.mark.asyncio
+async def test_get_ephemeral_TypeError(credentials: Credentials) -> None:
+    """
+    Test to check whether _get_ephemeral throws proper TypeError
+    when given incorrect input arg types.
+    """
+    client_session = Mock(aiohttp.ClientSession)
+    project = "my-project"
+    instance = "my-instance"
+    pub_key = "key"
+
+    # incorrect credentials type
+    with pytest.raises(TypeError):
+        await _get_ephemeral(
+            client_session=client_session,
+            credentials="bad-credentials",
+            project=project,
+            instance=instance,
+            pub_key=pub_key,
+        )
+    # incorrect project type
+    with pytest.raises(TypeError):
+        await _get_ephemeral(
+            client_session=client_session,
+            credentials=credentials,
+            project=12345,
+            instance=instance,
+            pub_key=pub_key,
+        )
+    # incorrect instance type
+    with pytest.raises(TypeError):
+        await _get_ephemeral(
+            client_session=client_session,
+            credentials=credentials,
+            project=project,
+            instance=12345,
+            pub_key=pub_key,
+        )
+    # incorrect pub_key type
+    with pytest.raises(TypeError):
+        await _get_ephemeral(
+            client_session=client_session,
+            credentials=credentials,
+            project=project,
+            instance=instance,
+            pub_key=12345,
+        )
+
+
+@pytest.mark.asyncio
 @patch("aiohttp.ClientSession.get", new_callable=AsyncMock)
 async def test_get_metadata(mock_get: AsyncMock, credentials: Credentials) -> None:
     """
@@ -119,3 +168,39 @@ async def test_get_metadata(mock_get: AsyncMock, credentials: Credentials) -> No
     assert result["ip_addresses"] is not None and isinstance(
         result["server_ca_cert"], str
     )
+
+
+@pytest.mark.asyncio
+async def test_get_metadata_TypeError(credentials: Credentials) -> None:
+    """
+    Test to check whether _get_metadata throws proper TypeError
+    when given incorrect input arg types.
+    """
+    client_session = Mock(aiohttp.ClientSession)
+    project = "my-project"
+    instance = "my-instance"
+
+    # incorrect credentials type
+    with pytest.raises(TypeError):
+        await _get_metadata(
+            client_session=client_session,
+            credentials="bad-credentials",
+            project=project,
+            instance=instance,
+        )
+    # incorrect project type
+    with pytest.raises(TypeError):
+        await _get_metadata(
+            client_session=client_session,
+            credentials=credentials,
+            project=12345,
+            instance=instance,
+        )
+    # incorrect instance type
+    with pytest.raises(TypeError):
+        await _get_metadata(
+            client_session=client_session,
+            credentials=credentials,
+            project=project,
+            instance=12345,
+        )
