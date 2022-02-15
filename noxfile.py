@@ -70,10 +70,8 @@ def default(session, path):
     # Run py.test against the unit tests.
     session.run(
         "py.test",
-        # "--cov=util",
-        # "--cov=connector",
+        "--cov=google/cloud/sql/connector",
         "-v",
-        "--cov-append",
         "--cov-config=.coveragerc",
         "--cov-report=",
         "--cov-fail-under=0",
@@ -96,15 +94,3 @@ def system(session):
 def test(session):
     default(session, os.path.join("tests", "unit"))
     default(session, os.path.join("tests", "system"))
-
-
-# @nox.session(python="3.7")
-# def cover(session):
-# """Run the final coverage report.
-# This outputs the coverage report aggregating coverage from the unit
-# test runs (not system test runs), and then erases coverage data.
-# """
-# session.install("coverage", "pytest-cov")
-# session.run("coverage", "report", "--show-missing", "--fail-under=100")
-
-# session.run("coverage", "erase")

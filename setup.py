@@ -79,7 +79,7 @@ setup(
     install_requires=core_dependencies,
     extras_require={
         "pymysql": ["PyMySQL==1.0.2"],
-        "pg8000": ["pg8000==1.23.0"],
+        "pg8000": ["pg8000==1.24.0"],
         "pytds": ["python-tds==1.11.0"],
         "asyncpg": ["asyncpg==0.25.0"],
     },

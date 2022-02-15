@@ -234,6 +234,7 @@ class InstanceConnectionManager:
     _project: str
     _region: str
 
+    _refresh_rate_limiter: AsyncRateLimiter
     _refresh_in_progress: asyncio.locks.Event
     _current: asyncio.Task  # task wraps coroutine that returns InstanceMetadata
     _next: asyncio.Task  # task wraps coroutine that returns another task
@@ -275,17 +276,18 @@ class InstanceConnectionManager:
 
         self._auth_init(credentials)
 
-        self._refresh_rate_limiter = AsyncRateLimiter(
-            max_capacity=2, rate=1 / 30, loop=self._loop
-        )
-
-        async def _set_instance_data() -> None:
-            logger.debug("Updating instance data")
+        async def _async_init() -> None:
+            """Initialize InstanceConnectionManager's variables that require the
+            event loop running in background thread.
+            """
+            self._refresh_rate_limiter = AsyncRateLimiter(
+                max_capacity=2, rate=1 / 30, loop=self._loop
+            )
             self._refresh_in_progress = asyncio.locks.Event()
             self._current = self._loop.create_task(self._get_instance_data())
             self._next = self._loop.create_task(self._schedule_refresh())
 
-        init_future = asyncio.run_coroutine_threadsafe(_set_instance_data(), self._loop)
+        init_future = asyncio.run_coroutine_threadsafe(_async_init(), self._loop)
         init_future.result()
 
     def __del__(self) -> None:
@@ -688,7 +690,7 @@ class InstanceConnectionManager:
     def _connect_with_pytds(
         self, ip_address: str, ctx: ssl.SSLContext, **kwargs: Any
     ) -> "pytds.Connection":
-        """Helper function to create a pg8000 DB-API connection object.
+        """Helper function to create a pytds DB-API connection object.
 
         :type ip_address: str
         :param ip_address: A string containing an IP address for the Cloud SQL
