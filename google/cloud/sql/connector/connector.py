@@ -113,11 +113,10 @@ class Connector:
             icm = self._instances[instance_connection_string]
             if enable_iam_auth != icm._enable_iam_auth:
                 raise ValueError(
-                    "connect() called with `enable_iam_auth={}`, but previously used "
-                    "enable_iam_auth={}`. If you require both for your use case, "
-                    "please use a new connector.Connector object.".format(
-                        enable_iam_auth, icm._enable_iam_auth
-                    )
+                    f"connect() called with `enable_iam_auth={enable_iam_auth}`, "
+                    f"but previously used enable_iam_auth={icm._enable_iam_auth}`. "
+                    "If you require both for your use case, please use a new "
+                    "connector.Connector object."
                 )
         else:
             icm = InstanceConnectionManager(
