@@ -280,30 +280,6 @@ class InstanceConnectionManager:
         init_future = asyncio.run_coroutine_threadsafe(_async_init(), self._loop)
         init_future.result()
 
-    def __del__(self) -> None:
-        """Deconstructor to make sure ClientSession is closed and tasks have
-        finished to have a graceful exit.
-        """
-        logger.debug("Entering deconstructor")
-
-        async def _deconstruct() -> None:
-            if isinstance(self._current, asyncio.Task):
-                logger.debug("Waiting for _current to be cancelled")
-                self._current.cancel()
-            if isinstance(self._next, asyncio.Task):
-                logger.debug("Waiting for _next to be cancelled")
-                self._next.cancel()
-            if not self._client_session.closed:
-                logger.debug("Waiting for _client_session to close")
-                await self._client_session.close()
-
-        deconstruct_future = asyncio.run_coroutine_threadsafe(
-            _deconstruct(), loop=self._loop
-        )
-        # Will attempt to safely shut down tasks for 5s
-        deconstruct_future.result(timeout=5)
-        logger.debug("Finished deconstructing")
-
     async def _get_instance_data(self) -> InstanceMetadata:
         """Asynchronous function that takes in the futures for the ephemeral certificate
         and the instance metadata and generates an OpenSSL context object.

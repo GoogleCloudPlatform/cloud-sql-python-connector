@@ -150,6 +150,31 @@ class Connector:
             icm.force_refresh()
             raise (e)
 
+    def __del__(self) -> None:
+        """Deconstructor to make sure ClientSession is closed and tasks have
+        finished to have a graceful exit.
+        """
+        logger.debug("Entering deconstructor")
+
+        async def _deconstruct(icm) -> None:
+            if isinstance(icm._current, asyncio.Task):
+                logger.debug("Waiting for _current to be cancelled")
+                icm._current.cancel()
+            if isinstance(icm._next, asyncio.Task):
+                logger.debug("Waiting for _next to be cancelled")
+                icm._next.cancel()
+            if not icm._client_session.closed:
+                logger.debug("Waiting for _client_session to close")
+                await icm._client_session.close()
+
+        for icm in self._instances.values():
+            deconstruct_future = asyncio.run_coroutine_threadsafe(
+                _deconstruct(icm), loop=self._loop
+            )
+            # Will attempt to safely shut down tasks for 5s
+            deconstruct_future.result(timeout=5)
+        logger.debug("Finished deconstructing")
+
 
 def connect(instance_connection_string: str, driver: str, **kwargs: Any) -> Any:
     """Uses a Connector object with default settings and returns a database
