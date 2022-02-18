@@ -105,6 +105,7 @@ def test_connect_enable_iam_auth_error() -> None:
         # remove mock_icm to avoid destructor warnings
         default_connector._instances = {}
 
+
 def test_default_Connector_Init() -> None:
     """Test that default Connector __init__ sets properties properly."""
     default_connector = connector.Connector()
