@@ -29,6 +29,27 @@ logger = logging.getLogger(name=__name__)
 
 _default_connector = None
 
+# This thread is used for background processing
+_thread: Optional[Thread] = None
+_loop: Optional[asyncio.AbstractEventLoop] = None
+
+
+def _get_loop() -> asyncio.AbstractEventLoop:
+    global _loop, _thread
+    try:
+        loop = asyncio.get_running_loop()
+        print("Using found event loop!")
+        return loop
+    except RuntimeError as e:
+        if _loop is None:
+            print("Creating new background loop!")
+            _loop = asyncio.new_event_loop()
+            _thread = Thread(target=_loop.run_forever, daemon=True)
+            _thread.start()
+        else:
+            print("Using already created background loop!")
+    return _loop
+
 
 class Connector:
     """A class to configure and create connections to Cloud SQL instances.
@@ -59,9 +80,7 @@ class Connector:
         timeout: int = 30,
         credentials: Optional[Credentials] = None,
     ) -> None:
-        self._loop: asyncio.AbstractEventLoop = asyncio.new_event_loop()
-        self._thread: Thread = Thread(target=self._loop.run_forever, daemon=True)
-        self._thread.start()
+        self._loop: asyncio.AbstractEventLoop = _get_loop()
         self._keys: concurrent.futures.Future = asyncio.run_coroutine_threadsafe(
             generate_keys(), self._loop
         )
@@ -108,48 +127,10 @@ class Connector:
         # Use the InstanceConnectionManager to establish an SSL Connection.
         #
         # Return a DBAPI connection
-        enable_iam_auth = kwargs.pop("enable_iam_auth", self._enable_iam_auth)
-        if instance_connection_string in self._instances:
-            icm = self._instances[instance_connection_string]
-            if enable_iam_auth != icm._enable_iam_auth:
-                raise ValueError(
-                    "connect() called with `enable_iam_auth={}`, but previously used "
-                    "enable_iam_auth={}`. If you require both for your use case, "
-                    "please use a new connector.Connector object.".format(
-                        enable_iam_auth, icm._enable_iam_auth
-                    )
-                )
-        else:
-            icm = InstanceConnectionManager(
-                instance_connection_string,
-                driver,
-                self._keys,
-                self._loop,
-                self._credentials,
-                enable_iam_auth,
-            )
-            self._instances[instance_connection_string] = icm
-
-        if "ip_types" in kwargs:
-            ip_type = kwargs.pop("ip_types")
-            logger.warning(
-                "Deprecation Warning: Parameter `ip_types` is deprecated and may be removed"
-                " in a future release. Please use `ip_type` instead."
-            )
-        else:
-            ip_type = kwargs.pop("ip_type", self._ip_type)
-        if "timeout" in kwargs:
-            return icm.connect(driver, ip_type, **kwargs)
-        elif "connect_timeout" in kwargs:
-            timeout = kwargs["connect_timeout"]
-        else:
-            timeout = self._timeout
-        try:
-            return icm.connect(driver, ip_type, timeout, **kwargs)
-        except Exception as e:
-            # with any other exception, we attempt a force refresh, then throw the error
-            icm.force_refresh()
-            raise (e)
+        connect_task = asyncio.run_coroutine_threadsafe(
+            self.async_connect(instance_connection_string, driver, **kwargs), self._loop
+        )
+        return connect_task.result()
 
     async def async_connect(
         self, instance_connection_string: str, driver: str, **kwargs: Any
@@ -177,10 +158,17 @@ class Connector:
         :returns:
             A DB-API connection to the specified Cloud SQL instance.
         """
+        enable_iam_auth = kwargs.pop("enable_iam_auth", self._enable_iam_auth)
         if instance_connection_string in self._instances:
             icm = self._instances[instance_connection_string]
+            if enable_iam_auth != icm._enable_iam_auth:
+                raise ValueError(
+                    f"connect() called with `enable_iam_auth={enable_iam_auth}`, "
+                    f"but previously used enable_iam_auth={icm._enable_iam_auth}`. "
+                    "If you require both for your use case, please use a new "
+                    "connector.Connector object."
+                )
         else:
-            enable_iam_auth = kwargs.pop("enable_iam_auth", self._enable_iam_auth)
             icm = InstanceConnectionManager(
                 instance_connection_string,
                 driver,
@@ -195,31 +183,26 @@ class Connector:
             ip_type = kwargs.pop("ip_types")
             logger.warning(
                 "Deprecation Warning: Parameter `ip_types` is deprecated and may be removed"
-                "in a future release. Please use `ip_type` instead."
+                " in a future release. Please use `ip_type` instead."
             )
         else:
             ip_type = kwargs.pop("ip_type", self._ip_type)
-        if "timeout" in kwargs:
-            timeout = kwargs["timeout"]
-        elif "connect_timeout" in kwargs:
+        timeout = kwargs.pop("timeout", self._timeout)
+        if "connect_timeout" in kwargs:
             timeout = kwargs["connect_timeout"]
-        else:
-            timeout = self._timeout
+
         try:
-            connect_future: concurrent.futures.Future = (
-                asyncio.run_coroutine_threadsafe(
-                    icm._connect(driver, ip_type, **kwargs), self._loop
-                )
+            connection_task = self._loop.create_task(
+                icm._connect(driver, ip_type, **kwargs)
             )
-            conn = connect_future.result(timeout)
-        except concurrent.futures.TimeoutError:
-            connect_future.cancel()
+            await asyncio.wait_for(connection_task, timeout)
+            return await connection_task
+        except asyncio.TimeoutError:
             raise TimeoutError(f"Connection timed out after {timeout}s")
-        try:
-            return conn
         except Exception as e:
             # with any other exception, we attempt a force refresh, then throw the error
-            icm.force_refresh()
+            refresh_task = self._loop.create_task(icm._force_refresh())
+            await asyncio.wait_for(refresh_task, None)
             raise (e)
 
 

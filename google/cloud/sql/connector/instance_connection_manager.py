@@ -501,37 +501,6 @@ class InstanceConnectionManager:
             raise e
         return await self._perform_refresh()
 
-    def connect(
-        self,
-        driver: str,
-        ip_type: IPTypes,
-        timeout: int,
-        **kwargs: Any,
-    ) -> Any:
-        """A method that returns a DB-API connection to the database.
-
-        :type driver: str
-        :param driver: A string representing the driver. e.g. "pymysql"
-
-        :type timeout: int
-        :param timeout: The time limit for the connection before raising
-        a TimeoutError
-
-        :returns: A DB-API connection to the primary IP of the database.
-        """
-
-        connect_future: concurrent.futures.Future = asyncio.run_coroutine_threadsafe(
-            self._connect(driver, ip_type, **kwargs), self._loop
-        )
-
-        try:
-            connection = connect_future.result(timeout)
-        except concurrent.futures.TimeoutError:
-            connect_future.cancel()
-            raise TimeoutError(f"Connection timed out after {timeout}s")
-        else:
-            return connection
-
     async def _connect(
         self,
         driver: str,
@@ -546,7 +515,7 @@ class InstanceConnectionManager:
         :returns: A DB-API connection to the primary IP of the database.
         """
         logger.debug("Entered connect method")
-
+        print("_connect thread ID: ", self._loop._thread_id)
         # Host and ssl options come from the certificates and metadata, so we don't
         # want the user to specify them.
         kwargs.pop("host", None)
