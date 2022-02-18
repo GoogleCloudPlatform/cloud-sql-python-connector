@@ -663,3 +663,15 @@ class InstanceConnectionManager:
         return pytds.connect(
             ip_address, database=db, user=user, password=passwd, sock=sock, **kwargs
         )
+
+    async def close(self) -> None:
+        """Cleanup function to make sure ClientSession is closed and tasks have
+        finished to have a graceful exit.
+        """
+        logger.debug("Waiting for _current to be cancelled")
+        self._current.cancel()
+        logger.debug("Waiting for _next to be cancelled")
+        self._next.cancel()
+        if not self._client_session.closed:
+            logger.debug("Waiting for _client_session to close")
+            await self._client_session.close()
