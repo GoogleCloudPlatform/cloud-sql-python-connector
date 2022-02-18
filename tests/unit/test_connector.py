@@ -14,6 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
+from email.policy import default
 import pytest  # noqa F401 Needed to run the tests
 from google.cloud.sql.connector.instance_connection_manager import (
     IPTypes,
@@ -101,7 +102,8 @@ def test_connect_enable_iam_auth_error() -> None:
             "pg8000",
             enable_iam_auth=True,
         )
-
+        # remove mock_icm to avoid destructor warnings
+        default_connector._instances = {}
 
 def test_default_Connector_Init() -> None:
     """Test that default Connector __init__ sets properties properly."""
