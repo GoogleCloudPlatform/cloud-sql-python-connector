@@ -156,7 +156,7 @@ class Connector:
         """
         logger.debug("Entering deconstructor")
 
-        async def _deconstruct(icm) -> None:
+        async def _deconstruct(icm: InstanceConnectionManager) -> None:
             if isinstance(icm._current, asyncio.Task):
                 logger.debug("Waiting for _current to be cancelled")
                 icm._current.cancel()

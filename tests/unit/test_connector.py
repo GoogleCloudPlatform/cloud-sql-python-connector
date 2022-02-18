@@ -14,7 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-from email.policy import default
 import pytest  # noqa F401 Needed to run the tests
 from google.cloud.sql.connector.instance_connection_manager import (
     IPTypes,
