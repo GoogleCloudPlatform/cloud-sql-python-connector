@@ -152,7 +152,7 @@ class Connector:
 
     async def _close(self) -> None:
         """Helper function to close InstanceConnectionManagers' tasks."""
-        await asyncio.gather(icm.close() for icm in self._instances.values())
+        await asyncio.gather(*[icm.close() for icm in self._instances.values()])
 
     def __del__(self) -> None:
         """Deconstructor to make sure InstanceConnectionManagers are closed

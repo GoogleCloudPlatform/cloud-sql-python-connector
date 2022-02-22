@@ -672,6 +672,5 @@ class InstanceConnectionManager:
         self._current.cancel()
         logger.debug("Waiting for _next to be cancelled")
         self._next.cancel()
-        if not self._client_session.closed:
-            logger.debug("Waiting for _client_session to close")
-            await self._client_session.close()
+        logger.debug("Waiting for _client_session to close")
+        await self._client_session.close()
