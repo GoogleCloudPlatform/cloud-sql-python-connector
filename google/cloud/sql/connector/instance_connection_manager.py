@@ -300,30 +300,6 @@ class InstanceConnectionManager:
         await icm._async_init()
         return icm
 
-    def __del__(self) -> None:
-        """Deconstructor to make sure ClientSession is closed and tasks have
-        finished to have a graceful exit.
-        """
-        logger.debug("Entering deconstructor")
-
-        async def _deconstruct() -> None:
-            if isinstance(self._current, asyncio.Task):
-                logger.debug("Waiting for _current to be cancelled")
-                self._current.cancel()
-            if isinstance(self._next, asyncio.Task):
-                logger.debug("Waiting for _next to be cancelled")
-                self._next.cancel()
-            if not self._client_session.closed:
-                logger.debug("Waiting for _client_session to close")
-                await self._client_session.close()
-
-        deconstruct_future = asyncio.run_coroutine_threadsafe(
-            _deconstruct(), loop=self._loop
-        )
-        # Will attempt to safely shut down tasks for 5s
-        deconstruct_future.result(timeout=5)
-        logger.debug("Finished deconstructing")
-
     async def _get_instance_data(self) -> InstanceMetadata:
         """Asynchronous function that takes in the futures for the ephemeral certificate
         and the instance metadata and generates an OpenSSL context object.
@@ -672,3 +648,14 @@ class InstanceConnectionManager:
         return pytds.connect(
             ip_address, database=db, user=user, password=passwd, sock=sock, **kwargs
         )
+
+    async def close(self) -> None:
+        """Cleanup function to make sure ClientSession is closed and tasks have
+        finished to have a graceful exit.
+        """
+        logger.debug("Waiting for _current to be cancelled")
+        self._current.cancel()
+        logger.debug("Waiting for _next to be cancelled")
+        self._next.cancel()
+        logger.debug("Waiting for _client_session to close")
+        await self._client_session.close()

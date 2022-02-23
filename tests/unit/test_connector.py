@@ -101,6 +101,8 @@ def test_connect_enable_iam_auth_error() -> None:
             "pg8000",
             enable_iam_auth=True,
         )
+        # remove mock_icm to avoid destructor warnings
+        default_connector._instances = {}
 
 
 def test_default_Connector_Init() -> None:
