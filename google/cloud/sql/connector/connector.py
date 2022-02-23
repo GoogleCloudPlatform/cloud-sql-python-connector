@@ -180,8 +180,7 @@ class Connector:
             raise TimeoutError(f"Connection timed out after {timeout}s")
         except Exception as e:
             # with any other exception, we attempt a force refresh, then throw the error
-            refresh_task = self._loop.create_task(icm.force_refresh())
-            await asyncio.wait_for(refresh_task, None)
+            self._loop.create_task(icm.force_refresh())
             raise (e)
 
 
