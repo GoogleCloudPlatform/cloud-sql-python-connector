@@ -380,23 +380,7 @@ class InstanceConnectionManager:
 
         self._credentials = credentials
 
-    async def _force_refresh(self) -> bool:
-        if self._refresh_in_progress.is_set():
-            # if a new refresh is already in progress, then block on the result
-            self._current = await self._next
-            return True
-        try:
-            self._next.cancel()
-            # schedule a refresh immediately with no delay
-            self._next = self._loop.create_task(self._schedule_refresh(0))
-            self._current = await self._next
-            return True
-        except Exception as e:
-            # if anything else goes wrong, log the error and return false
-            logger.exception("Error occurred during force refresh attempt", exc_info=e)
-            return False
-
-    def force_refresh(self, timeout: Optional[int] = None) -> bool:
+    async def force_refresh(self) -> bool:
         """
         Forces a new refresh attempt and returns a boolean value that indicates
         whether the attempt was successful.
@@ -405,9 +389,21 @@ class InstanceConnectionManager:
         :param timeout: Amount of time to wait for the attempted force refresh
         to complete before throwing a timeout error.
         """
-        return asyncio.run_coroutine_threadsafe(
-            self._force_refresh(), self._loop
-        ).result(timeout=timeout)
+        if self._refresh_in_progress.is_set():
+            # if a new refresh is already in progress, then block on the result
+            self._current = await self._next
+            return True
+        try:
+            self._next.cancel()
+            # schedule a refresh immediately with no delay
+            self._next = self._loop.create_task(self._schedule_refresh(0))
+            # TODO: Add timeout here
+            self._current = await self._next
+            return True
+        except Exception as e:
+            # if anything else goes wrong, log the error and return false
+            logger.exception("Error occurred during force refresh attempt", exc_info=e)
+            return False
 
     async def seconds_until_refresh(self) -> int:
         expiration = (await self._current).expiration
@@ -491,38 +487,7 @@ class InstanceConnectionManager:
             raise e
         return await self._perform_refresh()
 
-    def connect(
-        self,
-        driver: str,
-        ip_type: IPTypes,
-        timeout: int,
-        **kwargs: Any,
-    ) -> Any:
-        """A method that returns a DB-API connection to the database.
-
-        :type driver: str
-        :param driver: A string representing the driver. e.g. "pymysql"
-
-        :type timeout: int
-        :param timeout: The time limit for the connection before raising
-        a TimeoutError
-
-        :returns: A DB-API connection to the primary IP of the database.
-        """
-
-        connect_future: concurrent.futures.Future = asyncio.run_coroutine_threadsafe(
-            self._connect(driver, ip_type, **kwargs), self._loop
-        )
-
-        try:
-            connection = connect_future.result(timeout)
-        except concurrent.futures.TimeoutError:
-            connect_future.cancel()
-            raise TimeoutError(f"Connection timed out after {timeout}s")
-        else:
-            return connection
-
-    async def _connect(
+    async def connect(
         self,
         driver: str,
         ip_type: IPTypes,
