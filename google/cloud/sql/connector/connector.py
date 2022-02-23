@@ -148,7 +148,7 @@ class Connector:
                     "connector.Connector object."
                 )
         else:
-            icm = await InstanceConnectionManager.create(
+            icm = InstanceConnectionManager(
                 instance_connection_string,
                 driver,
                 self._keys,
