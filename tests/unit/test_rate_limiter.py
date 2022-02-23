@@ -60,6 +60,10 @@ async def test_rate_limiter_throttles_requests(
     assert len(done) == 4
     assert len(pending) == 6
 
+    # cleanup pending tasks
+    for task in pending:
+        task.cancel()
+
 
 @pytest.mark.asyncio
 async def test_rate_limiter_completes_all_tasks(

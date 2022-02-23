@@ -150,6 +150,23 @@ class Connector:
             icm.force_refresh()
             raise (e)
 
+    async def _close(self) -> None:
+        """Helper function to close InstanceConnectionManagers' tasks."""
+        await asyncio.gather(*[icm.close() for icm in self._instances.values()])
+
+    def __del__(self) -> None:
+        """Deconstructor to make sure InstanceConnectionManagers are closed
+        and tasks have finished to have a graceful exit.
+        """
+        logger.debug("Entering deconstructor")
+
+        deconstruct_future = asyncio.run_coroutine_threadsafe(
+            self._close(), loop=self._loop
+        )
+        # Will attempt to safely shut down tasks for 5s
+        deconstruct_future.result(timeout=5)
+        logger.debug("Finished deconstructing")
+
 
 def connect(instance_connection_string: str, driver: str, **kwargs: Any) -> Any:
     """Uses a Connector object with default settings and returns a database
