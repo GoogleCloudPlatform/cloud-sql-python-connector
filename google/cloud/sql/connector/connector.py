@@ -148,7 +148,7 @@ class Connector:
                     "connector.Connector object."
                 )
         else:
-            icm = InstanceConnectionManager(
+            icm = await InstanceConnectionManager.create(
                 instance_connection_string,
                 driver,
                 self._keys,
@@ -180,7 +180,7 @@ class Connector:
             raise TimeoutError(f"Connection timed out after {timeout}s")
         except Exception as e:
             # with any other exception, we attempt a force refresh, then throw the error
-            refresh_task = self._loop.create_task(icm._force_refresh())
+            refresh_task = self._loop.create_task(icm.force_refresh())
             await asyncio.wait_for(refresh_task, None)
             raise (e)
 

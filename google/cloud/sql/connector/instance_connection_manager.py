@@ -266,19 +266,39 @@ class InstanceConnectionManager:
 
         self._auth_init(credentials)
 
-        async def _async_init() -> None:
-            """Initialize InstanceConnectionManager's variables that require the
-            event loop running in background thread.
-            """
-            self._refresh_rate_limiter = AsyncRateLimiter(
-                max_capacity=2, rate=1 / 30, loop=self._loop
-            )
-            self._refresh_in_progress = asyncio.locks.Event()
-            self._current = self._loop.create_task(self._get_instance_data())
-            self._next = self._loop.create_task(self._schedule_refresh())
+    async def _async_init(self) -> None:
+        """Initialize InstanceConnectionManager's variables that require the
+        event loop running in background thread.
+        """
+        self._refresh_rate_limiter = AsyncRateLimiter(
+            max_capacity=2, rate=1 / 30, loop=self._loop
+        )
+        self._refresh_in_progress = asyncio.locks.Event()
+        self._current = self._loop.create_task(self._get_instance_data())
+        self._next = self._loop.create_task(self._schedule_refresh())
 
-        init_future = asyncio.run_coroutine_threadsafe(_async_init(), self._loop)
-        init_future.result()
+        await self._current
+
+    @classmethod
+    async def create(
+        cls,
+        instance_connection_string: str,
+        driver_name: str,
+        keys: concurrent.futures.Future,
+        loop: asyncio.AbstractEventLoop,
+        credentials: Optional[Credentials] = None,
+        enable_iam_auth: bool = False,
+    ):
+        icm = InstanceConnectionManager(
+            instance_connection_string,
+            driver_name,
+            keys,
+            loop,
+            credentials,
+            enable_iam_auth,
+        )
+        await icm._async_init()
+        return icm
 
     def __del__(self) -> None:
         """Deconstructor to make sure ClientSession is closed and tasks have
@@ -380,7 +400,7 @@ class InstanceConnectionManager:
 
         self._credentials = credentials
 
-    async def force_refresh(self) -> bool:
+    async def force_refresh(self, timeout: Optional[int] = None) -> bool:
         """
         Forces a new refresh attempt and returns a boolean value that indicates
         whether the attempt was successful.
@@ -397,7 +417,7 @@ class InstanceConnectionManager:
             self._next.cancel()
             # schedule a refresh immediately with no delay
             self._next = self._loop.create_task(self._schedule_refresh(0))
-            # TODO: Add timeout here
+            await asyncio.wait_for(self._next, timeout)
             self._current = await self._next
             return True
         except Exception as e:
