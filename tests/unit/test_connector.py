@@ -22,7 +22,7 @@ from unittest.mock import patch
 from typing import Any
 
 
-class MockInstanceConnectionManager(object):
+class MockInstanceConnectionManager:
     _enable_iam_auth: bool
 
     def __init__(
