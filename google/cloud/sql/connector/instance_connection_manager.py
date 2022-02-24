@@ -349,12 +349,12 @@ class InstanceConnectionManager:
 
         self._credentials = credentials
 
-    async def force_refresh(self, timeout: Optional[int] = None) -> bool:
+    async def force_refresh(self, timeout: int = 0) -> bool:
         """
         Forces a new refresh attempt and returns a boolean value that indicates
         whether the attempt was successful.
 
-        :type timeout: Optional[int]
+        :type timeout: int
         :param timeout: Amount of time to wait for the attempted force refresh
         to complete before throwing a timeout error.
         """
