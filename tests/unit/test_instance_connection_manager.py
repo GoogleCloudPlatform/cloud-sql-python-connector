@@ -184,7 +184,7 @@ async def test_force_refresh_cancels_pending_refresh(
     pending_refresh = icm._next
     assert icm._refresh_in_progress.is_set() is False
 
-    await icm.force_refresh(timeout=0)
+    await asyncio.create_task(icm.force_refresh(timeout=0))
 
     assert pending_refresh.cancelled() is True
     assert isinstance(icm._current.result(), MockMetadata)
