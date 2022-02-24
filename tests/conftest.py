@@ -14,8 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 import os
-import threading
-from typing import Any, Generator
+from typing import Any
 from google.auth.credentials import Credentials, with_scopes_if_required
 from google.oauth2 import service_account
 
@@ -53,15 +52,12 @@ def pytest_collection_modifyitems(config: Any, items: Any) -> None:
 
 
 @pytest.fixture
-def async_loop() -> Generator:
+def event_loop() -> asyncio.AbstractEventLoop:
     """
-    Creates a loop in a background thread and returns it to use for testing.
+    Creates an event loop to use for testing.
     """
-    loop = asyncio.new_event_loop()
-    thr = threading.Thread(target=loop.run_forever, daemon=True)
-    thr.start()
-    yield loop
-    loop.stop()
+    loop: asyncio.AbstractEventLoop = asyncio.new_event_loop()
+    return loop
 
 
 @pytest.fixture
