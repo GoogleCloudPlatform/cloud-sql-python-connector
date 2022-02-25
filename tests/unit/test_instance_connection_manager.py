@@ -33,16 +33,18 @@ class MockMetadata:
         self.expiration = expiration
 
 
-async def _get_metadata_success(*args: Any, **kwargs: Any) -> MockMetadata:
+async def _get_instance_data_success(*args: Any, **kwargs: Any) -> MockMetadata:
     return MockMetadata(datetime.datetime.now() + datetime.timedelta(minutes=10))
 
 
-async def _get_metadata_error(*args: Any, **kwargs: Any) -> None:
+async def _get_instance_data_error(*args: Any, **kwargs: Any) -> None:
     raise Exception("something went wrong...")
 
 
 @pytest.fixture
-@patch.object(InstanceConnectionManager, "_get_instance_data", _get_metadata_success)
+@patch.object(
+    InstanceConnectionManager, "_get_instance_data", _get_instance_data_success
+)
 def icm(
     fake_credentials: Credentials,
     event_loop: asyncio.AbstractEventLoop,
@@ -61,7 +63,8 @@ def test_rate_limiter(event_loop: asyncio.AbstractEventLoop) -> AsyncRateLimiter
     return AsyncRateLimiter(max_capacity=1, rate=1 / 2, loop=event_loop)
 
 
-def test_InstanceConnectionManager_init(
+@pytest.mark.asyncio
+async def test_InstanceConnectionManager_init(
     fake_credentials: Credentials, event_loop: asyncio.AbstractEventLoop
 ) -> None:
     """
@@ -83,9 +86,11 @@ def test_InstanceConnectionManager_init(
         and region_result == "test-region"
         and instance_result == "test-instance"
     )
+    await icm.close()
 
 
-def test_InstanceConnectionManager_init_bad_credentials(
+@pytest.mark.asyncio
+async def test_InstanceConnectionManager_init_bad_credentials(
     event_loop: asyncio.AbstractEventLoop,
 ) -> None:
     """
@@ -95,9 +100,10 @@ def test_InstanceConnectionManager_init_bad_credentials(
     connect_string = "test-project:test-region:test-instance"
     keys = asyncio.run_coroutine_threadsafe(generate_keys(), event_loop)
     with pytest.raises(CredentialsTypeError):
-        assert InstanceConnectionManager(
+        icm = InstanceConnectionManager(
             connect_string, "pymysql", keys, event_loop, credentials=1
         )
+        await icm.close()
 
 
 @pytest.mark.asyncio
@@ -111,11 +117,12 @@ async def test_perform_refresh_replaces_result(
     setattr(icm, "_refresh_rate_limiter", test_rate_limiter)
 
     # stub _get_instance_data to return a "valid" MockMetadata object
-    setattr(icm, "_get_instance_data", _get_metadata_success)
+    setattr(icm, "_get_instance_data", _get_instance_data_success)
     refresh_task = await icm._perform_refresh()
 
     assert icm._current == refresh_task
     assert isinstance(icm._current.result(), MockMetadata)
+    await icm.close()
 
 
 @pytest.mark.asyncio
@@ -132,11 +139,12 @@ async def test_perform_refresh_wont_replace_valid_result_with_invalid(
     old_task = icm._current
 
     # stub _get_instance_data to throw an error, then await _perform_refresh
-    setattr(icm, "_get_instance_data", _get_metadata_error)
+    setattr(icm, "_get_instance_data", _get_instance_data_error)
     await icm._perform_refresh()
 
     assert icm._current == old_task
     assert isinstance(icm._current.result(), MockMetadata)
+    await icm.close()
 
 
 @pytest.mark.asyncio
@@ -151,15 +159,16 @@ async def test_perform_refresh_replaces_invalid_result(
     setattr(icm, "_refresh_rate_limiter", test_rate_limiter)
 
     # stub _get_instance_data to throw an error
-    setattr(icm, "_get_instance_data", _get_metadata_error)
+    setattr(icm, "_get_instance_data", _get_instance_data_error)
     icm._current = await icm._perform_refresh()
 
     # stub _get_instance_data to return a MockMetadata instance
-    setattr(icm, "_get_instance_data", _get_metadata_success)
+    setattr(icm, "_get_instance_data", _get_instance_data_success)
     new_task = await icm._perform_refresh()
 
     assert icm._current == new_task
     assert isinstance(icm._current.result(), MockMetadata)
+    await icm.close()
 
 
 @pytest.mark.asyncio
@@ -174,7 +183,7 @@ async def test_force_refresh_cancels_pending_refresh(
     setattr(icm, "_refresh_rate_limiter", test_rate_limiter)
 
     # stub _get_instance_data to return a MockMetadata instance
-    setattr(icm, "_get_instance_data", _get_metadata_success)
+    setattr(icm, "_get_instance_data", _get_instance_data_success)
 
     # set _current to MockMetadata
     icm._current = await icm._perform_refresh()
@@ -188,9 +197,11 @@ async def test_force_refresh_cancels_pending_refresh(
 
     assert pending_refresh.cancelled() is True
     assert isinstance(icm._current.result(), MockMetadata)
+    await icm.close()
 
 
-def test_auth_init_with_credentials_object(
+@pytest.mark.asyncio
+async def test_auth_init_with_credentials_object(
     icm: InstanceConnectionManager, fake_credentials: Credentials
 ) -> None:
     """
@@ -205,9 +216,11 @@ def test_auth_init_with_credentials_object(
         icm._auth_init(credentials=fake_credentials)
         assert isinstance(icm._credentials, Credentials)
         mock_auth.assert_called_once()
+    await icm.close()
 
 
-def test_auth_init_with_default_credentials(
+@pytest.mark.asyncio
+async def test_auth_init_with_default_credentials(
     icm: InstanceConnectionManager, fake_credentials: Credentials
 ) -> None:
     """
@@ -220,3 +233,21 @@ def test_auth_init_with_default_credentials(
         icm._auth_init(credentials=None)
         assert isinstance(icm._credentials, Credentials)
         mock_auth.assert_called_once()
+    await icm.close()
+
+
+@pytest.mark.asyncio
+async def test_InstanceConnectionManager_close(icm: InstanceConnectionManager) -> None:
+    """
+    Test that InstanceConnectionManager's close method
+    cancels tasks and closes ClientSession.
+    """
+    assert icm._current.cancelled() is False
+    assert icm._next.cancelled() is False
+    assert icm._client_session.closed is False
+    # run close() to cancel tasks and close ClientSession
+    await icm.close()
+    # verify tasks are cancelled and ClientSession is closed
+    assert (icm._current.done() or icm._current.cancelled()) is True
+    assert icm._next.cancelled() is True
+    assert icm._client_session.closed is True
