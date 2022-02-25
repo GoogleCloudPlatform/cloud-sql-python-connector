@@ -668,9 +668,11 @@ class InstanceConnectionManager:
         """Cleanup function to make sure ClientSession is closed and tasks have
         finished to have a graceful exit.
         """
-        logger.debug("Waiting for _current to be cancelled")
-        self._current.cancel()
-        logger.debug("Waiting for _next to be cancelled")
-        self._next.cancel()
+        if hasattr(self, "_current"):
+            logger.debug("Waiting for _current to be cancelled")
+            self._current.cancel()
+        if hasattr(self, "_next"):
+            logger.debug("Waiting for _next to be cancelled")
+            self._next.cancel()
         logger.debug("Waiting for _client_session to close")
         await self._client_session.close()
