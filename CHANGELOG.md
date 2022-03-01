@@ -14,10 +14,6 @@
 * update error messages and doc strings ([#276](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/276)) ([68f37b4](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/68f37b478b35202f6952a1dc0fe6b4bfadf5235e))
 
 
-### Miscellaneous Chores
-
-* release 0.5.2 ([#286](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/286)) ([5deffcf](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/5deffcfce0f253a8e86c523827c69a715d15cdb5))
-
 ### [0.5.1](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v0.5.0...v0.5.1) (2022-02-01)
 
 
