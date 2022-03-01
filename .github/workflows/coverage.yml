@@ -26,7 +26,7 @@ jobs:
       - run: pip install nox coverage
       
       - name: Checkout base branch
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           ref: ${{ github.base_ref }}
       - name: Calculate base code coverage
@@ -38,7 +38,7 @@ jobs:
           coverage erase
 
       - name: Checkout PR branch
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: Calculate PR code coverage
         run: |
           nox --sessions unit-3.10
