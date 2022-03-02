@@ -324,7 +324,9 @@ class InstanceConnectionManager:
                 token_expiration: datetime.datetime = self._credentials.expiry
             if expiration > token_expiration:
                 expiration = token_expiration
-
+        logger.debug(metadata["ip_addresses"])
+        logger.debug(metadata["server_ca_cert"])
+        logger.debug(ephemeral_cert)
         return InstanceMetadata(
             ephemeral_cert,
             metadata["ip_addresses"],
