@@ -274,65 +274,11 @@ class InstanceConnectionManager:
                 max_capacity=2, rate=1 / 30, loop=self._loop
             )
             self._refresh_in_progress = asyncio.locks.Event()
-            self._current = self._loop.create_task(self._get_instance_data())
-            self._next = self._loop.create_task(self._schedule_refresh())
+            self._current = self._loop.create_task(self._perform_refresh())
+            self._next = self._schedule_refresh()
 
         init_future = asyncio.run_coroutine_threadsafe(_async_init(), self._loop)
         init_future.result()
-
-    async def _get_instance_data(self) -> InstanceMetadata:
-        """Asynchronous function that takes in the futures for the ephemeral certificate
-        and the instance metadata and generates an OpenSSL context object.
-
-        :rtype: InstanceMetadata
-        :returns: A dataclass containing a string representing the ephemeral certificate, a dict
-            containing the instances IP adresses, a string representing a PEM-encoded private key
-            and a string representing a PEM-encoded certificate authority.
-        """
-        priv_key, pub_key = await self._keys
-
-        logger.debug("Creating context")
-
-        metadata_task = self._loop.create_task(
-            _get_metadata(
-                self._client_session, self._credentials, self._project, self._instance
-            )
-        )
-
-        ephemeral_task = self._loop.create_task(
-            _get_ephemeral(
-                self._client_session,
-                self._credentials,
-                self._project,
-                self._instance,
-                pub_key,
-                self._enable_iam_auth,
-            )
-        )
-
-        metadata, ephemeral_cert = await asyncio.gather(metadata_task, ephemeral_task)
-
-        x509 = OpenSSL.crypto.load_certificate(
-            OpenSSL.crypto.FILETYPE_PEM, ephemeral_cert
-        )
-        expiration = datetime.datetime.strptime(
-            x509.get_notAfter().decode("ascii"), "%Y%m%d%H%M%SZ"
-        )
-
-        if self._enable_iam_auth:
-            if self._credentials is not None:
-                token_expiration: datetime.datetime = self._credentials.expiry
-            if expiration > token_expiration:
-                expiration = token_expiration
-
-        return InstanceMetadata(
-            ephemeral_cert,
-            metadata["ip_addresses"],
-            priv_key,
-            metadata["server_ca_cert"],
-            expiration,
-            self._enable_iam_auth,
-        )
 
     def _auth_init(self, credentials: Optional[Credentials]) -> None:
         """Creates and assigns a Google Python API service object for
@@ -364,7 +310,7 @@ class InstanceConnectionManager:
         try:
             self._next.cancel()
             # schedule a refresh immediately with no delay
-            self._next = self._loop.create_task(self._schedule_refresh(0))
+            self._next = self._schedule_refresh(0)
             self._current = await self._next
             return True
         except Exception as e:
@@ -406,66 +352,133 @@ class InstanceConnectionManager:
 
         return int(delay.total_seconds())
 
-    async def _perform_refresh(self) -> asyncio.Task:
+    async def _perform_refresh(self) -> InstanceMetadata:
         """Retrieves instance metadata and ephemeral certificate from the
         Cloud SQL Instance.
 
-        :rtype: concurrent.future.Futures
-        :returns: A future representing the creation of an SSLcontext.
+        :rtype: InstanceMetadata
+        :returns: A dataclass containing a string representing the ephemeral certificate, a dict
+            containing the instances IP adresses, a string representing a PEM-encoded private key
+            and a string representing a PEM-encoded certificate authority.
         """
         self._refresh_in_progress.set()
         await self._refresh_rate_limiter.acquire()
         logger.debug("Entered _perform_refresh")
 
-        refresh_task = self._loop.create_task(self._get_instance_data())
-
         try:
-            await refresh_task
-        except Exception as e:
-            logger.exception(
-                "An error occurred while performing refresh."
-                "Scheduling another refresh attempt immediately",
-                exc_info=e,
-            )
-            instance_data = None
-            try:
-                instance_data = await self._current
-            except Exception:
-                # Current result is invalid, no-op
-                logger.debug("Current instance data is invalid.")
-            if (
-                instance_data is None
-                or instance_data.expiration < datetime.datetime.now()
-            ):
-                self._current = refresh_task
-                self._next = self._loop.create_task(self._perform_refresh())
+            priv_key, pub_key = await self._keys
 
-        else:
-            self._current = refresh_task
-            # Ephemeral certificate expires in 1 hour, so we schedule a refresh to happen in 55 minutes.
-            self._next = self._loop.create_task(self._schedule_refresh())
+            logger.debug("Creating context")
+
+            metadata_task = self._loop.create_task(
+                _get_metadata(
+                    self._client_session,
+                    self._credentials,
+                    self._project,
+                    self._instance,
+                )
+            )
+
+            ephemeral_task = self._loop.create_task(
+                _get_ephemeral(
+                    self._client_session,
+                    self._credentials,
+                    self._project,
+                    self._instance,
+                    pub_key,
+                    self._enable_iam_auth,
+                )
+            )
+
+            metadata, ephemeral_cert = await asyncio.gather(
+                metadata_task, ephemeral_task
+            )
+
+            x509 = OpenSSL.crypto.load_certificate(
+                OpenSSL.crypto.FILETYPE_PEM, ephemeral_cert
+            )
+            expiration = datetime.datetime.strptime(
+                x509.get_notAfter().decode("ascii"), "%Y%m%d%H%M%SZ"
+            )
+
+            if self._enable_iam_auth:
+                if self._credentials is not None:
+                    token_expiration: datetime.datetime = self._credentials.expiry
+                if expiration > token_expiration:
+                    expiration = token_expiration
+
+        except Exception as e:
+            raise e
+
         finally:
             self._refresh_in_progress.clear()
 
-        return refresh_task
+        return InstanceMetadata(
+            ephemeral_cert,
+            metadata["ip_addresses"],
+            priv_key,
+            metadata["server_ca_cert"],
+            expiration,
+            self._enable_iam_auth,
+        )
 
-    async def _schedule_refresh(self, delay: Optional[int] = None) -> asyncio.Task:
-        """A coroutine that sleeps for the specified amount of time before
-        running _perform_refresh.
+    def _schedule_refresh(self, delay: Optional[int] = None) -> asyncio.Task:
+        """
+        Schedule task to sleep and then perform refresh to get InstanceMetadata.
 
         :rtype: asyncio.Task
-        :returns: A Task representing _get_instance_data.
+        :returns: A Task representing the scheduled _perform_refresh.
         """
 
-        if delay is None:
-            delay = await self.seconds_until_refresh()
-        try:
-            logger.debug("Entering sleep")
-            await asyncio.sleep(delay)
-        except asyncio.CancelledError as e:
-            logger.debug("Schedule refresh task cancelled.")
-            raise e
-        return await self._perform_refresh()
+        async def _refresh_task(
+            self: InstanceConnectionManager, delay: Optional[int]
+        ) -> InstanceMetadata:
+            """
+            A coroutine that sleeps for the specified amount of time before
+            running _perform_refresh.
+            """
+            if delay is None:
+                delay = await self.seconds_until_refresh()
+            refresh_task = self._loop.create_task(self._perform_refresh())
+            try:
+                logger.debug("Entering sleep")
+                await asyncio.sleep(delay)
+                await refresh_task
+            except asyncio.CancelledError as e:
+                logger.debug("Schedule refresh task cancelled.")
+                raise e
+            # bad refresh attempt
+            except Exception as e:
+                logger.exception(
+                    "An error occurred while performing refresh."
+                    "Scheduling another refresh attempt immediately",
+                    exc_info=e,
+                )
+                # check if current metadata is valid, don't want to replace valid metadata with invalid one
+                instance_data = None
+                try:
+                    instance_data = await self._current
+                except Exception:
+                    # Current result is invalid, no-op
+                    logger.debug("Current instance data is invalid.")
+                # if current metadata is invalid, replace with more recent invalid refresh and schedule another refresh immediately
+                if (
+                    instance_data is None
+                    or instance_data.expiration < datetime.datetime.now()
+                ):
+                    self._current = refresh_task
+                    self._next = self._schedule_refresh(0)
+            # if valid refresh, replace current with valid metadata and schedule next refresh
+            else:
+                self._current = refresh_task
+                # Ephemeral certificate expires in 1 hour, so we schedule a refresh to happen in 55 minutes.
+                self._next = self._schedule_refresh()
+
+            return await refresh_task
+
+        # schedule refresh task and return it
+        scheduled_task = self._loop.create_task(_refresh_task(self, delay))
+        return scheduled_task
 
     def connect(
         self,
