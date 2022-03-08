@@ -408,6 +408,7 @@ class InstanceConnectionManager:
                     expiration = token_expiration
 
         except Exception as e:
+            logger.debug("Error occurred during _perform_refresh.")
             raise e
 
         finally:
