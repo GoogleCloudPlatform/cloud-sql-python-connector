@@ -28,7 +28,34 @@ from google.cloud.sql.connector.instance_connection_manager import (
 from google.cloud.sql.connector.utils import generate_keys
 
 
+class MockMetadata:
+    def __init__(self, expiration: datetime.datetime) -> None:
+        self.expiration = expiration
+
+
+async def _get_metadata_success(*args: Any, **kwargs: Any) -> MockMetadata:
+    return MockMetadata(datetime.datetime.now() + datetime.timedelta(minutes=10))
+
+
+async def _get_metadata_error(*args: Any, **kwargs: Any) -> None:
+    raise Exception("something went wrong...")
+
+
+async def refresh(icm: InstanceConnectionManager, wait: bool = False) -> asyncio.Task:
+    """
+    Helper function to run schedule_refresh within background thread's event_loop
+    """
+    new_task = icm._schedule_refresh(0)
+
+    # since we can't await in test itself we set flag to await in background thread for result
+    if wait:
+        await new_task
+
+    return new_task
+
+
 @pytest.fixture
+@patch.object(InstanceConnectionManager, "_perform_refresh", _get_metadata_success)
 def icm(
     fake_credentials: Credentials,
     async_loop: asyncio.AbstractEventLoop,
@@ -54,19 +81,6 @@ def test_rate_limiter(async_loop: asyncio.AbstractEventLoop) -> AsyncRateLimiter
     )
     limiter = limiter_future.result()
     return limiter
-
-
-class MockMetadata:
-    def __init__(self, expiration: datetime.datetime) -> None:
-        self.expiration = expiration
-
-
-async def _get_metadata_success(*args: Any, **kwargs: Any) -> MockMetadata:
-    return MockMetadata(datetime.datetime.now() + datetime.timedelta(minutes=10))
-
-
-async def _get_metadata_error(*args: Any, **kwargs: Any) -> None:
-    raise Exception("something went wrong...")
 
 
 def test_InstanceConnectionManager_init(
@@ -109,27 +123,34 @@ def test_InstanceConnectionManager_init_bad_credentials(
 
 
 @pytest.mark.asyncio
-async def test_perform_refresh_replaces_result(
+async def test_schedule_refresh_replaces_result(
     icm: InstanceConnectionManager, test_rate_limiter: AsyncRateLimiter
 ) -> None:
     """
-    Test to check whether _perform_refresh replaces a valid result with another valid result
+    Test to check whether _schedule_refresh replaces a valid result with another valid result
     """
     # allow more frequent refreshes for tests
     setattr(icm, "_refresh_rate_limiter", test_rate_limiter)
 
-    # stub _get_instance_data to return a "valid" MockMetadata object
-    setattr(icm, "_get_instance_data", _get_metadata_success)
-    new_task = asyncio.run_coroutine_threadsafe(
-        icm._perform_refresh(), icm._loop
-    ).result(timeout=10)
+    # stub _perform_refresh to return a "valid" MockMetadata object
+    setattr(icm, "_perform_refresh", _get_metadata_success)
 
-    assert icm._current == new_task
+    old_metadata = icm._current.result()
+
+    # schedule refresh immediately
+    refresh_task = asyncio.run_coroutine_threadsafe(
+        refresh(icm, wait=True), icm._loop
+    ).result()
+    refresh_metadata = refresh_task.result()
+
+    # check that current metadata has been replaced with refresh metadata
+    assert icm._current.result() == refresh_metadata
+    assert old_metadata != icm._current.result()
     assert isinstance(icm._current.result(), MockMetadata)
 
 
 @pytest.mark.asyncio
-async def test_perform_refresh_wont_replace_valid_result_with_invalid(
+async def test_schedule_refresh_wont_replace_valid_result_with_invalid(
     icm: InstanceConnectionManager, test_rate_limiter: AsyncRateLimiter
 ) -> None:
     """
@@ -139,25 +160,24 @@ async def test_perform_refresh_wont_replace_valid_result_with_invalid(
     # allow more frequent refreshes for tests
     setattr(icm, "_refresh_rate_limiter", test_rate_limiter)
 
-    # stub _get_instance_data to return a "valid" MockMetadata object
-    setattr(icm, "_get_instance_data", _get_metadata_success)
-    icm._current = asyncio.run_coroutine_threadsafe(
-        icm._perform_refresh(), icm._loop
-    ).result(timeout=10)
     old_task = icm._current
 
-    # stub _get_instance_data to throw an error, then await _perform_refresh
-    setattr(icm, "_get_instance_data", _get_metadata_error)
-    asyncio.run_coroutine_threadsafe(icm._perform_refresh(), icm._loop).result(
-        timeout=10
-    )
+    # stub _perform_refresh to throw an error
+    setattr(icm, "_perform_refresh", _get_metadata_error)
 
+    # schedule_refresh immediately
+    refresh_future = asyncio.run_coroutine_threadsafe(refresh(icm), icm._loop)
+    refresh_future.result(timeout=5)
+
+    # check that invalid refresh did not replace valid current metadata
     assert icm._current == old_task
     assert isinstance(icm._current.result(), MockMetadata)
+    # cleanup icm
+    asyncio.run_coroutine_threadsafe(icm.close(), icm._loop).result(timeout=5)
 
 
 @pytest.mark.asyncio
-async def test_perform_refresh_replaces_invalid_result(
+async def test_schedule_refresh_replaces_invalid_result(
     icm: InstanceConnectionManager, test_rate_limiter: AsyncRateLimiter
 ) -> None:
     """
@@ -167,25 +187,27 @@ async def test_perform_refresh_replaces_invalid_result(
     # allow more frequent refreshes for tests
     setattr(icm, "_refresh_rate_limiter", test_rate_limiter)
 
-    # set current to valid MockMetadata instance
-    setattr(icm, "_get_instance_data", _get_metadata_success)
-    icm._current = asyncio.run_coroutine_threadsafe(
-        icm._perform_refresh(), icm._loop
-    ).result(timeout=10)
+    # stub _perform_refresh to throw an error
+    setattr(icm, "_perform_refresh", _get_metadata_error)
 
-    # stub _get_instance_data to throw an error
-    setattr(icm, "_get_instance_data", _get_metadata_error)
-    icm._current = asyncio.run_coroutine_threadsafe(
-        icm._perform_refresh(), icm._loop
-    ).result(timeout=10)
+    # set current to invalid data (error)
+    icm._current = asyncio.run_coroutine_threadsafe(refresh(icm), icm._loop).result()
 
-    # stub _get_instance_data to return a MockMetadata instance
-    setattr(icm, "_get_instance_data", _get_metadata_success)
-    new_task = asyncio.run_coroutine_threadsafe(
-        icm._perform_refresh(), icm._loop
-    ).result(timeout=10)
+    # check that current is now invalid (error)
+    with pytest.raises(Exception):
+        assert icm._current.result()
 
-    assert icm._current == new_task
+    # stub _perform_refresh to return a valid MockMetadata instance
+    setattr(icm, "_perform_refresh", _get_metadata_success)
+
+    # schedule refresh immediately
+    refresh_task = asyncio.run_coroutine_threadsafe(
+        refresh(icm, wait=True), icm._loop
+    ).result()
+    refresh_metadata = refresh_task.result()
+
+    # check that current is now valid MockMetadata
+    assert icm._current.result() == refresh_metadata
     assert isinstance(icm._current.result(), MockMetadata)
 
 
@@ -201,7 +223,7 @@ async def test_force_refresh_cancels_pending_refresh(
     setattr(icm, "_refresh_rate_limiter", test_rate_limiter)
 
     # stub _get_instance_data to return a MockMetadata instance
-    setattr(icm, "_get_instance_data", _get_metadata_success)
+    setattr(icm, "_perform_refresh", _get_metadata_success)
 
     # set _current to MockMetadata
     icm._current = asyncio.run_coroutine_threadsafe(
