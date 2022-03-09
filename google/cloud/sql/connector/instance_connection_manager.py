@@ -302,34 +302,26 @@ class InstanceConnectionManager:
 
         self._credentials = credentials
 
-    async def _force_refresh(self) -> bool:
+    def force_refresh(self) -> bool:
+        """
+        Forces a new refresh attempt and returns a boolean value that indicates
+        whether the attempt was successful.
+        """
+        # if a new refresh is already in progress, then block on the result
         if self._refresh_in_progress.is_set():
-            # if a new refresh is already in progress, then block on the result
-            self._current = await self._next
+            self._current = self._next
             return True
+        # if next refresh hasn't started, cancel it and schedule new one immediately
         try:
             self._next.cancel()
             # schedule a refresh immediately with no delay
             self._next = self._schedule_refresh(0)
-            self._current = await self._next
+            self._current = self._next
             return True
         except Exception as e:
             # if anything else goes wrong, log the error and return false
             logger.exception("Error occurred during force refresh attempt", exc_info=e)
             return False
-
-    def force_refresh(self, timeout: Optional[int] = None) -> bool:
-        """
-        Forces a new refresh attempt and returns a boolean value that indicates
-        whether the attempt was successful.
-
-        :type timeout: Optional[int]
-        :param timeout: Amount of time to wait for the attempted force refresh
-        to complete before throwing a timeout error.
-        """
-        return asyncio.run_coroutine_threadsafe(
-            self._force_refresh(), self._loop
-        ).result(timeout=timeout)
 
     async def seconds_until_refresh(self) -> int:
         expiration = (await self._current).expiration
@@ -446,6 +438,7 @@ class InstanceConnectionManager:
                 await asyncio.sleep(delay)
                 await refresh_task
             except asyncio.CancelledError as e:
+                print("Cancel called!")
                 logger.debug("Schedule refresh task cancelled.")
                 raise e
             # bad refresh attempt
@@ -455,6 +448,7 @@ class InstanceConnectionManager:
                     "Scheduling another refresh attempt immediately",
                     exc_info=e,
                 )
+                print("bad refresh!")
                 # check if current metadata is valid, don't want to replace valid metadata with invalid one
                 instance_data = None
                 try:

@@ -222,21 +222,18 @@ async def test_force_refresh_cancels_pending_refresh(
     # allow more frequent refreshes for tests
     setattr(icm, "_refresh_rate_limiter", test_rate_limiter)
 
-    # stub _get_instance_data to return a MockMetadata instance
+    # stub _perform_refresh to return a MockMetadata instance
     setattr(icm, "_perform_refresh", _get_metadata_success)
-
-    # set _current to MockMetadata
-    icm._current = asyncio.run_coroutine_threadsafe(
-        icm._perform_refresh(), icm._loop
-    ).result(timeout=10)
-
+    print("ICM next: ", icm._next)
     # since the pending refresh isn't for another 55 min, the refresh_in_progress event
     # shouldn't be set
     pending_refresh = icm._next
+
     assert icm._refresh_in_progress.is_set() is False
 
     icm.force_refresh()
 
+    print(pending_refresh)
     assert pending_refresh.cancelled() is True
     assert isinstance(icm._current.result(), MockMetadata)
 
