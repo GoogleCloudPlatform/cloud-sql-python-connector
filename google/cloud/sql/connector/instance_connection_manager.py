@@ -443,7 +443,7 @@ class InstanceConnectionManager:
             # bad refresh attempt
             except Exception as e:
                 logger.exception(
-                    "An error occurred while performing refresh."
+                    "An error occurred while performing refresh. "
                     "Scheduling another refresh attempt immediately",
                     exc_info=e,
                 )

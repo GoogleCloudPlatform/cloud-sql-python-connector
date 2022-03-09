@@ -29,6 +29,10 @@ from google.cloud.sql.connector.instance_connection_manager import (
 from google.cloud.sql.connector.utils import generate_keys
 
 
+class BadRefresh(Exception):
+    pass
+
+
 class MockMetadata:
     def __init__(self, expiration: datetime.datetime) -> None:
         self.expiration = expiration
@@ -39,7 +43,7 @@ async def _get_metadata_success(*args: Any, **kwargs: Any) -> MockMetadata:
 
 
 async def _get_metadata_error(*args: Any, **kwargs: Any) -> None:
-    raise Exception("something went wrong...")
+    raise BadRefresh("something went wrong...")
 
 
 async def refresh(icm: InstanceConnectionManager, wait: bool = False) -> asyncio.Task:
@@ -100,6 +104,8 @@ def test_InstanceConnectionManager_init(
     project_result = icm._project
     region_result = icm._region
     instance_result = icm._instance
+    # cleanup icm
+    asyncio.run_coroutine_threadsafe(icm.close(), icm._loop).result(timeout=5)
 
     assert (
         project_result == "test-project"
@@ -138,10 +144,10 @@ async def test_schedule_refresh_replaces_result(
 
     old_metadata = icm._current.result()
 
-    # schedule refresh immediately
+    # schedule refresh immediately and await it
     refresh_task = asyncio.run_coroutine_threadsafe(
         refresh(icm, wait=True), icm._loop
-    ).result()
+    ).result(timeout=5)
     refresh_metadata = refresh_task.result()
 
     # check that current metadata has been replaced with refresh metadata
@@ -166,9 +172,14 @@ async def test_schedule_refresh_wont_replace_valid_result_with_invalid(
     # stub _perform_refresh to throw an error
     setattr(icm, "_perform_refresh", _get_metadata_error)
 
-    # schedule_refresh immediately
-    refresh_future = asyncio.run_coroutine_threadsafe(refresh(icm), icm._loop)
-    refresh_future.result(timeout=5)
+    # schedule refresh immediately
+    refresh_task = icm._schedule_refresh(0)
+
+    # wait for invalid refresh to finish
+    with pytest.raises(BadRefresh):
+        asyncio.run_coroutine_threadsafe(
+            asyncio.wait_for(refresh_task, timeout=5), icm._loop
+        ).result(timeout=5)
 
     # check that invalid refresh did not replace valid current metadata
     assert icm._current == old_task
@@ -192,24 +203,32 @@ async def test_schedule_refresh_replaces_invalid_result(
     setattr(icm, "_perform_refresh", _get_metadata_error)
 
     # set current to invalid data (error)
-    icm._current = asyncio.run_coroutine_threadsafe(refresh(icm), icm._loop).result()
+    icm._current = icm._schedule_refresh(0)
+
+    # wait for invalid refresh to finish
+    with pytest.raises(BadRefresh):
+        assert asyncio.run_coroutine_threadsafe(
+            asyncio.wait_for(icm._current, timeout=5), icm._loop
+        ).result()
 
     # check that current is now invalid (error)
-    with pytest.raises(Exception):
+    with pytest.raises(BadRefresh):
         assert icm._current.result()
 
     # stub _perform_refresh to return a valid MockMetadata instance
     setattr(icm, "_perform_refresh", _get_metadata_success)
 
-    # schedule refresh immediately
+    # schedule refresh immediately and await it
     refresh_task = asyncio.run_coroutine_threadsafe(
         refresh(icm, wait=True), icm._loop
-    ).result()
+    ).result(timeout=5)
     refresh_metadata = refresh_task.result()
 
     # check that current is now valid MockMetadata
     assert icm._current.result() == refresh_metadata
     assert isinstance(icm._current.result(), MockMetadata)
+    # cleanup icm
+    asyncio.run_coroutine_threadsafe(icm.close(), icm._loop).result(timeout=5)
 
 
 @pytest.mark.asyncio
