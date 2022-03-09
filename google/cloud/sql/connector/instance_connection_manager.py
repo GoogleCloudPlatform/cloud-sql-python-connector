@@ -438,7 +438,6 @@ class InstanceConnectionManager:
                 await asyncio.sleep(delay)
                 await refresh_task
             except asyncio.CancelledError as e:
-                print("Cancel called!")
                 logger.debug("Schedule refresh task cancelled.")
                 raise e
             # bad refresh attempt
@@ -448,7 +447,6 @@ class InstanceConnectionManager:
                     "Scheduling another refresh attempt immediately",
                     exc_info=e,
                 )
-                print("bad refresh!")
                 # check if current metadata is valid, don't want to replace valid metadata with invalid one
                 instance_data = None
                 try:

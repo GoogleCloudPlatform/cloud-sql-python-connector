@@ -15,6 +15,7 @@ limitations under the License.
 """
 
 import asyncio
+from concurrent.futures import CancelledError
 from unittest.mock import patch
 import datetime
 from google.cloud.sql.connector.rate_limiter import AsyncRateLimiter
@@ -224,7 +225,7 @@ async def test_force_refresh_cancels_pending_refresh(
 
     # stub _perform_refresh to return a MockMetadata instance
     setattr(icm, "_perform_refresh", _get_metadata_success)
-    print("ICM next: ", icm._next)
+
     # since the pending refresh isn't for another 55 min, the refresh_in_progress event
     # shouldn't be set
     pending_refresh = icm._next
@@ -233,9 +234,17 @@ async def test_force_refresh_cancels_pending_refresh(
 
     icm.force_refresh()
 
-    print(pending_refresh)
+    # pending_refresh has to be awaited for it to raised as cancelled
+    with pytest.raises(CancelledError):
+        assert asyncio.run_coroutine_threadsafe(
+            asyncio.wait_for(pending_refresh, timeout=5), icm._loop
+        ).result(timeout=5)
+
+    # verify pending_refresh has now been cancelled
     assert pending_refresh.cancelled() is True
     assert isinstance(icm._current.result(), MockMetadata)
+    # cleanup icm
+    asyncio.run_coroutine_threadsafe(icm.close(), icm._loop).result(timeout=5)
 
 
 def test_auth_init_with_credentials_object(
