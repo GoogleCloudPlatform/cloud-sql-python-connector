@@ -154,6 +154,8 @@ async def test_schedule_refresh_replaces_result(
     assert icm._current.result() == refresh_metadata
     assert old_metadata != icm._current.result()
     assert isinstance(icm._current.result(), MockMetadata)
+    # cleanup icm
+    asyncio.run_coroutine_threadsafe(icm.close(), icm._loop).result(timeout=5)
 
 
 @pytest.mark.asyncio

@@ -122,7 +122,7 @@ class ExpiredInstanceMetadata(Exception):
     """
 
     def __init__(self, *args: Any) -> None:
-        super(CredentialsTypeError, self).__init__(self, *args)
+        super(ExpiredInstanceMetadata, self).__init__(self, *args)
 
 
 class InstanceMetadata:
@@ -449,10 +449,11 @@ class InstanceConnectionManager:
             A coroutine that sleeps for the specified amount of time before
             running _perform_refresh.
             """
-            refresh_task = None
+            refresh_task: asyncio.Task
             try:
                 logger.debug("Entering sleep")
-                await asyncio.sleep(delay)
+                if delay > 0:
+                    await asyncio.sleep(delay)
                 refresh_task = self._loop.create_task(self._perform_refresh())
                 await refresh_task
             except asyncio.CancelledError as e:
