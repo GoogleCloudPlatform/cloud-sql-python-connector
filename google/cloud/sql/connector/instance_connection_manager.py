@@ -116,6 +116,15 @@ class CredentialsTypeError(Exception):
         super(CredentialsTypeError, self).__init__(self, *args)
 
 
+class ExpiredInstanceMetadata(Exception):
+    """
+    Raised when InstanceMetadata is expired.
+    """
+
+    def __init__(self, *args: Any) -> None:
+        super(CredentialsTypeError, self).__init__(self, *args)
+
+
 class InstanceMetadata:
     ip_addrs: Dict[str, Any]
     context: ssl.SSLContext
@@ -274,8 +283,8 @@ class InstanceConnectionManager:
                 max_capacity=2, rate=1 / 30, loop=self._loop
             )
             self._refresh_in_progress = asyncio.locks.Event()
-            self._current = self._loop.create_task(self._perform_refresh())
-            self._next = self._schedule_refresh()
+            self._current = self._schedule_refresh(0)
+            self._next = self._current
 
         init_future = asyncio.run_coroutine_threadsafe(_async_init(), self._loop)
         init_future.result()
@@ -323,7 +332,13 @@ class InstanceConnectionManager:
             logger.exception("Error occurred during force refresh attempt", exc_info=e)
             return False
 
-    async def seconds_until_refresh(self) -> int:
+    async def _seconds_until_refresh(self) -> int:
+        """
+        Helper function to get time in seconds before performing next refresh.
+
+        :rtype: int
+        :returns: Time in seconds to wait before performing next refresh.
+        """
         expiration = (await self._current).expiration
 
         if self._enable_iam_auth:
@@ -415,27 +430,30 @@ class InstanceConnectionManager:
             self._enable_iam_auth,
         )
 
-    def _schedule_refresh(self, delay: Optional[int] = None) -> asyncio.Task:
+    def _schedule_refresh(self, delay: int) -> asyncio.Task:
         """
         Schedule task to sleep and then perform refresh to get InstanceMetadata.
+
+        :type delay: int
+        :param delay
+            Time in seconds to sleep before running _perform_refresh.
 
         :rtype: asyncio.Task
         :returns: A Task representing the scheduled _perform_refresh.
         """
 
         async def _refresh_task(
-            self: InstanceConnectionManager, delay: Optional[int]
+            self: InstanceConnectionManager, delay: int
         ) -> InstanceMetadata:
             """
             A coroutine that sleeps for the specified amount of time before
             running _perform_refresh.
             """
-            if delay is None:
-                delay = await self.seconds_until_refresh()
-            refresh_task = self._loop.create_task(self._perform_refresh())
+            refresh_task = None
             try:
                 logger.debug("Entering sleep")
                 await asyncio.sleep(delay)
+                refresh_task = self._loop.create_task(self._perform_refresh())
                 await refresh_task
             except asyncio.CancelledError as e:
                 logger.debug("Schedule refresh task cancelled.")
@@ -448,24 +466,24 @@ class InstanceConnectionManager:
                     exc_info=e,
                 )
                 # check if current metadata is valid, don't want to replace valid metadata with invalid one
-                instance_data = None
                 try:
                     instance_data = await self._current
+                    if instance_data.expiration < datetime.datetime.now():
+                        raise ExpiredInstanceMetadata(
+                            "Instance metadata is expired, performing new refresh."
+                        )
                 except Exception:
                     # Current result is invalid, no-op
                     logger.debug("Current instance data is invalid.")
-                # if current metadata is invalid, replace with more recent invalid refresh and schedule another refresh immediately
-                if (
-                    instance_data is None
-                    or instance_data.expiration < datetime.datetime.now()
-                ):
                     self._current = refresh_task
-                    self._next = self._schedule_refresh(0)
+                # schedule new refresh attempt immediately
+                self._next = self._schedule_refresh(0)
             # if valid refresh, replace current with valid metadata and schedule next refresh
             else:
                 self._current = refresh_task
                 # Ephemeral certificate expires in 1 hour, so we schedule a refresh to happen in 55 minutes.
-                self._next = self._schedule_refresh()
+                delay = await self._seconds_until_refresh()
+                self._next = self._schedule_refresh(delay)
 
             return await refresh_task
 
