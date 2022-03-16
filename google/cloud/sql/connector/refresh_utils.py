@@ -21,12 +21,23 @@ from google.auth.credentials import Credentials
 import google.auth.transport.requests
 import json
 from typing import Any, Dict
-
+import datetime
+import asyncio
 import logging
 
 logger = logging.getLogger(name=__name__)
 
 _sql_api_version: str = "v1beta4"
+
+# default_refresh_buffer is the amount of time before a refresh's result expires
+# that a new refresh operation begins.
+_default_refresh_buffer: int = 5 * 60  # 5 minutes
+
+# _iam_auth_refresh_buffer is the amount of time before a refresh's result expires
+# that a new refresh operation begins when IAM DB AuthN is enabled. Because token
+# sources may be cached until ~60 seconds before expiration, this value must be smaller
+# than default_refresh_buffer.
+_iam_auth_refresh_buffer: int = 55  # seconds
 
 
 async def _get_metadata(
@@ -169,3 +180,42 @@ async def _get_ephemeral(
     ret_dict = json.loads(await resp.text())
 
     return ret_dict["ephemeralCert"]["cert"]
+
+
+def _seconds_until_refresh(
+    expiration: datetime.datetime,
+    enable_iam_auth: bool,
+) -> int:
+    """
+    Helper function to get time in seconds before performing next refresh.
+
+    :rtype: int
+    :returns: Time in seconds to wait before performing next refresh.
+    """
+    if enable_iam_auth:
+        refresh_buffer = _iam_auth_refresh_buffer
+    else:
+        refresh_buffer = _default_refresh_buffer
+
+    delay = (expiration - datetime.datetime.now()) - datetime.timedelta(
+        seconds=refresh_buffer
+    )
+
+    if delay.total_seconds() < 0:
+        # If the time until the certificate expires is less than the buffer,
+        # schedule the refresh closer to the expiration time
+        delay = (expiration - datetime.datetime.now()) - datetime.timedelta(seconds=5)
+
+    return int(delay.total_seconds())
+
+
+async def _is_valid(task: asyncio.Task) -> bool:
+    try:
+        metadata = await task
+        # only valid if now is before the cert expires
+        if datetime.datetime.now() < metadata.expiration:
+            return True
+    except Exception:
+        # supress any errors from task
+        logger.debug("Current instance metadata is invalid.")
+    return False
