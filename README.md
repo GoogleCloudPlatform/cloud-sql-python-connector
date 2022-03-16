@@ -14,7 +14,7 @@ Currently supported drivers are
  - [`pytds`](https://github.com/denisenkom/pytds) (SQL Server)
 
 # Supported Python Versions
-Currently Python versions >= 3.6 are supported.
+Currently Python versions >= 3.7 are supported.
 
 ### Authentication
 
