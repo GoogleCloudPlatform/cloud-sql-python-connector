@@ -20,9 +20,18 @@ from google.auth.credentials import Credentials
 import json
 import pytest  # noqa F401 Needed to run the tests
 from mock import AsyncMock, Mock, patch
+import asyncio
 
-from google.cloud.sql.connector.refresh_utils import _get_ephemeral, _get_metadata
+from google.cloud.sql.connector.refresh_utils import (
+    _get_ephemeral,
+    _get_metadata,
+    _is_valid,
+)
 from google.cloud.sql.connector.utils import generate_keys
+from tests.unit.test_instance_connection_manager import (  # type: ignore
+    _get_metadata_success,
+    _get_metadata_expired,
+)
 
 
 class FakeClientSessionGet:
@@ -206,3 +215,25 @@ async def test_get_metadata_TypeError(credentials: Credentials) -> None:
             project=project,
             instance=12345,
         )
+
+
+@pytest.mark.asyncio
+@no_type_check
+async def test_is_valid_with_valid_metadata() -> None:
+    """
+    Test to check that valid metadata with expiration in future returns True.
+    """
+    # task that returns class with expiration 10 mins in future
+    task = asyncio.create_task(_get_metadata_success())
+    assert await _is_valid(task)
+
+
+@pytest.mark.asyncio
+@no_type_check
+async def test_is_valid_with_expired_metadata() -> None:
+    """
+    Test to check that invalid metadata with expiration in past returns False.
+    """
+    # task that returns class with expiration 10 mins in past
+    task = asyncio.create_task(_get_metadata_expired())
+    assert not await _is_valid(task)

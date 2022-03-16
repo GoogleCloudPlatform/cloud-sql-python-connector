@@ -42,6 +42,10 @@ async def _get_metadata_success(*args: Any, **kwargs: Any) -> MockMetadata:
     return MockMetadata(datetime.datetime.now() + datetime.timedelta(minutes=10))
 
 
+async def _get_metadata_expired(*args: Any, **kwargs: Any) -> MockMetadata:
+    return MockMetadata(datetime.datetime.now() - datetime.timedelta(minutes=10))
+
+
 async def _get_metadata_error(*args: Any, **kwargs: Any) -> None:
     raise BadRefresh("something went wrong...")
 
