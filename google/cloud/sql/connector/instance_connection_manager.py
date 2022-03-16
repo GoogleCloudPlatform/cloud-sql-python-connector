@@ -327,10 +327,10 @@ class InstanceConnectionManager:
             and a string representing a PEM-encoded certificate authority.
         """
         self._refresh_in_progress.set()
-        await self._refresh_rate_limiter.acquire()
         logger.debug("Entered _perform_refresh")
 
         try:
+            await self._refresh_rate_limiter.acquire()
             priv_key, pub_key = await self._keys
 
             logger.debug("Creating context")
@@ -388,7 +388,7 @@ class InstanceConnectionManager:
             self._enable_iam_auth,
         )
 
-    def _schedule_refresh(self, delay: int) -> asyncio.Task[InstanceMetadata]:
+    def _schedule_refresh(self, delay: int) -> asyncio.Task:
         """
         Schedule task to sleep and then perform refresh to get InstanceMetadata.
 
@@ -407,7 +407,7 @@ class InstanceConnectionManager:
             A coroutine that sleeps for the specified amount of time before
             running _perform_refresh.
             """
-            refresh_task: asyncio.Task[InstanceMetadata]
+            refresh_task: asyncio.Task
             try:
                 logger.debug("Entering sleep")
                 if delay > 0:
@@ -432,13 +432,12 @@ class InstanceConnectionManager:
                 self._next = self._schedule_refresh(0)
                 raise e
             # if valid refresh, replace current with valid metadata and schedule next refresh
-            else:
-                self._current = refresh_task
-                # Ephemeral certificate expires in 1 hour, so we schedule a refresh to happen in 55 minutes.
-                delay = _seconds_until_refresh(
-                    refresh_data.expiration, self._enable_iam_auth
-                )
-                self._next = self._schedule_refresh(delay)
+            self._current = refresh_task
+            # Ephemeral certificate expires in 1 hour, so we schedule a refresh to happen in 55 minutes.
+            delay = _seconds_until_refresh(
+                refresh_data.expiration, self._enable_iam_auth
+            )
+            self._next = self._schedule_refresh(delay)
 
             return refresh_data
 
