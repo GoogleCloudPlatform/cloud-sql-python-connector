@@ -15,19 +15,29 @@ limitations under the License.
 """
 import asyncio
 import concurrent
+import socket
+import ssl
+import platform
 import logging
 from google.cloud.sql.connector.instance_connection_manager import (
     InstanceConnectionManager,
     IPTypes,
+    PlatformNotSupportedError,
 )
 from google.cloud.sql.connector.utils import generate_keys
 from google.auth.credentials import Credentials
 from threading import Thread
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, TYPE_CHECKING
 
 logger = logging.getLogger(name=__name__)
 
 _default_connector = None
+SERVER_PROXY_PORT = 3307
+
+if TYPE_CHECKING:
+    import pymysql
+    import pg8000
+    import pytds
 
 
 class Connector:
@@ -197,3 +207,129 @@ def connect(instance_connection_string: str, driver: str, **kwargs: Any) -> Any:
     if _default_connector is None:
         _default_connector = Connector()
     return _default_connector.connect(instance_connection_string, driver, **kwargs)
+
+
+def _connect_with_pymysql(
+    ip_address: str, ctx: ssl.SSLContext, **kwargs: Any
+) -> "pymysql.connections.Connection":
+    """Helper function to create a pymysql DB-API connection object.
+
+    :type ip_address: str
+    :param ip_address: A string containing an IP address for the Cloud SQL
+        instance.
+
+    :type ctx: ssl.SSLContext
+    :param ctx: An SSLContext object created from the Cloud SQL server CA
+        cert and ephemeral cert.
+
+    :rtype: pymysql.Connection
+    :returns: A PyMySQL Connection object for the Cloud SQL instance.
+    """
+    try:
+        import pymysql
+    except ImportError:
+        raise ImportError(
+            'Unable to import module "pymysql." Please install and try again.'
+        )
+
+    # Create socket and wrap with context.
+    sock = ctx.wrap_socket(
+        socket.create_connection((ip_address, SERVER_PROXY_PORT)),
+        server_hostname=ip_address,
+    )
+
+    # Create pymysql connection object and hand in pre-made connection
+    conn = pymysql.Connection(host=ip_address, defer_connect=True, **kwargs)
+    conn.connect(sock)
+    return conn
+
+
+def _connect_with_pg8000(
+    ip_address: str, ctx: ssl.SSLContext, **kwargs: Any
+) -> "pg8000.dbapi.Connection":
+    """Helper function to create a pg8000 DB-API connection object.
+
+    :type ip_address: str
+    :param ip_address: A string containing an IP address for the Cloud SQL
+        instance.
+
+    :type ctx: ssl.SSLContext
+    :param ctx: An SSLContext object created from the Cloud SQL server CA
+        cert and ephemeral cert.
+
+
+    :rtype: pg8000.dbapi.Connection
+    :returns: A pg8000 Connection object for the Cloud SQL instance.
+    """
+    try:
+        import pg8000
+    except ImportError:
+        raise ImportError(
+            'Unable to import module "pg8000." Please install and try again.'
+        )
+    user = kwargs.pop("user")
+    db = kwargs.pop("db")
+    passwd = kwargs.pop("password", None)
+    setattr(ctx, "request_ssl", False)
+    return pg8000.dbapi.connect(
+        user,
+        database=db,
+        password=passwd,
+        host=ip_address,
+        port=SERVER_PROXY_PORT,
+        ssl_context=ctx,
+        **kwargs,
+    )
+
+
+def _connect_with_pytds(
+    ip_address: str, ctx: ssl.SSLContext, **kwargs: Any
+) -> "pytds.Connection":
+    """Helper function to create a pytds DB-API connection object.
+
+    :type ip_address: str
+    :param ip_address: A string containing an IP address for the Cloud SQL
+        instance.
+
+    :type ctx: ssl.SSLContext
+    :param ctx: An SSLContext object created from the Cloud SQL server CA
+        cert and ephemeral cert.
+
+
+    :rtype: pytds.Connection
+    :returns: A pytds Connection object for the Cloud SQL instance.
+    """
+    try:
+        import pytds
+    except ImportError:
+        raise ImportError(
+            'Unable to import module "pytds." Please install and try again.'
+        )
+
+    db = kwargs.pop("db", None)
+
+    # Create socket and wrap with context.
+    sock = ctx.wrap_socket(
+        socket.create_connection((ip_address, SERVER_PROXY_PORT)),
+        server_hostname=ip_address,
+    )
+    if kwargs.pop("active_directory_auth", False):
+        if platform.system() == "Windows":
+            # Ignore username and password if using active directory auth
+            server_name = kwargs.pop("server_name")
+            return pytds.connect(
+                database=db,
+                auth=pytds.login.SspiAuth(port=1433, server_name=server_name),
+                sock=sock,
+                **kwargs,
+            )
+        else:
+            raise PlatformNotSupportedError(
+                "Active Directory authentication is currently only supported on Windows."
+            )
+
+    user = kwargs.pop("user")
+    passwd = kwargs.pop("password")
+    return pytds.connect(
+        ip_address, database=db, user=user, password=passwd, sock=sock, **kwargs
+    )

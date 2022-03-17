@@ -15,6 +15,11 @@ limitations under the License.
 """
 
 # Custom utils import
+from google.cloud.sql.connector.connector import (
+    _connect_with_pymysql,
+    _connect_with_pg8000,
+    _connect_with_pytds,
+)
 from google.cloud.sql.connector.rate_limiter import AsyncRateLimiter
 from google.cloud.sql.connector.refresh_utils import (
     _get_ephemeral,
@@ -35,29 +40,21 @@ import google.auth
 from google.auth.credentials import Credentials, with_scopes_if_required
 import google.auth.transport.requests
 import OpenSSL
-import platform
 import ssl
-import socket
 from tempfile import TemporaryDirectory
 from typing import (
     Any,
     Awaitable,
     Dict,
     Optional,
-    TYPE_CHECKING,
 )
 
 from functools import partial
 import logging
 
-if TYPE_CHECKING:
-    import pymysql
-    import pg8000
-    import pytds
 logger = logging.getLogger(name=__name__)
 
 APPLICATION_NAME = "cloud-sql-python-connector"
-SERVER_PROXY_PORT = 3307
 
 
 class IPTypes(Enum):
@@ -498,9 +495,9 @@ class InstanceConnectionManager:
         kwargs.pop("port", None)
 
         connect_func = {
-            "pymysql": self._connect_with_pymysql,
-            "pg8000": self._connect_with_pg8000,
-            "pytds": self._connect_with_pytds,
+            "pymysql": _connect_with_pymysql,
+            "pg8000": _connect_with_pg8000,
+            "pytds": _connect_with_pytds,
         }
 
         instance_data: InstanceMetadata
@@ -518,129 +515,6 @@ class InstanceConnectionManager:
         )
 
         return await self._loop.run_in_executor(None, connect_partial)
-
-    def _connect_with_pymysql(
-        self, ip_address: str, ctx: ssl.SSLContext, **kwargs: Any
-    ) -> "pymysql.connections.Connection":
-        """Helper function to create a pymysql DB-API connection object.
-
-        :type ip_address: str
-        :param ip_address: A string containing an IP address for the Cloud SQL
-            instance.
-
-        :type ctx: ssl.SSLContext
-        :param ctx: An SSLContext object created from the Cloud SQL server CA
-            cert and ephemeral cert.
-
-        :rtype: pymysql.Connection
-        :returns: A PyMySQL Connection object for the Cloud SQL instance.
-        """
-        try:
-            import pymysql
-        except ImportError:
-            raise ImportError(
-                'Unable to import module "pymysql." Please install and try again.'
-            )
-
-        # Create socket and wrap with context.
-        sock = ctx.wrap_socket(
-            socket.create_connection((ip_address, SERVER_PROXY_PORT)),
-            server_hostname=ip_address,
-        )
-
-        # Create pymysql connection object and hand in pre-made connection
-        conn = pymysql.Connection(host=ip_address, defer_connect=True, **kwargs)
-        conn.connect(sock)
-        return conn
-
-    def _connect_with_pg8000(
-        self, ip_address: str, ctx: ssl.SSLContext, **kwargs: Any
-    ) -> "pg8000.dbapi.Connection":
-        """Helper function to create a pg8000 DB-API connection object.
-
-        :type ip_address: str
-        :param ip_address: A string containing an IP address for the Cloud SQL
-            instance.
-
-        :type ctx: ssl.SSLContext
-        :param ctx: An SSLContext object created from the Cloud SQL server CA
-            cert and ephemeral cert.
-
-
-        :rtype: pg8000.dbapi.Connection
-        :returns: A pg8000 Connection object for the Cloud SQL instance.
-        """
-        try:
-            import pg8000
-        except ImportError:
-            raise ImportError(
-                'Unable to import module "pg8000." Please install and try again.'
-            )
-        user = kwargs.pop("user")
-        db = kwargs.pop("db")
-        passwd = kwargs.pop("password", None)
-        setattr(ctx, "request_ssl", False)
-        return pg8000.dbapi.connect(
-            user,
-            database=db,
-            password=passwd,
-            host=ip_address,
-            port=SERVER_PROXY_PORT,
-            ssl_context=ctx,
-            **kwargs,
-        )
-
-    def _connect_with_pytds(
-        self, ip_address: str, ctx: ssl.SSLContext, **kwargs: Any
-    ) -> "pytds.Connection":
-        """Helper function to create a pytds DB-API connection object.
-
-        :type ip_address: str
-        :param ip_address: A string containing an IP address for the Cloud SQL
-            instance.
-
-        :type ctx: ssl.SSLContext
-        :param ctx: An SSLContext object created from the Cloud SQL server CA
-            cert and ephemeral cert.
-
-
-        :rtype: pytds.Connection
-        :returns: A pytds Connection object for the Cloud SQL instance.
-        """
-        try:
-            import pytds
-        except ImportError:
-            raise ImportError(
-                'Unable to import module "pytds." Please install and try again.'
-            )
-
-        db = kwargs.pop("db", None)
-
-        # Create socket and wrap with context.
-        sock = ctx.wrap_socket(
-            socket.create_connection((ip_address, SERVER_PROXY_PORT)),
-            server_hostname=ip_address,
-        )
-        if kwargs.pop("active_directory_auth", False):
-            if platform.system() == "Windows":
-                # Ignore username and password if using active directory auth
-                server_name = kwargs.pop("server_name")
-                return pytds.connect(
-                    database=db,
-                    auth=pytds.login.SspiAuth(port=1433, server_name=server_name),
-                    sock=sock,
-                    **kwargs,
-                )
-            else:
-                raise PlatformNotSupportedError(
-                    "Active Directory authentication is currently only supported on Windows."
-                )
-
-        user = kwargs.pop("user")
-        passwd = kwargs.pop("password")
-        return pytds.connect(
-            ip_address, database=db, user=user, password=passwd, sock=sock, **kwargs
-        )
 
     async def close(self) -> None:
         """Cleanup function to make sure ClientSession is closed and tasks have
