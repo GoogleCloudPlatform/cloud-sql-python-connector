@@ -168,19 +168,18 @@ class Connector:
             ip_type = kwargs.pop("ip_type", self._ip_type)
         timeout = kwargs.pop("timeout", self._timeout)
         if "connect_timeout" in kwargs:
-            timeout = kwargs["connect_timeout"]
+            timeout = kwargs.pop("connect_timeout")
 
+        # attempt to make connection to Cloud SQL instance for given timeout
         try:
-            connection_task = self._loop.create_task(
-                icm.connect(driver, ip_type, **kwargs)
+            return await asyncio.wait_for(
+                icm.connect(driver, ip_type, **kwargs), timeout
             )
-            await asyncio.wait_for(connection_task, timeout)
-            return await connection_task
         except asyncio.TimeoutError:
             raise TimeoutError(f"Connection timed out after {timeout}s")
         except Exception as e:
             # with any other exception, we attempt a force refresh, then throw the error
-            await self._loop.create_task(icm.force_refresh())
+            icm.force_refresh()
             raise (e)
 
     async def _close(self) -> None:
