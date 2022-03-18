@@ -88,14 +88,12 @@ async def test_InstanceConnectionManager_init(
     project_result = icm._project
     region_result = icm._region
     instance_result = icm._instance
-    # cleanup icm
-    await icm.close()
-
     assert (
         project_result == "test-project"
         and region_result == "test-region"
         and instance_result == "test-instance"
     )
+    # cleanup icm
     await icm.close()
 
 

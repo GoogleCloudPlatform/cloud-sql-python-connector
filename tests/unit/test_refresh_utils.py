@@ -223,9 +223,8 @@ async def test_is_valid_with_valid_metadata() -> None:
     """
     Test to check that valid metadata with expiration in future returns True.
     """
-    loop = asyncio.get_event_loop()
     # task that returns class with expiration 10 mins in future
-    task = loop.create_task(_get_metadata_success())
+    task = asyncio.create_task(_get_metadata_success())
     assert await _is_valid(task)
 
 
@@ -235,7 +234,6 @@ async def test_is_valid_with_expired_metadata() -> None:
     """
     Test to check that invalid metadata with expiration in past returns False.
     """
-    loop = asyncio.get_event_loop()
     # task that returns class with expiration 10 mins in past
-    task = loop.create_task(_get_metadata_expired())
+    task = asyncio.create_task(_get_metadata_expired())
     assert not await _is_valid(task)
