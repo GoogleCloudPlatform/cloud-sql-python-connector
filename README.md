@@ -5,47 +5,82 @@
 
 **Warning**: This project is currently in _beta_. Please [open an issue](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/new/choose) if you would like to report a bug or documentation issue, request a feature, or have a question.
 
-The Cloud SQL Python Connector is a library that can be used alongside a database driver to allow users with sufficient permissions to connect to a Cloud SQL
-database without having to manually allowlist IPs or manage SSL certificates.
+The _Cloud SQL Python Connector_ is a Cloud SQL connector designed for use with the
+Python language. Using a Cloud SQL connector provides the following benefits:
+* **IAM Authorization:** uses IAM permissions to control who/what can connect to
+  your Cloud SQL instances
+* **Improved Security:** uses robust, updated TLS 1.3 encryption and
+  identity verification between the client connector and the server-side proxy,
+  independent of the database protocol.
+* **Convenience:** removes the requirement to use and distribute SSL
+  certificates, as well as manage firewalls or source/destination IP addresses.
+* (optionally) **IAM DB Authenticiation:** provides support for
+  [Cloud SQL’s automatic IAM DB AuthN][iam-db-authn] feature.
 
-Currently supported drivers are
+[iam-db-authn]: https://cloud.google.com/sql/docs/postgres/authentication
+
+The Cloud SQL Python Connector is a package to be used alongside a database driver.
+Currently supported drivers are:
  - [`pymysql`](https://github.com/PyMySQL/PyMySQL) (MySQL)
  - [`pg8000`](https://github.com/tlocke/pg8000) (PostgreSQL)
  - [`pytds`](https://github.com/denisenkom/pytds) (SQL Server)
 
-# Supported Python Versions
+## Supported Python Versions
+
 Currently Python versions >= 3.7 are supported.
 
-### Authentication
+## Installation
 
-This library uses the [Application Default Credentials](https://cloud.google.com/docs/authentication/production) to authenticate the
-connection to the Cloud SQL server. For more details, see the previously
-mentioned link.
-
-To activate credentials locally ensure the Google Cloud SDK is installed on your machine. For manual installation see [Installing Cloud SDK](https://cloud.google.com/sdk/docs/install). Once installed, use the following `gcloud` command:
-
-```
-gcloud auth application-default login
-```
-
-### How to install this connector
-
-#### Install latest release from PyPI
-Upgrade to the latest version of `pip`, then run the following command, replacing `driver` with one of the driver names listed above.
+You can install this library with `pip install`, replacing `driver` with one of the database driver names listed above:
 ```
 pip install cloud-sql-python-connector[driver]
 ```
 For example, to use the Python connector with `pymysql`, run `pip install cloud-sql-python-connector[pymysql]`
 
-#### Install dev version
-Clone this repo, `cd` into the `cloud-sql-python-connector` directory then run the following command to install the package:
+## Usage
+
+This package provides several functions for authorizing and encrypting
+connections. These functions are used with your database driver to connect to
+your Cloud SQL instance.
+
+The instance connection name for your Cloud SQL instance is always in the
+format "project:region:instance".
+
+### APIs and Services
+
+This package requires the following to successfully make Cloud SQL Connections:
+
+- IAM Principal (user, service account, etc.) with the
+[Cloud SQL Client][client-role] role. This IAM Principal will be used for
+[credentials](#credentials).
+- The [Cloud SQL Admin API][admin-api] to be enabled within your Google Cloud
+Project. By default, the API will be called in the project associated with
+the IAM Principal.
+
+[admin-api]: https://console.cloud.google.com/apis/api/sqladmin.googleapis.com
+[client-role]: https://cloud.google.com/sql/docs/mysql/roles-and-permissions
+
+### Credentials
+
+This library uses the [Application Default Credentials (ADC)][adc] strategy for
+resolving credentials. Please see the [google.auth][google-auth] package 
+documentation for more information on how these credentials are sourced.
+
+To activate credentials locally the recommended approach is to ensure the Google
+Cloud SDK is installed on your machine. For manual installation see
+[Installing Cloud SDK][cloud-sdk]. 
+
+Once installed, use the following `gcloud` command:
 ```
-pip install .
+gcloud auth application-default login
 ```
-Conversely, install straight from Github using `pip`:
-```
-pip install git+https://github.com/GoogleCloudPlatform/cloud-sql-python-connector
-```
+
+To explicitly set a specific source for the credentials to use, see
+[Custom Connector Object](#custom-connector-object) below.
+
+[adc]: https://cloud.google.com/docs/authentication
+[google-auth]: https://google-auth.readthedocs.io/en/master/reference/google.auth.html
+[cloud-sdk]: https://cloud.google.com/sdk/docs/install
 
 ### How to use this connector
 
@@ -154,6 +189,37 @@ connector.connect(
     ip_type=IPTypes.PRIVATE
 )
 ``` 
+
+### Custom Connector Object
+
+If you need to customize something about the connector, or want to specify
+defaults for each connection to make, you can initialize a custom 
+`Connector()` object directly:
+
+```python
+# Note: all parameters below are optional
+custom_connector = connector.Connector(
+    ip_type=IPTypes.PUBLIC,
+    enable_iam_auth=False,
+    timeout=30,
+    credentials=custom_creds # google.auth.credentials.Credentials
+)
+```
+
+You can then replace the default `connector.connect` call from the sample
+above with `custom_connector.connect` as follows:
+
+```python
+def getconn() -> pymysql.connections.Connection:
+    conn = custom_connector.connect(
+        "project:region:instance",
+        "pymysql",
+        user="root",
+        password="shhh",
+        db="your-db-name"
+    )
+    return conn
+```
 
 ## Support policy
 
