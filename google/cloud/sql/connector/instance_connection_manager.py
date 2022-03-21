@@ -267,19 +267,12 @@ class InstanceConnectionManager:
 
         self._auth_init(credentials)
 
-        async def _async_init() -> None:
-            """Initialize InstanceConnectionManager's variables that require the
-            event loop running in background thread.
-            """
-            self._refresh_rate_limiter = AsyncRateLimiter(
-                max_capacity=2, rate=1 / 30, loop=self._loop
-            )
-            self._refresh_in_progress = asyncio.locks.Event()
-            self._current = self._schedule_refresh(0)
-            self._next = self._current
-
-        init_future = asyncio.run_coroutine_threadsafe(_async_init(), self._loop)
-        init_future.result()
+        self._refresh_rate_limiter = AsyncRateLimiter(
+            max_capacity=2, rate=1 / 30, loop=self._loop
+        )
+        self._refresh_in_progress = asyncio.locks.Event()
+        self._current = self._schedule_refresh(0)
+        self._next = self._current
 
     def _auth_init(self, credentials: Optional[Credentials]) -> None:
         """Creates and assigns a Google Python API service object for
@@ -442,38 +435,7 @@ class InstanceConnectionManager:
         scheduled_task = self._loop.create_task(_refresh_task(self, delay))
         return scheduled_task
 
-    def connect(
-        self,
-        driver: str,
-        ip_type: IPTypes,
-        timeout: int,
-        **kwargs: Any,
-    ) -> Any:
-        """A method that returns a DB-API connection to the database.
-
-        :type driver: str
-        :param driver: A string representing the driver. e.g. "pymysql"
-
-        :type timeout: int
-        :param timeout: The time limit for the connection before raising
-        a TimeoutError
-
-        :returns: A DB-API connection to the primary IP of the database.
-        """
-
-        connect_future: concurrent.futures.Future = asyncio.run_coroutine_threadsafe(
-            self._connect(driver, ip_type, **kwargs), self._loop
-        )
-
-        try:
-            connection = connect_future.result(timeout)
-        except concurrent.futures.TimeoutError:
-            connect_future.cancel()
-            raise TimeoutError(f"Connection timed out after {timeout}s")
-        else:
-            return connection
-
-    async def _connect(
+    async def connect(
         self,
         driver: str,
         ip_type: IPTypes,
