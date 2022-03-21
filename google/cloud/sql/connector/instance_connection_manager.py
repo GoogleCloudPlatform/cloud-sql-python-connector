@@ -15,11 +15,6 @@ limitations under the License.
 """
 
 # Custom utils import
-from google.cloud.sql.connector.connector import (
-    _connect_with_pymysql,
-    _connect_with_pg8000,
-    _connect_with_pytds,
-)
 from google.cloud.sql.connector.rate_limiter import AsyncRateLimiter
 from google.cloud.sql.connector.refresh_utils import (
     _get_ephemeral,
@@ -47,9 +42,8 @@ from typing import (
     Awaitable,
     Dict,
     Optional,
+    Tuple,
 )
-
-from functools import partial
 import logging
 
 logger = logging.getLogger(name=__name__)
@@ -435,48 +429,31 @@ class InstanceConnectionManager:
         scheduled_task = self._loop.create_task(_refresh_task(self, delay))
         return scheduled_task
 
-    async def connect(
+    async def connect_info(
         self,
-        driver: str,
         ip_type: IPTypes,
-        **kwargs: Any,
-    ) -> Any:
-        """A method that returns a DB-API connection to the database.
+    ) -> Tuple[InstanceMetadata, str]:
+        """Retrieve instance metadata and ip address required
+        for making connection to Cloud SQL instance.
 
-        :type driver: str
-        :param driver: A string representing the driver. e.g. "pymysql"
+        :type ip_type: IPTypes
+        :param ip_type: Enum specifying whether to look for public
+            or private IP address.
 
-        :returns: A DB-API connection to the primary IP of the database.
+        :rtype instance_data: InstanceMetadata
+        :returns: Instance metadata for Cloud SQL instance.
+
+        :rtype ip_address: str
+        :returns: A string representing the IP address of
+            the given Cloud SQL instance.
         """
-        logger.debug("Entered connect method")
-
-        # Host and ssl options come from the certificates and metadata, so we don't
-        # want the user to specify them.
-        kwargs.pop("host", None)
-        kwargs.pop("ssl", None)
-        kwargs.pop("port", None)
-
-        connect_func = {
-            "pymysql": _connect_with_pymysql,
-            "pg8000": _connect_with_pg8000,
-            "pytds": _connect_with_pytds,
-        }
+        logger.debug("Entered connect_info method")
 
         instance_data: InstanceMetadata
 
         instance_data = await self._current
         ip_address: str = instance_data.get_preferred_ip(ip_type)
-
-        try:
-            connector = connect_func[driver]
-        except KeyError:
-            raise KeyError(f"Driver {driver} is not supported.")
-
-        connect_partial = partial(
-            connector, ip_address, instance_data.context, **kwargs
-        )
-
-        return await self._loop.run_in_executor(None, connect_partial)
+        return (instance_data, ip_address)
 
     async def close(self) -> None:
         """Cleanup function to make sure ClientSession is closed and tasks have

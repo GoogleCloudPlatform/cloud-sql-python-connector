@@ -18,7 +18,10 @@ from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 
-from typing import Tuple
+from typing import Tuple, Any
+import logging
+
+logger = logging.getLogger(name=__name__)
 
 
 async def generate_keys() -> Tuple[bytes, str]:
@@ -77,3 +80,27 @@ def write_to_file(
         priv_out.write(priv_key)
 
     return (ca_filename, cert_filename, key_filename)
+
+
+def clean_input(default_ip_type: Any, default_timeout: int, **kwargs: Any) -> Any:
+    """
+    Helper function to clean and remove input arguments.
+    """
+    if "ip_types" in kwargs:
+        ip_type = kwargs.pop("ip_types")
+        logger.warning(
+            "Deprecation Warning: Parameter `ip_types` is deprecated and may be removed"
+            " in a future release. Please use `ip_type` instead."
+        )
+    else:
+        ip_type = kwargs.pop("ip_type", default_ip_type)
+    timeout = kwargs.pop("timeout", default_timeout)
+    if "connect_timeout" in kwargs:
+        timeout = kwargs.pop("connect_timeout")
+
+    # Host and ssl options come from the certificates and metadata, so we don't
+    # want the user to specify them.
+    kwargs.pop("host", None)
+    kwargs.pop("ssl", None)
+    kwargs.pop("port", None)
+    return ip_type, timeout, kwargs
