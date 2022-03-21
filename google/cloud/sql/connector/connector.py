@@ -77,7 +77,38 @@ class Connector:
         self, instance_connection_string: str, driver: str, **kwargs: Any
     ) -> Any:
         """Prepares and returns a database connection object and starts a
-        background thread to refresh the certificates and metadata.
+        background task to refresh the certificates and metadata.
+
+        :type instance_connection_string: str
+        :param instance_connection_string:
+            A string containing the GCP project name, region name, and instance
+            name separated by colons.
+
+            Example: example-proj:example-region-us6:example-instance
+
+        :type driver: str
+        :param: driver:
+            A string representing the driver to connect with. Supported drivers are
+            pymysql, pg8000, and pytds.
+
+        :param kwargs:
+            Pass in any driver-specific arguments needed to connect to the Cloud
+            SQL instance.
+
+        :rtype: Connection
+        :returns:
+            A DB-API connection to the specified Cloud SQL instance.
+        """
+        connect_task = asyncio.run_coroutine_threadsafe(
+            self.connect_async(instance_connection_string, driver, **kwargs), self._loop
+        )
+        return connect_task.result()
+
+    async def connect_async(
+        self, instance_connection_string: str, driver: str, **kwargs: Any
+    ) -> Any:
+        """Prepares and returns a database connection object and starts a
+        background task to refresh the certificates and metadata.
 
         :type instance_connection_string: str
         :param instance_connection_string:
@@ -100,8 +131,6 @@ class Connector:
             A DB-API connection to the specified Cloud SQL instance.
         """
 
-        # Initiate event loop and run in background thread.
-        #
         # Create an InstanceConnectionManager object from the connection string.
         # The InstanceConnectionManager should verify arguments.
         #
@@ -137,14 +166,17 @@ class Connector:
             )
         else:
             ip_type = kwargs.pop("ip_type", self._ip_type)
-        if "timeout" in kwargs:
-            return icm.connect(driver, ip_type, **kwargs)
-        elif "connect_timeout" in kwargs:
-            timeout = kwargs["connect_timeout"]
-        else:
-            timeout = self._timeout
+        timeout = kwargs.pop("timeout", self._timeout)
+        if "connect_timeout" in kwargs:
+            timeout = kwargs.pop("connect_timeout")
+
+        # attempt to make connection to Cloud SQL instance for given timeout
         try:
-            return icm.connect(driver, ip_type, timeout, **kwargs)
+            return await asyncio.wait_for(
+                icm.connect(driver, ip_type, **kwargs), timeout
+            )
+        except asyncio.TimeoutError:
+            raise TimeoutError(f"Connection timed out after {timeout}s")
         except Exception as e:
             # with any other exception, we attempt a force refresh, then throw the error
             icm.force_refresh()
