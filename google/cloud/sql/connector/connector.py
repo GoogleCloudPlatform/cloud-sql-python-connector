@@ -27,7 +27,7 @@ from google.cloud.sql.connector.instance_connection_manager import (
 from google.cloud.sql.connector.utils import generate_keys, clean_input
 from google.auth.credentials import Credentials
 from threading import Thread
-from typing import Any, Dict, Optional, TYPE_CHECKING
+from typing import Any, Dict, Optional, TYPE_CHECKING, Callable
 from functools import partial
 
 logger = logging.getLogger(name=__name__)
@@ -186,12 +186,8 @@ class Connector:
 
         # attempt to make connection to Cloud SQL instance for given timeout
         try:
-            instance_data, ip_address = await asyncio.wait_for(icm.connect_info(ip_type), timeout)
-            connect_partial = partial(
-                connector, ip_address, instance_data.context, **kwargs
-            )
             return await asyncio.wait_for(
-                self._loop.run_in_executor(None, connect_partial), timeout
+                get_connection(icm, connector, ip_type, self._loop, **kwargs), timeout
             )
         except asyncio.TimeoutError:
             raise TimeoutError(f"Connection timed out after {timeout}s")
@@ -247,6 +243,46 @@ def connect(instance_connection_string: str, driver: str, **kwargs: Any) -> Any:
     if _default_connector is None:
         _default_connector = Connector()
     return _default_connector.connect(instance_connection_string, driver, **kwargs)
+
+
+async def get_connection(
+    icm: InstanceConnectionManager,
+    connect_function: Callable,
+    ip_type: IPTypes,
+    loop: asyncio.AbstractEventLoop,
+    **kwargs: Any,
+) -> Any:
+    """
+    Retrieve metadata and IP address of Cloud SQL instance and build database connection.
+
+    :type icm: InstanceConnectionManager
+    :param: icm:
+        InstanceConnectionManager object to retrieve Cloud SQL instance data.
+
+    :type connect_function: Callable
+    :param connect_function:
+        Database driver specific function used to connect to database.
+
+    :type ip_type: IPTypes
+    :param ip_type
+        Enum indicating ip address type to connect to database with.
+
+    :type loop: asyncio.AbstractEventLoop
+    :param loop
+        Event loop to schedule connection task with.
+
+    :param kwargs:
+        Pass in any driver-specific arguments needed to connect to the Cloud
+        SQL instance.
+
+    :returns:
+        A DB-API connection to the specified Cloud SQL instance.
+    """
+    instance_data, ip_address = await icm.connect_info(ip_type)
+    connect_partial = partial(
+        connect_function, ip_address, instance_data.context, **kwargs
+    )
+    return await loop.run_in_executor(None, connect_partial)
 
 
 def _connect_with_pymysql(
