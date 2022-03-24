@@ -453,7 +453,7 @@ class InstanceConnectionManager:
 
         instance_data = await self._current
         ip_address: str = instance_data.get_preferred_ip(ip_type)
-        return (instance_data, ip_address)
+        return instance_data, ip_address
 
     async def close(self) -> None:
         """Cleanup function to make sure ClientSession is closed and tasks have

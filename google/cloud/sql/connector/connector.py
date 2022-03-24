@@ -15,30 +15,23 @@ limitations under the License.
 """
 import asyncio
 import concurrent
-import socket
-import ssl
-import platform
 import logging
 from google.cloud.sql.connector.instance_connection_manager import (
     InstanceConnectionManager,
     IPTypes,
-    PlatformNotSupportedError,
 )
-from google.cloud.sql.connector.utils import generate_keys, clean_input
+from google.cloud.sql.connector.pymysql import _connect_with_pymysql
+from google.cloud.sql.connector.pg8000 import _connect_with_pg8000
+from google.cloud.sql.connector.pytds import _connect_with_pytds
+from google.cloud.sql.connector.utils import generate_keys
 from google.auth.credentials import Credentials
 from threading import Thread
-from typing import Any, Dict, Optional, TYPE_CHECKING, Callable
+from typing import Any, Dict, Optional, Callable
 from functools import partial
 
 logger = logging.getLogger(name=__name__)
 
 _default_connector = None
-SERVER_PROXY_PORT = 3307
-
-if TYPE_CHECKING:
-    import pymysql
-    import pg8000
-    import pytds
 
 
 class Connector:
@@ -181,13 +174,43 @@ class Connector:
         except KeyError:
             raise KeyError(f"Driver {driver} is not supported.")
 
-        # clean input arguments and remove unneeded arguments
-        ip_type, timeout, kwargs = clean_input(self._ip_type, self._timeout, **kwargs)
+        if "ip_types" in kwargs:
+            ip_type = kwargs.pop("ip_types")
+            logger.warning(
+                "Deprecation Warning: Parameter `ip_types` is deprecated and may be removed"
+                " in a future release. Please use `ip_type` instead."
+            )
+        else:
+            ip_type = kwargs.pop("ip_type", self._ip_type)
+        timeout = kwargs.pop("timeout", self._timeout)
+        if "connect_timeout" in kwargs:
+            timeout = kwargs.pop("connect_timeout")
+
+        # Host and ssl options come from the certificates and metadata, so we don't
+        # want the user to specify them.
+        kwargs.pop("host", None)
+        kwargs.pop("ssl", None)
+        kwargs.pop("port", None)
+
+        # helper function to wrap in timeout
+        async def get_connection(
+            self,
+            icm: InstanceConnectionManager,
+            connect_function: Callable,
+            ip_type: IPTypes,
+            **kwargs: Any,
+        ) -> Any:
+
+            instance_data, ip_address = await icm.connect_info(ip_type)
+            connect_partial = partial(
+                connect_function, ip_address, instance_data.context, **kwargs
+            )
+            return await self._loop.run_in_executor(None, connect_partial)
 
         # attempt to make connection to Cloud SQL instance for given timeout
         try:
             return await asyncio.wait_for(
-                get_connection(icm, connector, ip_type, self._loop, **kwargs), timeout
+                get_connection(self, icm, connector, ip_type, **kwargs), timeout
             )
         except asyncio.TimeoutError:
             raise TimeoutError(f"Connection timed out after {timeout}s")
@@ -243,169 +266,3 @@ def connect(instance_connection_string: str, driver: str, **kwargs: Any) -> Any:
     if _default_connector is None:
         _default_connector = Connector()
     return _default_connector.connect(instance_connection_string, driver, **kwargs)
-
-
-async def get_connection(
-    icm: InstanceConnectionManager,
-    connect_function: Callable,
-    ip_type: IPTypes,
-    loop: asyncio.AbstractEventLoop,
-    **kwargs: Any,
-) -> Any:
-    """
-    Retrieve metadata and IP address of Cloud SQL instance and build database connection.
-
-    :type icm: InstanceConnectionManager
-    :param: icm:
-        InstanceConnectionManager object to retrieve Cloud SQL instance data.
-
-    :type connect_function: Callable
-    :param connect_function:
-        Database driver specific function used to connect to database.
-
-    :type ip_type: IPTypes
-    :param ip_type
-        Enum indicating ip address type to connect to database with.
-
-    :type loop: asyncio.AbstractEventLoop
-    :param loop
-        Event loop to schedule connection task with.
-
-    :param kwargs:
-        Pass in any driver-specific arguments needed to connect to the Cloud
-        SQL instance.
-
-    :returns:
-        A DB-API connection to the specified Cloud SQL instance.
-    """
-    instance_data, ip_address = await icm.connect_info(ip_type)
-    connect_partial = partial(
-        connect_function, ip_address, instance_data.context, **kwargs
-    )
-    return await loop.run_in_executor(None, connect_partial)
-
-
-def _connect_with_pymysql(
-    ip_address: str, ctx: ssl.SSLContext, **kwargs: Any
-) -> "pymysql.connections.Connection":
-    """Helper function to create a pymysql DB-API connection object.
-
-    :type ip_address: str
-    :param ip_address: A string containing an IP address for the Cloud SQL
-        instance.
-
-    :type ctx: ssl.SSLContext
-    :param ctx: An SSLContext object created from the Cloud SQL server CA
-        cert and ephemeral cert.
-
-    :rtype: pymysql.Connection
-    :returns: A PyMySQL Connection object for the Cloud SQL instance.
-    """
-    try:
-        import pymysql
-    except ImportError:
-        raise ImportError(
-            'Unable to import module "pymysql." Please install and try again.'
-        )
-
-    # Create socket and wrap with context.
-    sock = ctx.wrap_socket(
-        socket.create_connection((ip_address, SERVER_PROXY_PORT)),
-        server_hostname=ip_address,
-    )
-
-    # Create pymysql connection object and hand in pre-made connection
-    conn = pymysql.Connection(host=ip_address, defer_connect=True, **kwargs)
-    conn.connect(sock)
-    return conn
-
-
-def _connect_with_pg8000(
-    ip_address: str, ctx: ssl.SSLContext, **kwargs: Any
-) -> "pg8000.dbapi.Connection":
-    """Helper function to create a pg8000 DB-API connection object.
-
-    :type ip_address: str
-    :param ip_address: A string containing an IP address for the Cloud SQL
-        instance.
-
-    :type ctx: ssl.SSLContext
-    :param ctx: An SSLContext object created from the Cloud SQL server CA
-        cert and ephemeral cert.
-
-
-    :rtype: pg8000.dbapi.Connection
-    :returns: A pg8000 Connection object for the Cloud SQL instance.
-    """
-    try:
-        import pg8000
-    except ImportError:
-        raise ImportError(
-            'Unable to import module "pg8000." Please install and try again.'
-        )
-    user = kwargs.pop("user")
-    db = kwargs.pop("db")
-    passwd = kwargs.pop("password", None)
-    setattr(ctx, "request_ssl", False)
-    return pg8000.dbapi.connect(
-        user,
-        database=db,
-        password=passwd,
-        host=ip_address,
-        port=SERVER_PROXY_PORT,
-        ssl_context=ctx,
-        **kwargs,
-    )
-
-
-def _connect_with_pytds(
-    ip_address: str, ctx: ssl.SSLContext, **kwargs: Any
-) -> "pytds.Connection":
-    """Helper function to create a pytds DB-API connection object.
-
-    :type ip_address: str
-    :param ip_address: A string containing an IP address for the Cloud SQL
-        instance.
-
-    :type ctx: ssl.SSLContext
-    :param ctx: An SSLContext object created from the Cloud SQL server CA
-        cert and ephemeral cert.
-
-
-    :rtype: pytds.Connection
-    :returns: A pytds Connection object for the Cloud SQL instance.
-    """
-    try:
-        import pytds
-    except ImportError:
-        raise ImportError(
-            'Unable to import module "pytds." Please install and try again.'
-        )
-
-    db = kwargs.pop("db", None)
-
-    # Create socket and wrap with context.
-    sock = ctx.wrap_socket(
-        socket.create_connection((ip_address, SERVER_PROXY_PORT)),
-        server_hostname=ip_address,
-    )
-    if kwargs.pop("active_directory_auth", False):
-        if platform.system() == "Windows":
-            # Ignore username and password if using active directory auth
-            server_name = kwargs.pop("server_name")
-            return pytds.connect(
-                database=db,
-                auth=pytds.login.SspiAuth(port=1433, server_name=server_name),
-                sock=sock,
-                **kwargs,
-            )
-        else:
-            raise PlatformNotSupportedError(
-                "Active Directory authentication is currently only supported on Windows."
-            )
-
-    user = kwargs.pop("user")
-    passwd = kwargs.pop("password")
-    return pytds.connect(
-        ip_address, database=db, user=user, password=passwd, sock=sock, **kwargs
-    )
