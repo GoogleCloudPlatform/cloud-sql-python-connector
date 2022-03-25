@@ -18,13 +18,13 @@ import pymysql
 import sqlalchemy
 import logging
 import google.auth
-from google.cloud.sql.connector import connector
+from google.cloud.sql.connector import Connector
 import datetime
 import concurrent.futures
 
 
 def init_connection_engine(
-    custom_connector: connector.Connector,
+    custom_connector: Connector,
 ) -> sqlalchemy.engine.Engine:
     def getconn() -> pymysql.connections.Connection:
         conn = custom_connector.connect(
@@ -48,7 +48,7 @@ def test_connector_with_credentials() -> None:
     credentials, project = google.auth.load_credentials_from_file(
         os.environ["GOOGLE_APPLICATION_CREDENTIALS"]
     )
-    custom_connector = connector.Connector(credentials=credentials)
+    custom_connector = Connector(credentials=credentials)
     try:
         pool = init_connection_engine(custom_connector)
 
@@ -57,12 +57,14 @@ def test_connector_with_credentials() -> None:
 
     except Exception as e:
         logging.exception("Failed to connect with credentials from file!", e)
+    # close connector
+    custom_connector.close()
 
 
 def test_multiple_connectors() -> None:
     """Test that same Cloud SQL instance can connect with two Connector objects."""
-    first_connector = connector.Connector()
-    second_connector = connector.Connector()
+    first_connector = Connector()
+    second_connector = Connector()
     try:
         pool = init_connection_engine(first_connector)
         pool2 = init_connection_engine(second_connector)
@@ -83,6 +85,10 @@ def test_multiple_connectors() -> None:
     except Exception as e:
         logging.exception("Failed to connect with multiple Connector objects!", e)
 
+    # close connectors
+    first_connector.close()
+    second_connector.close()
+
 
 def test_connector_in_ThreadPoolExecutor() -> None:
     """Test that Connector can connect from ThreadPoolExecutor thread.
@@ -91,12 +97,15 @@ def test_connector_in_ThreadPoolExecutor() -> None:
 
     def get_time() -> datetime.datetime:
         """Helper method for getting current time from database."""
-        default_connector = connector.Connector()
+        default_connector = Connector()
         pool = init_connection_engine(default_connector)
 
         # connect to database and get current time
         with pool.connect() as conn:
             current_time = conn.execute("SELECT NOW()").fetchone()
+
+        # close connector
+        default_connector.close()
         return current_time[0]
 
     # try running connector in ThreadPoolExecutor as Cloud Run does
@@ -104,3 +113,12 @@ def test_connector_in_ThreadPoolExecutor() -> None:
         future = executor.submit(get_time)
         return_value = future.result()
         assert isinstance(return_value, datetime.datetime)
+
+
+def test_connector_as_context_manager() -> None:
+    """Test that Connector can be used as a context manager."""
+    with Connector() as connector:
+        pool = init_connection_engine(connector)
+
+        with pool.connect() as conn:
+            conn.execute("SELECT 1")
