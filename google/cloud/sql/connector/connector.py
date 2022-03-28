@@ -194,7 +194,7 @@ class Connector:
 
         # helper function to wrap in timeout
         async def get_connection(
-            self,
+            self: Connector,
             icm: InstanceConnectionManager,
             connect_function: Callable,
             ip_type: IPTypes,
