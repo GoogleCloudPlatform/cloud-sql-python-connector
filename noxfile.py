@@ -34,7 +34,7 @@ def lint(session):
     session.install(
         "flake8==4.0.1",
         "flake8-annotations==2.7.0",
-        "black==21.12b0",
+        "black==22.3.0",
         "mypy==0.910",
         "sqlalchemy-stubs==0.4",
         "types-pkg-resources==0.1.3",
@@ -48,18 +48,6 @@ def lint(session):
     session.run("mypy", "google", "tests")
     session.run("python", "setup.py", "sdist")
     session.run("twine", "check", "dist/*")
-
-
-@nox.session
-def blacken(session):
-    """Run black.
-    Format code to uniform standard.
-    This currently uses Python 3.6 due to the automated Kokoro run of synthtool.
-    That run uses an image that doesn't have 3.6 installed. Before updating this
-    check the state of the `gcp_ubuntu_config` we use for that Kokoro run.
-    """
-    session.install("black==21.12b0")
-    session.run("black", *BLACK_PATHS)
 
 
 def default(session, path):
