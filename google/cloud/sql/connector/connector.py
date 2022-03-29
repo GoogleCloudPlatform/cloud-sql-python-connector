@@ -16,6 +16,7 @@ limitations under the License.
 import asyncio
 import concurrent
 import logging
+from types import TracebackType
 from google.cloud.sql.connector.instance_connection_manager import (
     InstanceConnectionManager,
     IPTypes,
@@ -23,7 +24,7 @@ from google.cloud.sql.connector.instance_connection_manager import (
 from google.cloud.sql.connector.utils import generate_keys
 from google.auth.credentials import Credentials
 from threading import Thread
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Type
 
 logger = logging.getLogger(name=__name__)
 
@@ -182,22 +183,29 @@ class Connector:
             icm.force_refresh()
             raise (e)
 
-    async def _close(self) -> None:
-        """Helper function to close InstanceConnectionManagers' tasks."""
-        await asyncio.gather(*[icm.close() for icm in self._instances.values()])
+    def __enter__(self) -> Any:
+        """Enter context manager by returning Connector object"""
+        return self
 
-    def __del__(self) -> None:
-        """Deconstructor to make sure InstanceConnectionManagers are closed
-        and tasks have finished to have a graceful exit.
-        """
-        logger.debug("Entering deconstructor")
+    def __exit__(
+        self,
+        exc_type: Optional[Type[BaseException]],
+        exc_val: Optional[BaseException],
+        exc_tb: Optional[TracebackType],
+    ) -> None:
+        """Exit context manager by closing Connector"""
+        self.close()
 
-        deconstruct_future = asyncio.run_coroutine_threadsafe(
-            self._close(), loop=self._loop
-        )
+    def close(self) -> None:
+        """Close Connector by stopping tasks and releasing resources."""
+        close_future = asyncio.run_coroutine_threadsafe(self._close(), loop=self._loop)
         # Will attempt to safely shut down tasks for 5s
-        deconstruct_future.result(timeout=5)
-        logger.debug("Finished deconstructing")
+        close_future.result(timeout=5)
+
+    async def _close(self) -> None:
+        """Helper function to cancel InstanceConnectionManagers' tasks
+        and close aiohttp.ClientSession."""
+        await asyncio.gather(*[icm.close() for icm in self._instances.values()])
 
 
 def connect(instance_connection_string: str, driver: str, **kwargs: Any) -> Any:
