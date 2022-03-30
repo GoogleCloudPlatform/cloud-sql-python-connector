@@ -12,9 +12,7 @@ if TYPE_CHECKING:
     import pytds
 
 
-def _connect_with_pytds(
-    ip_address: str, ctx: ssl.SSLContext, **kwargs: Any
-) -> "pytds.Connection":
+def connect(ip_address: str, ctx: ssl.SSLContext, **kwargs: Any) -> "pytds.Connection":
     """Helper function to create a pytds DB-API connection object.
 
     :type ip_address: str

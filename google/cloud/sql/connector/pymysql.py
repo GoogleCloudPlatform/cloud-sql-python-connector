@@ -8,7 +8,7 @@ if TYPE_CHECKING:
     import pymysql
 
 
-def _connect_with_pymysql(
+def connect(
     ip_address: str, ctx: ssl.SSLContext, **kwargs: Any
 ) -> "pymysql.connections.Connection":
     """Helper function to create a pymysql DB-API connection object.

@@ -7,7 +7,7 @@ if TYPE_CHECKING:
     import pg8000
 
 
-def _connect_with_pg8000(
+def connect(
     ip_address: str, ctx: ssl.SSLContext, **kwargs: Any
 ) -> "pg8000.dbapi.Connection":
     """Helper function to create a pg8000 DB-API connection object.

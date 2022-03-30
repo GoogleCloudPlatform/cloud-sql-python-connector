@@ -19,9 +19,6 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 
 from typing import Tuple
-import logging
-
-logger = logging.getLogger(name=__name__)
 
 
 async def generate_keys() -> Tuple[bytes, str]:

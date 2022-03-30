@@ -311,13 +311,15 @@ class InstanceConnectionManager:
             and a string representing a PEM-encoded certificate authority.
         """
         self._refresh_in_progress.set()
-        logger.debug("Entered _perform_refresh")
+        logger.debug(
+            f"['{self._instance_connection_string}']: Entered _perform_refresh"
+        )
 
         try:
             await self._refresh_rate_limiter.acquire()
             priv_key, pub_key = await self._keys
 
-            logger.debug("Creating context")
+            logger.debug(f"['{self._instance_connection_string}']: Creating context")
 
             metadata_task = self._loop.create_task(
                 _get_metadata(
@@ -357,7 +359,9 @@ class InstanceConnectionManager:
                     expiration = token_expiration
 
         except Exception as e:
-            logger.debug("Error occurred during _perform_refresh.")
+            logger.debug(
+                f"['{self._instance_connection_string}']: Error occurred during _perform_refresh."
+            )
             raise e
 
         finally:
@@ -393,17 +397,20 @@ class InstanceConnectionManager:
             """
             refresh_task: asyncio.Task
             try:
-                logger.debug("Entering sleep")
+                logger.debug(f"['{self._instance_connection_string}']: Entering sleep")
                 if delay > 0:
                     await asyncio.sleep(delay)
                 refresh_task = self._loop.create_task(self._perform_refresh())
                 refresh_data = await refresh_task
             except asyncio.CancelledError as e:
-                logger.debug("Schedule refresh task cancelled.")
+                logger.debug(
+                    f"['{self._instance_connection_string}']: Schedule refresh task cancelled."
+                )
                 raise e
             # bad refresh attempt
             except Exception as e:
                 logger.exception(
+                    f"['{self._instance_connection_string}']: "
                     "An error occurred while performing refresh. "
                     "Scheduling another refresh attempt immediately",
                     exc_info=e,
@@ -447,7 +454,9 @@ class InstanceConnectionManager:
         :returns: A string representing the IP address of
             the given Cloud SQL instance.
         """
-        logger.debug("Entered connect_info method")
+        logger.debug(
+            f"['{self._instance_connection_string}']: Entered connect_info method"
+        )
 
         instance_data: InstanceMetadata
 
@@ -459,9 +468,15 @@ class InstanceConnectionManager:
         """Cleanup function to make sure ClientSession is closed and tasks have
         finished to have a graceful exit.
         """
-        logger.debug("Waiting for _current to be cancelled")
+        logger.debug(
+            f"['{self._instance_connection_string}']: Waiting for _current to be cancelled"
+        )
         self._current.cancel()
-        logger.debug("Waiting for _next to be cancelled")
+        logger.debug(
+            f"['{self._instance_connection_string}']: Waiting for _next to be cancelled"
+        )
         self._next.cancel()
-        logger.debug("Waiting for _client_session to close")
+        logger.debug(
+            f"['{self._instance_connection_string}']: Waiting for _client_session to close"
+        )
         await self._client_session.close()

@@ -16,17 +16,18 @@ limitations under the License.
 import asyncio
 import concurrent
 import logging
+from types import TracebackType
 from google.cloud.sql.connector.instance_connection_manager import (
     InstanceConnectionManager,
     IPTypes,
 )
-from google.cloud.sql.connector.pymysql import _connect_with_pymysql
-from google.cloud.sql.connector.pg8000 import _connect_with_pg8000
-from google.cloud.sql.connector.pytds import _connect_with_pytds
+import google.cloud.sql.connector.pymysql as pymysql
+import google.cloud.sql.connector.pg8000 as pg8000
+import google.cloud.sql.connector.pytds as pytds
 from google.cloud.sql.connector.utils import generate_keys
 from google.auth.credentials import Credentials
 from threading import Thread
-from typing import Any, Dict, Optional, Callable
+from typing import Any, Dict, Optional, Type
 from functools import partial
 
 logger = logging.getLogger(name=__name__)
@@ -163,16 +164,16 @@ class Connector:
             self._instances[instance_connection_string] = icm
 
         connect_func = {
-            "pymysql": _connect_with_pymysql,
-            "pg8000": _connect_with_pg8000,
-            "pytds": _connect_with_pytds,
+            "pymysql": pymysql.connect,
+            "pg8000": pg8000.connect,
+            "pytds": pytds.connect,
         }
 
         # only accept supported database drivers
         try:
             connector = connect_func[driver]
         except KeyError:
-            raise KeyError(f"Driver {driver} is not supported.")
+            raise KeyError(f"Driver '{driver}' is not supported.")
 
         if "ip_types" in kwargs:
             ip_type = kwargs.pop("ip_types")
@@ -193,25 +194,17 @@ class Connector:
         kwargs.pop("port", None)
 
         # helper function to wrap in timeout
-        async def get_connection(
-            self: Connector,
-            icm: InstanceConnectionManager,
-            connect_function: Callable,
-            ip_type: IPTypes,
-            **kwargs: Any,
-        ) -> Any:
+        async def get_connection() -> Any:
 
             instance_data, ip_address = await icm.connect_info(ip_type)
             connect_partial = partial(
-                connect_function, ip_address, instance_data.context, **kwargs
+                connector, ip_address, instance_data.context, **kwargs
             )
             return await self._loop.run_in_executor(None, connect_partial)
 
         # attempt to make connection to Cloud SQL instance for given timeout
         try:
-            return await asyncio.wait_for(
-                get_connection(self, icm, connector, ip_type, **kwargs), timeout
-            )
+            return await asyncio.wait_for(get_connection(), timeout)
         except asyncio.TimeoutError:
             raise TimeoutError(f"Connection timed out after {timeout}s")
         except Exception as e:
@@ -219,22 +212,29 @@ class Connector:
             icm.force_refresh()
             raise (e)
 
-    async def _close(self) -> None:
-        """Helper function to close InstanceConnectionManagers' tasks."""
-        await asyncio.gather(*[icm.close() for icm in self._instances.values()])
+    def __enter__(self) -> Any:
+        """Enter context manager by returning Connector object"""
+        return self
 
-    def __del__(self) -> None:
-        """Deconstructor to make sure InstanceConnectionManagers are closed
-        and tasks have finished to have a graceful exit.
-        """
-        logger.debug("Entering deconstructor")
+    def __exit__(
+        self,
+        exc_type: Optional[Type[BaseException]],
+        exc_val: Optional[BaseException],
+        exc_tb: Optional[TracebackType],
+    ) -> None:
+        """Exit context manager by closing Connector"""
+        self.close()
 
-        deconstruct_future = asyncio.run_coroutine_threadsafe(
-            self._close(), loop=self._loop
-        )
+    def close(self) -> None:
+        """Close Connector by stopping tasks and releasing resources."""
+        close_future = asyncio.run_coroutine_threadsafe(self._close(), loop=self._loop)
         # Will attempt to safely shut down tasks for 5s
-        deconstruct_future.result(timeout=5)
-        logger.debug("Finished deconstructing")
+        close_future.result(timeout=5)
+
+    async def _close(self) -> None:
+        """Helper function to cancel InstanceConnectionManagers' tasks
+        and close aiohttp.ClientSession."""
+        await asyncio.gather(*[icm.close() for icm in self._instances.values()])
 
 
 def connect(instance_connection_string: str, driver: str, **kwargs: Any) -> Any:
