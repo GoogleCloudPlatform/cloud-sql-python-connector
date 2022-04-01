@@ -93,7 +93,7 @@ async def _get_metadata(
         _sql_api_version, project, instance
     )
 
-    logger.debug("Requesting metadata")
+    logger.debug(f"['{instance}']: Requesting metadata")
 
     resp = await client_session.get(url, headers=headers, raise_for_status=True)
     ret_dict = json.loads(await resp.text())
@@ -142,7 +142,7 @@ async def _get_ephemeral(
     :raises TypeError: If one of the arguments passed in is None.
     """
 
-    logger.debug("Requesting ephemeral certificate")
+    logger.debug(f"['{instance}']: Requesting ephemeral certificate")
 
     if not isinstance(credentials, Credentials):
         raise TypeError(

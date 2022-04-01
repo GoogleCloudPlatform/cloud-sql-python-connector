@@ -15,7 +15,9 @@ limitations under the License.
 """
 
 import pytest  # noqa F401 Needed to run the tests
-from google.cloud.sql.connector.instance_connection_manager import IPTypes
+from google.cloud.sql.connector.instance_connection_manager import (
+    IPTypes,
+)
 from google.cloud.sql.connector import connector
 import asyncio
 from unittest.mock import patch
@@ -31,7 +33,7 @@ class MockInstanceConnectionManager:
     ) -> None:
         self._enable_iam_auth = enable_iam_auth
 
-    async def connect(
+    async def connect_info(
         self,
         driver: str,
         ip_type: IPTypes,
@@ -51,14 +53,15 @@ def test_connect_timeout() -> None:
     connect_string = "test-project:test-region:test-instance"
 
     icm = MockInstanceConnectionManager()
-    setattr(icm, "connect", timeout_stub)
-
     mock_instances = {}
     mock_instances[connect_string] = icm
-    mock_connector = connector.Connector()
-    connector._default_connector = mock_connector
+    # stub icm to raise timeout
+    setattr(icm, "connect_info", timeout_stub)
+    # set default connector
+    default_connector = connector.Connector()
+    connector._default_connector = default_connector
     # attempt to connect with timeout set to 5s
-    with patch.dict(mock_connector._instances, mock_instances):
+    with patch.dict(default_connector._instances, mock_instances):
         pytest.raises(
             TimeoutError,
             connector.connect,
@@ -72,17 +75,14 @@ def test_connect_enable_iam_auth_error() -> None:
     """Test that calling connect() with different enable_iam_auth
     argument values throws error."""
     connect_string = "my-project:my-region:my-instance"
+    # create mock ICM with enable_iam_auth=False
+    icm = MockInstanceConnectionManager(enable_iam_auth=False)
+    mock_instances = {}
+    mock_instances[connect_string] = icm
+    # set default connector
     default_connector = connector.Connector()
-    with patch(
-        "google.cloud.sql.connector.connector.InstanceConnectionManager"
-    ) as mock_icm:
-        mock_icm.return_value = MockInstanceConnectionManager(enable_iam_auth=False)
-        conn = default_connector.connect(
-            connect_string,
-            "pg8000",
-            enable_iam_auth=False,
-        )
-        assert conn is True
+    connector._default_connector = default_connector
+    with patch.dict(default_connector._instances, mock_instances):
         # try to connect using enable_iam_auth=True, should raise error
         pytest.raises(
             ValueError,
@@ -91,8 +91,8 @@ def test_connect_enable_iam_auth_error() -> None:
             "pg8000",
             enable_iam_auth=True,
         )
-        # remove mock_icm to avoid destructor warnings
-        default_connector._instances = {}
+    # remove mock_icm to avoid destructor warnings
+    default_connector._instances = {}
 
 
 def test_default_Connector_Init() -> None:

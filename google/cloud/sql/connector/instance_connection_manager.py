@@ -35,29 +35,20 @@ import google.auth
 from google.auth.credentials import Credentials, with_scopes_if_required
 import google.auth.transport.requests
 import OpenSSL
-import platform
 import ssl
-import socket
 from tempfile import TemporaryDirectory
 from typing import (
     Any,
     Awaitable,
     Dict,
     Optional,
-    TYPE_CHECKING,
+    Tuple,
 )
-
-from functools import partial
 import logging
 
-if TYPE_CHECKING:
-    import pymysql
-    import pg8000
-    import pytds
 logger = logging.getLogger(name=__name__)
 
 APPLICATION_NAME = "cloud-sql-python-connector"
-SERVER_PROXY_PORT = 3307
 
 
 class IPTypes(Enum):
@@ -320,13 +311,15 @@ class InstanceConnectionManager:
             and a string representing a PEM-encoded certificate authority.
         """
         self._refresh_in_progress.set()
-        logger.debug("Entered _perform_refresh")
+        logger.debug(
+            f"['{self._instance_connection_string}']: Entered _perform_refresh"
+        )
 
         try:
             await self._refresh_rate_limiter.acquire()
             priv_key, pub_key = await self._keys
 
-            logger.debug("Creating context")
+            logger.debug(f"['{self._instance_connection_string}']: Creating context")
 
             metadata_task = self._loop.create_task(
                 _get_metadata(
@@ -366,7 +359,9 @@ class InstanceConnectionManager:
                     expiration = token_expiration
 
         except Exception as e:
-            logger.debug("Error occurred during _perform_refresh.")
+            logger.debug(
+                f"['{self._instance_connection_string}']: Error occurred during _perform_refresh."
+            )
             raise e
 
         finally:
@@ -402,17 +397,20 @@ class InstanceConnectionManager:
             """
             refresh_task: asyncio.Task
             try:
-                logger.debug("Entering sleep")
+                logger.debug(f"['{self._instance_connection_string}']: Entering sleep")
                 if delay > 0:
                     await asyncio.sleep(delay)
                 refresh_task = self._loop.create_task(self._perform_refresh())
                 refresh_data = await refresh_task
             except asyncio.CancelledError as e:
-                logger.debug("Schedule refresh task cancelled.")
+                logger.debug(
+                    f"['{self._instance_connection_string}']: Schedule refresh task cancelled."
+                )
                 raise e
             # bad refresh attempt
             except Exception as e:
                 logger.exception(
+                    f"['{self._instance_connection_string}']: "
                     "An error occurred while performing refresh. "
                     "Scheduling another refresh attempt immediately",
                     exc_info=e,
@@ -438,179 +436,47 @@ class InstanceConnectionManager:
         scheduled_task = self._loop.create_task(_refresh_task(self, delay))
         return scheduled_task
 
-    async def connect(
+    async def connect_info(
         self,
-        driver: str,
         ip_type: IPTypes,
-        **kwargs: Any,
-    ) -> Any:
-        """A method that returns a DB-API connection to the database.
+    ) -> Tuple[InstanceMetadata, str]:
+        """Retrieve instance metadata and ip address required
+        for making connection to Cloud SQL instance.
 
-        :type driver: str
-        :param driver: A string representing the driver. e.g. "pymysql"
+        :type ip_type: IPTypes
+        :param ip_type: Enum specifying whether to look for public
+            or private IP address.
 
-        :returns: A DB-API connection to the primary IP of the database.
+        :rtype instance_data: InstanceMetadata
+        :returns: Instance metadata for Cloud SQL instance.
+
+        :rtype ip_address: str
+        :returns: A string representing the IP address of
+            the given Cloud SQL instance.
         """
-        logger.debug("Entered connect method")
-
-        # Host and ssl options come from the certificates and metadata, so we don't
-        # want the user to specify them.
-        kwargs.pop("host", None)
-        kwargs.pop("ssl", None)
-        kwargs.pop("port", None)
-
-        connect_func = {
-            "pymysql": self._connect_with_pymysql,
-            "pg8000": self._connect_with_pg8000,
-            "pytds": self._connect_with_pytds,
-        }
+        logger.debug(
+            f"['{self._instance_connection_string}']: Entered connect_info method"
+        )
 
         instance_data: InstanceMetadata
 
         instance_data = await self._current
         ip_address: str = instance_data.get_preferred_ip(ip_type)
-
-        try:
-            connector = connect_func[driver]
-        except KeyError:
-            raise KeyError(f"Driver {driver} is not supported.")
-
-        connect_partial = partial(
-            connector, ip_address, instance_data.context, **kwargs
-        )
-
-        return await self._loop.run_in_executor(None, connect_partial)
-
-    def _connect_with_pymysql(
-        self, ip_address: str, ctx: ssl.SSLContext, **kwargs: Any
-    ) -> "pymysql.connections.Connection":
-        """Helper function to create a pymysql DB-API connection object.
-
-        :type ip_address: str
-        :param ip_address: A string containing an IP address for the Cloud SQL
-            instance.
-
-        :type ctx: ssl.SSLContext
-        :param ctx: An SSLContext object created from the Cloud SQL server CA
-            cert and ephemeral cert.
-
-        :rtype: pymysql.Connection
-        :returns: A PyMySQL Connection object for the Cloud SQL instance.
-        """
-        try:
-            import pymysql
-        except ImportError:
-            raise ImportError(
-                'Unable to import module "pymysql." Please install and try again.'
-            )
-
-        # Create socket and wrap with context.
-        sock = ctx.wrap_socket(
-            socket.create_connection((ip_address, SERVER_PROXY_PORT)),
-            server_hostname=ip_address,
-        )
-
-        # Create pymysql connection object and hand in pre-made connection
-        conn = pymysql.Connection(host=ip_address, defer_connect=True, **kwargs)
-        conn.connect(sock)
-        return conn
-
-    def _connect_with_pg8000(
-        self, ip_address: str, ctx: ssl.SSLContext, **kwargs: Any
-    ) -> "pg8000.dbapi.Connection":
-        """Helper function to create a pg8000 DB-API connection object.
-
-        :type ip_address: str
-        :param ip_address: A string containing an IP address for the Cloud SQL
-            instance.
-
-        :type ctx: ssl.SSLContext
-        :param ctx: An SSLContext object created from the Cloud SQL server CA
-            cert and ephemeral cert.
-
-
-        :rtype: pg8000.dbapi.Connection
-        :returns: A pg8000 Connection object for the Cloud SQL instance.
-        """
-        try:
-            import pg8000
-        except ImportError:
-            raise ImportError(
-                'Unable to import module "pg8000." Please install and try again.'
-            )
-        user = kwargs.pop("user")
-        db = kwargs.pop("db")
-        passwd = kwargs.pop("password", None)
-        setattr(ctx, "request_ssl", False)
-        return pg8000.dbapi.connect(
-            user,
-            database=db,
-            password=passwd,
-            host=ip_address,
-            port=SERVER_PROXY_PORT,
-            ssl_context=ctx,
-            **kwargs,
-        )
-
-    def _connect_with_pytds(
-        self, ip_address: str, ctx: ssl.SSLContext, **kwargs: Any
-    ) -> "pytds.Connection":
-        """Helper function to create a pytds DB-API connection object.
-
-        :type ip_address: str
-        :param ip_address: A string containing an IP address for the Cloud SQL
-            instance.
-
-        :type ctx: ssl.SSLContext
-        :param ctx: An SSLContext object created from the Cloud SQL server CA
-            cert and ephemeral cert.
-
-
-        :rtype: pytds.Connection
-        :returns: A pytds Connection object for the Cloud SQL instance.
-        """
-        try:
-            import pytds
-        except ImportError:
-            raise ImportError(
-                'Unable to import module "pytds." Please install and try again.'
-            )
-
-        db = kwargs.pop("db", None)
-
-        # Create socket and wrap with context.
-        sock = ctx.wrap_socket(
-            socket.create_connection((ip_address, SERVER_PROXY_PORT)),
-            server_hostname=ip_address,
-        )
-        if kwargs.pop("active_directory_auth", False):
-            if platform.system() == "Windows":
-                # Ignore username and password if using active directory auth
-                server_name = kwargs.pop("server_name")
-                return pytds.connect(
-                    database=db,
-                    auth=pytds.login.SspiAuth(port=1433, server_name=server_name),
-                    sock=sock,
-                    **kwargs,
-                )
-            else:
-                raise PlatformNotSupportedError(
-                    "Active Directory authentication is currently only supported on Windows."
-                )
-
-        user = kwargs.pop("user")
-        passwd = kwargs.pop("password")
-        return pytds.connect(
-            ip_address, database=db, user=user, password=passwd, sock=sock, **kwargs
-        )
+        return instance_data, ip_address
 
     async def close(self) -> None:
         """Cleanup function to make sure ClientSession is closed and tasks have
         finished to have a graceful exit.
         """
-        logger.debug("Waiting for _current to be cancelled")
+        logger.debug(
+            f"['{self._instance_connection_string}']: Waiting for _current to be cancelled"
+        )
         self._current.cancel()
-        logger.debug("Waiting for _next to be cancelled")
+        logger.debug(
+            f"['{self._instance_connection_string}']: Waiting for _next to be cancelled"
+        )
         self._next.cancel()
-        logger.debug("Waiting for _client_session to close")
+        logger.debug(
+            f"['{self._instance_connection_string}']: Waiting for _client_session to close"
+        )
         await self._client_session.close()

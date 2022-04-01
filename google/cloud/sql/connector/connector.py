@@ -21,10 +21,14 @@ from google.cloud.sql.connector.instance_connection_manager import (
     InstanceConnectionManager,
     IPTypes,
 )
+import google.cloud.sql.connector.pymysql as pymysql
+import google.cloud.sql.connector.pg8000 as pg8000
+import google.cloud.sql.connector.pytds as pytds
 from google.cloud.sql.connector.utils import generate_keys
 from google.auth.credentials import Credentials
 from threading import Thread
 from typing import Any, Dict, Optional, Type
+from functools import partial
 
 logger = logging.getLogger(name=__name__)
 
@@ -159,6 +163,18 @@ class Connector:
             )
             self._instances[instance_connection_string] = icm
 
+        connect_func = {
+            "pymysql": pymysql.connect,
+            "pg8000": pg8000.connect,
+            "pytds": pytds.connect,
+        }
+
+        # only accept supported database drivers
+        try:
+            connector = connect_func[driver]
+        except KeyError:
+            raise KeyError(f"Driver '{driver}' is not supported.")
+
         if "ip_types" in kwargs:
             ip_type = kwargs.pop("ip_types")
             logger.warning(
@@ -171,11 +187,23 @@ class Connector:
         if "connect_timeout" in kwargs:
             timeout = kwargs.pop("connect_timeout")
 
+        # Host and ssl options come from the certificates and metadata, so we don't
+        # want the user to specify them.
+        kwargs.pop("host", None)
+        kwargs.pop("ssl", None)
+        kwargs.pop("port", None)
+
+        # helper function to wrap in timeout
+        async def get_connection() -> Any:
+            instance_data, ip_address = await icm.connect_info(ip_type)
+            connect_partial = partial(
+                connector, ip_address, instance_data.context, **kwargs
+            )
+            return await self._loop.run_in_executor(None, connect_partial)
+
         # attempt to make connection to Cloud SQL instance for given timeout
         try:
-            return await asyncio.wait_for(
-                icm.connect(driver, ip_type, **kwargs), timeout
-            )
+            return await asyncio.wait_for(get_connection(), timeout)
         except asyncio.TimeoutError:
             raise TimeoutError(f"Connection timed out after {timeout}s")
         except Exception as e:
