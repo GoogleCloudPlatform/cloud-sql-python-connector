@@ -195,7 +195,6 @@ class Connector:
 
         # helper function to wrap in timeout
         async def get_connection() -> Any:
-
             instance_data, ip_address = await icm.connect_info(ip_type)
             connect_partial = partial(
                 connector, ip_address, instance_data.context, **kwargs
