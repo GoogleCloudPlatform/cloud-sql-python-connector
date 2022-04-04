@@ -1,5 +1,19 @@
 # Changelog
 
+### [0.5.2](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v0.5.1...v0.5.2) (2022-03-01)
+
+
+### ⚠ BREAKING CHANGES
+
+* update error messages and doc strings (#276)
+
+### Bug Fixes
+
+* allow support for impersonated credentials via gcloud ([#262](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/262)) ([8b7e5f7](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/8b7e5f70f82e9178f2b209d6aab0791872297f9d))
+* remove enable_iam_auth from downstream kwargs and catch error ([#273](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/273)) ([f9576f3](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/f9576f3b1b11e1cfbc71cc440a040799f6d7c267))
+* update error messages and doc strings ([#276](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/276)) ([68f37b4](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/68f37b478b35202f6952a1dc0fe6b4bfadf5235e))
+
+
 ### [0.5.1](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v0.5.0...v0.5.1) (2022-02-01)
 
 
