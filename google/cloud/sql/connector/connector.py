@@ -84,8 +84,12 @@ class Connector:
         enable_iam_auth: bool = False,
         timeout: int = 30,
         credentials: Optional[Credentials] = None,
+        loop: asyncio.AbstractEventLoop = None,
     ) -> None:
-        self._loop: asyncio.AbstractEventLoop = _get_loop()
+        if loop:
+            self._loop = loop
+        else:
+            self._loop: asyncio.AbstractEventLoop = _get_loop()
         self._keys: concurrent.futures.Future = asyncio.run_coroutine_threadsafe(
             generate_keys(), self._loop
         )
@@ -128,45 +132,8 @@ class Connector:
         )
         return connect_task.result()
 
+
     async def connect_async(
-        self, instance_connection_string: str, driver: str, **kwargs: Any
-    ) -> Any:
-        """Prepares and returns a database connection object and starts a
-        background task to refresh the certificates and metadata.
-
-        :type instance_connection_string: str
-        :param instance_connection_string:
-            A string containing the GCP project name, region name, and instance
-            name separated by colons.
-
-            Example: example-proj:example-region-us6:example-instance
-
-        :type driver: str
-        :param: driver:
-            A string representing the driver to connect with. Supported drivers are
-            pymysql, pg8000, and pytds.
-
-        :param kwargs:
-            Pass in any driver-specific arguments needed to connect to the Cloud
-            SQL instance.
-
-        :rtype: Connection
-        :returns:
-            A DB-API connection to the specified Cloud SQL instance.
-        """
-
-        # Create an Instance object from the connection string.
-        # The Instance should verify arguments.
-        #
-        # Use the Instance to establish an SSL Connection.
-        #
-        # Return a DBAPI connection
-        connect_task = asyncio.run_coroutine_threadsafe(
-            self.async_connect(instance_connection_string, driver, **kwargs), self._loop
-        )
-        return connect_task.result()
-
-    async def async_connect(
         self, instance_connection_string: str, driver: str, **kwargs: Any
     ) -> Any:
         """Prepares and returns an async database connection object and starts a
