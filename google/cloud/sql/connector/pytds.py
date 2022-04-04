@@ -2,7 +2,7 @@ import ssl
 import socket
 import platform
 from typing import Any, TYPE_CHECKING
-from google.cloud.sql.connector.instance_connection_manager import (
+from google.cloud.sql.connector.instance import (
     PlatformNotSupportedError,
 )
 

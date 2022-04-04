@@ -17,7 +17,7 @@ limitations under the License.
 from typing import List
 
 from .connector import connect, Connector
-from .instance_connection_manager import IPTypes
+from .instance import IPTypes
 
 
 __ALL__ = [connect, Connector, IPTypes]
