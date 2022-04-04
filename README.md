@@ -111,7 +111,7 @@ connector.close()
 
 **Note for SQL Server users**: If your SQL Server instance requires SSL, you need to download the CA certificate for your instance and include `cafile={path to downloaded certificate}` and `validate_host=False`. This is a workaround for a [known issue](https://issuetracker.google.com/184867147).
 
-### Custom Connector Object
+### Configuring the Connector
 
 If you need to customize something about the connector, or want to specify
 defaults for each connection to make, you can initialize a 

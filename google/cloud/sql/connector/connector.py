@@ -263,7 +263,7 @@ def connect(instance_connection_string: str, driver: str, **kwargs: Any) -> Any:
     """
     # deprecation warning
     logger.warning(
-        "Default `connect` method is deprecated and will be removed in a later "
+        "The global `connect` method is deprecated and may be removed in a later "
         "version. Please initialize a `Connector` object and call it's `connect` "
         "method directly. \n"
         "See https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/blob/main/README.md#how-to-use-this-connector for examples.",
