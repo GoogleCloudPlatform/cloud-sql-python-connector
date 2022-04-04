@@ -195,7 +195,7 @@ from google.cloud.sql.connector import IPTypes
 connector.connect(
     "project:region:instance",
     "pymysql",
-    ip_type=IPTypes.PRIVATE # Prefer private IP
+    ip_type=IPTypes.PRIVATE # use private IP
 ... insert other kwargs ...
 )
 ```
