@@ -107,7 +107,7 @@ defaults for each connection to make, you can initialize a custom
 `Connector` object directly:
 
 ```python
-from google.cloud.sql.connector import Connector
+from google.cloud.sql.connector import Connector, IPTypes
 
 # Note: all parameters below are optional
 connector = Connector(
@@ -190,6 +190,8 @@ with pool.connect() as db_conn:
 The Cloud SQL Connector for Python can be used to connect to Cloud SQL instances using both public and private IP addresses. To specify which IP address to use to connect, set the `ip_type` keyword argument Possible values are `IPTypes.PUBLIC` and `IPTypes.PRIVATE`.
 Example:
 ```python
+from google.cloud.sql.connector import IPTypes
+
 connector.connect(
     "project:region:instance",
     "pymysql",
