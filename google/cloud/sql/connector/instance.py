@@ -158,9 +158,9 @@ class InstanceMetadata:
         )
 
 
-class InstanceConnectionManager:
-    """A class to manage the details of the connection, including refreshing the
-    credentials.
+class Instance:
+    """A class to manage the details of the connection to a Cloud SQL
+    instance, including refreshing the credentials.
 
     :param instance_connection_string:
         The Google Cloud SQL Instance's connection
@@ -388,9 +388,7 @@ class InstanceConnectionManager:
         :returns: A Task representing the scheduled _perform_refresh.
         """
 
-        async def _refresh_task(
-            self: InstanceConnectionManager, delay: int
-        ) -> InstanceMetadata:
+        async def _refresh_task(self: Instance, delay: int) -> InstanceMetadata:
             """
             A coroutine that sleeps for the specified amount of time before
             running _perform_refresh.

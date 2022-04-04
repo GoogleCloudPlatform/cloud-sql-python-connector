@@ -17,8 +17,8 @@ import asyncio
 import concurrent
 import logging
 from types import TracebackType
-from google.cloud.sql.connector.instance_connection_manager import (
-    InstanceConnectionManager,
+from google.cloud.sql.connector.instance import (
+    Instance,
     IPTypes,
 )
 import google.cloud.sql.connector.pymysql as pymysql
@@ -70,7 +70,7 @@ class Connector:
         self._keys: concurrent.futures.Future = asyncio.run_coroutine_threadsafe(
             generate_keys(), self._loop
         )
-        self._instances: Dict[str, InstanceConnectionManager] = {}
+        self._instances: Dict[str, Instance] = {}
 
         # set default params for connections
         self._timeout = timeout
@@ -136,24 +136,24 @@ class Connector:
             A DB-API connection to the specified Cloud SQL instance.
         """
 
-        # Create an InstanceConnectionManager object from the connection string.
-        # The InstanceConnectionManager should verify arguments.
+        # Create an Instance object from the connection string.
+        # The Instance should verify arguments.
         #
-        # Use the InstanceConnectionManager to establish an SSL Connection.
+        # Use the Instance to establish an SSL Connection.
         #
         # Return a DBAPI connection
         enable_iam_auth = kwargs.pop("enable_iam_auth", self._enable_iam_auth)
         if instance_connection_string in self._instances:
-            icm = self._instances[instance_connection_string]
-            if enable_iam_auth != icm._enable_iam_auth:
+            instance = self._instances[instance_connection_string]
+            if enable_iam_auth != instance._enable_iam_auth:
                 raise ValueError(
                     f"connect() called with `enable_iam_auth={enable_iam_auth}`, "
-                    f"but previously used enable_iam_auth={icm._enable_iam_auth}`. "
+                    f"but previously used enable_iam_auth={instance._enable_iam_auth}`. "
                     "If you require both for your use case, please use a new "
                     "connector.Connector object."
                 )
         else:
-            icm = InstanceConnectionManager(
+            instance = Instance(
                 instance_connection_string,
                 driver,
                 self._keys,
@@ -161,7 +161,7 @@ class Connector:
                 self._credentials,
                 enable_iam_auth,
             )
-            self._instances[instance_connection_string] = icm
+            self._instances[instance_connection_string] = instance
 
         connect_func = {
             "pymysql": pymysql.connect,
@@ -195,7 +195,7 @@ class Connector:
 
         # helper function to wrap in timeout
         async def get_connection() -> Any:
-            instance_data, ip_address = await icm.connect_info(ip_type)
+            instance_data, ip_address = await instance.connect_info(ip_type)
             connect_partial = partial(
                 connector, ip_address, instance_data.context, **kwargs
             )
@@ -208,7 +208,7 @@ class Connector:
             raise TimeoutError(f"Connection timed out after {timeout}s")
         except Exception as e:
             # with any other exception, we attempt a force refresh, then throw the error
-            icm.force_refresh()
+            instance.force_refresh()
             raise (e)
 
     def __enter__(self) -> Any:
@@ -231,9 +231,11 @@ class Connector:
         close_future.result(timeout=5)
 
     async def _close(self) -> None:
-        """Helper function to cancel InstanceConnectionManagers' tasks
+        """Helper function to cancel Instances' tasks
         and close aiohttp.ClientSession."""
-        await asyncio.gather(*[icm.close() for icm in self._instances.values()])
+        await asyncio.gather(
+            *[instance.close() for instance in self._instances.values()]
+        )
 
 
 def connect(instance_connection_string: str, driver: str, **kwargs: Any) -> Any:
