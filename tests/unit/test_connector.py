@@ -15,7 +15,7 @@ limitations under the License.
 """
 
 import pytest  # noqa F401 Needed to run the tests
-from google.cloud.sql.connector.instance_connection_manager import (
+from google.cloud.sql.connector.instance import (
     IPTypes,
 )
 from google.cloud.sql.connector import connector
@@ -24,7 +24,7 @@ from unittest.mock import patch
 from typing import Any
 
 
-class MockInstanceConnectionManager:
+class MockInstance:
     _enable_iam_auth: bool
 
     def __init__(
@@ -43,7 +43,7 @@ class MockInstanceConnectionManager:
 
 
 async def timeout_stub(*args: Any, **kwargs: Any) -> None:
-    """Timeout stub for InstanceConnectionManager.connect()"""
+    """Timeout stub for Instance.connect()"""
     # sleep 10 seconds
     await asyncio.sleep(10)
 
@@ -52,11 +52,11 @@ def test_connect_timeout() -> None:
     """Test that connection times out after custom timeout."""
     connect_string = "test-project:test-region:test-instance"
 
-    icm = MockInstanceConnectionManager()
+    instance = MockInstance()
     mock_instances = {}
-    mock_instances[connect_string] = icm
-    # stub icm to raise timeout
-    setattr(icm, "connect_info", timeout_stub)
+    mock_instances[connect_string] = instance
+    # stub instance to raise timeout
+    setattr(instance, "connect_info", timeout_stub)
     # set default connector
     default_connector = connector.Connector()
     connector._default_connector = default_connector
@@ -75,10 +75,10 @@ def test_connect_enable_iam_auth_error() -> None:
     """Test that calling connect() with different enable_iam_auth
     argument values throws error."""
     connect_string = "my-project:my-region:my-instance"
-    # create mock ICM with enable_iam_auth=False
-    icm = MockInstanceConnectionManager(enable_iam_auth=False)
+    # create mock instance with enable_iam_auth=False
+    instance = MockInstance(enable_iam_auth=False)
     mock_instances = {}
-    mock_instances[connect_string] = icm
+    mock_instances[connect_string] = instance
     # set default connector
     default_connector = connector.Connector()
     connector._default_connector = default_connector
@@ -91,7 +91,7 @@ def test_connect_enable_iam_auth_error() -> None:
             "pg8000",
             enable_iam_auth=True,
         )
-    # remove mock_icm to avoid destructor warnings
+    # remove mock_instance to avoid destructor warnings
     default_connector._instances = {}
 
 
