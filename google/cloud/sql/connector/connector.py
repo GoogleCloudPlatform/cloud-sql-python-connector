@@ -261,6 +261,13 @@ def connect(instance_connection_string: str, driver: str, **kwargs: Any) -> Any:
     :returns:
         A DB-API connection to the specified Cloud SQL instance.
     """
+    # deprecation warning
+    logger.warning(
+        "Default `connect` method is deprecated and will be removed in a later "
+        "version. Please initialize a `Connector` object and call it's `connect` "
+        "method directly. \n"
+        "See https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/blob/main/README.md#how-to-use-this-connector for examples.",
+    )
     global _default_connector
     if _default_connector is None:
         _default_connector = Connector()

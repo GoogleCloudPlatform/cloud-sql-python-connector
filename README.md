@@ -47,20 +47,24 @@ Conversely, install straight from Github using `pip`:
 pip install git+https://github.com/GoogleCloudPlatform/cloud-sql-python-connector
 ```
 
-### How to use this connector
+### How to use this Connector
 
-To use the connector: import the connector and SQLAlchemy by including the following statements at the top of your Python file:
-```Python
-from google.cloud.sql.connector import connector
-import sqlalchemy
-```
+To connect to Cloud SQL using the connector, inititalize a `Connector`
+object and call it's `connect` method with the proper input parameters.
 
-The connector itself creates connection objects by calling its `connect` method but does not manage database connection pooling. For this reason, it is recommended to use the connector alongside a library that can create connection pools, such as [SQLAlchemy](https://www.sqlalchemy.org/). This will allow for connections to remain open and be reused, reducing connection overhead and the number of connections needed.
+The `Connector` itself creates connection objects by calling its `connect` method but does not manage database connection pooling. For this reason, it is recommended to use the connector alongside a library that can create connection pools, such as [SQLAlchemy](https://www.sqlalchemy.org/). This will allow for connections to remain open and be reused, reducing connection overhead and the number of connections needed.
 
-In the connector's `connect` method below, input your connection string as the first positional argument and the name of the database driver for the second positional argument. Insert the rest of your connection keyword arguments like user, password and database. You can also set the optional `timeout` or `ip_type` keyword arguments.
+In the Connector's `connect` method below, input your connection string as the first positional argument and the name of the database driver for the second positional argument. Insert the rest of your connection keyword arguments like user, password and database. You can also set the optional `timeout` or `ip_type` keyword arguments.
 
 To use this connector with SQLAlchemy, use the `creator` argument for `sqlalchemy.create_engine`:
 ```python
+from google.cloud.sql.connector import Connector
+import sqlalchemy
+
+# initialize Connector object
+connector = Connector()
+
+# function to return the database connection
 def getconn() -> pymysql.connections.Connection:
     conn: pymysql.connections.Connection = connector.connect(
         "project:region:instance",
@@ -71,6 +75,7 @@ def getconn() -> pymysql.connections.Connection:
     )
     return conn
 
+# create connection pool
 pool = sqlalchemy.create_engine(
     "mysql+pymysql://",
     creator=getconn,
@@ -96,6 +101,12 @@ with pool.connect() as db_conn:
         print(row)
 ```
 
+To close the `Connector` object's background resources, call it's `close()` method as follows:
+
+```python
+connector.close()
+```
+
 **Note**: For more examples of using SQLAlchemy to manage connection pooling with the connector, please see [Cloud SQL SQLAlchemy Samples](https://cloud.google.com/sql/docs/postgres/connect-connectors#python_1).
 
 **Note for SQL Server users**: If your SQL Server instance requires SSL, you need to download the CA certificate for your instance and include `cafile={path to downloaded certificate}` and `validate_host=False`. This is a workaround for a [known issue](https://issuetracker.google.com/184867147).
@@ -103,8 +114,8 @@ with pool.connect() as db_conn:
 ### Custom Connector Object
 
 If you need to customize something about the connector, or want to specify
-defaults for each connection to make, you can initialize a custom 
-`Connector` object directly:
+defaults for each connection to make, you can initialize a 
+`Connector` object as follows:
 
 ```python
 from google.cloud.sql.connector import Connector
@@ -116,27 +127,6 @@ connector = Connector(
     timeout=30,
     credentials=custom_creds # google.auth.credentials.Credentials
 )
-```
-
-You can then call the Connector object's `connect` method as you
-would the default `connector.connect`:
-
-```python
-def getconn() -> pymysql.connections.Connection:
-    conn = connector.connect(
-        "project:region:instance",
-        "pymysql",
-        user="root",
-        password="shhh",
-        db="your-db-name"
-    )
-    return conn
-```
-
-To close the `Connector` object's background resources, call it's `close()` method as follows:
-
-```python
-connector.close()
 ```
 
 ### Using Connector as a Context Manager
