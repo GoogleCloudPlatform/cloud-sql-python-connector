@@ -28,7 +28,7 @@ from google.cloud.sql.connector.refresh_utils import (
     _is_valid,
 )
 from google.cloud.sql.connector.utils import generate_keys
-from tests.unit.test_instance_connection_manager import (  # type: ignore
+from tests.unit.test_instance import (  # type: ignore
     _get_metadata_success,
     _get_metadata_expired,
 )
