@@ -19,10 +19,6 @@
 * resolve TimeoutError and add context manager to Connector ([#309](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/309)) ([372e401](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/372e4012b0b561f9ac9f896ad3ab29a588e067fc))
 
 
-### Miscellaneous Chores
-
-* release 0.6.0 ([#326](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/326)) ([9ea1b73](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/9ea1b73ffb1c286cf7492aee48499d9ce8f01b22))
-
 ### [0.5.2](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v0.5.1...v0.5.2) (2022-03-01)
 
 
