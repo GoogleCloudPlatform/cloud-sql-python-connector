@@ -50,12 +50,12 @@ format "project:region:instance".
 
 This package requires the following to successfully make Cloud SQL Connections:
 
-- IAM Principal (user, service account, etc.) with the
-[Cloud SQL Client][client-role] role. This IAM Principal will be used for
+- IAM principal (user, service account, etc.) with the
+[Cloud SQL Client][client-role] role. This IAM principal will be used for
 [credentials](#credentials).
 - The [Cloud SQL Admin API][admin-api] to be enabled within your Google Cloud
 Project. By default, the API will be called in the project associated with
-the IAM Principal.
+the IAM principal.
 
 [admin-api]: https://console.cloud.google.com/apis/api/sqladmin.googleapis.com
 [client-role]: https://cloud.google.com/sql/docs/mysql/roles-and-permissions
