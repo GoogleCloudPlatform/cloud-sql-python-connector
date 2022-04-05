@@ -31,17 +31,7 @@ def lint(session):
     Returns a failure if the linters find linting errors or sufficiently
     serious code quality issues.
     """
-    session.install(
-        "flake8==4.0.1",
-        "flake8-annotations==2.7.0",
-        "black==22.3.0",
-        "mypy==0.910",
-        "sqlalchemy-stubs==0.4",
-        "types-pkg-resources==0.1.3",
-        "types-PyMySQL==1.0.6",
-        "types-mock==4.0.5",
-        "twine==3.7.1",
-    )
+    session.install("-r", "requirements-test.txt")
     session.install("-r", "requirements.txt")
     session.run("black", "--check", *BLACK_PATHS)
     session.run("flake8", "google", "tests")
