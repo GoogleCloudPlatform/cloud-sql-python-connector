@@ -76,7 +76,7 @@ gcloud auth application-default login
 ```
 
 To explicitly set a specific source for the credentials to use, see
-[Custom Connector Object](#custom-connector-object) below.
+[Configuring the Connector](#configuring-the-connector) below.
 
 [adc]: https://cloud.google.com/docs/authentication
 [google-auth]: https://google-auth.readthedocs.io/en/master/reference/google.auth.html
