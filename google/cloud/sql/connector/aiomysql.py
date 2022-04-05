@@ -7,7 +7,7 @@ SERVER_PROXY_PORT = 3307
 if TYPE_CHECKING:
     import aiomysql
 
-def connect(
+async def connect(
     ip_address: str, ctx: ssl.SSLContext, **kwargs: Any
     ) -> "aiomysql.connections.Connection":
         """Helper function to create a aiomysql DB-API connection object.
@@ -31,12 +31,14 @@ def connect(
             )
 
         # Create socket and wrap with context.
-        sock = ctx.wrap_socket(
-            socket.create_connection((ip_address, SERVER_PROXY_PORT)),
-            server_hostname=ip_address,
-        )
+        #sock = ctx.wrap_socket(
+        #    socket.create_connection((ip_address, SERVER_PROXY_PORT)),
+        #    server_hostname=ip_address,
+        #)
 
         # Create pymysql connection object and hand in pre-made connection
-        conn = aiomysql.Connection(host=ip_address, **kwargs)
-        conn.connect(sock)
+        user = kwargs.pop("user")
+        db = kwargs.pop("db")
+        passwd = kwargs.pop("password")
+        conn = await aiomysql.connect(host=ip_address, user=user, password=passwd, db=db, port=SERVER_PROXY_PORT, ssl=ctx)
         return conn

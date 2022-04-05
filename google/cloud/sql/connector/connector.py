@@ -83,10 +83,12 @@ class Connector:
         enable_iam_auth: bool = False,
         timeout: int = 30,
         credentials: Optional[Credentials] = None,
+        loop: asyncio.AbstractEventLoop = None,
     ) -> None:
-        self._loop: asyncio.AbstractEventLoop = asyncio.new_event_loop()
-        self._thread: Thread = Thread(target=self._loop.run_forever, daemon=True)
-        self._thread.start()
+        if loop:
+            self._loop = loop
+        else:
+            self._loop: asyncio.AbstractEventLoop = _get_loop()
         self._keys: concurrent.futures.Future = asyncio.run_coroutine_threadsafe(
             generate_keys(), self._loop
         )
@@ -187,7 +189,7 @@ class Connector:
             "pymysql": pymysql.connect,
             "pg8000": pg8000.connect,
             "pytds": pytds.connect,
-            "aiomysql": aiomsyql.connect,
+            "aiomysql": aiomysql.connect,
         }
 
         # only accept supported database drivers
@@ -220,6 +222,8 @@ class Connector:
             connect_partial = partial(
                 connector, ip_address, instance_data.context, **kwargs
             )
+            if driver == "aiomysql":
+                return await aiomysql.connect(ip_address, instance_data.context, **kwargs)
             return await self._loop.run_in_executor(None, connect_partial)
 
         # attempt to make connection to Cloud SQL instance for given timeout
