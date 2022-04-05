@@ -35,6 +35,25 @@ logger = logging.getLogger(name=__name__)
 
 _default_connector = None
 
+# This thread is used for background processing
+_thread: Optional[Thread] = None
+_loop: Optional[asyncio.AbstractEventLoop] = None
+
+
+def _get_loop() -> asyncio.AbstractEventLoop:
+    global _loop, _thread
+    try:
+        loop = asyncio.get_running_loop()
+        print("Using found event loop!")
+        return loop
+    except RuntimeError as e:
+        if _loop is None:
+            _loop = asyncio.new_event_loop()
+            _thread = Thread(target=_loop.run_forever, daemon=True)
+            _thread.start()
+        else:
+            print("Using already created background loop!")
+    return _loop
 
 class Connector:
     """A class to configure and create connections to Cloud SQL instances.
