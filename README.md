@@ -75,7 +75,6 @@ Once installed, use the following `gcloud` command:
 gcloud auth application-default login
 ```
 
-<<<<<<< HEAD
 To explicitly set a specific source for the credentials to use, see
 [Custom Connector Object](#custom-connector-object) below.
 
@@ -84,9 +83,6 @@ To explicitly set a specific source for the credentials to use, see
 [cloud-sdk]: https://cloud.google.com/sdk/docs/install
 
 ### How to use this connector
-=======
-### How to use this Connector
->>>>>>> main
 
 To connect to Cloud SQL using the connector, inititalize a `Connector`
 object and call it's `connect` method with the proper input parameters.
