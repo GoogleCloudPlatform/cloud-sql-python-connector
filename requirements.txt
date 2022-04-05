@@ -1,9 +1,5 @@
 aiohttp==3.8.1
 cryptography==36.0.2
-PyMySQL==1.0.2
-pg8000==1.24.1
-python-tds==1.11.0
 pyopenssl==22.0.0
 Requests==2.27.1
-google-api-python-client==2.41.0
 google-auth==2.6.2
