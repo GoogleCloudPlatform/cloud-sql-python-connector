@@ -21,12 +21,23 @@ from google.auth.credentials import Credentials
 import google.auth.transport.requests
 import json
 from typing import Any, Dict
-
+import datetime
+import asyncio
 import logging
 
 logger = logging.getLogger(name=__name__)
 
 _sql_api_version: str = "v1beta4"
+
+# default_refresh_buffer is the amount of time before a refresh's result expires
+# that a new refresh operation begins.
+_default_refresh_buffer: int = 5 * 60  # 5 minutes
+
+# _iam_auth_refresh_buffer is the amount of time before a refresh's result expires
+# that a new refresh operation begins when IAM DB AuthN is enabled. Because token
+# sources may be cached until ~60 seconds before expiration, this value must be smaller
+# than default_refresh_buffer.
+_iam_auth_refresh_buffer: int = 55  # seconds
 
 
 async def _get_metadata(
@@ -39,7 +50,7 @@ async def _get_metadata(
     and returns a dictionary containing the IP addresses and certificate
     authority of the Cloud SQL Instance.
 
-    :type credentials: google.oauth2.service_account.Credentials
+    :type credentials: google.auth.credentials.Credentials
     :param credentials:
         A credentials object created from the google-auth Python library.
         Must have the SQL Admin API scopes. For more info check out
@@ -60,16 +71,15 @@ async def _get_metadata(
     :raises TypeError: If any of the arguments are not the specified type.
     """
 
-    if (
-        not isinstance(credentials, Credentials)
-        or not isinstance(project, str)
-        or not isinstance(instance, str)
-    ):
+    if not isinstance(credentials, Credentials):
         raise TypeError(
-            "Arguments must be as follows: "
-            + "credentials (google.oauth2.service_account.Credentials), "
-            + "project (str) and instance (str)."
+            "credentials must be of type google.auth.credentials.Credentials,"
+            f" got {type(credentials)}"
         )
+    elif not isinstance(project, str):
+        raise TypeError(f"project must be of type str, got {type(project)}")
+    elif not isinstance(instance, str):
+        raise TypeError(f"instance must be of type str, got {type(instance)}")
 
     if not credentials.valid:
         request = google.auth.transport.requests.Request()
@@ -83,7 +93,7 @@ async def _get_metadata(
         _sql_api_version, project, instance
     )
 
-    logger.debug("Requesting metadata")
+    logger.debug(f"['{instance}']: Requesting metadata")
 
     resp = await client_session.get(url, headers=headers, raise_for_status=True)
     ret_dict = json.loads(await resp.text())
@@ -106,7 +116,7 @@ async def _get_ephemeral(
 ) -> str:
     """Asynchronously requests an ephemeral certificate from the Cloud SQL Instance.
 
-    :type credentials: google.oauth2.service_account.Credentials
+    :type credentials: google.auth.credentials.Credentials
     :param credentials: A credentials object
         created from the google-auth library. Must be
         using the SQL Admin API scopes. For more info, check out
@@ -132,12 +142,12 @@ async def _get_ephemeral(
     :raises TypeError: If one of the arguments passed in is None.
     """
 
-    logger.debug("Requesting ephemeral certificate")
+    logger.debug(f"['{instance}']: Requesting ephemeral certificate")
 
     if not isinstance(credentials, Credentials):
         raise TypeError(
-            "credentials must be of type google.oauth2.service_account.Credentials,"
-            f"got {type(credentials)}"
+            "credentials must be of type google.auth.credentials.Credentials,"
+            f" got {type(credentials)}"
         )
     elif not isinstance(project, str):
         raise TypeError(f"project must be of type str, got {type(project)}")
@@ -161,9 +171,7 @@ async def _get_ephemeral(
     data = {"public_key": pub_key}
 
     if enable_iam_auth:
-        # TODO: remove this once issue with OAuth2 Tokens is resolved.
-        # See https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/137
-        data["access_token"] = credentials.token.rstrip(".")
+        data["access_token"] = credentials.token
 
     resp = await client_session.post(
         url, headers=headers, json=data, raise_for_status=True
@@ -172,3 +180,42 @@ async def _get_ephemeral(
     ret_dict = json.loads(await resp.text())
 
     return ret_dict["ephemeralCert"]["cert"]
+
+
+def _seconds_until_refresh(
+    expiration: datetime.datetime,
+    enable_iam_auth: bool,
+) -> int:
+    """
+    Helper function to get time in seconds before performing next refresh.
+
+    :rtype: int
+    :returns: Time in seconds to wait before performing next refresh.
+    """
+    if enable_iam_auth:
+        refresh_buffer = _iam_auth_refresh_buffer
+    else:
+        refresh_buffer = _default_refresh_buffer
+
+    delay = (expiration - datetime.datetime.now()) - datetime.timedelta(
+        seconds=refresh_buffer
+    )
+
+    if delay.total_seconds() < 0:
+        # If the time until the certificate expires is less than the buffer,
+        # schedule the refresh closer to the expiration time
+        delay = (expiration - datetime.datetime.now()) - datetime.timedelta(seconds=5)
+
+    return int(delay.total_seconds())
+
+
+async def _is_valid(task: asyncio.Task) -> bool:
+    try:
+        metadata = await task
+        # only valid if now is before the cert expires
+        if datetime.datetime.now() < metadata.expiration:
+            return True
+    except Exception:
+        # supress any errors from task
+        logger.debug("Current instance metadata is invalid.")
+    return False

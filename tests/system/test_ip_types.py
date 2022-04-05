@@ -25,12 +25,12 @@ from google.cloud.sql.connector import connector, IPTypes
 table_name = f"books_{uuid.uuid4().hex}"
 
 
-def init_connection_engine(ip_types: IPTypes) -> sqlalchemy.engine.Engine:
+def init_connection_engine(ip_type: IPTypes) -> sqlalchemy.engine.Engine:
     def getconn() -> pymysql.connections.Connection:
         conn: pymysql.connections.Connection = connector.connect(
             os.environ["MYSQL_CONNECTION_NAME"],
             "pymysql",
-            ip_types=ip_types,
+            ip_type=ip_type,
             user=os.environ["MYSQL_USER"],
             password=os.environ["MYSQL_PASS"],
             db=os.environ["MYSQL_DB"],

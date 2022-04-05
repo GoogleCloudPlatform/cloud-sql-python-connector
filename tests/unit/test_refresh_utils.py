@@ -13,32 +13,87 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
-from typing import Any
+from typing import Any, no_type_check
 
 import aiohttp
-import google.auth
+from google.auth.credentials import Credentials
+import json
 import pytest  # noqa F401 Needed to run the tests
+from mock import AsyncMock, Mock, patch
+import asyncio
 
-from google.cloud.sql.connector.refresh_utils import _get_ephemeral, _get_metadata
+from google.cloud.sql.connector.refresh_utils import (
+    _get_ephemeral,
+    _get_metadata,
+    _is_valid,
+)
 from google.cloud.sql.connector.utils import generate_keys
+from tests.unit.test_instance import (  # type: ignore
+    _get_metadata_success,
+    _get_metadata_expired,
+)
+
+
+class FakeClientSessionGet:
+    """Helper class to return mock data for get request."""
+
+    async def text(self) -> str:
+        response = {
+            "kind": "sql#connectSettings",
+            "serverCaCert": {
+                "kind": "sql#sslCert",
+                "certSerialNumber": "0",
+                "cert": "-----BEGIN CERTIFICATE-----\nabc123\n-----END CERTIFICATE-----",
+                "commonName": "Google",
+                "sha1Fingerprint": "abc",
+                "instance": "my-instance",
+                "createTime": "2021-10-18T18:48:03.785Z",
+                "expirationTime": "2031-10-16T18:49:03.785Z",
+            },
+            "ipAddresses": [
+                {"type": "PRIMARY", "ipAddress": "0.0.0.0"},
+                {"type": "PRIVATE", "ipAddress": "1.0.0.0"},
+            ],
+            "region": "my-region",
+            "databaseVersion": "MYSQL_8_0",
+            "backendType": "SECOND_GEN",
+        }
+        return json.dumps(response)
+
+
+class FakeClientSessionPost:
+    """Helper class to return mock data for post request."""
+
+    async def text(self) -> str:
+        response = {
+            "ephemeralCert": {
+                "kind": "sql#sslCert",
+                "certSerialNumber": "",
+                "cert": "-----BEGIN CERTIFICATE-----\nabc123\n-----END CERTIFICATE-----",
+            }
+        }
+        return json.dumps(response)
+
+
+@pytest.fixture
+def credentials() -> Credentials:
+    credentials = Mock(spec=Credentials)
+    credentials.valid = True
+    credentials.token = "12345"
+    return credentials
 
 
 @pytest.mark.asyncio
-async def test_get_ephemeral(connect_string: str) -> None:
+@patch("aiohttp.ClientSession.post", new_callable=AsyncMock)
+async def test_get_ephemeral(mock_post: AsyncMock, credentials: Credentials) -> None:
     """
-    Test to check whether _get_ephemeral runs without problems given a valid
-    connection string.
+    Test to check whether _get_ephemeral runs without problems given valid
+    parameters.
     """
+    mock_post.return_value = FakeClientSessionPost()
 
-    project = connect_string.split(":")[0]
-    instance = connect_string.split(":")[2]
-
-    credentials, project = google.auth.default(
-        scopes=[
-            "https://www.googleapis.com/auth/sqlservice.admin",
-            "https://www.googleapis.com/auth/cloud-platform",
-        ]
-    )
+    project = "my-project"
+    instance = "my-instance"
 
     _, pub_key = await generate_keys()
 
@@ -56,21 +111,66 @@ async def test_get_ephemeral(connect_string: str) -> None:
 
 
 @pytest.mark.asyncio
-async def test_get_metadata(connect_string: str) -> None:
+@no_type_check
+async def test_get_ephemeral_TypeError(credentials: Credentials) -> None:
     """
-    Test to check whether _get_metadata runs without problems given a valid
-    connection string.
+    Test to check whether _get_ephemeral throws proper TypeError
+    when given incorrect input arg types.
     """
+    client_session = Mock(aiohttp.ClientSession)
+    project = "my-project"
+    instance = "my-instance"
+    pub_key = "key"
 
-    project = connect_string.split(":")[0]
-    instance = connect_string.split(":")[2]
+    # incorrect credentials type
+    with pytest.raises(TypeError):
+        await _get_ephemeral(
+            client_session=client_session,
+            credentials="bad-credentials",
+            project=project,
+            instance=instance,
+            pub_key=pub_key,
+        )
+    # incorrect project type
+    with pytest.raises(TypeError):
+        await _get_ephemeral(
+            client_session=client_session,
+            credentials=credentials,
+            project=12345,
+            instance=instance,
+            pub_key=pub_key,
+        )
+    # incorrect instance type
+    with pytest.raises(TypeError):
+        await _get_ephemeral(
+            client_session=client_session,
+            credentials=credentials,
+            project=project,
+            instance=12345,
+            pub_key=pub_key,
+        )
+    # incorrect pub_key type
+    with pytest.raises(TypeError):
+        await _get_ephemeral(
+            client_session=client_session,
+            credentials=credentials,
+            project=project,
+            instance=instance,
+            pub_key=12345,
+        )
 
-    credentials, project = google.auth.default(
-        scopes=[
-            "https://www.googleapis.com/auth/sqlservice.admin",
-            "https://www.googleapis.com/auth/cloud-platform",
-        ]
-    )
+
+@pytest.mark.asyncio
+@patch("aiohttp.ClientSession.get", new_callable=AsyncMock)
+async def test_get_metadata(mock_get: AsyncMock, credentials: Credentials) -> None:
+    """
+    Test to check whether _get_metadata runs without problems given valid
+    parameters.
+    """
+    mock_get.return_value = FakeClientSessionGet()
+
+    project = "my-project"
+    instance = "my-instance"
 
     async with aiohttp.ClientSession() as client_session:
         result = await _get_metadata(client_session, credentials, project, instance)
@@ -78,3 +178,62 @@ async def test_get_metadata(connect_string: str) -> None:
     assert result["ip_addresses"] is not None and isinstance(
         result["server_ca_cert"], str
     )
+
+
+@pytest.mark.asyncio
+@no_type_check
+async def test_get_metadata_TypeError(credentials: Credentials) -> None:
+    """
+    Test to check whether _get_metadata throws proper TypeError
+    when given incorrect input arg types.
+    """
+    client_session = Mock(aiohttp.ClientSession)
+    project = "my-project"
+    instance = "my-instance"
+
+    # incorrect credentials type
+    with pytest.raises(TypeError):
+        await _get_metadata(
+            client_session=client_session,
+            credentials="bad-credentials",
+            project=project,
+            instance=instance,
+        )
+    # incorrect project type
+    with pytest.raises(TypeError):
+        await _get_metadata(
+            client_session=client_session,
+            credentials=credentials,
+            project=12345,
+            instance=instance,
+        )
+    # incorrect instance type
+    with pytest.raises(TypeError):
+        await _get_metadata(
+            client_session=client_session,
+            credentials=credentials,
+            project=project,
+            instance=12345,
+        )
+
+
+@pytest.mark.asyncio
+@no_type_check
+async def test_is_valid_with_valid_metadata() -> None:
+    """
+    Test to check that valid metadata with expiration in future returns True.
+    """
+    # task that returns class with expiration 10 mins in future
+    task = asyncio.create_task(_get_metadata_success())
+    assert await _is_valid(task)
+
+
+@pytest.mark.asyncio
+@no_type_check
+async def test_is_valid_with_expired_metadata() -> None:
+    """
+    Test to check that invalid metadata with expiration in past returns False.
+    """
+    # task that returns class with expiration 10 mins in past
+    task = asyncio.create_task(_get_metadata_expired())
+    assert not await _is_valid(task)

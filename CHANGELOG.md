@@ -1,5 +1,41 @@
 # Changelog
 
+### [0.5.2](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v0.5.1...v0.5.2) (2022-03-01)
+
+
+### ⚠ BREAKING CHANGES
+
+* update error messages and doc strings (#276)
+
+### Bug Fixes
+
+* allow support for impersonated credentials via gcloud ([#262](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/262)) ([8b7e5f7](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/8b7e5f70f82e9178f2b209d6aab0791872297f9d))
+* remove enable_iam_auth from downstream kwargs and catch error ([#273](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/273)) ([f9576f3](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/f9576f3b1b11e1cfbc71cc440a040799f6d7c267))
+* update error messages and doc strings ([#276](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/276)) ([68f37b4](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/68f37b478b35202f6952a1dc0fe6b4bfadf5235e))
+
+
+### [0.5.1](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v0.5.0...v0.5.1) (2022-02-01)
+
+
+### Bug Fixes
+
+* make asyncio.Lock() run in background thread ([#252](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/252)) ([f52ba7e](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/f52ba7ec4aa916bc6bb0062eb1b29ac0611b45f5))
+* remove token padding strip ([#245](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/245)) ([cb77021](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/cb77021d3c6a3f25a8281f57c481737fd2ee792e))
+
+## [0.5.0](https://www.github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v0.4.3...v0.5.0) (2022-01-04)
+
+
+### Features
+
+* add arg for specifying credentials ([#226](https://www.github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/226)) ([85f5476](https://www.github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/85f547696b76ad9634273caf68cf6ea93023b3ea))
+* add support for python 3.10 ([#227](https://www.github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/227)) ([8359f85](https://www.github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/8359f8560a3f6fa532493f1665949bf425a658c3))
+* expose Connector object to allow multiple connection configurations. ([#210](https://www.github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/210)) ([cef1ed1](https://www.github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/cef1ed143717988ac4252abc64cdc4403971ffb4))
+
+
+### Bug Fixes
+
+* consolidate to 'ip_type' instead of 'ip_types' for connect args ([#220](https://www.github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/220)) ([5f9cf58](https://www.github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/5f9cf588d6b553fdac32cc0e9acafea990278dfc))
+
 ### [0.4.3](https://www.github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v0.4.2...v0.4.3) (2021-12-07)
 
 

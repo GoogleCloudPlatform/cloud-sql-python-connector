@@ -15,39 +15,90 @@ limitations under the License.
 """
 
 import pytest  # noqa F401 Needed to run the tests
-from google.cloud.sql.connector.instance_connection_manager import (
-    InstanceConnectionManager,
+from google.cloud.sql.connector.instance import (
+    IPTypes,
 )
 from google.cloud.sql.connector import connector
-from google.cloud.sql.connector.utils import generate_keys
 import asyncio
 from unittest.mock import patch
 from typing import Any
 
 
-def test_connect_timeout(
-    connect_string: str, async_loop: asyncio.AbstractEventLoop
-) -> None:
-    timeout = 10
+class MockInstance:
+    _enable_iam_auth: bool
 
-    async def timeout_stub(*args: Any, **kwargs: Any) -> None:
-        try:
-            await asyncio.sleep(timeout + 10, loop=async_loop)
-        except asyncio.CancelledError:
-            return None
+    def __init__(
+        self,
+        enable_iam_auth: bool = False,
+    ) -> None:
+        self._enable_iam_auth = enable_iam_auth
 
-    keys = asyncio.run_coroutine_threadsafe(generate_keys(), async_loop)
+    async def connect_info(
+        self,
+        driver: str,
+        ip_type: IPTypes,
+        **kwargs: Any,
+    ) -> Any:
+        return True
 
-    icm = InstanceConnectionManager(connect_string, "pymysql", keys, async_loop)
-    setattr(icm, "_connect", timeout_stub)
 
+async def timeout_stub(*args: Any, **kwargs: Any) -> None:
+    """Timeout stub for Instance.connect()"""
+    # sleep 10 seconds
+    await asyncio.sleep(10)
+
+
+def test_connect_timeout() -> None:
+    """Test that connection times out after custom timeout."""
+    connect_string = "test-project:test-region:test-instance"
+
+    instance = MockInstance()
     mock_instances = {}
-    mock_instances[connect_string] = icm
-    with patch.dict(connector._instances, mock_instances):
+    mock_instances[connect_string] = instance
+    # stub instance to raise timeout
+    setattr(instance, "connect_info", timeout_stub)
+    # set default connector
+    default_connector = connector.Connector()
+    connector._default_connector = default_connector
+    # attempt to connect with timeout set to 5s
+    with patch.dict(default_connector._instances, mock_instances):
         pytest.raises(
             TimeoutError,
             connector.connect,
             connect_string,
             "pymysql",
-            timeout=timeout,
+            timeout=5,
         )
+
+
+def test_connect_enable_iam_auth_error() -> None:
+    """Test that calling connect() with different enable_iam_auth
+    argument values throws error."""
+    connect_string = "my-project:my-region:my-instance"
+    # create mock instance with enable_iam_auth=False
+    instance = MockInstance(enable_iam_auth=False)
+    mock_instances = {}
+    mock_instances[connect_string] = instance
+    # set default connector
+    default_connector = connector.Connector()
+    connector._default_connector = default_connector
+    with patch.dict(default_connector._instances, mock_instances):
+        # try to connect using enable_iam_auth=True, should raise error
+        pytest.raises(
+            ValueError,
+            default_connector.connect,
+            connect_string,
+            "pg8000",
+            enable_iam_auth=True,
+        )
+    # remove mock_instance to avoid destructor warnings
+    default_connector._instances = {}
+
+
+def test_default_Connector_Init() -> None:
+    """Test that default Connector __init__ sets properties properly."""
+    default_connector = connector.Connector()
+    assert default_connector._ip_type == IPTypes.PUBLIC
+    assert default_connector._enable_iam_auth is False
+    assert default_connector._timeout == 30
+    assert default_connector._credentials is None

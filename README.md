@@ -1,4 +1,8 @@
 # Cloud SQL Connector for Python Drivers
+![CI](https://storage.googleapis.com/cloud-devrel-public/cloud-sql-connectors/python/python3.10_linux.svg)
+[![pypi](https://img.shields.io/pypi/v/cloud-sql-python-connector)](https://pypi.org/project/cloud-sql-python-connector)
+[![python](https://img.shields.io/pypi/pyversions/cloud-sql-python-connector)](https://pypi.org/project/cloud-sql-python-connector)
+
 **Warning**: This project is currently in _beta_. Please [open an issue](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/new/choose) if you would like to report a bug or documentation issue, request a feature, or have a question.
 
 The Cloud SQL Python Connector is a library that can be used alongside a database driver to allow users with sufficient permissions to connect to a Cloud SQL
@@ -10,7 +14,7 @@ Currently supported drivers are
  - [`pytds`](https://github.com/denisenkom/pytds) (SQL Server)
 
 # Supported Python Versions
-Currently Python versions >= 3.6 are supported.
+Currently Python versions >= 3.7 are supported.
 
 ### Authentication
 
@@ -18,7 +22,7 @@ This library uses the [Application Default Credentials](https://cloud.google.com
 connection to the Cloud SQL server. For more details, see the previously
 mentioned link.
 
-To activate credentials locally, use the following `gcloud` command:
+To activate credentials locally ensure the Google Cloud SDK is installed on your machine. For manual installation see [Installing Cloud SDK](https://cloud.google.com/sdk/docs/install). Once installed, use the following `gcloud` command:
 
 ```
 gcloud auth application-default login
@@ -56,7 +60,7 @@ The connector itself creates connection objects by calling its `connect` method 
 In the connector's `connect` method below, input your connection string as the first positional argument and the name of the database driver for the second positional argument. Insert the rest of your connection keyword arguments like user, password and database. You can also set the optional `timeout` or `ip_type` keyword arguments.
 
 To use this connector with SQLAlchemy, use the `creator` argument for `sqlalchemy.create_engine`:
-```
+```python
 def getconn() -> pymysql.connections.Connection:
     conn: pymysql.connections.Connection = connector.connect(
         "project:region:instance",
@@ -74,7 +78,7 @@ pool = sqlalchemy.create_engine(
 ```
 
 The returned connection pool engine can then be used to query and modify the database.
-```
+```python
 # insert statement
 insert_stmt = sqlalchemy.text(
     "INSERT INTO my_table (id, title) VALUES (:id, :title)",
@@ -96,14 +100,102 @@ with pool.connect() as db_conn:
 
 **Note for SQL Server users**: If your SQL Server instance requires SSL, you need to download the CA certificate for your instance and include `cafile={path to downloaded certificate}` and `validate_host=False`. This is a workaround for a [known issue](https://issuetracker.google.com/184867147).
 
+### Custom Connector Object
+
+If you need to customize something about the connector, or want to specify
+defaults for each connection to make, you can initialize a custom 
+`Connector` object directly:
+
+```python
+from google.cloud.sql.connector import Connector, IPTypes
+
+# Note: all parameters below are optional
+connector = Connector(
+    ip_type=IPTypes.PUBLIC,
+    enable_iam_auth=False,
+    timeout=30,
+    credentials=custom_creds # google.auth.credentials.Credentials
+)
+```
+
+You can then call the Connector object's `connect` method as you
+would the default `connector.connect`:
+
+```python
+def getconn() -> pymysql.connections.Connection:
+    conn = connector.connect(
+        "project:region:instance",
+        "pymysql",
+        user="root",
+        password="shhh",
+        db="your-db-name"
+    )
+    return conn
+```
+
+To close the `Connector` object's background resources, call it's `close()` method as follows:
+
+```python
+connector.close()
+```
+
+### Using Connector as a Context Manager
+
+The `Connector` object can also be used as a context manager in order to
+automatically close and cleanup resources, removing the need for explicit
+calls to `connector.close()`.
+
+Connector as a context manager:
+
+```python
+from google.cloud.sql.connector import Connector
+
+# build connection
+def getconn() -> pymysql.connections.Connection:
+    with Connector() as connector:
+        conn = connector.connect(
+            "project:region:instance",
+            "pymysql",
+            user="root",
+            password="shhh",
+            db="your-db-name"
+        )
+    return conn
+
+# create connection pool
+pool = sqlalchemy.create_engine(
+    "mysql+pymysql://",
+    creator=getconn,
+)
+
+# insert statement
+insert_stmt = sqlalchemy.text(
+    "INSERT INTO my_table (id, title) VALUES (:id, :title)",
+)
+
+# interact with Cloud SQL database using connection pool
+with pool.connect() as db_conn:
+    # insert into database
+    db_conn.execute(insert_stmt, id="book1", title="Book One")
+
+    # query database
+    result = db_conn.execute("SELECT * from my_table").fetchall()
+
+    # Do something with the results
+    for row in result:
+        print(row)
+```
+
 ### Specifying Public or Private IP
 The Cloud SQL Connector for Python can be used to connect to Cloud SQL instances using both public and private IP addresses. To specify which IP address to use to connect, set the `ip_type` keyword argument Possible values are `IPTypes.PUBLIC` and `IPTypes.PRIVATE`.
 Example:
-```
+```python
+from google.cloud.sql.connector import IPTypes
+
 connector.connect(
     "project:region:instance",
     "pymysql",
-    ip_types=IPTypes.PRIVATE # Prefer private IP
+    ip_type=IPTypes.PRIVATE # use private IP
 ... insert other kwargs ...
 )
 ```
@@ -116,7 +208,7 @@ First, make sure to [configure your Cloud SQL Instance to allow IAM authenticati
 Now, you can connect using user or service account credentials instead of a password.
 In the call to connect, set the `enable_iam_auth` keyword argument to true and `user` to the email address associated with your IAM user.
 Example:
-```
+```python
 connector.connect(
      "project:region:instance",
      "pg8000",
@@ -147,7 +239,7 @@ connector.connect(
     db="my_database",
     active_directory_auth=True,
     server_name="private.[instance].[location].[project].cloudsql.[domain]",
-    ip_types=IPTypes.PRIVATE
+    ip_type=IPTypes.PRIVATE
 )
 ``` 
 

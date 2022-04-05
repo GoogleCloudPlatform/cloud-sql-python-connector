@@ -46,9 +46,9 @@ class AsyncRateLimiter(object):
         self.rate = rate
         self.max_capacity = max_capacity
         self._loop = loop or asyncio.get_event_loop()
-        self._lock = asyncio.Lock(loop=self._loop)
         self._tokens: float = max_capacity
         self._last_token_update = self._loop.time()
+        self._lock = asyncio.Lock()
 
     def _update_token_count(self) -> None:
         """
@@ -70,7 +70,7 @@ class AsyncRateLimiter(object):
         token_deficit = 1 - self._tokens
         if token_deficit > 0:
             wait_time = token_deficit / self.rate
-            await asyncio.sleep(wait_time, loop=self._loop)
+            await asyncio.sleep(wait_time)
 
     async def acquire(self) -> None:
         """
