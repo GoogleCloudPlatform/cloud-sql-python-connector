@@ -268,37 +268,6 @@ connector.connect(
 )
 ``` 
 
-### Custom Connector Object
-
-If you need to customize something about the connector, or want to specify
-defaults for each connection to make, you can initialize a custom 
-`Connector()` object directly:
-
-```python
-# Note: all parameters below are optional
-custom_connector = connector.Connector(
-    ip_type=IPTypes.PUBLIC,
-    enable_iam_auth=False,
-    timeout=30,
-    credentials=custom_creds # google.auth.credentials.Credentials
-)
-```
-
-You can then replace the default `connector.connect` call from the sample
-above with `custom_connector.connect` as follows:
-
-```python
-def getconn() -> pymysql.connections.Connection:
-    conn = custom_connector.connect(
-        "project:region:instance",
-        "pymysql",
-        user="root",
-        password="shhh",
-        db="your-db-name"
-    )
-    return conn
-```
-
 ## Support policy
 
 ### Major version lifecycle
