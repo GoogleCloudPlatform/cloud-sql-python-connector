@@ -82,7 +82,7 @@ To explicitly set a specific source for the credentials to use, see
 [google-auth]: https://google-auth.readthedocs.io/en/master/reference/google.auth.html
 [cloud-sdk]: https://cloud.google.com/sdk/docs/install
 
-### How to use this connector
+### How to use this Connector
 
 To connect to Cloud SQL using the connector, inititalize a `Connector`
 object and call it's `connect` method with the proper input parameters.
