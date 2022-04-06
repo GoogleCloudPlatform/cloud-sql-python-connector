@@ -9,6 +9,6 @@
   "dependencyDashboard": true,
   "semanticCommits": true,
   "pip_requirements": {
-    "fileMatch": ["requirements-test.txt", "noxfile.py"]
+    "fileMatch": ["requirements-test.txt"]
   }
 }

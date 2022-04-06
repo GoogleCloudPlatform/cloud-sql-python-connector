@@ -13,9 +13,6 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
-
-from typing import List
-
 from .connector import connect, Connector
 from .instance import IPTypes
 
@@ -29,4 +26,4 @@ try:
 except ImportError:
     import pkgutil
 
-    __path__: List[str] = pkgutil.extend_path(__path__, __name__)
+    __path__ = pkgutil.extend_path(__path__, __name__)
