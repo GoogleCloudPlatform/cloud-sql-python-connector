@@ -37,6 +37,9 @@ pip install cloud-sql-python-connector[driver]
 ```
 For example, to use the Python connector with `pymysql`, run `pip install cloud-sql-python-connector[pymysql]`
 
+**Note:** MacOS users with the **zsh** terminal, please use
+`pip install 'cloud-sql-python-connector[driver]'` to avoid issues.
+
 ## Usage
 
 This package provides several functions for authorizing and encrypting
