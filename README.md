@@ -38,17 +38,14 @@ based on your database dialect.
 ```
 pip install "cloud-sql-python-connector[pymysql]"
 ```
-
 ### Postgres
 ```
 pip install "cloud-sql-python-connector[pg8000]"
 ```
-
 ### SQL Server
 ```
 pip install "cloud-sql-python-connector[pytds]"
 ```
-
 ## Usage
 
 This package provides several functions for authorizing and encrypting
