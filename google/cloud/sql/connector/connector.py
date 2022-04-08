@@ -44,15 +44,12 @@ def _get_loop() -> asyncio.AbstractEventLoop:
     global _loop, _thread
     try:
         loop = asyncio.get_running_loop()
-        print("Using found event loop!")
         return loop
     except RuntimeError as e:
         if _loop is None:
             _loop = asyncio.new_event_loop()
             _thread = Thread(target=_loop.run_forever, daemon=True)
             _thread.start()
-        else:
-            print("Using already created background loop!")
     return _loop
 
 
@@ -132,7 +129,6 @@ class Connector:
         )
         return connect_task.result()
 
-
     async def connect_async(
         self, instance_connection_string: str, driver: str, **kwargs: Any
     ) -> Any:
@@ -159,6 +155,7 @@ class Connector:
         :returns:
             A DB-API connection to the specified Cloud SQL instance.
         """
+        loop = kwargs.pop("loop", self._loop)
         enable_iam_auth = kwargs.pop("enable_iam_auth", self._enable_iam_auth)
         if instance_connection_string in self._instances:
             instance = self._instances[instance_connection_string]
@@ -174,7 +171,7 @@ class Connector:
                 instance_connection_string,
                 driver,
                 self._keys,
-                self._loop,
+                loop,
                 self._credentials,
                 enable_iam_auth,
             )
@@ -217,8 +214,11 @@ class Connector:
             connect_partial = partial(
                 connector, ip_address, instance_data.context, **kwargs
             )
+            # simplified while testing
             if driver == "asyncpg":
-                return await asyncpg.connect(ip_address, instance_data.context, **kwargs)
+                return await asyncpg.connect(
+                    ip_address, instance_data.context, **kwargs
+                )
             return await self._loop.run_in_executor(None, connect_partial)
 
         # attempt to make connection to Cloud SQL instance for given timeout
