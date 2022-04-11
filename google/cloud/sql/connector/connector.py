@@ -164,6 +164,7 @@ class Connector:
         # Use the Instance to establish an SSL Connection.
         #
         # Return a DBAPI connection
+        loop = kwargs.pop("loop", self._loop)
         enable_iam_auth = kwargs.pop("enable_iam_auth", self._enable_iam_auth)
         if instance_connection_string in self._instances:
             instance = self._instances[instance_connection_string]
@@ -179,7 +180,7 @@ class Connector:
                 instance_connection_string,
                 driver,
                 self._keys,
-                self._loop,
+                loop,
                 self._credentials,
                 enable_iam_auth,
             )

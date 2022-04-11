@@ -30,15 +30,9 @@ async def connect(
                 'Unable to import module "aiomysql." Please install and try again.'
             )
 
-        # Create socket and wrap with context.
-        #sock = ctx.wrap_socket(
-        #    socket.create_connection((ip_address, SERVER_PROXY_PORT)),
-        #    server_hostname=ip_address,
-        #)
-
         # Create pymysql connection object and hand in pre-made connection
         user = kwargs.pop("user")
         db = kwargs.pop("db")
         passwd = kwargs.pop("password")
-        conn = await aiomysql.connect(host=ip_address, user=user, password=passwd, db=db, port=SERVER_PROXY_PORT, ssl=ctx)
+        conn = await aiomysql.connect(user=user, password=passwd, db=db, host=ip_address, port=SERVER_PROXY_PORT, ssl=ctx, **kwargs)
         return conn
