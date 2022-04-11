@@ -24,11 +24,10 @@ def connect(
     :rtype: pg8000.dbapi.Connection
     :returns: A pg8000 Connection object for the Cloud SQL instance.
     """
-    # pg8000 driver requires attribute `request_ssl` on the
-    # ssl.SSLContext object to be set to False
-    #
-    # This causes for the connection level database SSL protocol to be
-    # skipped, allowing the pre-configured SSL connection to be used.
+    # Connecting through pg8000 is done by passing in an SSL Context and setting the
+    # "request_ssl" attr to false. This works because when "request_ssl" is false,
+    # the driver skips the database level SSL/TLS exchange, but still uses the
+    # ssl_context (if it is not None) to create the connection.
     try:
         import pg8000
     except ImportError:
