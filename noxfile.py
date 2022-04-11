@@ -31,35 +31,13 @@ def lint(session):
     Returns a failure if the linters find linting errors or sufficiently
     serious code quality issues.
     """
-    session.install(
-        "flake8==4.0.1",
-        "flake8-annotations==2.7.0",
-        "black==21.12b0",
-        "mypy==0.910",
-        "sqlalchemy-stubs==0.4",
-        "types-pkg-resources==0.1.3",
-        "types-PyMySQL==1.0.6",
-        "types-mock==4.0.5",
-        "twine==3.7.1",
-    )
+    session.install("-r", "requirements-test.txt")
     session.install("-r", "requirements.txt")
     session.run("black", "--check", *BLACK_PATHS)
     session.run("flake8", "google", "tests")
     session.run("mypy", "google", "tests")
     session.run("python", "setup.py", "sdist")
     session.run("twine", "check", "dist/*")
-
-
-@nox.session
-def blacken(session):
-    """Run black.
-    Format code to uniform standard.
-    This currently uses Python 3.6 due to the automated Kokoro run of synthtool.
-    That run uses an image that doesn't have 3.6 installed. Before updating this
-    check the state of the `gcp_ubuntu_config` we use for that Kokoro run.
-    """
-    session.install("black==21.12b0")
-    session.run("black", *BLACK_PATHS)
 
 
 def default(session, path):
@@ -80,17 +58,17 @@ def default(session, path):
     )
 
 
-@nox.session(python=["3.6", "3.7", "3.8", "3.9", "3.10"])
+@nox.session(python=["3.7", "3.8", "3.9", "3.10"])
 def unit(session):
     default(session, os.path.join("tests", "unit"))
 
 
-@nox.session(python=["3.6", "3.7", "3.8", "3.9", "3.10"])
+@nox.session(python=["3.7", "3.8", "3.9", "3.10"])
 def system(session):
     default(session, os.path.join("tests", "system"))
 
 
-@nox.session(python=["3.6", "3.7", "3.8", "3.9", "3.10"])
+@nox.session(python=["3.7", "3.8", "3.9", "3.10"])
 def test(session):
     default(session, os.path.join("tests", "unit"))
     default(session, os.path.join("tests", "system"))
