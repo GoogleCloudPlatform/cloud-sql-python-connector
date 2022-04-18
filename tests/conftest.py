@@ -14,7 +14,9 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 import os
-from typing import Any
+from threading import Thread
+import socket
+from typing import Any, Generator
 from google.auth.credentials import Credentials, with_scopes_if_required
 from google.oauth2 import service_account
 
@@ -97,3 +99,31 @@ def fake_credentials() -> Credentials:
     )
     fake_credentials = with_scopes_if_required(fake_credentials, scopes=SCOPES)
     return fake_credentials
+
+
+def mock_server(server_sock: socket.socket) -> None:
+    """Create mock server listening on specified ip_address and port."""
+    ip_address = "127.0.0.1"
+    port = 3307
+    server_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    server_sock.bind((ip_address, port))
+    server_sock.listen(0)
+    server_sock.accept()
+
+
+@pytest.fixture
+def server() -> Generator:
+    """Create thread with server listening on proper port"""
+    server_sock = socket.socket()
+    thread = Thread(target=mock_server, args=(server_sock,), daemon=True)
+    thread.start()
+    yield thread
+    server_sock.close()
+    thread.join()
+
+
+@pytest.fixture
+def kwargs() -> Any:
+    """Database connection keyword arguments."""
+    kwargs = {"user": "test-user", "db": "test-db", "password": "test-password"}
+    return kwargs

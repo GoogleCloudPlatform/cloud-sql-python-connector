@@ -17,36 +17,30 @@ limitations under the License.
 import asyncio
 from unittest.mock import patch
 import datetime
+from typing import Dict
 from google.cloud.sql.connector.rate_limiter import AsyncRateLimiter
-from typing import Any, Dict
 import pytest  # noqa F401 Needed to run the tests
 from google.auth.credentials import Credentials
 from google.cloud.sql.connector.instance import (
     Instance,
     CredentialsTypeError,
+    InstanceMetadata,
 )
 from google.cloud.sql.connector.utils import generate_keys
 
-
-class BadRefresh(Exception):
-    pass
-
-
-class MockMetadata:
-    def __init__(self, expiration: datetime.datetime) -> None:
-        self.expiration = expiration
-
-
-async def _get_metadata_success(*args: Any, **kwargs: Any) -> MockMetadata:
-    return MockMetadata(datetime.datetime.now() + datetime.timedelta(minutes=10))
-
-
-async def _get_metadata_expired(*args: Any, **kwargs: Any) -> MockMetadata:
-    return MockMetadata(datetime.datetime.now() - datetime.timedelta(minutes=10))
-
-
-async def _get_metadata_error(*args: Any, **kwargs: Any) -> None:
-    raise BadRefresh("something went wrong...")
+# import mocks
+from mocks import (
+    generate_cert,
+    self_signed_cert,
+    client_key_signed_cert,
+    get_keys,
+    BadRefresh,
+    instance_metadata_error,
+    instance_metadata_success,
+    MockMetadata,
+    mock_get_ephemeral,
+    mock_get_metadata,
+)
 
 
 @pytest.fixture
@@ -61,7 +55,7 @@ def instance(
             "my-project:my-region:my-instance", "pymysql", keys, event_loop
         )
         # stub _perform_refresh to return a "valid" MockMetadata object
-        setattr(instance, "_perform_refresh", _get_metadata_success)
+        setattr(instance, "_perform_refresh", instance_metadata_success)
         instance._current = instance._schedule_refresh(0)
     return instance
 
@@ -70,37 +64,6 @@ def instance(
 def test_rate_limiter(event_loop: asyncio.AbstractEventLoop) -> AsyncRateLimiter:
     return AsyncRateLimiter(max_capacity=1, rate=1 / 2, loop=event_loop)
 
-server_ca_cert = b"""
------BEGIN CERTIFICATE-----
-MIIDfzCCAmegAwIBAgIBADANBgkqhkiG9w0BAQsFADB3MS0wKwYDVQQuEyRmY2Yx
-ZTM3MC04Y2EwLTRlMmItYjE4OC1lZTY4MDI0ODFjY2IxIzAhBgNVBAMTGkdvb2ds
-ZSBDbG91ZCBTUUwgU2VydmVyIENBMRQwEgYDVQQKEwtHb29nbGUsIEluYzELMAkG
-A1UEBhMCVVMwHhcNMjExMTAzMTczMjA5WhcNMzExMTAxMTczMzA5WjB3MS0wKwYD
-VQQuEyRmY2YxZTM3MC04Y2EwLTRlMmItYjE4OC1lZTY4MDI0ODFjY2IxIzAhBgNV
-BAMTGkdvb2dsZSBDbG91ZCBTUUwgU2VydmVyIENBMRQwEgYDVQQKEwtHb29nbGUs
-IEluYzELMAkGA1UEBhMCVVMwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIB
-AQCBH0PKs9heYhER0qfNeHt1NYTmMXiyX0M7ZXAaChAirptZRWFwHI5h/2C+EZ55
-Ky7uMxXur1o3zot/jgQeD3gxAq6w2uDjvEkMd/jM8+uNasNAX78+UVzl7ehoHdad
-9bs7nDRyc58nKhtMtm3e40cgN7dcPi7CfTScqzLHpWdW2TriR/UYmdpfGU3HY/4+
-hCGNmmiVKvNEpxOpM9DoAKFK9d1rRBUUEfClM9F4vARxC0nmRkkU2nVsJef9GkOH
-9ODcpzdB4YUj3uJuGlAlwWzm3J9vjerFXtJOiTI+z4IviWdbDlvwAvNBpPZQ/ELi
-v9B6acmpvrqyU9or6rqv8zkdAgMBAAGjFjAUMBIGA1UdEwEB/wQIMAYBAf8CAQAw
-DQYJKoZIhvcNAQELBQADggEBAGS+PtLmBhAEykDwcg+TkqhbaI/aj0jYOJ+9ncbd
-iUjsKVqXVh7BgbBDg9mfIf/EyAOrOSe2FSmxhABsvA3EoRZYI1KMTRiMxcSimNMs
-0NMOd62SUiZ5jPs/LYLecSJ48RZBb2nd3VOZQndiYopXs58sMKpwNlhzah5vEhf9
-KbIzna0Pbd8ygwv23RMz9le+Gvr3hNtgE39PHd1her8786q+DYWKfcdo4r5EwQ1L
-1z6R4QUEvkdWsL20qVetAiXswP/bj73LPa+f2600NRPfzG+mX4yQzwC7Kj+Uykgj
-fnGYLhfBbJ5q8a+u89ojTxbzydmT0ZehatPgy9IunsLwwmE=
------END CERTIFICATE-----
-"""
-async def _get_metadata_success_new(*args: Any, **kwargs: Any) -> Dict:
-    return {
-        "ip_addresses": {'PRIMARY': '0.0.0.0'},
-        "server_ca_cert": server_ca_cert
-    }
-
-async def _get_ephemeral_success():
-    return "-----BEGIN CERTIFICATE-----\nabc123\n-----END CERTIFICATE-----"
 
 @pytest.mark.asyncio
 async def test_Instance_init(
@@ -154,7 +117,7 @@ async def test_schedule_refresh_replaces_result(
     setattr(instance, "_refresh_rate_limiter", test_rate_limiter)
 
     # stub _perform_refresh to return a "valid" MockMetadata object
-    setattr(instance, "_perform_refresh", _get_metadata_success)
+    setattr(instance, "_perform_refresh", instance_metadata_success)
 
     old_metadata = await instance._current
 
@@ -185,7 +148,7 @@ async def test_schedule_refresh_wont_replace_valid_result_with_invalid(
     old_task = instance._current
 
     # stub _perform_refresh to throw an error
-    setattr(instance, "_perform_refresh", _get_metadata_error)
+    setattr(instance, "_perform_refresh", instance_metadata_error)
 
     # schedule refresh immediately
     refresh_task = instance._schedule_refresh(0)
@@ -212,7 +175,7 @@ async def test_schedule_refresh_replaces_invalid_result(
     setattr(instance, "_refresh_rate_limiter", test_rate_limiter)
 
     # stub _perform_refresh to throw an error
-    setattr(instance, "_perform_refresh", _get_metadata_error)
+    setattr(instance, "_perform_refresh", instance_metadata_error)
 
     # set current to invalid data (error)
     instance._current = instance._schedule_refresh(0)
@@ -222,7 +185,7 @@ async def test_schedule_refresh_replaces_invalid_result(
         assert await instance._current
 
     # stub _perform_refresh to return a valid MockMetadata instance
-    setattr(instance, "_perform_refresh", _get_metadata_success)
+    setattr(instance, "_perform_refresh", instance_metadata_success)
 
     # schedule refresh immediately and await it
     refresh_task = instance._schedule_refresh(0)
@@ -319,12 +282,80 @@ async def test_Instance_close(instance: Instance) -> None:
 
 
 @pytest.mark.asyncio
-@patch("google.cloud.sql.connector.instance_connection_manager._get_ephemeral")
-@patch("google.cloud.sql.connector.instance_connection_manager._get_metadata")
-async def test_get_instance_data(mock_metadata, mock_ephemeral, icm: InstanceConnectionManager):
+@patch("google.cloud.sql.connector.instance._get_ephemeral")
+@patch("google.cloud.sql.connector.instance._get_metadata")
+async def test_perform_refresh(
+    mock_metadata: Dict,
+    mock_ephemeral: str,
+    fake_credentials: Credentials,
+    event_loop: asyncio.AbstractEventLoop,
+) -> None:
     """
-    Test that _get_instance_data returns valid InstanceMetadata object.
+    Test that _perform_refresh returns valid InstanceMetadata object.
     """
-    mock_metadata.return_value = _get_metadata_success()
-    mock_ephemeral.return_value = _get_ephemeral_success()
-    instance_metadata = await icm._get_instance_data()
+    # generate keys and certs for test
+    cert, priv_key = generate_cert("my-project", "my-instance")
+    server_ca_cert = self_signed_cert(cert, priv_key)
+    keys = asyncio.create_task(get_keys())
+    _, client_key = await keys
+    ephemeral_cert = client_key_signed_cert(cert, priv_key, client_key)
+
+    # mock instance metadata and ephemeral cert
+    mock_metadata.return_value = await mock_get_metadata(server_ca_cert)
+    mock_ephemeral.return_value = await mock_get_ephemeral(ephemeral_cert)
+    with patch("google.auth.default") as mock_auth:
+        mock_auth.return_value = fake_credentials, None
+        instance = Instance(
+            "my-project:my-region:my-instance", "pymysql", keys, event_loop
+        )
+    instance_metadata = await instance._perform_refresh()
+
+    # verify instance metadata object is returned
+    assert isinstance(instance_metadata, InstanceMetadata)
+    # verify instance metadata expiration
+    assert cert._not_valid_after.replace(microsecond=0) == instance_metadata.expiration
+
+
+@pytest.mark.asyncio
+@patch("google.cloud.sql.connector.instance._get_ephemeral")
+@patch("google.cloud.sql.connector.instance._get_metadata")
+async def test_perform_refresh_expiration(
+    mock_metadata: Dict,
+    mock_ephemeral: str,
+    fake_credentials: Credentials,
+    event_loop: asyncio.AbstractEventLoop,
+) -> None:
+    """
+    Test that _perform_refresh returns InstanceMetadata with proper expiration.
+
+    If credentials expiration is less than cert expiration,
+    credentials expiration should be used.
+    """
+    # generate keys and certs for test
+    cert, priv_key = generate_cert("my-project", "my-instance")
+    server_ca_cert = self_signed_cert(cert, priv_key)
+    keys = asyncio.create_task(get_keys())
+    _, client_key = await keys
+    ephemeral_cert = client_key_signed_cert(cert, priv_key, client_key)
+
+    # mock instance metadata and ephemeral cert
+    mock_metadata.return_value = await mock_get_metadata(server_ca_cert)
+    mock_ephemeral.return_value = await mock_get_ephemeral(ephemeral_cert)
+    with patch("google.auth.default") as mock_auth:
+        mock_auth.return_value = fake_credentials, None
+        instance = Instance(
+            "my-project:my-region:my-instance",
+            "pymysql",
+            keys,
+            event_loop,
+            enable_iam_auth=True,
+        )
+    # set credentials expiration to 1 minute from now
+    expiration = datetime.datetime.utcnow() + datetime.timedelta(minutes=1)
+    setattr(instance._credentials, "expiry", expiration)
+    instance_metadata = await instance._perform_refresh()
+
+    # verify instance metadata object is returned
+    assert isinstance(instance_metadata, InstanceMetadata)
+    # verify instance metadata uses credentials expiration
+    assert expiration == instance_metadata.expiration

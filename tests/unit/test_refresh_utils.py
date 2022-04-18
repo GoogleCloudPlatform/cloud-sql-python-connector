@@ -17,7 +17,6 @@ from typing import Any, no_type_check
 
 import aiohttp
 from google.auth.credentials import Credentials
-import json
 import pytest  # noqa F401 Needed to run the tests
 from mock import AsyncMock, Mock, patch
 import asyncio
@@ -28,51 +27,13 @@ from google.cloud.sql.connector.refresh_utils import (
     _is_valid,
 )
 from google.cloud.sql.connector.utils import generate_keys
-from tests.unit.test_instance import (  # type: ignore
-    _get_metadata_success,
-    _get_metadata_expired,
+from mocks import (  # type: ignore
+    instance_metadata_success,
+    instance_metadata_expired,
 )
 
-
-class FakeClientSessionGet:
-    """Helper class to return mock data for get request."""
-
-    async def text(self) -> str:
-        response = {
-            "kind": "sql#connectSettings",
-            "serverCaCert": {
-                "kind": "sql#sslCert",
-                "certSerialNumber": "0",
-                "cert": "-----BEGIN CERTIFICATE-----\nabc123\n-----END CERTIFICATE-----",
-                "commonName": "Google",
-                "sha1Fingerprint": "abc",
-                "instance": "my-instance",
-                "createTime": "2021-10-18T18:48:03.785Z",
-                "expirationTime": "2031-10-16T18:49:03.785Z",
-            },
-            "ipAddresses": [
-                {"type": "PRIMARY", "ipAddress": "0.0.0.0"},
-                {"type": "PRIVATE", "ipAddress": "1.0.0.0"},
-            ],
-            "region": "my-region",
-            "databaseVersion": "MYSQL_8_0",
-            "backendType": "SECOND_GEN",
-        }
-        return json.dumps(response)
-
-
-class FakeClientSessionPost:
-    """Helper class to return mock data for post request."""
-
-    async def text(self) -> str:
-        response = {
-            "ephemeralCert": {
-                "kind": "sql#sslCert",
-                "certSerialNumber": "",
-                "cert": "-----BEGIN CERTIFICATE-----\nabc123\n-----END CERTIFICATE-----",
-            }
-        }
-        return json.dumps(response)
+# import mocks
+from mocks import FakeClientSessionGet, FakeClientSessionPost
 
 
 @pytest.fixture
@@ -224,7 +185,7 @@ async def test_is_valid_with_valid_metadata() -> None:
     Test to check that valid metadata with expiration in future returns True.
     """
     # task that returns class with expiration 10 mins in future
-    task = asyncio.create_task(_get_metadata_success())
+    task = asyncio.create_task(instance_metadata_success())
     assert await _is_valid(task)
 
 
@@ -235,5 +196,5 @@ async def test_is_valid_with_expired_metadata() -> None:
     Test to check that invalid metadata with expiration in past returns False.
     """
     # task that returns class with expiration 10 mins in past
-    task = asyncio.create_task(_get_metadata_expired())
+    task = asyncio.create_task(instance_metadata_expired())
     assert not await _is_valid(task)
