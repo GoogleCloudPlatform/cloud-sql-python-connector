@@ -15,7 +15,7 @@ limitations under the License.
 """
 
 import asyncio
-from unittest.mock import patch
+from mock import patch
 import datetime
 from typing import Dict
 from google.cloud.sql.connector.rate_limiter import AsyncRateLimiter
@@ -314,6 +314,8 @@ async def test_perform_refresh(
     assert isinstance(instance_metadata, InstanceMetadata)
     # verify instance metadata expiration
     assert cert._not_valid_after.replace(microsecond=0) == instance_metadata.expiration
+    # cleanup instance
+    await instance.close()
 
 
 @pytest.mark.asyncio
@@ -359,3 +361,5 @@ async def test_perform_refresh_expiration(
     assert isinstance(instance_metadata, InstanceMetadata)
     # verify instance metadata uses credentials expiration
     assert expiration == instance_metadata.expiration
+    # cleanup instance
+    await instance.close()
