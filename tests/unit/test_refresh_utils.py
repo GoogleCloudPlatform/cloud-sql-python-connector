@@ -27,13 +27,14 @@ from google.cloud.sql.connector.refresh_utils import (
     _is_valid,
 )
 from google.cloud.sql.connector.utils import generate_keys
+
+# import mocks
 from mocks import (  # type: ignore
     instance_metadata_success,
     instance_metadata_expired,
+    FakeClientSessionPost,
+    FakeClientSessionGet,
 )
-
-# import mocks
-from mocks import FakeClientSessionGet, FakeClientSessionPost
 
 
 @pytest.fixture
