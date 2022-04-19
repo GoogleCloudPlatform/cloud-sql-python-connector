@@ -20,6 +20,7 @@ import ssl
 from tempfile import TemporaryDirectory
 from typing import Any, Dict, Tuple
 from google.cloud.sql.connector import IPTypes
+from google.cloud.sql.connector.instance import InstanceMetadata
 from google.cloud.sql.connector.utils import write_to_file
 import datetime
 from cryptography.hazmat.backends import default_backend
@@ -53,11 +54,14 @@ class BadRefresh(Exception):
     pass
 
 
-class MockMetadata:
+class MockMetadata(InstanceMetadata):
     """Mock class for InstanceMetadata"""
 
-    def __init__(self, expiration: datetime.datetime) -> None:
+    def __init__(
+        self, expiration: datetime.datetime, ip_addrs: Dict = {"PRIMARY": "0.0.0.0"}
+    ) -> None:
         self.expiration = expiration
+        self.ip_addrs = ip_addrs
 
 
 async def instance_metadata_success(*args: Any, **kwargs: Any) -> MockMetadata:

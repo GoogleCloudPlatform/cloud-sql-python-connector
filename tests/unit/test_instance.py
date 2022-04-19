@@ -22,8 +22,10 @@ from google.cloud.sql.connector.rate_limiter import AsyncRateLimiter
 import pytest  # noqa F401 Needed to run the tests
 from google.auth.credentials import Credentials
 from google.cloud.sql.connector.instance import (
+    IPTypes,
     Instance,
     CredentialsTypeError,
+    CloudSQLIPTypeError,
     InstanceMetadata,
 )
 from google.cloud.sql.connector.utils import generate_keys
@@ -363,3 +365,78 @@ async def test_perform_refresh_expiration(
     assert expiration == instance_metadata.expiration
     # cleanup instance
     await instance.close()
+
+
+@pytest.mark.asyncio
+async def test_connect_info(
+    instance: Instance, event_loop: asyncio.AbstractEventLoop
+) -> None:
+    """
+    Test that connect_info returns current metadata and preferred IP.
+    """
+    instance_metadata, ip_addr = await instance.connect_info(IPTypes.PUBLIC)
+
+    # verify metadata and ip address
+    assert isinstance(instance_metadata, MockMetadata)
+    assert ip_addr == "0.0.0.0"
+    # cleanup instance
+    await instance.close()
+
+
+@pytest.mark.asyncio
+async def test_get_preferred_ip() -> None:
+    """
+    Test that get_preferred_ip returns proper IP address
+    for both Public and Private IP addresses.
+    """
+    # generate params needed for InstanceMetadata
+    cert, priv_key = generate_cert("my-project", "my-instance")
+    server_ca_cert = self_signed_cert(cert, priv_key)
+    keys = asyncio.create_task(get_keys())
+    client_private, client_key = await keys
+    ephemeral_cert = client_key_signed_cert(cert, priv_key, client_key)
+    ip_addrs = {"PRIMARY": "0.0.0.0", "PRIVATE": "1.1.1.1"}
+    expiration = datetime.datetime.utcnow() + datetime.timedelta(minutes=1)
+
+    instance_metadata = InstanceMetadata(
+        ephemeral_cert, ip_addrs, client_private, server_ca_cert, expiration, False
+    )
+
+    # test public IP as preferred IP for connection
+    ip_addr = instance_metadata.get_preferred_ip(IPTypes.PUBLIC)
+    # verify public ip address is preferred
+    assert ip_addr == "0.0.0.0"
+
+    # test private IP as preferred IP for connection
+    ip_addr = instance_metadata.get_preferred_ip(IPTypes.PRIVATE)
+    # verify private ip address is preferred
+    assert ip_addr == "1.1.1.1"
+
+
+@pytest.mark.asyncio
+async def test_get_preferred_ip_CloudSQLIPTypeError() -> None:
+    """
+    Test that get_preferred_ip throws proper CloudSQLIPTypeError
+    when missing Public or Private IP addresses.
+    """
+    # generate params needed for InstanceMetadata
+    cert, priv_key = generate_cert("my-project", "my-instance")
+    server_ca_cert = self_signed_cert(cert, priv_key)
+    keys = asyncio.create_task(get_keys())
+    client_private, client_key = await keys
+    ephemeral_cert = client_key_signed_cert(cert, priv_key, client_key)
+    ip_addrs = {"PRIVATE": "1.1.1.1"}
+    expiration = datetime.datetime.utcnow() + datetime.timedelta(minutes=1)
+
+    instance_metadata = InstanceMetadata(
+        ephemeral_cert, ip_addrs, client_private, server_ca_cert, expiration, False
+    )
+
+    # test error when Public IP is missing
+    with pytest.raises(CloudSQLIPTypeError):
+        instance_metadata.get_preferred_ip(IPTypes.PUBLIC)
+
+    # test error when Private IP is missing
+    instance_metadata.ip_addrs = {"PRIMARY": "0.0.0.0"}
+    with pytest.raises(CloudSQLIPTypeError):
+        instance_metadata.get_preferred_ip(IPTypes.PRIVATE)
