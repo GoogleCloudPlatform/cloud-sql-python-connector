@@ -31,12 +31,21 @@ Currently Python versions >= 3.7 are supported.
 
 ## Installation
 
-You can install this library with `pip install`, replacing `driver` with one of the database driver names listed above:
-```
-pip install cloud-sql-python-connector[driver]
-```
-For example, to use the Python connector with `pymysql`, run `pip install cloud-sql-python-connector[pymysql]`
+You can install this library with `pip install`, specifying the driver
+based on your database dialect.
 
+### MySQL
+```
+pip install "cloud-sql-python-connector[pymysql]"
+```
+### Postgres
+```
+pip install "cloud-sql-python-connector[pg8000]"
+```
+### SQL Server
+```
+pip install "cloud-sql-python-connector[pytds]"
+```
 ## Usage
 
 This package provides several functions for authorizing and encrypting
