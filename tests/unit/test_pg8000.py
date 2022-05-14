@@ -1,4 +1,4 @@
-""""
+"""
 Copyright 2022 Google LLC
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -29,6 +29,6 @@ def test_pg8000(kwargs: Any) -> None:
         connection = connect(ip_addr, context, **kwargs)
         assert connection is True
         # verify ssl.SSLContext has 'request_ssl' attribute set to false
-        assert context.request_ssl is False
+        assert context.request_ssl is False  # type: ignore
         # verify that driver connection call would be made
         assert mock_connect.assert_called_once

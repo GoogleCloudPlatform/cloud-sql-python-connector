@@ -19,6 +19,7 @@ import socket
 from typing import Any, Generator
 from google.auth.credentials import Credentials, with_scopes_if_required
 from google.oauth2 import service_account
+from unit.mocks import FakeCSQLInstance  # type: ignore
 
 import asyncio
 import pytest  # noqa F401 Needed to run the tests
@@ -98,6 +99,8 @@ def fake_credentials() -> Credentials:
         fake_service_account
     )
     fake_credentials = with_scopes_if_required(fake_credentials, scopes=SCOPES)
+    # stub refresh of credentials
+    setattr(fake_credentials, "refresh", lambda *args: None)
     return fake_credentials
 
 
@@ -127,3 +130,9 @@ def kwargs() -> Any:
     """Database connection keyword arguments."""
     kwargs = {"user": "test-user", "db": "test-db", "password": "test-password"}
     return kwargs
+
+
+@pytest.fixture(scope="module")
+def mock_instance() -> FakeCSQLInstance:
+    mock_instance = FakeCSQLInstance("my-project", "my-region", "my-instance")
+    return mock_instance

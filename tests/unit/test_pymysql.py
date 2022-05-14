@@ -1,4 +1,4 @@
-""""
+"""
 Copyright 2022 Google LLC
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -26,7 +26,7 @@ class MockConnection:
     def __init__(self, host: str, defer_connect: bool, **kwargs: Any) -> None:
         pass
 
-    def connect(sock: ssl.SSLSocket) -> None:
+    def connect(sock: ssl.SSLSocket) -> None:  # type: ignore
         assert isinstance(sock, ssl.SSLSocket)
 
 
