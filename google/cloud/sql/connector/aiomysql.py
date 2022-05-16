@@ -34,5 +34,5 @@ async def connect(
         user = kwargs.pop("user")
         db = kwargs.pop("db")
         passwd = kwargs.pop("password")
-        conn = await aiomysql.connect(user=user, password=passwd, db=db, host=ip_address, port=SERVER_PROXY_PORT, ssl=ctx, **kwargs)
+        conn = await aiomysql.connect(user=user, password=passwd, db=db, host=ip_address, port=SERVER_PROXY_PORT, ssl=ctx, implicit_tls=True, **kwargs)
         return conn
