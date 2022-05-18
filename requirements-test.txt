@@ -14,5 +14,5 @@ types-PyMySQL==1.0.19
 types-mock==4.0.13
 twine==4.0.0
 PyMySQL==1.0.2
-pg8000==1.28.1
+pg8000==1.28.3
 python-tds==1.11.0
