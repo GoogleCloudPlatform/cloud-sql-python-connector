@@ -363,7 +363,7 @@ class Instance:
                 f"['{self._instance_connection_string}']: Error occurred during _perform_refresh."
             )
             if e.code == 403:
-                e.message = "Forbidden: Authenticated IAM principal does not seeem authorized to make API request. Verify 'Cloud SQL Client' role has been granted to IAM principal."
+                e.message = "Forbidden: Authenticated IAM principal does not seeem authorized to make API request. Verify 'Cloud SQL Admin API' is enabled within your GCP project and 'Cloud SQL Client' role has been granted to IAM principal."
             raise
 
         except Exception as e:
