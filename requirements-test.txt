@@ -5,7 +5,7 @@ pytest-asyncio==0.18.3
 SQLAlchemy==1.4.36
 sqlalchemy-pytds==0.3.4
 flake8==4.0.1
-flake8-annotations==2.7.0
+flake8-annotations==2.9.0
 black==22.3.0
 mypy==0.950
 sqlalchemy-stubs==0.4
