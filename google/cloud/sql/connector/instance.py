@@ -358,6 +358,14 @@ class Instance:
                 if expiration > token_expiration:
                     expiration = token_expiration
 
+        except aiohttp.ClientResponseError as e:
+            logger.debug(
+                f"['{self._instance_connection_string}']: Error occurred during _perform_refresh."
+            )
+            if e.code == 403:
+                e.message = "Forbidden: Authenticated IAM principal does not seeem authorized to make API request. Verify 'Cloud SQL Client' role has been granted to IAM principal."
+            raise
+
         except Exception as e:
             logger.debug(
                 f"['{self._instance_connection_string}']: Error occurred during _perform_refresh."
