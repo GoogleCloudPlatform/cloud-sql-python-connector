@@ -25,9 +25,6 @@ Currently supported drivers are:
  - [`pg8000`](https://github.com/tlocke/pg8000) (PostgreSQL)
  - [`pytds`](https://github.com/denisenkom/pytds) (SQL Server)
 
-## Supported Python Versions
-
-Currently Python versions >= 3.7 are supported.
 
 ## Installation
 
@@ -291,6 +288,14 @@ bug fixes, but do not receive new features. Deprecated versions will be publicly
 supported for 1 year.
 **Unsupported** - Any major version that has been deprecated for >=1 year is
 considered publicly unsupported.
+
+## Supported Python Versions
+
+We test an support at a minimum, every [active version until it's
+end-of-life date][pyver]. Changes in supported Python versions will be
+considered a minor change, and will be listed in the relase notes. 
+
+[pyver]: https://devguide.python.org/#status-of-python-branches
 
 ### Release cadence
 This project aims for a minimum monthly release cadence. If no new
