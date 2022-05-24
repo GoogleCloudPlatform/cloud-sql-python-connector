@@ -291,9 +291,9 @@ considered publicly unsupported.
 
 ## Supported Python Versions
 
-We test an support at a minimum, every [active version until it's
+We test and support at a minimum, every [active version until it's
 end-of-life date][pyver]. Changes in supported Python versions will be
-considered a minor change, and will be listed in the relase notes. 
+considered a minor change, and will be listed in the release notes. 
 
 [pyver]: https://devguide.python.org/#status-of-python-branches
 
