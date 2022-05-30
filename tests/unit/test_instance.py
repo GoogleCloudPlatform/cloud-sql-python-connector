@@ -15,7 +15,6 @@ limitations under the License.
 """
 
 import asyncio
-from typing import AsyncGenerator
 from mock import patch
 import datetime
 from google.cloud.sql.connector.rate_limiter import AsyncRateLimiter
@@ -29,45 +28,9 @@ from google.cloud.sql.connector.instance import (
     InstanceMetadata,
 )
 from google.cloud.sql.connector.utils import generate_keys
-from aioresponses import aioresponses
 
 # import mocks
 import mocks
-
-
-@pytest.fixture
-async def instance(
-    mock_instance: mocks.FakeCSQLInstance,
-    fake_credentials: Credentials,
-    event_loop: asyncio.AbstractEventLoop,
-) -> AsyncGenerator[Instance, None]:
-    # generate client key pair
-    keys = asyncio.run_coroutine_threadsafe(generate_keys(), event_loop)
-    key_task = asyncio.wrap_future(keys, loop=event_loop)
-    _, client_key = await key_task
-    with patch("google.auth.default") as mock_auth:
-        mock_auth.return_value = fake_credentials, None
-        # mock Cloud SQL Admin API calls
-        with aioresponses() as mocked:
-            mocked.get(
-                "https://sqladmin.googleapis.com/sql/v1beta4/projects/my-project/instances/my-instance/connectSettings",
-                status=200,
-                body=mock_instance.connect_settings(),
-                repeat=True,
-            )
-            mocked.post(
-                "https://sqladmin.googleapis.com/sql/v1beta4/projects/my-project/instances/my-instance:generateEphemeralCert",
-                status=200,
-                body=mock_instance.generate_ephemeral(client_key),
-                repeat=True,
-            )
-
-            instance = Instance(
-                "my-project:my-region:my-instance", "pymysql", keys, event_loop
-            )
-
-            yield instance
-            await instance.close()
 
 
 @pytest.fixture
@@ -214,16 +177,6 @@ async def test_force_refresh_cancels_pending_refresh(
     """
     Test that force_refresh cancels pending task if refresh_in_progress event is not set.
     """
-    # with patch("google.auth.default") as mock_auth:
-    #    mock_auth.return_value = fake_credentials, None
-    #    keys = asyncio.run_coroutine_threadsafe(generate_keys(), event_loop)
-    #    instance = Instance(
-    #        "my-project:my-region:my-instance", "pymysql", keys, event_loop
-    #    )
-    # stub _perform_refresh to return a "valid" MockMetadata object
-    # setattr(instance, "_perform_refresh", mocks.instance_metadata_success)
-    # instance._current = instance._schedule_refresh(0)
-    # assert instance._current == instance._next
     # allow more frequent refreshes for tests
     setattr(instance, "_refresh_rate_limiter", test_rate_limiter)
     # make sure initial refresh is finished

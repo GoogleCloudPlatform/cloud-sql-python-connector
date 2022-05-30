@@ -14,15 +14,21 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 import os
-from threading import Thread
 import socket
-from typing import Any, Generator
-from google.auth.credentials import Credentials, with_scopes_if_required
-from google.oauth2 import service_account
-from unit.mocks import FakeCSQLInstance  # type: ignore
-
 import asyncio
 import pytest  # noqa F401 Needed to run the tests
+
+from threading import Thread
+from typing import Any, Generator, AsyncGenerator
+from google.auth.credentials import Credentials, with_scopes_if_required
+from google.oauth2 import service_account
+from aioresponses import aioresponses
+from mock import patch
+
+from unit.mocks import FakeCSQLInstance  # type: ignore
+from google.cloud.sql.connector import Connector
+from google.cloud.sql.connector.instance import Instance
+from google.cloud.sql.connector.utils import generate_keys
 
 SCOPES = [
     "https://www.googleapis.com/auth/sqlservice.admin",
@@ -136,3 +142,76 @@ def kwargs() -> Any:
 def mock_instance() -> FakeCSQLInstance:
     mock_instance = FakeCSQLInstance("my-project", "my-region", "my-instance")
     return mock_instance
+
+
+@pytest.fixture
+async def instance(
+    mock_instance: FakeCSQLInstance,
+    fake_credentials: Credentials,
+    event_loop: asyncio.AbstractEventLoop,
+) -> AsyncGenerator[Instance, None]:
+    """
+    Instance with mocked API calls.
+    """
+    # generate client key pair
+    keys = asyncio.run_coroutine_threadsafe(generate_keys(), event_loop)
+    key_task = asyncio.wrap_future(keys, loop=event_loop)
+    _, client_key = await key_task
+    with patch("google.auth.default") as mock_auth:
+        mock_auth.return_value = fake_credentials, None
+        # mock Cloud SQL Admin API calls
+        with aioresponses() as mocked:
+            mocked.get(
+                "https://sqladmin.googleapis.com/sql/v1beta4/projects/my-project/instances/my-instance/connectSettings",
+                status=200,
+                body=mock_instance.connect_settings(),
+                repeat=True,
+            )
+            mocked.post(
+                "https://sqladmin.googleapis.com/sql/v1beta4/projects/my-project/instances/my-instance:generateEphemeralCert",
+                status=200,
+                body=mock_instance.generate_ephemeral(client_key),
+                repeat=True,
+            )
+
+            instance = Instance(
+                "my-project:my-region:my-instance", "pg8000", keys, event_loop
+            )
+
+            yield instance
+            await instance.close()
+
+
+@pytest.fixture
+async def connector(fake_credentials: Credentials) -> AsyncGenerator[Connector, None]:
+    instance_connection_name = "my-project:my-region:my-instance"
+    project, region, instance_name = instance_connection_name.split(":")
+    # initialize connector
+    connector = Connector()
+    with patch("google.auth.default") as mock_auth:
+        mock_auth.return_value = fake_credentials, None
+        # mock Cloud SQL Admin API calls
+        mock_instance = FakeCSQLInstance(project, region, instance_name)
+        _, client_key = connector._keys.result()
+        with aioresponses() as mocked:
+            mocked.get(
+                f"https://sqladmin.googleapis.com/sql/v1beta4/projects/{project}/instances/{instance_name}/connectSettings",
+                status=200,
+                body=mock_instance.connect_settings(),
+                repeat=True,
+            )
+            mocked.post(
+                f"https://sqladmin.googleapis.com/sql/v1beta4/projects/{project}/instances/{instance_name}:generateEphemeralCert",
+                status=200,
+                body=mock_instance.generate_ephemeral(client_key),
+                repeat=True,
+            )
+            # initialize Instance using mocked API calls
+            instance = Instance(
+                instance_connection_name, "pg8000", connector._keys, connector._loop
+            )
+
+            connector._instances[instance_connection_name] = instance
+
+            yield connector
+            connector.close()
