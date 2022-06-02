@@ -47,7 +47,6 @@ core_dependencies = [
     "cryptography",
     "pyopenssl",
     "Requests",
-    "google-api-python-client",
 ]
 
 setup(
