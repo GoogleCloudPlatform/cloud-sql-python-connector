@@ -47,7 +47,7 @@ core_dependencies = [
     "cryptography",
     "pyopenssl",
     "Requests",
-    "google-api-python-client",
+    "google-auth",
 ]
 
 setup(
@@ -78,7 +78,7 @@ setup(
     install_requires=core_dependencies,
     extras_require={
         "pymysql": ["PyMySQL==1.0.2"],
-        "pg8000": ["pg8000==1.28.3"],
+        "pg8000": ["pg8000==1.29.1"],
         "pytds": ["python-tds==1.11.0"]
     },
     python_requires=">=3.7",
