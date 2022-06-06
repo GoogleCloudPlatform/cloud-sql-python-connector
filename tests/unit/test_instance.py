@@ -15,55 +15,22 @@ limitations under the License.
 """
 
 import asyncio
-from unittest.mock import patch
+from mock import patch
 import datetime
 from google.cloud.sql.connector.rate_limiter import AsyncRateLimiter
-from typing import Any
 import pytest  # noqa F401 Needed to run the tests
 from google.auth.credentials import Credentials
 from google.cloud.sql.connector.instance import (
+    IPTypes,
     Instance,
     CredentialsTypeError,
+    CloudSQLIPTypeError,
+    InstanceMetadata,
 )
 from google.cloud.sql.connector.utils import generate_keys
 
-
-class BadRefresh(Exception):
-    pass
-
-
-class MockMetadata:
-    def __init__(self, expiration: datetime.datetime) -> None:
-        self.expiration = expiration
-
-
-async def _get_metadata_success(*args: Any, **kwargs: Any) -> MockMetadata:
-    return MockMetadata(datetime.datetime.now() + datetime.timedelta(minutes=10))
-
-
-async def _get_metadata_expired(*args: Any, **kwargs: Any) -> MockMetadata:
-    return MockMetadata(datetime.datetime.now() - datetime.timedelta(minutes=10))
-
-
-async def _get_metadata_error(*args: Any, **kwargs: Any) -> None:
-    raise BadRefresh("something went wrong...")
-
-
-@pytest.fixture
-def instance(
-    fake_credentials: Credentials,
-    event_loop: asyncio.AbstractEventLoop,
-) -> Instance:
-    with patch("google.auth.default") as mock_auth:
-        mock_auth.return_value = fake_credentials, None
-        keys = asyncio.run_coroutine_threadsafe(generate_keys(), event_loop)
-        instance = Instance(
-            "my-project:my-region:my-instance", "pymysql", keys, event_loop
-        )
-        # stub _perform_refresh to return a "valid" MockMetadata object
-        setattr(instance, "_perform_refresh", _get_metadata_success)
-        instance._current = instance._schedule_refresh(0)
-    return instance
+# import mocks
+import mocks
 
 
 @pytest.fixture
@@ -123,7 +90,7 @@ async def test_schedule_refresh_replaces_result(
     setattr(instance, "_refresh_rate_limiter", test_rate_limiter)
 
     # stub _perform_refresh to return a "valid" MockMetadata object
-    setattr(instance, "_perform_refresh", _get_metadata_success)
+    setattr(instance, "_perform_refresh", mocks.instance_metadata_success)
 
     old_metadata = await instance._current
 
@@ -134,7 +101,7 @@ async def test_schedule_refresh_replaces_result(
     # check that current metadata has been replaced with refresh metadata
     assert instance._current.result() == refresh_metadata
     assert old_metadata != instance._current.result()
-    assert isinstance(instance._current.result(), MockMetadata)
+    assert isinstance(instance._current.result(), mocks.MockMetadata)
     # cleanup instance
     await instance.close()
 
@@ -154,19 +121,18 @@ async def test_schedule_refresh_wont_replace_valid_result_with_invalid(
     old_task = instance._current
 
     # stub _perform_refresh to throw an error
-    setattr(instance, "_perform_refresh", _get_metadata_error)
+    setattr(instance, "_perform_refresh", mocks.instance_metadata_error)
 
     # schedule refresh immediately
     refresh_task = instance._schedule_refresh(0)
 
     # wait for invalid refresh to finish
-    with pytest.raises(BadRefresh):
+    with pytest.raises(mocks.BadRefresh):
         assert await refresh_task
 
     # check that invalid refresh did not replace valid current metadata
     assert instance._current == old_task
-    assert isinstance(instance._current.result(), MockMetadata)
-    await instance.close()
+    assert isinstance(await instance._current, InstanceMetadata)
 
 
 @pytest.mark.asyncio
@@ -181,17 +147,17 @@ async def test_schedule_refresh_replaces_invalid_result(
     setattr(instance, "_refresh_rate_limiter", test_rate_limiter)
 
     # stub _perform_refresh to throw an error
-    setattr(instance, "_perform_refresh", _get_metadata_error)
+    setattr(instance, "_perform_refresh", mocks.instance_metadata_error)
 
     # set current to invalid data (error)
     instance._current = instance._schedule_refresh(0)
 
     # check that current is now invalid (error)
-    with pytest.raises(BadRefresh):
+    with pytest.raises(mocks.BadRefresh):
         assert await instance._current
 
     # stub _perform_refresh to return a valid MockMetadata instance
-    setattr(instance, "_perform_refresh", _get_metadata_success)
+    setattr(instance, "_perform_refresh", mocks.instance_metadata_success)
 
     # schedule refresh immediately and await it
     refresh_task = instance._schedule_refresh(0)
@@ -199,7 +165,7 @@ async def test_schedule_refresh_replaces_invalid_result(
 
     # check that current is now valid MockMetadata
     assert instance._current.result() == refresh_metadata
-    assert isinstance(instance._current.result(), MockMetadata)
+    assert isinstance(instance._current.result(), mocks.MockMetadata)
     await instance.close()
 
 
@@ -213,11 +179,11 @@ async def test_force_refresh_cancels_pending_refresh(
     """
     # allow more frequent refreshes for tests
     setattr(instance, "_refresh_rate_limiter", test_rate_limiter)
-
+    # make sure initial refresh is finished
+    await instance._current
     # since the pending refresh isn't for another 55 min, the refresh_in_progress event
     # shouldn't be set
     pending_refresh = instance._next
-
     assert instance._refresh_in_progress.is_set() is False
 
     instance.force_refresh()
@@ -228,8 +194,7 @@ async def test_force_refresh_cancels_pending_refresh(
 
     # verify pending_refresh has now been cancelled
     assert pending_refresh.cancelled() is True
-    assert isinstance(instance._current.result(), MockMetadata)
-    await instance.close()
+    assert isinstance(await instance._current, InstanceMetadata)
 
 
 @pytest.mark.asyncio
@@ -285,3 +250,97 @@ async def test_Instance_close(instance: Instance) -> None:
     assert (instance._current.done() or instance._current.cancelled()) is True
     assert instance._next.cancelled() is True
     assert instance._client_session.closed is True
+
+
+@pytest.mark.asyncio
+async def test_perform_refresh(
+    instance: Instance,
+    mock_instance: mocks.FakeCSQLInstance,
+) -> None:
+    """
+    Test that _perform_refresh returns valid InstanceMetadata object.
+    """
+    instance_metadata = await instance._perform_refresh()
+
+    # verify instance metadata object is returned
+    assert isinstance(instance_metadata, InstanceMetadata)
+    # verify instance metadata expiration
+    assert (
+        mock_instance.cert._not_valid_after.replace(microsecond=0)  # type: ignore
+        == instance_metadata.expiration
+    )
+
+
+@pytest.mark.asyncio
+async def test_perform_refresh_expiration(
+    instance: Instance,
+) -> None:
+    """
+    Test that _perform_refresh returns InstanceMetadata with proper expiration.
+
+    If credentials expiration is less than cert expiration,
+    credentials expiration should be used.
+    """
+    # set credentials expiration to 1 minute from now
+    expiration = datetime.datetime.utcnow() + datetime.timedelta(minutes=1)
+    setattr(instance._credentials, "expiry", expiration)
+    setattr(instance, "_enable_iam_auth", True)
+    instance_metadata = await instance._perform_refresh()
+
+    # verify instance metadata object is returned
+    assert isinstance(instance_metadata, InstanceMetadata)
+    # verify instance metadata uses credentials expiration
+    assert expiration == instance_metadata.expiration
+
+
+@pytest.mark.asyncio
+async def test_connect_info(
+    instance: Instance,
+) -> None:
+    """
+    Test that connect_info returns current metadata and preferred IP.
+    """
+    instance_metadata, ip_addr = await instance.connect_info(IPTypes.PUBLIC)
+
+    # verify metadata and ip address
+    assert isinstance(instance_metadata, InstanceMetadata)
+    assert ip_addr == "0.0.0.0"
+    # cleanup instance
+    await instance.close()
+
+
+@pytest.mark.asyncio
+async def test_get_preferred_ip(instance: Instance) -> None:
+    """
+    Test that get_preferred_ip returns proper IP address
+    for both Public and Private IP addresses.
+    """
+    instance_metadata: InstanceMetadata = await instance._current
+
+    # test public IP as preferred IP for connection
+    ip_addr = instance_metadata.get_preferred_ip(IPTypes.PUBLIC)
+    # verify public ip address is preferred
+    assert ip_addr == "0.0.0.0"
+
+    # test private IP as preferred IP for connection
+    ip_addr = instance_metadata.get_preferred_ip(IPTypes.PRIVATE)
+    # verify private ip address is preferred
+    assert ip_addr == "1.1.1.1"
+
+
+@pytest.mark.asyncio
+async def test_get_preferred_ip_CloudSQLIPTypeError(instance: Instance) -> None:
+    """
+    Test that get_preferred_ip throws proper CloudSQLIPTypeError
+    when missing Public or Private IP addresses.
+    """
+    instance_metadata: InstanceMetadata = await instance._current
+    instance_metadata.ip_addrs = {"PRIVATE": "1.1.1.1"}
+    # test error when Public IP is missing
+    with pytest.raises(CloudSQLIPTypeError):
+        instance_metadata.get_preferred_ip(IPTypes.PUBLIC)
+
+    # test error when Private IP is missing
+    instance_metadata.ip_addrs = {"PRIMARY": "0.0.0.0"}
+    with pytest.raises(CloudSQLIPTypeError):
+        instance_metadata.get_preferred_ip(IPTypes.PRIVATE)

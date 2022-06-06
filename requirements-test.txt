@@ -16,3 +16,4 @@ twine==4.0.1
 PyMySQL==1.0.2
 pg8000==1.29.1
 python-tds==1.11.0
+aioresponses==0.7.3

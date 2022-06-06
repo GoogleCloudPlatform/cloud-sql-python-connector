@@ -17,9 +17,9 @@ from typing import Any, no_type_check
 
 import aiohttp
 from google.auth.credentials import Credentials
-import json
 import pytest  # noqa F401 Needed to run the tests
-from mock import AsyncMock, Mock, patch
+from mock import Mock
+from aioresponses import aioresponses
 import asyncio
 
 from google.cloud.sql.connector.refresh_utils import (
@@ -28,51 +28,13 @@ from google.cloud.sql.connector.refresh_utils import (
     _is_valid,
 )
 from google.cloud.sql.connector.utils import generate_keys
-from tests.unit.test_instance import (  # type: ignore
-    _get_metadata_success,
-    _get_metadata_expired,
+
+# import mocks
+from mocks import (  # type: ignore
+    instance_metadata_success,
+    instance_metadata_expired,
+    FakeCSQLInstance,
 )
-
-
-class FakeClientSessionGet:
-    """Helper class to return mock data for get request."""
-
-    async def text(self) -> str:
-        response = {
-            "kind": "sql#connectSettings",
-            "serverCaCert": {
-                "kind": "sql#sslCert",
-                "certSerialNumber": "0",
-                "cert": "-----BEGIN CERTIFICATE-----\nabc123\n-----END CERTIFICATE-----",
-                "commonName": "Google",
-                "sha1Fingerprint": "abc",
-                "instance": "my-instance",
-                "createTime": "2021-10-18T18:48:03.785Z",
-                "expirationTime": "2031-10-16T18:49:03.785Z",
-            },
-            "ipAddresses": [
-                {"type": "PRIMARY", "ipAddress": "0.0.0.0"},
-                {"type": "PRIVATE", "ipAddress": "1.0.0.0"},
-            ],
-            "region": "my-region",
-            "databaseVersion": "MYSQL_8_0",
-            "backendType": "SECOND_GEN",
-        }
-        return json.dumps(response)
-
-
-class FakeClientSessionPost:
-    """Helper class to return mock data for post request."""
-
-    async def text(self) -> str:
-        response = {
-            "ephemeralCert": {
-                "kind": "sql#sslCert",
-                "certSerialNumber": "",
-                "cert": "-----BEGIN CERTIFICATE-----\nabc123\n-----END CERTIFICATE-----",
-            }
-        }
-        return json.dumps(response)
 
 
 @pytest.fixture
@@ -84,24 +46,29 @@ def credentials() -> Credentials:
 
 
 @pytest.mark.asyncio
-@patch("aiohttp.ClientSession.post", new_callable=AsyncMock)
-async def test_get_ephemeral(mock_post: AsyncMock, credentials: Credentials) -> None:
+async def test_get_ephemeral(
+    mock_instance: FakeCSQLInstance, credentials: Credentials
+) -> None:
     """
     Test to check whether _get_ephemeral runs without problems given valid
     parameters.
     """
-    mock_post.return_value = FakeClientSessionPost()
-
     project = "my-project"
     instance = "my-instance"
-
     _, pub_key = await generate_keys()
-
-    async with aiohttp.ClientSession() as client_session:
-        result: Any = await _get_ephemeral(
-            client_session, credentials, project, instance, pub_key
+    # mock Cloud SQL Admin API call
+    with aioresponses() as mocked:
+        mocked.post(
+            "https://sqladmin.googleapis.com/sql/v1beta4/projects/my-project/instances/my-instance:generateEphemeralCert",
+            status=200,
+            body=mock_instance.generate_ephemeral(pub_key),
+            repeat=True,
         )
-
+        async with aiohttp.ClientSession() as client_session:
+            result: Any = await _get_ephemeral(
+                client_session, credentials, project, instance, pub_key
+            )
+    result = result.strip()  # remove any trailing whitespace
     result = result.split("\n")
 
     assert (
@@ -161,19 +128,26 @@ async def test_get_ephemeral_TypeError(credentials: Credentials) -> None:
 
 
 @pytest.mark.asyncio
-@patch("aiohttp.ClientSession.get", new_callable=AsyncMock)
-async def test_get_metadata(mock_get: AsyncMock, credentials: Credentials) -> None:
+async def test_get_metadata(
+    mock_instance: FakeCSQLInstance, credentials: Credentials
+) -> None:
     """
     Test to check whether _get_metadata runs without problems given valid
     parameters.
     """
-    mock_get.return_value = FakeClientSessionGet()
-
     project = "my-project"
     instance = "my-instance"
+    # mock Cloud SQL Admin API call
+    with aioresponses() as mocked:
+        mocked.get(
+            "https://sqladmin.googleapis.com/sql/v1beta4/projects/my-project/instances/my-instance/connectSettings",
+            status=200,
+            body=mock_instance.connect_settings(),
+            repeat=True,
+        )
 
-    async with aiohttp.ClientSession() as client_session:
-        result = await _get_metadata(client_session, credentials, project, instance)
+        async with aiohttp.ClientSession() as client_session:
+            result = await _get_metadata(client_session, credentials, project, instance)
 
     assert result["ip_addresses"] is not None and isinstance(
         result["server_ca_cert"], str
@@ -224,7 +198,7 @@ async def test_is_valid_with_valid_metadata() -> None:
     Test to check that valid metadata with expiration in future returns True.
     """
     # task that returns class with expiration 10 mins in future
-    task = asyncio.create_task(_get_metadata_success())
+    task = asyncio.create_task(instance_metadata_success())
     assert await _is_valid(task)
 
 
@@ -235,5 +209,5 @@ async def test_is_valid_with_expired_metadata() -> None:
     Test to check that invalid metadata with expiration in past returns False.
     """
     # task that returns class with expiration 10 mins in past
-    task = asyncio.create_task(_get_metadata_expired())
+    task = asyncio.create_task(instance_metadata_expired())
     assert not await _is_valid(task)
