@@ -15,10 +15,9 @@ limitations under the License.
 """
 
 import asyncio
-from mock import patch
+import pytest  # noqa F401 Needed to run the tests
 import datetime
 from google.cloud.sql.connector.rate_limiter import AsyncRateLimiter
-import pytest  # noqa F401 Needed to run the tests
 from google.auth.credentials import Credentials
 from google.cloud.sql.connector.instance import (
     IPTypes,
@@ -28,6 +27,9 @@ from google.cloud.sql.connector.instance import (
     InstanceMetadata,
 )
 from google.cloud.sql.connector.utils import generate_keys
+from mock import patch
+from aioresponses import aioresponses
+from aiohttp import ClientResponseError, RequestInfo
 
 # import mocks
 import mocks
@@ -344,3 +346,53 @@ async def test_get_preferred_ip_CloudSQLIPTypeError(instance: Instance) -> None:
     instance_metadata.ip_addrs = {"PRIMARY": "0.0.0.0"}
     with pytest.raises(CloudSQLIPTypeError):
         instance_metadata.get_preferred_ip(IPTypes.PRIVATE)
+
+
+@pytest.mark.asyncio
+async def test_ClientResponseError(
+    fake_credentials: Credentials, event_loop: asyncio.AbstractEventLoop
+) -> None:
+    """
+    Test that detailed error message is applied to ClientResponseError.
+    """
+    # mock Cloud SQL Admin API calls with exceptions
+    keys = asyncio.run_coroutine_threadsafe(generate_keys(), event_loop)
+    get_url = "https://sqladmin.googleapis.com/sql/v1beta4/projects/my-project/instances/my-instance/connectSettings"
+    post_url = "https://sqladmin.googleapis.com/sql/v1beta4/projects/my-project/instances/my-instance:generateEphemeralCert"
+    with aioresponses() as mocked:
+        mocked.get(
+            get_url,
+            status=403,
+            exception=ClientResponseError(
+                RequestInfo(get_url, "GET", headers=[]), history=[], status=403  # type: ignore
+            ),
+            repeat=True,
+        )
+        mocked.post(
+            post_url,
+            status=403,
+            exception=ClientResponseError(
+                RequestInfo(post_url, "POST", headers=[]), history=[], status=403  # type: ignore
+            ),
+            repeat=True,
+        )
+        # verify that error is raised with detailed error message
+        try:
+            instance = Instance(
+                "my-project:my-region:my-instance",
+                "pymysql",
+                keys,
+                event_loop,
+                credentials=fake_credentials,
+            )
+            await instance._current
+        except ClientResponseError as e:
+            assert e.status == 403
+            assert (
+                e.message == "Forbidden: Authenticated IAM principal does not "
+                "seeem authorized to make API request. Verify "
+                "'Cloud SQL Admin API' is enabled within your GCP project and "
+                "'Cloud SQL Client' role has been granted to IAM principal."
+            )
+        finally:
+            await instance.close()
