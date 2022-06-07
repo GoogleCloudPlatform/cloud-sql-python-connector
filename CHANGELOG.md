@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.2](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v0.6.1...v0.6.2) (2022-06-07)
+
+
+### Documentation
+
+* add Colab Notebook for Postgres, MySQL and SQL Server ([#372](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/372)) ([a16068f](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/a16068fcb98d46e2642ca521124f3409427c19aa))
+
 ### [0.6.1](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v0.6.0...v0.6.1) (2022-05-03)
 
 
