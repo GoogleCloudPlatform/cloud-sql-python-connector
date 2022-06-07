@@ -15,7 +15,7 @@ Python language. Using a Cloud SQL connector provides the following benefits:
   independent of the database protocol.
 * **Convenience:** removes the requirement to use and distribute SSL
   certificates, as well as manage firewalls or source/destination IP addresses.
-* (optionally) **IAM DB Authenticiation:** provides support for
+* (optionally) **IAM DB Authentication:** provides support for
   [Cloud SQL’s automatic IAM DB AuthN][iam-db-authn] feature.
 
 [iam-db-authn]: https://cloud.google.com/sql/docs/postgres/authentication
