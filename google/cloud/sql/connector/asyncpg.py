@@ -39,6 +39,5 @@ async def connect(
         host=ip_address,
         port=SERVER_PROXY_PORT,
         ssl=ctx,
-        tls_proxy=True,
-        timeout=30,  # remove prior to PR
+        direct_tls=True,
     )
