@@ -47,7 +47,7 @@ core_dependencies = [
     "cryptography",
     "pyopenssl",
     "Requests",
-    "google-api-python-client",
+    "google-auth",
 ]
 
 setup(
@@ -78,9 +78,9 @@ setup(
     install_requires=core_dependencies,
     extras_require={
         "pymysql": ["PyMySQL==1.0.2"],
-        "pg8000": ["pg8000==1.26.1"],
+        "pg8000": ["pg8000==1.29.1"],
         "pytds": ["python-tds==1.11.0"],
-        "asyncpg": ["asyncpg==0.25.0"],
+        "asyncpg": ["git+https://github.com/MagicStack/asyncpg.git@f2a937d2f25d1f997a066e6ba02acc3c4de676a4"]
     },
     python_requires=">=3.7",
     include_package_data=True,

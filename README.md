@@ -1,4 +1,5 @@
 # Cloud SQL Connector for Python Drivers
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/GoogleCloudPlatform/cloud-sql-python-connector/blob/main/samples/notebooks/postgres_python_connector.ipynb)
 ![CI](https://storage.googleapis.com/cloud-devrel-public/cloud-sql-connectors/python/python3.10_linux.svg)
 [![pypi](https://img.shields.io/pypi/v/cloud-sql-python-connector)](https://pypi.org/project/cloud-sql-python-connector)
 [![python](https://img.shields.io/pypi/pyversions/cloud-sql-python-connector)](https://pypi.org/project/cloud-sql-python-connector)
@@ -14,7 +15,7 @@ Python language. Using a Cloud SQL connector provides the following benefits:
   independent of the database protocol.
 * **Convenience:** removes the requirement to use and distribute SSL
   certificates, as well as manage firewalls or source/destination IP addresses.
-* (optionally) **IAM DB Authenticiation:** provides support for
+* (optionally) **IAM DB Authentication:** provides support for
   [Cloud SQL’s automatic IAM DB AuthN][iam-db-authn] feature.
 
 [iam-db-authn]: https://cloud.google.com/sql/docs/postgres/authentication
@@ -25,9 +26,6 @@ Currently supported drivers are:
  - [`pg8000`](https://github.com/tlocke/pg8000) (PostgreSQL)
  - [`pytds`](https://github.com/denisenkom/pytds) (SQL Server)
 
-## Supported Python Versions
-
-Currently Python versions >= 3.7 are supported.
 
 ## Installation
 
@@ -291,6 +289,14 @@ bug fixes, but do not receive new features. Deprecated versions will be publicly
 supported for 1 year.
 **Unsupported** - Any major version that has been deprecated for >=1 year is
 considered publicly unsupported.
+
+## Supported Python Versions
+
+We test and support at a minimum, every [active version until it's
+end-of-life date][pyver]. Changes in supported Python versions will be
+considered a minor change, and will be listed in the release notes. 
+
+[pyver]: https://devguide.python.org/#status-of-python-branches
 
 ### Release cadence
 This project aims for a minimum monthly release cadence. If no new
