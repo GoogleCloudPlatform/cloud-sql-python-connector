@@ -33,19 +33,20 @@ from functools import partial
 
 logger = logging.getLogger(name=__name__)
 
-_default_connector = None
-
 # This thread is used for background processing
 _thread: Optional[Thread] = None
 _loop: Optional[asyncio.AbstractEventLoop] = None
+_default_connector = None
 
 
 def _get_loop() -> asyncio.AbstractEventLoop:
+    """Get event loop to use with Connector object.
+    Looks for an existing loop, creates one if one does not exist."""
     global _loop, _thread
     try:
         loop = asyncio.get_running_loop()
         return loop
-    except RuntimeError as e:
+    except RuntimeError:
         if _loop is None:
             _loop = asyncio.new_event_loop()
             _thread = Thread(target=_loop.run_forever, daemon=True)
@@ -114,7 +115,7 @@ class Connector:
         :type driver: str
         :param: driver:
             A string representing the driver to connect with. Supported drivers are
-            pymysql, pg8000, and pytds.
+            pymysql, pg8000, asyncpg, and pytds.
 
         :param kwargs:
             Pass in any driver-specific arguments needed to connect to the Cloud
@@ -133,7 +134,7 @@ class Connector:
         self, instance_connection_string: str, driver: str, **kwargs: Any
     ) -> Any:
         """Prepares and returns an async database connection object and starts a
-        background thread to refresh the certificates and metadata.
+        background task to refresh the certificates and metadata.
 
         :type instance_connection_string: str
         :param instance_connection_string:
@@ -145,7 +146,7 @@ class Connector:
         :type driver: str
         :param: driver:
             A string representing the driver to connect with. Supported drivers are
-            pymysql, pg8000, and pytds.
+            pymysql, pg8000, asyncpg, and pytds.
 
         :param kwargs:
             Pass in any driver-specific arguments needed to connect to the Cloud
@@ -180,8 +181,8 @@ class Connector:
         connect_func = {
             "pymysql": pymysql.connect,
             "pg8000": pg8000.connect,
-            "pytds": pytds.connect,
             "asyncpg": asyncpg.connect,
+            "pytds": pytds.connect,
         }
 
         # only accept supported database drivers
