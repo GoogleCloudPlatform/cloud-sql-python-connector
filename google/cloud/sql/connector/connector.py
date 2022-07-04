@@ -114,7 +114,7 @@ class Connector:
     async def connect_async(
         self, instance_connection_string: str, driver: str, **kwargs: Any
     ) -> Any:
-        """Prepares and returns an async database connection object and starts a
+        """Prepares and returns a database connection object and starts a
         background task to refresh the certificates and metadata.
 
         :type instance_connection_string: str

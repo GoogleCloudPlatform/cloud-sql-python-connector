@@ -24,6 +24,7 @@ The Cloud SQL Python Connector is a package to be used alongside a database driv
 Currently supported drivers are:
  - [`pymysql`](https://github.com/PyMySQL/PyMySQL) (MySQL)
  - [`pg8000`](https://github.com/tlocke/pg8000) (PostgreSQL)
+ - [`asyncpg`](https://github.com/MagicStack/asyncpg) (PostgreSQL)
  - [`pytds`](https://github.com/denisenkom/pytds) (SQL Server)
 
 
@@ -37,8 +38,15 @@ based on your database dialect.
 pip install "cloud-sql-python-connector[pymysql]"
 ```
 ### Postgres
+There are two different database drivers that are supported for the Postgres dialect:
+
+#### pg8000
 ```
 pip install "cloud-sql-python-connector[pg8000]"
+```
+#### asyncpg
+```
+pip install "cloud-sql-python-connector[asyncpg]"
 ```
 ### SQL Server
 ```
