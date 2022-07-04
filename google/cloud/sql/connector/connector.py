@@ -33,25 +33,8 @@ from functools import partial
 
 logger = logging.getLogger(name=__name__)
 
-# This thread is used for background processing
-_thread: Optional[Thread] = None
-_loop: Optional[asyncio.AbstractEventLoop] = None
 _default_connector = None
-
-
-def _get_loop() -> asyncio.AbstractEventLoop:
-    """Get event loop to use with Connector object.
-    Looks for an existing loop, creates one if one does not exist."""
-    global _loop, _thread
-    try:
-        loop = asyncio.get_running_loop()
-        return loop
-    except RuntimeError:
-        if _loop is None:
-            _loop = asyncio.new_event_loop()
-            _thread = Thread(target=_loop.run_forever, daemon=True)
-            _thread.start()
-    return _loop
+ASYNC_DRIVERS = ["asyncpg"]
 
 
 class Connector:
@@ -82,12 +65,10 @@ class Connector:
         enable_iam_auth: bool = False,
         timeout: int = 30,
         credentials: Optional[Credentials] = None,
-        loop: asyncio.AbstractEventLoop = None,
     ) -> None:
-        if loop:
-            self._loop = loop
-        else:
-            self._loop: asyncio.AbstractEventLoop = _get_loop()
+        self._loop: asyncio.AbstractEventLoop = asyncio.new_event_loop()
+        self._thread: Thread = Thread(target=self._loop.run_forever, daemon=True)
+        self._thread.start()
         self._keys: concurrent.futures.Future = asyncio.run_coroutine_threadsafe(
             generate_keys(), self._loop
         )
@@ -156,7 +137,8 @@ class Connector:
         :returns:
             A DB-API connection to the specified Cloud SQL instance.
         """
-        loop = kwargs.pop("loop", self._loop)
+        # allow specific event loop to be passed in
+        loop = kwargs.pop("loop", asyncio.get_running_loop())
         enable_iam_auth = kwargs.pop("enable_iam_auth", self._enable_iam_auth)
         if instance_connection_string in self._instances:
             instance = self._instances[instance_connection_string]
@@ -212,15 +194,14 @@ class Connector:
         # helper function to wrap in timeout
         async def get_connection() -> Any:
             instance_data, ip_address = await instance.connect_info(ip_type)
+            # async drivers are unblocking and can be awaited directly
+            if driver in ASYNC_DRIVERS:
+                return await connector(ip_address, instance_data.context, **kwargs)
+            # synchronous drivers are blocking and run using executor
             connect_partial = partial(
                 connector, ip_address, instance_data.context, **kwargs
             )
-            # simplified while testing
-            if driver == "asyncpg":
-                return await asyncpg.connect(
-                    ip_address, instance_data.context, **kwargs
-                )
-            return await self._loop.run_in_executor(None, connect_partial)
+            return await loop.run_in_executor(None, connect_partial)
 
         # attempt to make connection to Cloud SQL instance for given timeout
         try:
