@@ -33,6 +33,7 @@ async def setup() -> AsyncGenerator:
         "asyncpg",
         user=os.environ["POSTGRES_IAM_USER"],
         db=os.environ["POSTGRES_DB"],
+        enable_iam_auth=True,
     )
     await conn.execute(
         f"CREATE TABLE IF NOT EXISTS {table_name}"
