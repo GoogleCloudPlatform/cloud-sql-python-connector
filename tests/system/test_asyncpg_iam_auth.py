@@ -29,10 +29,9 @@ async def setup() -> AsyncGenerator:
     # initialize Cloud SQL Python Connector object
     connector = Connector()
     conn: asyncpg.Connection = await connector.connect_async(
-        os.environ["POSTGRES_CONNECTION_NAME"],
+        os.environ["POSTGRES_IAM_CONNECTION_NAME"],
         "asyncpg",
-        user=os.environ["POSTGRES_USER"],
-        password=os.environ["POSTGRES_PASS"],
+        user=os.environ["POSTGRES_IAM_USER"],
         db=os.environ["POSTGRES_DB"],
     )
     await conn.execute(
@@ -50,7 +49,7 @@ async def setup() -> AsyncGenerator:
 
 
 @pytest.mark.asyncio
-async def test_connection_with_asyncpg(conn: asyncpg.Connection) -> None:
+async def test_connection_with_asyncpg_iam_auth(conn: asyncpg.Connection) -> None:
     await conn.execute(
         f"INSERT INTO {table_name} (id, title) VALUES ('book1', 'Book One')"
     )
