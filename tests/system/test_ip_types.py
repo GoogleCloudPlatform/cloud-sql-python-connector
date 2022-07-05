@@ -20,12 +20,14 @@ import uuid
 import pymysql
 import pytest
 import sqlalchemy
-from google.cloud.sql.connector import connector, IPTypes
+from google.cloud.sql.connector import Connector, IPTypes
 
 table_name = f"books_{uuid.uuid4().hex}"
 
 
-def init_connection_engine(ip_type: IPTypes) -> sqlalchemy.engine.Engine:
+def init_connection_engine(
+    connector: Connector, ip_type: IPTypes
+) -> sqlalchemy.engine.Engine:
     def getconn() -> pymysql.connections.Connection:
         conn: pymysql.connections.Connection = connector.connect(
             os.environ["MYSQL_CONNECTION_NAME"],
@@ -45,19 +47,21 @@ def init_connection_engine(ip_type: IPTypes) -> sqlalchemy.engine.Engine:
 
 
 def test_public_ip() -> None:
-    try:
-        pool = init_connection_engine(IPTypes.PUBLIC)
-    except Exception as e:
-        logging.exception("Failed to initialize pool with public IP", e)
-    with pool.connect() as conn:
-        conn.execute("SELECT 1")
+    with Connector() as connector:
+        try:
+            pool = init_connection_engine(connector, IPTypes.PUBLIC)
+        except Exception as e:
+            logging.exception("Failed to initialize pool with public IP", e)
+        with pool.connect() as conn:
+            conn.execute("SELECT 1")
 
 
 @pytest.mark.private_ip
 def test_private_ip() -> None:
-    try:
-        pool = init_connection_engine(IPTypes.PRIVATE)
-    except Exception as e:
-        logging.exception("Failed to initialize pool with private IP", e)
-    with pool.connect() as conn:
-        conn.execute("SELECT 1")
+    with Connector() as connector:
+        try:
+            pool = init_connection_engine(connector, IPTypes.PRIVATE)
+        except Exception as e:
+            logging.exception("Failed to initialize pool with private IP", e)
+        with pool.connect() as conn:
+            conn.execute("SELECT 1")
