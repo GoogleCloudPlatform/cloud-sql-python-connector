@@ -13,7 +13,6 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
-import logging
 import os
 import uuid
 
@@ -48,10 +47,7 @@ def init_connection_engine(
 
 def test_public_ip() -> None:
     with Connector() as connector:
-        try:
-            pool = init_connection_engine(connector, IPTypes.PUBLIC)
-        except Exception as e:
-            logging.exception("Failed to initialize pool with public IP", e)
+        pool = init_connection_engine(connector, IPTypes.PUBLIC)
         with pool.connect() as conn:
             conn.execute("SELECT 1")
 
@@ -59,9 +55,6 @@ def test_public_ip() -> None:
 @pytest.mark.private_ip
 def test_private_ip() -> None:
     with Connector() as connector:
-        try:
-            pool = init_connection_engine(connector, IPTypes.PRIVATE)
-        except Exception as e:
-            logging.exception("Failed to initialize pool with private IP", e)
+        pool = init_connection_engine(connector, IPTypes.PRIVATE)
         with pool.connect() as conn:
             conn.execute("SELECT 1")
