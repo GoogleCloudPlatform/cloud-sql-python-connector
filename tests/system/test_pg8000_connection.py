@@ -20,7 +20,7 @@ from typing import Generator
 import pg8000
 import pytest
 import sqlalchemy
-from google.cloud.sql.connector import connector
+from google.cloud.sql.connector import Connector
 
 table_name = f"books_{uuid.uuid4().hex}"
 
@@ -30,14 +30,15 @@ table_name = f"books_{uuid.uuid4().hex}"
 # 'creator' argument to 'create_engine'
 def init_connection_engine() -> sqlalchemy.engine.Engine:
     def getconn() -> pg8000.dbapi.Connection:
-        conn: pg8000.dbapi.Connection = connector.connect(
-            os.environ["POSTGRES_CONNECTION_NAME"],
-            "pg8000",
-            user=os.environ["POSTGRES_USER"],
-            password=os.environ["POSTGRES_PASS"],
-            db=os.environ["POSTGRES_DB"],
-        )
-        return conn
+        with Connector() as connector:
+            conn: pg8000.dbapi.Connection = connector.connect(
+                os.environ["POSTGRES_CONNECTION_NAME"],
+                "pg8000",
+                user=os.environ["POSTGRES_USER"],
+                password=os.environ["POSTGRES_PASS"],
+                db=os.environ["POSTGRES_DB"],
+            )
+            return conn
 
     engine = sqlalchemy.create_engine(
         "postgresql+pg8000://",

@@ -20,7 +20,7 @@ from typing import Generator
 import pymysql
 import pytest
 import sqlalchemy
-from google.cloud.sql.connector import connector
+from google.cloud.sql.connector import Connector
 
 table_name = f"books_{uuid.uuid4().hex}"
 
@@ -30,14 +30,15 @@ table_name = f"books_{uuid.uuid4().hex}"
 # 'creator' argument to 'create_engine'
 def init_connection_engine() -> sqlalchemy.engine.Engine:
     def getconn() -> pymysql.connections.Connection:
-        conn: pymysql.connections.Connection = connector.connect(
-            os.environ["MYSQL_CONNECTION_NAME"],
-            "pymysql",
-            user=os.environ["MYSQL_USER"],
-            password=os.environ["MYSQL_PASS"],
-            db=os.environ["MYSQL_DB"],
-        )
-        return conn
+        with Connector() as connector:
+            conn: pymysql.connections.Connection = connector.connect(
+                os.environ["MYSQL_CONNECTION_NAME"],
+                "pymysql",
+                user=os.environ["MYSQL_USER"],
+                password=os.environ["MYSQL_PASS"],
+                db=os.environ["MYSQL_DB"],
+            )
+            return conn
 
     engine = sqlalchemy.create_engine(
         "mysql+pymysql://",

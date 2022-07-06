@@ -20,7 +20,7 @@ from typing import Generator
 import pytds
 import pytest
 import sqlalchemy
-from google.cloud.sql.connector import connector
+from google.cloud.sql.connector import Connector
 
 table_name = f"books_{uuid.uuid4().hex}"
 
@@ -31,14 +31,15 @@ table_name = f"books_{uuid.uuid4().hex}"
 # 'sqlalchemy-pytds` in your dependencies
 def init_connection_engine() -> sqlalchemy.engine.Engine:
     def getconn() -> pytds.Connection:
-        conn = connector.connect(
-            os.environ["SQLSERVER_CONNECTION_NAME"],
-            "pytds",
-            user=os.environ["SQLSERVER_USER"],
-            password=os.environ["SQLSERVER_PASS"],
-            db=os.environ["SQLSERVER_DB"],
-        )
-        return conn
+        with Connector() as connector:
+            conn = connector.connect(
+                os.environ["SQLSERVER_CONNECTION_NAME"],
+                "pytds",
+                user=os.environ["SQLSERVER_USER"],
+                password=os.environ["SQLSERVER_PASS"],
+                db=os.environ["SQLSERVER_DB"],
+            )
+            return conn
 
     engine = sqlalchemy.create_engine(
         "mssql+pytds://localhost",
