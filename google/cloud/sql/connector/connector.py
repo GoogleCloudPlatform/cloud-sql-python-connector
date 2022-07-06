@@ -35,26 +35,6 @@ logger = logging.getLogger(name=__name__)
 
 _default_connector = None
 
-# This thread is used for background processing
-_thread: Optional[Thread] = None
-_loop: Optional[asyncio.AbstractEventLoop] = None
-
-
-def _get_loop() -> asyncio.AbstractEventLoop:
-    global _loop, _thread
-    try:
-        loop = asyncio.get_running_loop()
-        print("Using found event loop!")
-        return loop
-    except RuntimeError as e:
-        if _loop is None:
-            _loop = asyncio.new_event_loop()
-            _thread = Thread(target=_loop.run_forever, daemon=True)
-            _thread.start()
-        else:
-            print("Using already created background loop!")
-    return _loop
-
 class Connector:
     """A class to configure and create connections to Cloud SQL instances.
 
@@ -83,12 +63,10 @@ class Connector:
         enable_iam_auth: bool = False,
         timeout: int = 30,
         credentials: Optional[Credentials] = None,
-        loop: asyncio.AbstractEventLoop = None,
     ) -> None:
-        if loop:
-            self._loop = loop
-        else:
-            self._loop: asyncio.AbstractEventLoop = _get_loop()
+        self._loop: asyncio.AbstractEventLoop = asyncio.new_event_loop()
+        self._thread: Thread = Thread(target=self._loop.run_forever, daemon=True)
+        self._thread.start()
         self._keys: concurrent.futures.Future = asyncio.run_coroutine_threadsafe(
             generate_keys(), self._loop
         )
@@ -164,7 +142,7 @@ class Connector:
         # Use the Instance to establish an SSL Connection.
         #
         # Return a DBAPI connection
-        loop = kwargs.pop("loop", self._loop)
+        loop = kwargs.pop("loop", asyncio.get_running_loop())
         enable_iam_auth = kwargs.pop("enable_iam_auth", self._enable_iam_auth)
         if instance_connection_string in self._instances:
             instance = self._instances[instance_connection_string]
@@ -225,7 +203,7 @@ class Connector:
             )
             if driver == "aiomysql":
                 return await aiomysql.connect(ip_address, instance_data.context, **kwargs)
-            return await self._loop.run_in_executor(None, connect_partial)
+            return await loop.run_in_executor(None, connect_partial)
 
         # attempt to make connection to Cloud SQL instance for given timeout
         try:
