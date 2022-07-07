@@ -38,7 +38,7 @@ async def connect(
     :type kwargs: Any
     :param kwargs: Keyword arguments for establishing connection object
         or connection pool to Cloud SQL instance.
-    
+
     :rtype: Union[asyncpg.Connection, asyncpg.Pool]
     :returns: An asyncpg Connection or Pool object for the Cloud SQL instance.
     """
