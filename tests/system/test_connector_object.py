@@ -36,11 +36,11 @@ def init_connection_engine(
         )
         return conn
 
-    engine = sqlalchemy.create_engine(
+    pool = sqlalchemy.create_engine(
         "mysql+pymysql://",
         creator=getconn,
     )
-    return engine
+    return pool
 
 
 def test_connector_with_credentials() -> None:

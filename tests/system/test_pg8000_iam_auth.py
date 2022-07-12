@@ -17,10 +17,13 @@ import os
 import uuid
 from typing import Generator
 
-import pg8000
+# [START cloud_sql_connector_postgres_pg8000_iam_auth]
 import pytest
+import pg8000
 import sqlalchemy
 from google.cloud.sql.connector import Connector
+
+# [END cloud_sql_connector_postgres_pg8000_iam_auth]
 
 table_name = f"books_{uuid.uuid4().hex}"
 
@@ -29,6 +32,7 @@ table_name = f"books_{uuid.uuid4().hex}"
 # The Cloud SQL Python Connector can be used along with SQLAlchemy using the
 # 'creator' argument to 'create_engine'
 def init_connection_engine() -> sqlalchemy.engine.Engine:
+    # initialize Connector object for connections to Cloud SQL
     def getconn() -> pg8000.dbapi.Connection:
         with Connector() as connector:
             conn: pg8000.dbapi.Connection = connector.connect(
@@ -40,12 +44,13 @@ def init_connection_engine() -> sqlalchemy.engine.Engine:
             )
             return conn
 
-    engine = sqlalchemy.create_engine(
+    # create SQLAlchemy connection pool
+    pool = sqlalchemy.create_engine(
         "postgresql+pg8000://",
         creator=getconn,
     )
-    engine.dialect.description_encoding = None
-    return engine
+    pool.dialect.description_encoding = None
+    return pool
 
 
 # [END cloud_sql_connector_postgres_pg8000_iam_auth]
