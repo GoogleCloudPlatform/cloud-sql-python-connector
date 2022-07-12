@@ -251,7 +251,11 @@ class Instance:
 
         self._user_agent_string = f"{APPLICATION_NAME}/{version}+{driver_name}"
         self._loop = loop
-        self._keys = asyncio.wrap_future(keys, loop=self._loop)
+        self._keys = (
+            keys
+            if isinstance(keys, asyncio.Task)
+            else asyncio.wrap_future(keys, loop=self._loop)
+        )
         # validate credentials type
         if not isinstance(credentials, Credentials) and credentials is not None:
             raise CredentialsTypeError(
