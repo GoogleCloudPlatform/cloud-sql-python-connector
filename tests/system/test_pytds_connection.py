@@ -17,10 +17,14 @@ import os
 import uuid
 from typing import Generator
 
-import pytds
 import pytest
+
+# [START cloud_sql_connector_mysql_pytds]
+import pytds
 import sqlalchemy
 from google.cloud.sql.connector import Connector
+
+# [END cloud_sql_connector_mysql_pytds]
 
 table_name = f"books_{uuid.uuid4().hex}"
 
@@ -31,6 +35,7 @@ table_name = f"books_{uuid.uuid4().hex}"
 # 'sqlalchemy-pytds` in your dependencies
 def init_connection_engine() -> sqlalchemy.engine.Engine:
     def getconn() -> pytds.Connection:
+        # initialize Connector object for connections to Cloud SQL
         with Connector() as connector:
             conn = connector.connect(
                 os.environ["SQLSERVER_CONNECTION_NAME"],
@@ -41,12 +46,13 @@ def init_connection_engine() -> sqlalchemy.engine.Engine:
             )
             return conn
 
-    engine = sqlalchemy.create_engine(
+    # create SQLAlchemy connection pool
+    pool = sqlalchemy.create_engine(
         "mssql+pytds://localhost",
         creator=getconn,
     )
-    engine.dialect.description_encoding = None
-    return engine
+    pool.dialect.description_encoding = None
+    return pool
 
 
 # [END cloud_sql_connector_mysql_pytds]
