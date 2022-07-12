@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.7.0](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v0.6.2...v0.7.0) (2022-07-12)
+
+
+### ⚠ BREAKING CHANGES
+
+* remove deprecated global 'connector.connect' function (#394)
+
+### Features
+
+* remove deprecated global 'connector.connect' function ([#394](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/394)) ([50b81fb](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/50b81fb2325f62231cb15e047d8b9145d95fc711))
+
 ## [0.6.2](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v0.6.1...v0.6.2) (2022-06-07)
 
 
