@@ -18,8 +18,6 @@ import pytest  # noqa F401 Needed to run the tests
 import asyncio
 
 from google.cloud.sql.connector import Connector, IPTypes
-from google.cloud.sql.connector import connector as global_connector
-from google.cloud.sql.connector.connector import _default_connector
 
 from mock import patch
 from typing import Any
@@ -100,35 +98,3 @@ def test_Connector_connect(connector: Connector) -> None:
         )
         # verify connector made connection call
         assert connection is True
-
-
-def test_global_connect(connector: Connector) -> None:
-    """Test that global connect properly make connection call to default connector."""
-    connect_string = "my-project:my-region:my-instance"
-    # verify default_connector is not set
-    assert _default_connector is None
-    # set global connector
-    global_connector._default_connector = connector
-    # patch db connection creation
-    with patch("pg8000.dbapi.connect") as mock_connect:
-        mock_connect.return_value = True
-        # connect using global connector
-        connection = global_connector.connect(
-            connect_string, "pg8000", user="my-user", password="my-pass", db="my-db"
-        )
-
-    # verify default_connector is now set
-    from google.cloud.sql.connector.connector import (
-        _default_connector as default_connector,
-    )
-
-    assert isinstance(default_connector, Connector)
-
-    # verify attributes of default connector
-    assert default_connector._ip_type == IPTypes.PUBLIC
-    assert default_connector._enable_iam_auth is False
-    assert default_connector._timeout == 30
-    assert default_connector._credentials is None
-
-    # verify global connector made connection call
-    assert connection is True
