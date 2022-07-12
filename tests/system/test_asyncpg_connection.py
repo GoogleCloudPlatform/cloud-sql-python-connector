@@ -49,35 +49,6 @@ async def setup() -> AsyncGenerator:
     connector.close()
 
 
-@pytest.fixture()
-async def pool() -> AsyncGenerator:
-    # initialize Cloud SQL Python Connector object
-    connector = Connector()
-    pool: asyncpg.Pool = await connector.connect_async(
-        os.environ["POSTGRES_CONNECTION_NAME"],
-        "asyncpg",
-        user=os.environ["POSTGRES_USER"],
-        password=os.environ["POSTGRES_PASS"],
-        db=os.environ["POSTGRES_DB"],
-        pool=True,
-    )
-    async with pool.acquire() as conn:
-        await conn.execute(
-            f"CREATE TABLE IF NOT EXISTS {table_name}"
-            " ( id CHAR(20) NOT NULL, title TEXT NOT NULL );"
-        )
-
-    yield pool
-
-    async with pool.acquire() as conn:
-        await conn.execute(f"DROP TABLE IF EXISTS {table_name}")
-
-    # close asyncpg connection pool
-    await pool.close()
-    # cleanup Connector object
-    connector.close()
-
-
 @pytest.mark.asyncio
 async def test_connection_with_asyncpg(conn: asyncpg.Connection) -> None:
     await conn.execute(
@@ -88,22 +59,6 @@ async def test_connection_with_asyncpg(conn: asyncpg.Connection) -> None:
     )
 
     rows = await conn.fetch(f"SELECT title FROM {table_name} ORDER BY ID")
-    titles = [row[0] for row in rows]
-
-    assert titles == ["Book One", "Book Two"]
-
-
-@pytest.mark.asyncio
-async def test_pooled_connection_with_asyncpg(pool: asyncpg.Pool) -> None:
-    async with pool.acquire() as conn:
-        await conn.execute(
-            f"INSERT INTO {table_name} (id, title) VALUES ('book1', 'Book One')"
-        )
-        await conn.execute(
-            f"INSERT INTO {table_name} (id, title) VALUES ('book2', 'Book Two')"
-        )
-
-        rows = await conn.fetch(f"SELECT title FROM {table_name} ORDER BY ID")
     titles = [row[0] for row in rows]
 
     assert titles == ["Book One", "Book Two"]

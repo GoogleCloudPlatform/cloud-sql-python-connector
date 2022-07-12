@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 import ssl
-from typing import Any, Union, TYPE_CHECKING
+from typing import Any, TYPE_CHECKING
 
 SERVER_PROXY_PORT = 3307
 
@@ -24,7 +24,7 @@ if TYPE_CHECKING:
 
 async def connect(
     ip_address: str, ctx: ssl.SSLContext, **kwargs: Any
-) -> "Union[asyncpg.Connection, asyncpg.Pool]":
+) -> "asyncpg.Connection":
     """Helper function to create an asyncpg DB-API connection object.
 
     :type ip_address: str
@@ -36,11 +36,11 @@ async def connect(
         cert and ephemeral cert.
 
     :type kwargs: Any
-    :param kwargs: Keyword arguments for establishing connection object
-        or connection pool to Cloud SQL instance.
+    :param kwargs: Keyword arguments for establishing asyncpg connection
+        object to Cloud SQL instance.
 
-    :rtype: Union[asyncpg.Connection, asyncpg.Pool]
-    :returns: An asyncpg Connection or Pool object for the Cloud SQL instance.
+    :rtype: asyncpg.Connection
+    :returns: An asyncpg.Connection object to a Cloud SQL instance.
     """
     try:
         import asyncpg
@@ -51,20 +51,7 @@ async def connect(
     user = kwargs.pop("user")
     db = kwargs.pop("db")
     passwd = kwargs.pop("password", None)
-    pool = kwargs.pop("pool", False)
-    # return connection pool if pool is set to True
-    if pool:
-        return await asyncpg.create_pool(
-            user=user,
-            database=db,
-            password=passwd,
-            host=ip_address,
-            port=SERVER_PROXY_PORT,
-            ssl=ctx,
-            direct_tls=True,
-            **kwargs,
-        )
-    # return regular asyncpg connection
+
     return await asyncpg.connect(
         user=user,
         database=db,
