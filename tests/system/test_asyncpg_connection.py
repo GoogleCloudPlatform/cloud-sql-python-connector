@@ -19,7 +19,7 @@ from typing import AsyncGenerator
 
 import asyncpg
 import pytest
-from google.cloud.sql.connector import Connector
+from google.cloud.sql.connector import create_async_connector
 
 table_name = f"books_{uuid.uuid4().hex}"
 
@@ -27,7 +27,7 @@ table_name = f"books_{uuid.uuid4().hex}"
 @pytest.fixture(name="conn")
 async def setup() -> AsyncGenerator:
     # initialize Cloud SQL Python Connector object
-    connector = Connector()
+    connector = await create_async_connector()
     conn: asyncpg.Connection = await connector.connect_async(
         os.environ["POSTGRES_CONNECTION_NAME"],
         "asyncpg",
