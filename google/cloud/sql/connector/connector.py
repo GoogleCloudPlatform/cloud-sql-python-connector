@@ -260,11 +260,13 @@ class Connector:
 
     def close(self) -> None:
         """Close Connector by stopping tasks and releasing resources."""
-        close_future = asyncio.run_coroutine_threadsafe(self._close(), loop=self._loop)
+        close_future = asyncio.run_coroutine_threadsafe(
+            self.close_async(), loop=self._loop
+        )
         # Will attempt to safely shut down tasks for 5s
         close_future.result(timeout=5)
 
-    async def _close(self) -> None:
+    async def close_async(self) -> None:
         """Helper function to cancel Instances' tasks
         and close aiohttp.ClientSession."""
         await asyncio.gather(

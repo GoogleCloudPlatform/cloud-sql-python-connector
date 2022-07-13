@@ -46,7 +46,7 @@ async def setup() -> AsyncGenerator:
     # close asyncpg connection
     await conn.close()
     # cleanup Connector object
-    connector.close()
+    await connector.close_async()
 
 
 @pytest.mark.asyncio
