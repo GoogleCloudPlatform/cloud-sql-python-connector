@@ -293,8 +293,8 @@ The Cloud SQL Connector has an async `create_async_connector` that can be used
 and is recommended for async drivers as it returns a `Connector` object
 that uses the current thread's running event loop automatically.
 
-The `create_async_connector` allows all the same input arguments as the [Connector]
-(#configuring-the-connector) object.
+The `create_async_connector` allows all the same input arguments as the
+[Connector](#configuring-the-connector) object.
 
 Once a `Connector` object is returned by `create_async_connector` you can call
 its `connect_async` method, just as you would the `connect` method:
