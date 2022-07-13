@@ -33,7 +33,6 @@ from functools import partial
 
 logger = logging.getLogger(name=__name__)
 
-_default_connector = None
 ASYNC_DRIVERS = ["asyncpg"]
 
 
@@ -271,41 +270,3 @@ class Connector:
         await asyncio.gather(
             *[instance.close() for instance in self._instances.values()]
         )
-
-
-def connect(instance_connection_string: str, driver: str, **kwargs: Any) -> Any:
-    """Uses a Connector object with default settings and returns a database
-    connection object with a background thread to refresh the certificates and metadata.
-    For more advanced configurations, callers should instantiate Connector on their own.
-
-    :type instance_connection_string: str
-    :param instance_connection_string:
-        A string containing the GCP project name, region name, and instance
-        name separated by colons.
-
-        Example: example-proj:example-region-us6:example-instance
-
-    :type driver: str
-    :param: driver:
-        A string representing the driver to connect with. Supported drivers are
-        pymysql, pg8000, and pytds.
-
-    :param kwargs:
-        Pass in any driver-specific arguments needed to connect to the Cloud
-        SQL instance.
-
-    :rtype: Connection
-    :returns:
-        A DB-API connection to the specified Cloud SQL instance.
-    """
-    # deprecation warning
-    logger.warning(
-        "The global `connect` method is deprecated and may be removed in a later "
-        "version. Please initialize a `Connector` object and call it's `connect` "
-        "method directly. \n"
-        "See https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/blob/main/README.md#how-to-use-this-connector for examples.",
-    )
-    global _default_connector
-    if _default_connector is None:
-        _default_connector = Connector()
-    return _default_connector.connect(instance_connection_string, driver, **kwargs)

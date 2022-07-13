@@ -13,11 +13,11 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
-from .connector import connect, Connector
+from .connector import Connector
 from .instance import IPTypes
 
 
-__ALL__ = [connect, Connector, IPTypes]
+__ALL__ = [Connector, IPTypes]
 
 try:
     import pkg_resources
