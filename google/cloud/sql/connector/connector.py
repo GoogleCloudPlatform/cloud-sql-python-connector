@@ -14,7 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 import asyncio
-import concurrent
 import logging
 from types import TracebackType
 from google.cloud.sql.connector.instance import (
@@ -28,7 +27,7 @@ import google.cloud.sql.connector.asyncpg as asyncpg
 from google.cloud.sql.connector.utils import generate_keys
 from google.auth.credentials import Credentials
 from threading import Thread
-from typing import Any, Dict, Optional, Type, Union
+from typing import Any, Dict, Optional, Type
 from functools import partial
 
 logger = logging.getLogger(name=__name__)
@@ -85,15 +84,16 @@ class Connector:
         if loop:
             self._loop: asyncio.AbstractEventLoop = loop
             self._thread: Optional[Thread] = None
-            self._keys: Union[
-                asyncio.Task, concurrent.futures.Future
-            ] = loop.create_task(generate_keys())
+            self._keys: asyncio.Future = loop.create_task(generate_keys())
         # if no event loop is given, spin up new loop in background thread
         else:
             self._loop = asyncio.new_event_loop()
             self._thread = Thread(target=self._loop.run_forever, daemon=True)
             self._thread.start()
-            self._keys = asyncio.run_coroutine_threadsafe(generate_keys(), self._loop)
+            self._keys = asyncio.wrap_future(
+                asyncio.run_coroutine_threadsafe(generate_keys(), self._loop),
+                loop=self._loop,
+            )
         self._instances: Dict[str, Instance] = {}
 
         # set default params for connections

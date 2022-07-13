@@ -154,9 +154,10 @@ async def instance(
     Instance with mocked API calls.
     """
     # generate client key pair
-    keys = asyncio.run_coroutine_threadsafe(generate_keys(), event_loop)
-    key_task = asyncio.wrap_future(keys, loop=event_loop)
-    _, client_key = await key_task
+    keys = asyncio.wrap_future(
+        asyncio.run_coroutine_threadsafe(generate_keys(), event_loop), loop=event_loop
+    )
+    _, client_key = await keys
     with patch("google.auth.default") as mock_auth:
         mock_auth.return_value = fake_credentials, None
         # mock Cloud SQL Admin API calls

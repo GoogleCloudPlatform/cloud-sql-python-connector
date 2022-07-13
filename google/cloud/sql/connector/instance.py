@@ -28,7 +28,6 @@ from google.cloud.sql.connector.version import __version__ as version
 # Importing libraries
 import asyncio
 import aiohttp
-import concurrent
 import datetime
 from enum import Enum
 import google.auth
@@ -39,11 +38,9 @@ import ssl
 from tempfile import TemporaryDirectory
 from typing import (
     Any,
-    Awaitable,
     Dict,
     Optional,
     Tuple,
-    Union,
 )
 import logging
 
@@ -211,7 +208,7 @@ class Instance:
         return self.__client_session
 
     _credentials: Optional[Credentials] = None
-    _keys: Awaitable
+    _keys: asyncio.Future
 
     _instance_connection_string: str
     _user_agent_string: str
@@ -228,7 +225,7 @@ class Instance:
         self,
         instance_connection_string: str,
         driver_name: str,
-        keys: Union[asyncio.Task, concurrent.futures.Future],
+        keys: asyncio.Future,
         loop: asyncio.AbstractEventLoop,
         credentials: Optional[Credentials] = None,
         enable_iam_auth: bool = False,
@@ -252,11 +249,7 @@ class Instance:
 
         self._user_agent_string = f"{APPLICATION_NAME}/{version}+{driver_name}"
         self._loop = loop
-        self._keys = (
-            keys
-            if isinstance(keys, asyncio.Task)
-            else asyncio.wrap_future(keys, loop=self._loop)
-        )
+        self._keys = keys
         # validate credentials type
         if not isinstance(credentials, Credentials) and credentials is not None:
             raise CredentialsTypeError(
