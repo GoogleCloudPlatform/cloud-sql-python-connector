@@ -25,7 +25,7 @@ from google.oauth2 import service_account
 from aioresponses import aioresponses
 from mock import patch
 
-from unit.mocks import FakeCSQLInstance  # type: ignore
+from unit.mocks import FakeCSQLInstance, wait_for_keys  # type: ignore
 from google.cloud.sql.connector import Connector
 from google.cloud.sql.connector.instance import Instance
 from google.cloud.sql.connector.utils import generate_keys
@@ -193,7 +193,9 @@ async def connector(fake_credentials: Credentials) -> AsyncGenerator[Connector, 
         mock_auth.return_value = fake_credentials, None
         # mock Cloud SQL Admin API calls
         mock_instance = FakeCSQLInstance(project, region, instance_name)
-        _, client_key = connector._keys.result()
+        _, client_key = asyncio.run_coroutine_threadsafe(
+            wait_for_keys(connector._keys), connector._loop
+        ).result()
         with aioresponses() as mocked:
             mocked.get(
                 f"https://sqladmin.googleapis.com/sql/v1beta4/projects/{project}/instances/{instance_name}/connectSettings",
