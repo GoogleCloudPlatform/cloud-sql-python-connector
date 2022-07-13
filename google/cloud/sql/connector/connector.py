@@ -118,7 +118,7 @@ class Connector:
         :type driver: str
         :param: driver:
             A string representing the driver to connect with. Supported drivers are
-            pymysql, pg8000, asyncpg, and pytds.
+            pymysql, pg8000, and pytds.
 
         :param kwargs:
             Pass in any driver-specific arguments needed to connect to the Cloud
@@ -171,6 +171,12 @@ class Connector:
         :returns:
             A DB-API connection to the specified Cloud SQL instance.
         """
+        # Create an Instance object from the connection string.
+        # The Instance should verify arguments.
+        #
+        # Use the Instance to establish an SSL Connection.
+        #
+        # Return a DBAPI connection
         enable_iam_auth = kwargs.pop("enable_iam_auth", self._enable_iam_auth)
         if instance_connection_string in self._instances:
             instance = self._instances[instance_connection_string]
