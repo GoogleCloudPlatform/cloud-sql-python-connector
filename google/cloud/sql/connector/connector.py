@@ -270,3 +270,43 @@ class Connector:
         await asyncio.gather(
             *[instance.close() for instance in self._instances.values()]
         )
+
+
+async def create_async_connector(
+    ip_type: IPTypes = IPTypes.PUBLIC,
+    enable_iam_auth: bool = False,
+    timeout: int = 30,
+    credentials: Optional[Credentials] = None,
+    loop: asyncio.AbstractEventLoop = None,
+) -> Connector:
+    """
+    Create Connector object for asyncio connections that can auto-detect
+    and use current thread's running event loop.
+
+    :type ip_type: IPTypes
+    :param ip_type
+        The IP type (public or private)  used to connect. IP types
+        can be either IPTypes.PUBLIC or IPTypes.PRIVATE.
+
+    :type enable_iam_auth: bool
+    :param enable_iam_auth
+        Enables IAM based authentication (Postgres only).
+
+    :type timeout: int
+    :param timeout
+        The time limit for a connection before raising a TimeoutError.
+
+    :type credentials: google.auth.credentials.Credentials
+    :param credentials
+        Credentials object used to authenticate connections to Cloud SQL server.
+        If not specified, Application Default Credentials are used.
+
+    :type loop: asyncio.AbstractEventLoop
+    :param loop
+        Event loop to run asyncio tasks, if not specified, defaults
+        to current thread's running event loop.
+    """
+    # if no loop given, automatically detect running event loop
+    if loop is None:
+        loop = asyncio.get_running_loop()
+    return Connector(ip_type, enable_iam_auth, timeout, credentials, loop)
