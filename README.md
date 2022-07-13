@@ -283,6 +283,58 @@ connector.connect(
 )
 ``` 
 
+### Async Driver Usage
+The Cloud SQL Connector for Python currently supports the
+[asyncpg](https://magicstack.github.io/asyncpg) Postgres database driver.
+This driver leverages [asyncio](https://docs.python.org/3/library/asyncio.html)
+to improve the speed and efficiency of database connections through concurrency.
+
+The Cloud SQL Connector has an async `create_async_connector` that can be used
+and is recommended for async drivers as it returns a `Connector` object
+that uses the current thread's running event loop automatically.
+
+The `create_async_connector` allows all the same input arguments as [`Connector`]
+(#configuring-the-connector).
+
+Once a `Connector` object is returned by `create_async_connector` you can call
+its `connect_async` method, just as you would the `connect` method:
+
+```python
+import asyncpg
+from google.cloud.sql.connector import create_async_connector
+
+async def main():
+    # intialize Connector object using 'create_async_connector'
+    connector = await create_async_connector()
+
+    # create connection to Cloud SQL database
+    conn: asyncpg.Connection = await connector.connect_async(
+        "project:region:instance", # Cloud SQL instance connection name
+        "asyncpg",
+        user="root",
+        password="shhh",
+        db="your-db-name"
+        # ... additional database driver args 
+    )
+
+    # insert into Cloud SQL database (example)
+    await conn.execute("INSERT INTO ratings (title, genre, rating) VALUES ('Batman', 'Action', 8.2)")
+
+    # query Cloud SQL database (examples)
+    results = await conn.fetch("SELECT * from ratings")
+    for row in results:
+        # ... do something with results
+    
+    # close asyncpg connection
+    await conn.close
+
+    # close Cloud SQL Connector
+    await connector.close_async()
+```
+
+For more details on interacting with an `asyncpg.Connection`, please visit
+the [official documentation](https://magicstack.github.io/asyncpg/current/api/index.html).
+
 ## Support policy
 
 ### Major version lifecycle
