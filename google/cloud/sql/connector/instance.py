@@ -43,6 +43,7 @@ from typing import (
     Dict,
     Optional,
     Tuple,
+    Union,
 )
 import logging
 
@@ -227,7 +228,7 @@ class Instance:
         self,
         instance_connection_string: str,
         driver_name: str,
-        keys: concurrent.futures.Future,
+        keys: Union[asyncio.Task, concurrent.futures.Future],
         loop: asyncio.AbstractEventLoop,
         credentials: Optional[Credentials] = None,
         enable_iam_auth: bool = False,

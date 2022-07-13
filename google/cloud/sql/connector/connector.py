@@ -27,14 +27,24 @@ import google.cloud.sql.connector.pytds as pytds
 import google.cloud.sql.connector.asyncpg as asyncpg
 from google.cloud.sql.connector.utils import generate_keys
 from google.auth.credentials import Credentials
-from threading import Thread, current_thread
-from typing import Any, Dict, Optional, Type
+from threading import Thread
+from typing import Any, Dict, Optional, Type, Union
 from functools import partial
 
 logger = logging.getLogger(name=__name__)
 
 _default_connector = None
 ASYNC_DRIVERS = ["asyncpg"]
+
+
+class ConnectorLoopError(Exception):
+    """
+    Raised when Connector.connect is called with Connector._loop
+        in an invalid state (event loop in current thread).
+    """
+
+    def __init__(self, *args: Any) -> None:
+        super(ConnectorLoopError, self).__init__(self, *args)
 
 
 class Connector:
@@ -57,6 +67,11 @@ class Connector:
     :param credentials
         Credentials object used to authenticate connections to Cloud SQL server.
         If not specified, Application Default Credentials are used.
+
+    :type loop: asyncio.AbstractEventLoop
+    :param loop
+        Event loop to run asyncio tasks, if not specified, defaults to
+        creating new event loop on background thread.
     """
 
     def __init__(
@@ -69,19 +84,17 @@ class Connector:
     ) -> None:
         # if event loop is given, use for background tasks
         if loop:
-            print("Event loop given!")
             self._loop: asyncio.AbstractEventLoop = loop
-            self._thread = None
-            self._keys: asyncio.Task = loop.create_task(generate_keys())
+            self._thread: Optional[Thread] = None
+            self._keys: Union[
+                asyncio.Task, concurrent.futures.Future
+            ] = loop.create_task(generate_keys())
         # if no event loop is given, spin up new loop in background thread
         else:
-            print("No event loop, spinning up loop in thread!")
-            self._loop: asyncio.AbstractEventLoop = asyncio.new_event_loop()
-            self._thread: Thread = Thread(target=self._loop.run_forever, daemon=True)
+            self._loop = asyncio.new_event_loop()
+            self._thread = Thread(target=self._loop.run_forever, daemon=True)
             self._thread.start()
-            self._keys: concurrent.futures.Future = asyncio.run_coroutine_threadsafe(
-                generate_keys(), self._loop
-            )
+            self._keys = asyncio.run_coroutine_threadsafe(generate_keys(), self._loop)
         self._instances: Dict[str, Instance] = {}
 
         # set default params for connections
@@ -116,12 +129,18 @@ class Connector:
         :returns:
             A DB-API connection to the specified Cloud SQL instance.
         """
-        # check if event loop is running in current thread
-        if self._loop._thread_id == current_thread().ident and self._loop.is_running():
-            # TODO: make custom exception class
-            raise RuntimeError(
-                "Connector event loop is running in current thread! Event loop must be attached to a different thread to prevent blocking code!"
-            )
+        try:
+            # check if event loop is running in current thread
+            if self._loop == asyncio.get_running_loop():
+                raise ConnectorLoopError(
+                    "Connector event loop is running in current thread!"
+                    "Event loop must be attached to a different thread to prevent blocking code!"
+                )
+        # asyncio.get_running_loop will throw RunTimeError if no running loop is present
+        except RuntimeError:
+            pass
+
+        # if event loop is not in current thread, proceed with connection
         connect_task = asyncio.run_coroutine_threadsafe(
             self.connect_async(instance_connection_string, driver, **kwargs), self._loop
         )
