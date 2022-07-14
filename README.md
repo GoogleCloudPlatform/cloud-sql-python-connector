@@ -1,66 +1,112 @@
 # Cloud SQL Connector for Python Drivers
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/GoogleCloudPlatform/cloud-sql-python-connector/blob/main/samples/notebooks/postgres_python_connector.ipynb)
 ![CI](https://storage.googleapis.com/cloud-devrel-public/cloud-sql-connectors/python/python3.10_linux.svg)
 [![pypi](https://img.shields.io/pypi/v/cloud-sql-python-connector)](https://pypi.org/project/cloud-sql-python-connector)
 [![python](https://img.shields.io/pypi/pyversions/cloud-sql-python-connector)](https://pypi.org/project/cloud-sql-python-connector)
 
 **Warning**: This project is currently in _beta_. Please [open an issue](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/new/choose) if you would like to report a bug or documentation issue, request a feature, or have a question.
 
-The Cloud SQL Python Connector is a library that can be used alongside a database driver to allow users with sufficient permissions to connect to a Cloud SQL
-database without having to manually allowlist IPs or manage SSL certificates.
+The _Cloud SQL Python Connector_ is a Cloud SQL connector designed for use with the
+Python language. Using a Cloud SQL connector provides the following benefits:
+* **IAM Authorization:** uses IAM permissions to control who/what can connect to
+  your Cloud SQL instances
+* **Improved Security:** uses robust, updated TLS 1.3 encryption and
+  identity verification between the client connector and the server-side proxy,
+  independent of the database protocol.
+* **Convenience:** removes the requirement to use and distribute SSL
+  certificates, as well as manage firewalls or source/destination IP addresses.
+* (optionally) **IAM DB Authentication:** provides support for
+  [Cloud SQL’s automatic IAM DB AuthN][iam-db-authn] feature.
 
-Currently supported drivers are
+[iam-db-authn]: https://cloud.google.com/sql/docs/postgres/authentication
+
+The Cloud SQL Python Connector is a package to be used alongside a database driver.
+Currently supported drivers are:
  - [`pymysql`](https://github.com/PyMySQL/PyMySQL) (MySQL)
  - [`pg8000`](https://github.com/tlocke/pg8000) (PostgreSQL)
  - [`pytds`](https://github.com/denisenkom/pytds) (SQL Server)
 
-# Supported Python Versions
-Currently Python versions >= 3.7 are supported.
 
-### Authentication
+## Installation
 
-This library uses the [Application Default Credentials](https://cloud.google.com/docs/authentication/production) to authenticate the
-connection to the Cloud SQL server. For more details, see the previously
-mentioned link.
+You can install this library with `pip install`, specifying the driver
+based on your database dialect.
 
-To activate credentials locally ensure the Google Cloud SDK is installed on your machine. For manual installation see [Installing Cloud SDK](https://cloud.google.com/sdk/docs/install). Once installed, use the following `gcloud` command:
+### MySQL
+```
+pip install "cloud-sql-python-connector[pymysql]"
+```
+### Postgres
+```
+pip install "cloud-sql-python-connector[pg8000]"
+```
+### SQL Server
+```
+pip install "cloud-sql-python-connector[pytds]"
+```
+## Usage
 
+This package provides several functions for authorizing and encrypting
+connections. These functions are used with your database driver to connect to
+your Cloud SQL instance.
+
+The instance connection name for your Cloud SQL instance is always in the
+format "project:region:instance".
+
+### APIs and Services
+
+This package requires the following to successfully make Cloud SQL Connections:
+
+- IAM principal (user, service account, etc.) with the
+[Cloud SQL Client][client-role] role. This IAM principal will be used for
+[credentials](#credentials).
+- The [Cloud SQL Admin API][admin-api] to be enabled within your Google Cloud
+Project. By default, the API will be called in the project associated with
+the IAM principal.
+
+[admin-api]: https://console.cloud.google.com/apis/api/sqladmin.googleapis.com
+[client-role]: https://cloud.google.com/sql/docs/mysql/roles-and-permissions
+
+### Credentials
+
+This library uses the [Application Default Credentials (ADC)][adc] strategy for
+resolving credentials. Please see the [google.auth][google-auth] package 
+documentation for more information on how these credentials are sourced.
+
+To activate credentials locally the recommended approach is to ensure the Google
+Cloud SDK is installed on your machine. For manual installation see
+[Installing Cloud SDK][cloud-sdk]. 
+
+Once installed, use the following `gcloud` command:
 ```
 gcloud auth application-default login
 ```
 
-### How to install this connector
+To explicitly set a specific source for the credentials to use, see
+[Configuring the Connector](#configuring-the-connector) below.
 
-#### Install latest release from PyPI
-Upgrade to the latest version of `pip`, then run the following command, replacing `driver` with one of the driver names listed above.
-```
-pip install cloud-sql-python-connector[driver]
-```
-For example, to use the Python connector with `pymysql`, run `pip install cloud-sql-python-connector[pymysql]`
+[adc]: https://cloud.google.com/docs/authentication
+[google-auth]: https://google-auth.readthedocs.io/en/master/reference/google.auth.html
+[cloud-sdk]: https://cloud.google.com/sdk/docs/install
 
-#### Install dev version
-Clone this repo, `cd` into the `cloud-sql-python-connector` directory then run the following command to install the package:
-```
-pip install .
-```
-Conversely, install straight from Github using `pip`:
-```
-pip install git+https://github.com/GoogleCloudPlatform/cloud-sql-python-connector
-```
+### How to use this Connector
 
-### How to use this connector
+To connect to Cloud SQL using the connector, inititalize a `Connector`
+object and call it's `connect` method with the proper input parameters.
 
-To use the connector: import the connector and SQLAlchemy by including the following statements at the top of your Python file:
-```Python
-from google.cloud.sql.connector import connector
-import sqlalchemy
-```
+The `Connector` itself creates connection objects by calling its `connect` method but does not manage database connection pooling. For this reason, it is recommended to use the connector alongside a library that can create connection pools, such as [SQLAlchemy](https://www.sqlalchemy.org/). This will allow for connections to remain open and be reused, reducing connection overhead and the number of connections needed.
 
-The connector itself creates connection objects by calling its `connect` method but does not manage database connection pooling. For this reason, it is recommended to use the connector alongside a library that can create connection pools, such as [SQLAlchemy](https://www.sqlalchemy.org/). This will allow for connections to remain open and be reused, reducing connection overhead and the number of connections needed.
-
-In the connector's `connect` method below, input your connection string as the first positional argument and the name of the database driver for the second positional argument. Insert the rest of your connection keyword arguments like user, password and database. You can also set the optional `timeout` or `ip_type` keyword arguments.
+In the Connector's `connect` method below, input your connection string as the first positional argument and the name of the database driver for the second positional argument. Insert the rest of your connection keyword arguments like user, password and database. You can also set the optional `timeout` or `ip_type` keyword arguments.
 
 To use this connector with SQLAlchemy, use the `creator` argument for `sqlalchemy.create_engine`:
 ```python
+from google.cloud.sql.connector import Connector
+import sqlalchemy
+
+# initialize Connector object
+connector = Connector()
+
+# function to return the database connection
 def getconn() -> pymysql.connections.Connection:
     conn: pymysql.connections.Connection = connector.connect(
         "project:region:instance",
@@ -71,6 +117,7 @@ def getconn() -> pymysql.connections.Connection:
     )
     return conn
 
+# create connection pool
 pool = sqlalchemy.create_engine(
     "mysql+pymysql://",
     creator=getconn,
@@ -96,15 +143,21 @@ with pool.connect() as db_conn:
         print(row)
 ```
 
+To close the `Connector` object's background resources, call it's `close()` method as follows:
+
+```python
+connector.close()
+```
+
 **Note**: For more examples of using SQLAlchemy to manage connection pooling with the connector, please see [Cloud SQL SQLAlchemy Samples](https://cloud.google.com/sql/docs/postgres/connect-connectors#python_1).
 
 **Note for SQL Server users**: If your SQL Server instance requires SSL, you need to download the CA certificate for your instance and include `cafile={path to downloaded certificate}` and `validate_host=False`. This is a workaround for a [known issue](https://issuetracker.google.com/184867147).
 
-### Custom Connector Object
+### Configuring the Connector
 
 If you need to customize something about the connector, or want to specify
-defaults for each connection to make, you can initialize a custom 
-`Connector` object directly:
+defaults for each connection to make, you can initialize a 
+`Connector` object as follows:
 
 ```python
 from google.cloud.sql.connector import Connector, IPTypes
@@ -116,27 +169,6 @@ connector = Connector(
     timeout=30,
     credentials=custom_creds # google.auth.credentials.Credentials
 )
-```
-
-You can then call the Connector object's `connect` method as you
-would the default `connector.connect`:
-
-```python
-def getconn() -> pymysql.connections.Connection:
-    conn = connector.connect(
-        "project:region:instance",
-        "pymysql",
-        user="root",
-        password="shhh",
-        db="your-db-name"
-    )
-    return conn
-```
-
-To close the `Connector` object's background resources, call it's `close()` method as follows:
-
-```python
-connector.close()
 ```
 
 ### Using Connector as a Context Manager
@@ -257,6 +289,14 @@ bug fixes, but do not receive new features. Deprecated versions will be publicly
 supported for 1 year.
 **Unsupported** - Any major version that has been deprecated for >=1 year is
 considered publicly unsupported.
+
+## Supported Python Versions
+
+We test and support at a minimum, every [active version until it's
+end-of-life date][pyver]. Changes in supported Python versions will be
+considered a minor change, and will be listed in the release notes. 
+
+[pyver]: https://devguide.python.org/#status-of-python-branches
 
 ### Release cadence
 This project aims for a minimum monthly release cadence. If no new

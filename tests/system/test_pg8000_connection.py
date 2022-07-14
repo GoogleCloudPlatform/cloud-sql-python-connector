@@ -17,10 +17,14 @@ import os
 import uuid
 from typing import Generator
 
-import pg8000
 import pytest
+
+# [START cloud_sql_connector_postgres_pg8000]
+import pg8000
 import sqlalchemy
-from google.cloud.sql.connector import connector
+from google.cloud.sql.connector import Connector
+
+# [END cloud_sql_connector_postgres_pg8000]
 
 table_name = f"books_{uuid.uuid4().hex}"
 
@@ -30,21 +34,24 @@ table_name = f"books_{uuid.uuid4().hex}"
 # 'creator' argument to 'create_engine'
 def init_connection_engine() -> sqlalchemy.engine.Engine:
     def getconn() -> pg8000.dbapi.Connection:
-        conn: pg8000.dbapi.Connection = connector.connect(
-            os.environ["POSTGRES_CONNECTION_NAME"],
-            "pg8000",
-            user=os.environ["POSTGRES_USER"],
-            password=os.environ["POSTGRES_PASS"],
-            db=os.environ["POSTGRES_DB"],
-        )
-        return conn
+        # initialize Connector object for connections to Cloud SQL
+        with Connector() as connector:
+            conn: pg8000.dbapi.Connection = connector.connect(
+                os.environ["POSTGRES_CONNECTION_NAME"],
+                "pg8000",
+                user=os.environ["POSTGRES_USER"],
+                password=os.environ["POSTGRES_PASS"],
+                db=os.environ["POSTGRES_DB"],
+            )
+            return conn
 
-    engine = sqlalchemy.create_engine(
+    # create SQLAlchemy connection pool
+    pool = sqlalchemy.create_engine(
         "postgresql+pg8000://",
         creator=getconn,
     )
-    engine.dialect.description_encoding = None
-    return engine
+    pool.dialect.description_encoding = None
+    return pool
 
 
 # [END cloud_sql_connector_postgres_pg8000]

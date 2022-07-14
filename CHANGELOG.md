@@ -1,5 +1,49 @@
 # Changelog
 
+## [0.7.0](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v0.6.2...v0.7.0) (2022-07-12)
+
+
+### ⚠ BREAKING CHANGES
+
+* remove deprecated global 'connector.connect' function (#394)
+
+### Features
+
+* remove deprecated global 'connector.connect' function ([#394](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/394)) ([50b81fb](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/50b81fb2325f62231cb15e047d8b9145d95fc711))
+
+## [0.6.2](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v0.6.1...v0.6.2) (2022-06-07)
+
+
+### Documentation
+
+* add Colab Notebook for Postgres, MySQL and SQL Server ([#372](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/372)) ([a16068f](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/a16068fcb98d46e2642ca521124f3409427c19aa))
+
+### [0.6.1](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v0.6.0...v0.6.1) (2022-05-03)
+
+
+### Bug Fixes
+
+* update dependencies to latest versions ([#351](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/351)) ([009dfda](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/009dfda4da6848ab36f42cec2effc3ad3925da69))
+
+## [0.6.0](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v0.5.2...v0.6.0) (2022-04-05)
+
+
+### ⚠ BREAKING CHANGES
+
+* deprecate default connect method (#316)
+
+### Features
+
+* add asynchronous interface to Connector ([#280](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/280)) ([9cef59e](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/9cef59eb8534fd0dce425f12dd2fc05a69c27587))
+* deprecate default connect method ([#316](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/316)) ([4a543dc](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/4a543dc42938866b63c6887238a1d8867abc5953))
+* drop support for Python 3.6 ([#299](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/299)) ([0d63f90](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/0d63f90fd05134165dbde212242b4e9241bbf287))
+
+
+### Bug Fixes
+
+* resolve TimeoutError and add context manager to Connector ([#309](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/309)) ([372e401](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/372e4012b0b561f9ac9f896ad3ab29a588e067fc))
+
+
 ### [0.5.2](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v0.5.1...v0.5.2) (2022-03-01)
 
 
