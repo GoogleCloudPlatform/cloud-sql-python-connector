@@ -15,6 +15,7 @@ limitations under the License.
 """
 # file containing all mocks used for Cloud SQL Python Connector unit tests
 
+import asyncio
 import json
 import ssl
 from tempfile import TemporaryDirectory
@@ -238,3 +239,12 @@ class FakeCSQLInstance:
                 }
             }
         )
+
+
+async def wait_for_keys(future: asyncio.Future) -> Tuple[bytes, str]:
+    """
+    Helper method to await keys of Connector in tests prior to
+    initializing an Instance object.
+    """
+    keys = await future
+    return keys
