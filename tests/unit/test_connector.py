@@ -124,6 +124,19 @@ def test_Connector_Init_context_manager() -> None:
         assert connector._credentials is None
 
 
+@pytest.mark.asyncio
+async def test_Connector_Init_async_context_manager() -> None:
+    """Test that Connector as async context manager sets default properties
+    properly."""
+    loop = asyncio.get_running_loop()
+    async with Connector(loop=loop) as connector:
+        assert connector._ip_type == IPTypes.PUBLIC
+        assert connector._enable_iam_auth is False
+        assert connector._timeout == 30
+        assert connector._credentials is None
+        assert connector._loop == loop
+
+
 def test_Connector_connect(connector: Connector) -> None:
     """Test that Connector.connect can properly return a DB API connection."""
     connect_string = "my-project:my-region:my-instance"

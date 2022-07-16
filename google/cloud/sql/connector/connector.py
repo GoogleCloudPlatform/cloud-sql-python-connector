@@ -264,6 +264,19 @@ class Connector:
         """Exit context manager by closing Connector"""
         self.close()
 
+    async def __aenter__(self) -> Any:
+        """Enter async context manager by returning Connector object"""
+        return self
+
+    async def __aexit__(
+        self,
+        exc_type: Optional[Type[BaseException]],
+        exc_val: Optional[BaseException],
+        exc_tb: Optional[TracebackType],
+    ) -> None:
+        """Exit async context manager by closing Connector"""
+        await self.close_async()
+
     def close(self) -> None:
         """Close Connector by stopping tasks and releasing resources."""
         close_future = asyncio.run_coroutine_threadsafe(
