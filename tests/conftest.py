@@ -198,9 +198,12 @@ async def connector(fake_credentials: Credentials) -> AsyncGenerator[Connector, 
             Helper method to await keys of Connector in tests prior to
             initializing an Instance object.
             """
-            keys = await future
-            return keys
+            return await future
 
+        # converting asyncio.Future into concurrent.Future
+        # await keys in background thread so that .result() is set
+        # required because keys are needed for mocks, but are not awaited
+        # in the code until Instance() is initialized
         _, client_key = asyncio.run_coroutine_threadsafe(
             wait_for_keys(connector._keys), connector._loop
         ).result()
