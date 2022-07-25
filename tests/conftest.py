@@ -25,7 +25,7 @@ from google.oauth2 import service_account
 from aioresponses import aioresponses
 from mock import patch
 
-from unit.mocks import FakeCSQLInstance, wait_for_keys  # type: ignore
+from unit.mocks import FakeCSQLInstance  # type: ignore
 from google.cloud.sql.connector import Connector
 from google.cloud.sql.connector.instance import Instance
 from google.cloud.sql.connector.utils import generate_keys
