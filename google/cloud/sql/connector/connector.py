@@ -24,6 +24,7 @@ import google.cloud.sql.connector.pymysql as pymysql
 import google.cloud.sql.connector.aiomysql as aiomysql
 import google.cloud.sql.connector.pg8000 as pg8000
 import google.cloud.sql.connector.pytds as pytds
+import google.cloud.sql.connector.asyncpg as asyncpg
 from google.cloud.sql.connector.utils import generate_keys
 from google.auth.credentials import Credentials
 from threading import Thread
@@ -202,6 +203,7 @@ class Connector:
             "pymysql": pymysql.connect,
             "aiomysql": aiomysql.connect,
             "pg8000": pg8000.connect,
+            "asyncpg": asyncpg.connect,
             "pytds": pytds.connect,
         }
 
@@ -263,6 +265,19 @@ class Connector:
     ) -> None:
         """Exit context manager by closing Connector"""
         self.close()
+
+    async def __aenter__(self) -> Any:
+        """Enter async context manager by returning Connector object"""
+        return self
+
+    async def __aexit__(
+        self,
+        exc_type: Optional[Type[BaseException]],
+        exc_val: Optional[BaseException],
+        exc_tb: Optional[TracebackType],
+    ) -> None:
+        """Exit async context manager by closing Connector"""
+        await self.close_async()
 
     def close(self) -> None:
         """Close Connector by stopping tasks and releasing resources."""

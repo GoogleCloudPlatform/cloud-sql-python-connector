@@ -19,7 +19,7 @@ import asyncio
 import pytest  # noqa F401 Needed to run the tests
 
 from threading import Thread
-from typing import Any, Generator, AsyncGenerator
+from typing import Any, Generator, AsyncGenerator, Tuple
 from google.auth.credentials import Credentials, with_scopes_if_required
 from google.oauth2 import service_account
 from aioresponses import aioresponses
@@ -154,10 +154,9 @@ async def instance(
     Instance with mocked API calls.
     """
     # generate client key pair
-    keys = asyncio.wrap_future(
-        asyncio.run_coroutine_threadsafe(generate_keys(), event_loop), loop=event_loop
-    )
+    keys = event_loop.create_task(generate_keys())
     _, client_key = await keys
+
     with patch("google.auth.default") as mock_auth:
         mock_auth.return_value = fake_credentials, None
         # mock Cloud SQL Admin API calls
@@ -193,6 +192,18 @@ async def connector(fake_credentials: Credentials) -> AsyncGenerator[Connector, 
         mock_auth.return_value = fake_credentials, None
         # mock Cloud SQL Admin API calls
         mock_instance = FakeCSQLInstance(project, region, instance_name)
+
+        async def wait_for_keys(future: asyncio.Future) -> Tuple[bytes, str]:
+            """
+            Helper method to await keys of Connector in tests prior to
+            initializing an Instance object.
+            """
+            return await future
+
+        # converting asyncio.Future into concurrent.Future
+        # await keys in background thread so that .result() is set
+        # required because keys are needed for mocks, but are not awaited
+        # in the code until Instance() is initialized
         _, client_key = asyncio.run_coroutine_threadsafe(
             wait_for_keys(connector._keys), connector._loop
         ).result()
