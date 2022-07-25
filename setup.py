@@ -79,7 +79,8 @@ setup(
     extras_require={
         "pymysql": ["PyMySQL==1.0.2"],
         "pg8000": ["pg8000==1.29.1"],
-        "pytds": ["python-tds==1.11.0"]
+        "pytds": ["python-tds==1.11.0"],
+        "asyncpg": ["asyncpg==0.26.0"]
     },
     python_requires=">=3.7",
     include_package_data=True,

@@ -50,7 +50,9 @@ async def test_Instance_init(
     """
 
     connect_string = "test-project:test-region:test-instance"
-    keys = asyncio.run_coroutine_threadsafe(generate_keys(), event_loop)
+    keys = asyncio.wrap_future(
+        asyncio.run_coroutine_threadsafe(generate_keys(), event_loop), loop=event_loop
+    )
     with patch("google.auth.default") as mock_auth:
         mock_auth.return_value = fake_credentials, None
         instance = Instance(connect_string, "pymysql", keys, event_loop)
@@ -75,7 +77,9 @@ async def test_Instance_init_bad_credentials(
     throws proper error for bad credentials arg type.
     """
     connect_string = "test-project:test-region:test-instance"
-    keys = asyncio.run_coroutine_threadsafe(generate_keys(), event_loop)
+    keys = asyncio.wrap_future(
+        asyncio.run_coroutine_threadsafe(generate_keys(), event_loop), loop=event_loop
+    )
     with pytest.raises(CredentialsTypeError):
         instance = Instance(connect_string, "pymysql", keys, event_loop, credentials=1)
         await instance.close()
@@ -356,7 +360,9 @@ async def test_ClientResponseError(
     Test that detailed error message is applied to ClientResponseError.
     """
     # mock Cloud SQL Admin API calls with exceptions
-    keys = asyncio.run_coroutine_threadsafe(generate_keys(), event_loop)
+    keys = asyncio.wrap_future(
+        asyncio.run_coroutine_threadsafe(generate_keys(), event_loop), loop=event_loop
+    )
     get_url = "https://sqladmin.googleapis.com/sql/v1beta4/projects/my-project/instances/my-instance/connectSettings"
     post_url = "https://sqladmin.googleapis.com/sql/v1beta4/projects/my-project/instances/my-instance:generateEphemeralCert"
     with aioresponses() as mocked:

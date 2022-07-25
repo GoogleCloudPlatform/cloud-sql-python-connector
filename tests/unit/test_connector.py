@@ -17,7 +17,8 @@ limitations under the License.
 import pytest  # noqa F401 Needed to run the tests
 import asyncio
 
-from google.cloud.sql.connector import Connector, IPTypes
+from google.cloud.sql.connector import Connector, IPTypes, create_async_connector
+from google.cloud.sql.connector.connector import ConnectorLoopError
 
 from mock import patch
 from typing import Any
@@ -77,6 +78,33 @@ def test_connect_enable_iam_auth_error() -> None:
     connector._instances = {}
 
 
+def test_connect_with_unsupported_driver(connector: Connector) -> None:
+    # try to connect using unsupported driver, should raise KeyError
+    with pytest.raises(KeyError) as exc_info:
+        connector.connect(
+            "my-project:my-region:my-instance",
+            "bad_driver",
+        )
+    # assert custom error message for unsupported driver is present
+    assert exc_info.value.args[0] == "Driver 'bad_driver' is not supported."
+    connector.close()
+
+
+@pytest.mark.asyncio
+async def test_connect_ConnectorLoopError() -> None:
+    """Test that ConnectorLoopError is thrown when Connector.connect
+    is called with event loop running in current thread."""
+    current_loop = asyncio.get_running_loop()
+    connector = Connector(loop=current_loop)
+    # try to connect using current thread's loop, should raise error
+    pytest.raises(
+        ConnectorLoopError,
+        connector.connect,
+        "my-project:my-region:my-instance",
+        "pg8000",
+    )
+
+
 def test_Connector_Init() -> None:
     """Test that Connector __init__ sets default properties properly."""
     connector = Connector()
@@ -85,6 +113,28 @@ def test_Connector_Init() -> None:
     assert connector._timeout == 30
     assert connector._credentials is None
     connector.close()
+
+
+def test_Connector_Init_context_manager() -> None:
+    """Test that Connector as context manager sets default properties properly."""
+    with Connector() as connector:
+        assert connector._ip_type == IPTypes.PUBLIC
+        assert connector._enable_iam_auth is False
+        assert connector._timeout == 30
+        assert connector._credentials is None
+
+
+@pytest.mark.asyncio
+async def test_Connector_Init_async_context_manager() -> None:
+    """Test that Connector as async context manager sets default properties
+    properly."""
+    loop = asyncio.get_running_loop()
+    async with Connector(loop=loop) as connector:
+        assert connector._ip_type == IPTypes.PUBLIC
+        assert connector._enable_iam_auth is False
+        assert connector._timeout == 30
+        assert connector._credentials is None
+        assert connector._loop == loop
 
 
 def test_Connector_connect(connector: Connector) -> None:
@@ -98,3 +148,12 @@ def test_Connector_connect(connector: Connector) -> None:
         )
         # verify connector made connection call
         assert connection is True
+
+
+@pytest.mark.asyncio
+async def test_create_async_connector() -> None:
+    """Test that create_async_connector properly initializes connector
+    object using current thread's event loop"""
+    connector = await create_async_connector()
+    assert connector._loop == asyncio.get_running_loop()
+    await connector.close_async()
