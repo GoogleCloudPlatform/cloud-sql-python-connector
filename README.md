@@ -24,6 +24,7 @@ The Cloud SQL Python Connector is a package to be used alongside a database driv
 Currently supported drivers are:
  - [`pymysql`](https://github.com/PyMySQL/PyMySQL) (MySQL)
  - [`pg8000`](https://github.com/tlocke/pg8000) (PostgreSQL)
+ - [`asyncpg`](https://github.com/MagicStack/asyncpg) (PostgreSQL)
  - [`pytds`](https://github.com/denisenkom/pytds) (SQL Server)
 
 
@@ -37,8 +38,15 @@ based on your database dialect.
 pip install "cloud-sql-python-connector[pymysql]"
 ```
 ### Postgres
+There are two different database drivers that are supported for the Postgres dialect:
+
+#### pg8000
 ```
 pip install "cloud-sql-python-connector[pg8000]"
+```
+#### asyncpg
+```
+pip install "cloud-sql-python-connector[asyncpg]"
 ```
 ### SQL Server
 ```
@@ -111,9 +119,9 @@ def getconn() -> pymysql.connections.Connection:
     conn: pymysql.connections.Connection = connector.connect(
         "project:region:instance",
         "pymysql",
-        user="root",
-        password="shhh",
-        db="your-db-name"
+        user="my-user",
+        password="my-password",
+        db="my-db-name"
     )
     return conn
 
@@ -188,9 +196,9 @@ def getconn() -> pymysql.connections.Connection:
         conn = connector.connect(
             "project:region:instance",
             "pymysql",
-            user="root",
-            password="shhh",
-            db="your-db-name"
+            user="my-user",
+            password="my-password",
+            db="my-db-name"
         )
     return conn
 
@@ -245,7 +253,7 @@ connector.connect(
      "project:region:instance",
      "pg8000",
      user="postgres-iam-user@gmail.com",
-     db="my_database",
+     db="my-db-name",
      enable_iam_auth=True,
  )
 ```
@@ -258,7 +266,7 @@ Once you have followed the steps linked above, you can run the following code to
 connector.connect(
     "project:region:instance",
     "pytds",
-    db="my_database",
+    db="my-db-name",
     active_directory_auth=True,
     server_name="public.[instance].[location].[project].cloudsql.[domain]",
 )
@@ -268,12 +276,110 @@ Or, if using Private IP:
 connector.connect(
     "project:region:instance",
     "pytds",
-    db="my_database",
+    db="my-db-name",
     active_directory_auth=True,
     server_name="private.[instance].[location].[project].cloudsql.[domain]",
     ip_type=IPTypes.PRIVATE
 )
 ``` 
+
+### Async Driver Usage
+The Cloud SQL Connector is compatible with
+[asyncio](https://docs.python.org/3/library/asyncio.html) to improve the speed
+and efficiency of database connections through concurrency. You can use all
+non-asyncio drivers through the `Connector.connect_async` function, in addition
+to the following asyncio database drivers:
+- [asyncpg](https://magicstack.github.io/asyncpg) (Postgres)
+
+The Cloud SQL Connector has a helper `create_async_connector` function that is
+recommended for asyncio database connections. It returns a `Connector`
+object that uses the current thread's running event loop. This is different
+than `Connector()` which by default initializes a new event loop in a
+background thread.
+
+The `create_async_connector` allows all the same input arguments as the
+[Connector](#configuring-the-connector) object.
+
+Once a `Connector` object is returned by `create_async_connector` you can call
+its `connect_async` method, just as you would the `connect` method:
+
+```python
+import asyncpg
+from google.cloud.sql.connector import create_async_connector
+
+async def main():
+    # intialize Connector object using 'create_async_connector'
+    connector = await create_async_connector()
+
+    # create connection to Cloud SQL database
+    conn: asyncpg.Connection = await connector.connect_async(
+        "project:region:instance", # Cloud SQL instance connection name
+        "asyncpg",
+        user="my-user",
+        password="my-password",
+        db="my-db-name"
+        # ... additional database driver args 
+    )
+
+    # insert into Cloud SQL database (example)
+    await conn.execute("INSERT INTO ratings (title, genre, rating) VALUES ('Batman', 'Action', 8.2)")
+
+    # query Cloud SQL database (example)
+    results = await conn.fetch("SELECT * from ratings")
+    for row in results:
+        # ... do something with results
+    
+    # close asyncpg connection
+    await conn.close
+
+    # close Cloud SQL Connector
+    await connector.close_async()
+```
+
+For more details on interacting with an `asyncpg.Connection`, please visit
+the [official documentation](https://magicstack.github.io/asyncpg/current/api/index.html).
+
+### Async Context Manager
+
+An alternative to using the `create_async_connector` function is initializing
+a `Connector` as an async context manager, removing the need for explicit
+calls to `connector.close_async()` to cleanup resources. 
+
+**Note:** This alternative requires that the running event loop be
+passed in as the `loop` argument to `Connector()`.
+
+```python
+import asyncio
+import asyncpg
+from google.cloud.sql.connector import Connector
+
+async def main():
+    # get current running event loop to be used with Connector
+    loop = asyncio.get_running_loop()
+    # intialize Connector object as async context manager
+    async with Connector(loop=loop) as connector:
+
+        # create connection to Cloud SQL database
+        conn: asyncpg.Connection = await connector.connect_async(
+            "project:region:instance", # Cloud SQL instance connection name
+            "asyncpg",
+            user="my-user",
+            password="my-password",
+            db="my-db-name"
+            # ... additional database driver args 
+        )
+
+        # insert into Cloud SQL database (example)
+        await conn.execute("INSERT INTO ratings (title, genre, rating) VALUES ('Batman', 'Action', 8.2)")
+
+        # query Cloud SQL database (example)
+        results = await conn.fetch("SELECT * from ratings")
+        for row in results:
+            # ... do something with results
+        
+        # close asyncpg connection
+        await conn.close
+```
 
 ## Support policy
 

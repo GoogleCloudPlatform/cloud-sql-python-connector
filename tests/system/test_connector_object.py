@@ -13,6 +13,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
+import asyncio
 import os
 import pymysql
 import sqlalchemy
@@ -21,6 +22,7 @@ import google.auth
 from google.cloud.sql.connector import Connector
 import datetime
 import concurrent.futures
+from threading import Thread
 
 
 def init_connection_engine(
@@ -122,3 +124,20 @@ def test_connector_as_context_manager() -> None:
 
         with pool.connect() as conn:
             conn.execute("SELECT 1")
+
+
+def test_connector_with_custom_loop() -> None:
+    """Test that Connector can be used with custom loop in background thread."""
+    # create new event loop and start it in thread
+    loop = asyncio.new_event_loop()
+    thread = Thread(target=loop.run_forever, daemon=True)
+    thread.start()
+
+    with Connector(loop=loop) as connector:
+        pool = init_connection_engine(connector)
+
+        with pool.connect() as conn:
+            result = conn.execute("SELECT 1").fetchone()
+        assert result[0] == 1
+        # assert that Connector does not start its own thread
+        assert connector._thread is None
