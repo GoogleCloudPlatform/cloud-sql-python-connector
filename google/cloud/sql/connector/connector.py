@@ -284,6 +284,12 @@ class Connector:
         )
         # Will attempt to safely shut down tasks for 5s
         close_future.result(timeout=5)
+        # if background thread exists for Connector, clean it up
+        if self._thread:
+            # stop event loop running in background thread
+            self._loop.call_soon_threadsafe(self._loop.stop)
+            # wait for thread to finish closing (i.e. loop to stop)
+            self._thread.join()
 
     async def close_async(self) -> None:
         """Helper function to cancel Instances' tasks
