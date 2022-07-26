@@ -78,16 +78,15 @@ def test_connect_enable_iam_auth_error() -> None:
     connector._instances = {}
 
 
-def test_connect_with_unsupported_driver() -> None:
-    with Connector() as connector:
-        # try to connect using unsupported driver, should raise KeyError
-        with pytest.raises(KeyError) as exc_info:
-            connector.connect(
-                "my-project:my-region:my-instance",
-                "bad_driver",
-            )
-        # assert custom error message for unsupported driver is present
-        assert exc_info.value.args[0] == "Driver 'bad_driver' is not supported."
+def test_connect_with_unsupported_driver(connector: Connector) -> None:
+    # try to connect using unsupported driver, should raise KeyError
+    with pytest.raises(KeyError) as exc_info:
+        connector.connect(
+            "my-project:my-region:my-instance",
+            "bad_driver",
+        )
+    # assert custom error message for unsupported driver is present
+    assert exc_info.value.args[0] == "Driver 'bad_driver' is not supported."
 
 
 @pytest.mark.asyncio
