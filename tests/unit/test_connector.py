@@ -16,6 +16,7 @@ limitations under the License.
 
 import pytest  # noqa F401 Needed to run the tests
 import asyncio
+import threading
 
 from google.cloud.sql.connector import Connector, IPTypes, create_async_connector
 from google.cloud.sql.connector.connector import ConnectorLoopError
@@ -156,3 +157,16 @@ async def test_create_async_connector() -> None:
     connector = await create_async_connector()
     assert connector._loop == asyncio.get_running_loop()
     await connector.close_async()
+
+
+def test_Connector_close_kills_threads() -> None:
+    """Test that Connector.close kills background threads."""
+    # several fixtures use threads so get count prior to test
+    prior_threads = threading.active_count()
+    # open and close 10 Connector objects
+    for _ in range(10):
+        with Connector():
+            pass
+        # there can be a slight overlap when one Connector closes to
+        # when the next is created so difference is set to 2
+        assert threading.active_count() - prior_threads <= 2
