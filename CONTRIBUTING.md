@@ -57,6 +57,8 @@ export SQLSERVER_CONNECTION_NAME="your:connection:string"
 export SQLSERVER_USER="db_user"
 export SQLSERVER_PASS="db_pass"
 export SQLSERVER_DB="db_name"
+
+export GOOGLE_APPLICATION_CREDENTIALS="location/of/application_default_credentials.json"
 ```
 
 ### Running tests 

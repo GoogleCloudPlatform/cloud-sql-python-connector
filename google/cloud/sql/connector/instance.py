@@ -181,6 +181,11 @@ class Instance:
     :param loop:
         A new event loop for the refresh function to run in.
     :type loop: asyncio.AbstractEventLoop
+
+    :param pooled_connection
+        Sets conservative values for certificate refresh, helpful when an
+        external pool manager is maintaining connection health.
+    :type pooled_connection: bool
     """
 
     # asyncio.AbstractEventLoop is used because the default loop,
@@ -229,6 +234,7 @@ class Instance:
         loop: asyncio.AbstractEventLoop,
         credentials: Optional[Credentials] = None,
         enable_iam_auth: bool = False,
+        pooled_connection: bool = False,
     ) -> None:
         # Validate connection string
         connection_string_split = instance_connection_string.split(":")
@@ -246,6 +252,7 @@ class Instance:
             )
 
         self._enable_iam_auth = enable_iam_auth
+        self._pooled_connection = pooled_connection
 
         self._user_agent_string = f"{APPLICATION_NAME}/{version}+{driver_name}"
         self._loop = loop
@@ -299,6 +306,15 @@ class Instance:
         # block all sequential connection attempts on the next refresh result
         self._current = self._next
 
+    async def _close_session(self) -> None:
+        """
+        Closes the aiohttp ClientSession to avoid async errors.
+        """
+        if self.__client_session is None:
+            return
+        await self.__client_session.close()
+        self.__client_session = None
+
     async def _perform_refresh(self) -> InstanceMetadata:
         """Retrieves instance metadata and ephemeral certificate from the
         Cloud SQL Instance.
@@ -342,6 +358,7 @@ class Instance:
             metadata, ephemeral_cert = await asyncio.gather(
                 metadata_task, ephemeral_task
             )
+            await self._close_session()
 
             x509 = OpenSSL.crypto.load_certificate(
                 OpenSSL.crypto.FILETYPE_PEM, ephemeral_cert
@@ -423,16 +440,19 @@ class Instance:
                 # don't want to replace valid metadata with invalid refresh
                 if not await _is_valid(self._current):
                     self._current = refresh_task
-                # schedule new refresh attempt immediately
-                self._next = self._schedule_refresh(0)
+                # schedule new refresh attempt
+                delay = 60 if self._pooled_connection else 0
+                self._next = self._schedule_refresh(delay)
                 raise e
             # if valid refresh, replace current with valid metadata and schedule next refresh
             self._current = refresh_task
-            # Ephemeral certificate expires in 1 hour, so we schedule a refresh to happen in 55 minutes.
-            delay = _seconds_until_refresh(
-                refresh_data.expiration, self._enable_iam_auth
-            )
-            self._next = self._schedule_refresh(delay)
+            if not self._pooled_connection:
+                # Ephemeral certificate expires in 1 hour, so we schedule a
+                # refresh to happen in 55 minutes.
+                delay = _seconds_until_refresh(
+                    refresh_data.expiration, self._enable_iam_auth
+                )
+                self._next = self._schedule_refresh(delay)
 
             return refresh_data
 

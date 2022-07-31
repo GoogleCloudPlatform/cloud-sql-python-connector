@@ -70,6 +70,11 @@ class Connector:
     :param loop
         Event loop to run asyncio tasks, if not specified, defaults to
         creating new event loop on background thread.
+
+    :type pooled_connection: bool
+    :param pooled_connection
+        Sets conservative values for certificate refresh, helpful when an
+        external pool manager is maintaining connection health.
     """
 
     def __init__(
@@ -79,6 +84,7 @@ class Connector:
         timeout: int = 30,
         credentials: Optional[Credentials] = None,
         loop: asyncio.AbstractEventLoop = None,
+        pooled_connection: bool = False,
     ) -> None:
         # if event loop is given, use for background tasks
         if loop:
@@ -101,6 +107,7 @@ class Connector:
         self._enable_iam_auth = enable_iam_auth
         self._ip_type = ip_type
         self._credentials = credentials
+        self._pooled_connection = pooled_connection
 
     def connect(
         self, instance_connection_string: str, driver: str, **kwargs: Any
@@ -195,6 +202,7 @@ class Connector:
                 self._loop,
                 self._credentials,
                 enable_iam_auth,
+                self._pooled_connection,
             )
             self._instances[instance_connection_string] = instance
 
