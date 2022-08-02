@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.8.0](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v0.7.0...v0.8.0) (2022-07-29)
+
+
+### Features
+
+* add support for asyncpg driver ([#390](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/390)) ([3170b1f](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/3170b1f568fef860772e8ca7e4f186215bd8a1b5))
+
+
+### Bug Fixes
+
+* stop event loop on Connector.close ([#410](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/410)) ([5cda924](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/5cda924157a982a2d4bf40e266da4d8f253e3d2c))
+
 ## [0.7.0](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v0.6.2...v0.7.0) (2022-07-12)
 
 
