@@ -45,7 +45,6 @@ release_status = "Development Status :: 4 - Beta"
 core_dependencies = [
     "aiohttp",
     "cryptography",
-    "pyopenssl",
     "Requests",
     "google-auth",
 ]

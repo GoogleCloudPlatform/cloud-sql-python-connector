@@ -32,8 +32,9 @@ import datetime
 from enum import Enum
 import google.auth
 from google.auth.credentials import Credentials, with_scopes_if_required
+from cryptography.x509 import load_pem_x509_certificate
+from cryptography.hazmat.backends import default_backend
 import google.auth.transport.requests
-import OpenSSL
 import ssl
 from tempfile import TemporaryDirectory
 from typing import (
@@ -343,12 +344,10 @@ class Instance:
                 metadata_task, ephemeral_task
             )
 
-            x509 = OpenSSL.crypto.load_certificate(
-                OpenSSL.crypto.FILETYPE_PEM, ephemeral_cert
+            x509 = load_pem_x509_certificate(
+                ephemeral_cert.encode("UTF-8"), default_backend()
             )
-            expiration = datetime.datetime.strptime(
-                x509.get_notAfter().decode("ascii"), "%Y%m%d%H%M%SZ"
-            )
+            expiration = x509.not_valid_after
 
             if self._enable_iam_auth:
                 if self._credentials is not None:
