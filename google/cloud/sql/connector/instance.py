@@ -55,16 +55,6 @@ class IPTypes(Enum):
     PRIVATE: str = "PRIVATE"
 
 
-class ConnectionSSLContext(ssl.SSLContext):
-    """Subclass of ssl.SSLContext with added request_ssl attribute. This is
-    required for compatibility with pg8000 driver.
-    """
-
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
-        self.request_ssl = False
-        super(ConnectionSSLContext, self).__init__(*args, **kwargs)
-
-
 class TLSVersionError(Exception):
     """
     Raised when the required TLS protocol version is not supported.
@@ -126,13 +116,24 @@ class InstanceMetadata:
     ) -> None:
         self.ip_addrs = ip_addrs
 
-        if enable_iam_auth and not ssl.HAS_TLSv1_3:  # type: ignore
-            raise TLSVersionError(
-                "Your current version of OpenSSL does not support TLSv1.3, "
-                "which is required to use IAM Authentication."
+        # verify OpenSSL version supports TLSv1.3
+        if not ssl.HAS_TLSv1_3:
+            if enable_iam_auth:
+                raise TLSVersionError(
+                    f"Your current version of OpenSSL ({ssl.OPENSSL_VERSION}) does not "
+                    "support TLSv1.3, which is required to use IAM Authentication."
+                )
+            logger.warning(
+                "TLSv1.3 is not supported with your version of OpenSSL "
+                f"({ssl.OPENSSL_VERSION}), falling back to TLSv1.2"
             )
 
-        self.context = ConnectionSSLContext()
+        self.context = ssl.SSLContext(ssl.PROTOCOL_TLS)
+        # add request_ssl attribute to ssl.SSLContext, required for pg8000 driver
+        self.context.request_ssl = False
+        # set minimum TLS version to TLSv1.2
+        self.context.minimum_version = ssl.TLSVersion.TLSv1_2
+
         self.expiration = expiration
 
         # tmpdir and its contents are automatically deleted after the CA cert
