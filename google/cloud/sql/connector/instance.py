@@ -121,11 +121,13 @@ class InstanceMetadata:
             if enable_iam_auth:
                 raise TLSVersionError(
                     f"Your current version of OpenSSL ({ssl.OPENSSL_VERSION}) does not "
-                    "support TLSv1.3, which is required to use IAM Authentication."
+                    "support TLSv1.3, which is required to use IAM Authentication.\n"
+                    "Upgrade your OpenSSL version to 1.1.1 for TLSv1.3 support."
                 )
             logger.warning(
                 "TLSv1.3 is not supported with your version of OpenSSL "
-                f"({ssl.OPENSSL_VERSION}), falling back to TLSv1.2"
+                f"({ssl.OPENSSL_VERSION}), falling back to TLSv1.2\n"
+                "Upgrade your OpenSSL version to 1.1.1 for TLSv1.3 support."
             )
 
         self.context = ssl.SSLContext(ssl.PROTOCOL_TLS)
