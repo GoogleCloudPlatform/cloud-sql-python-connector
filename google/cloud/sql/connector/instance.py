@@ -130,7 +130,7 @@ class InstanceMetadata:
 
         self.context = ssl.SSLContext(ssl.PROTOCOL_TLS)
         # add request_ssl attribute to ssl.SSLContext, required for pg8000 driver
-        self.context.request_ssl = False
+        self.context.request_ssl = False  # type: ignore
         # set minimum TLS version to TLSv1.2
         self.context.minimum_version = ssl.TLSVersion.TLSv1_2
 
