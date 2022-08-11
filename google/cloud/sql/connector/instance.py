@@ -116,8 +116,14 @@ class InstanceMetadata:
     ) -> None:
         self.ip_addrs = ip_addrs
 
+        self.context = ssl.SSLContext(ssl.PROTOCOL_TLS)
+
         # verify OpenSSL version supports TLSv1.3
-        if not ssl.HAS_TLSv1_3:
+        if ssl.HAS_TLSv1_3:
+            # set minimum TLS version to TLSv1.3 if supported by client
+            self.context.minimum_version = ssl.TLSVersion.TLSv1_3
+        # fallback to TLSv1.2 for older versions of OpenSSL
+        else:
             if enable_iam_auth:
                 raise TLSVersionError(
                     f"Your current version of OpenSSL ({ssl.OPENSSL_VERSION}) does not "
@@ -129,12 +135,11 @@ class InstanceMetadata:
                 f"({ssl.OPENSSL_VERSION}), falling back to TLSv1.2\n"
                 "Upgrade your OpenSSL version to 1.1.1 for TLSv1.3 support."
             )
+            # set minimum TLS version to TLSv1.2
+            self.context.minimum_version = ssl.TLSVersion.TLSv1_2
 
-        self.context = ssl.SSLContext(ssl.PROTOCOL_TLS)
         # add request_ssl attribute to ssl.SSLContext, required for pg8000 driver
         self.context.request_ssl = False  # type: ignore
-        # set minimum TLS version to TLSv1.2
-        self.context.minimum_version = ssl.TLSVersion.TLSv1_2
 
         self.expiration = expiration
 
