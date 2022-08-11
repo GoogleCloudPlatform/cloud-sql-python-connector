@@ -120,7 +120,7 @@ class InstanceMetadata:
 
         # verify OpenSSL version supports TLSv1.3
         if ssl.HAS_TLSv1_3:
-            # set minimum TLS version to TLSv1.3 if supported by client
+            # force TLSv1.3 if supported by client
             self.context.minimum_version = ssl.TLSVersion.TLSv1_3
         # fallback to TLSv1.2 for older versions of OpenSSL
         else:
