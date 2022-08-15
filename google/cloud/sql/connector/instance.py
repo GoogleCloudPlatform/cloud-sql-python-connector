@@ -135,7 +135,6 @@ class InstanceMetadata:
                 f"({ssl.OPENSSL_VERSION}), falling back to TLSv1.2\n"
                 "Upgrade your OpenSSL version to 1.1.1 for TLSv1.3 support."
             )
-            # set minimum TLS version to TLSv1.2
             self.context.minimum_version = ssl.TLSVersion.TLSv1_2
 
         # add request_ssl attribute to ssl.SSLContext, required for pg8000 driver
