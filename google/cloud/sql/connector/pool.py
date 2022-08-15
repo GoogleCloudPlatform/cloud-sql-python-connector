@@ -45,9 +45,6 @@ async def async_creator(
 ) -> Any:
     """
     Asynchronous creator function to create SQLAlchemy connection pool.
-
-    Args:
-
     """
     loop = asyncio.get_running_loop()
     # create connector object to be used with connection pool
