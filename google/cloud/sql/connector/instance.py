@@ -55,16 +55,6 @@ class IPTypes(Enum):
     PRIVATE: str = "PRIVATE"
 
 
-class ConnectionSSLContext(ssl.SSLContext):
-    """Subclass of ssl.SSLContext with added request_ssl attribute. This is
-    required for compatibility with pg8000 driver.
-    """
-
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
-        self.request_ssl = False
-        super(ConnectionSSLContext, self).__init__(*args, **kwargs)
-
-
 class TLSVersionError(Exception):
     """
     Raised when the required TLS protocol version is not supported.
@@ -126,13 +116,30 @@ class InstanceMetadata:
     ) -> None:
         self.ip_addrs = ip_addrs
 
-        if enable_iam_auth and not ssl.HAS_TLSv1_3:  # type: ignore
-            raise TLSVersionError(
-                "Your current version of OpenSSL does not support TLSv1.3, "
-                "which is required to use IAM Authentication."
-            )
+        self.context = ssl.SSLContext(ssl.PROTOCOL_TLS)
 
-        self.context = ConnectionSSLContext()
+        # verify OpenSSL version supports TLSv1.3
+        if ssl.HAS_TLSv1_3:
+            # force TLSv1.3 if supported by client
+            self.context.minimum_version = ssl.TLSVersion.TLSv1_3
+        # fallback to TLSv1.2 for older versions of OpenSSL
+        else:
+            if enable_iam_auth:
+                raise TLSVersionError(
+                    f"Your current version of OpenSSL ({ssl.OPENSSL_VERSION}) does not "
+                    "support TLSv1.3, which is required to use IAM Authentication.\n"
+                    "Upgrade your OpenSSL version to 1.1.1 for TLSv1.3 support."
+                )
+            logger.warning(
+                "TLSv1.3 is not supported with your version of OpenSSL "
+                f"({ssl.OPENSSL_VERSION}), falling back to TLSv1.2\n"
+                "Upgrade your OpenSSL version to 1.1.1 for TLSv1.3 support."
+            )
+            self.context.minimum_version = ssl.TLSVersion.TLSv1_2
+
+        # add request_ssl attribute to ssl.SSLContext, required for pg8000 driver
+        self.context.request_ssl = False  # type: ignore
+
         self.expiration = expiration
 
         # tmpdir and its contents are automatically deleted after the CA cert
