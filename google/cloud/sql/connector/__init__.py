@@ -15,6 +15,7 @@ limitations under the License.
 """
 from .connector import Connector, create_async_connector
 from .instance import IPTypes
+from .pool import create_async_pool, create_pool
 
 
 __ALL__ = [create_async_connector, Connector, IPTypes]
