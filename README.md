@@ -283,6 +283,98 @@ connector.connect(
 )
 ``` 
 
+### Python Connector + Python Web Frameworks 
+The Python Connector can be used alongside popular Python web frameworks such
+as Flask, Django, FastAPI, etc. to integrate Cloud SQL databases within your
+web applications.
+
+#### Flask-SQLAlchemy
+[Flask-SQLAlchemy](https://flask-sqlalchemy.palletsprojects.com/en/2.x/)
+is an extension for [Flask](https://flask.palletsprojects.com/en/2.2.x/)
+that adds support for [SQLAlchemy](https://www.sqlalchemy.org/) to your
+application. It aims to simplify using SQLAlchemy with Flask by providing
+useful defaults and extra helpers that make it easier to accomplish
+common tasks.
+
+You can configure Flask-SQLAlchemy to connect to a Cloud SQL database from
+your web application through the following:
+
+```python
+from flask import Flask
+from flask_sqlalchemy import SQLAlchemy
+from google.cloud.sql.connector import Connector, IPTypes
+
+
+# Python Connector database connection function
+def getconn():
+    with Connector() as connector:
+        conn = connector.connect(
+            "project:region:instance-name", # Cloud SQL Instance Connection Name
+            "pg8000",
+            user="my-user",
+            password="my-password",
+            db="my-database",
+            ip_type= IPTypes.PUBLIC  # IPTypes.PRIVATE for private IP
+        )
+        return conn
+
+
+app = Flask(__name__)
+
+# configure Flask-SQLAlchemy to use Python Connector
+app.config['SQLALCHEMY_DATABASE_URI'] = "postgresql+pg8000://"
+app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+    "creator": getconn
+}
+
+db = SQLAlchemy(app)
+```
+
+For more details on how to use Flask-SQLAlchemy, check out the
+[Flask-SQLAlchemy Quickstarts](https://flask-sqlalchemy.palletsprojects.com/en/2.x/quickstart/#)
+
+#### FastAPI
+[FastAPI](https://fastapi.tiangolo.com/) is a modern, fast (high-performance),
+web framework for building APIs with Python based on standard Python type hints.
+
+You can configure FastAPI to connect to a Cloud SQL database from
+your web application using [SQLAlchemy ORM](https://docs.sqlalchemy.org/en/14/orm/)
+through the following:
+
+```python
+from sqlalchemy import create_engine
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
+from google.cloud.sql.connector import Connector, IPTypes
+
+# Python Connector database connection function
+def getconn():
+    with Connector() as connector:
+        conn = connector.connect(
+            "project:region:instance-name", # Cloud SQL Instance Connection Name
+            "pg8000",
+            user="my-user",
+            password="my-password",
+            db="my-database",
+            ip_type= IPTypes.PUBLIC  # IPTypes.PRIVATE for private IP
+        )
+    return conn
+
+SQLALCHEMY_DATABASE_URL = "postgresql+pg8000://"
+
+engine = create_engine(
+    SQLALCHEMY_DATABASE_URL , creator=getconn
+)
+
+# create SQLAlchemy ORM session
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+Base = declarative_base()
+```
+
+To learn more about integrating a database into your FastAPI application,
+follow along the [FastAPI SQL Database guide](https://fastapi.tiangolo.com/tutorial/sql-databases/#create-the-database-models).
+
 ### Async Driver Usage
 The Cloud SQL Connector is compatible with
 [asyncio](https://docs.python.org/3/library/asyncio.html) to improve the speed
