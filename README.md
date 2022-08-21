@@ -285,7 +285,7 @@ connector.connect(
 
 ### Python Connector + Python Web Frameworks 
 The Python Connector can be used alongside popular Python web frameworks such
-as Flask, Django, FastAPI, etc. to integrate Cloud SQL databases within your
+as Flask, FastAPI, etc, to integrate Cloud SQL databases within your
 web applications.
 
 #### Flask-SQLAlchemy
