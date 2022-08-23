@@ -1,10 +1,8 @@
-<h1 align="center">Cloud SQL Python Connector</h1>
 <p align="center">
     <img src="docs/images/cloud-sql-python-connector.png" alt="cloud-sql-python-connector image">
 </p>
-<p align="center">
-    <em>Cloud SQL Connector for Python Drivers</em>
-</p>
+
+<h1 align="center">Cloud SQL Python Connector</h1>
 
 ---
 
