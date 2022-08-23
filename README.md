@@ -2,7 +2,7 @@
     <img src="docs/images/cloud-sql-python-connector.png" alt="cloud-sql-python-connector image">
 </p>
 
-<p align="center"><strong>Cloud SQL Python Connector</strong></p>
+<h2 align="center">Cloud SQL Python Connector</h2>
 
 ---
 
