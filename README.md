@@ -1,17 +1,17 @@
+<h1 align="center">Cloud SQL Python Connector</h1>
 <p align="center">
     <img src="docs/images/cloud-sql-python-connector.png" alt="cloud-sql-python-connector image">
 </p>
 <p align="center">
     <em>Cloud SQL Connector for Python Drivers</em>
 </p>
-<p align="center">
+
+---
+
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/GoogleCloudPlatform/cloud-sql-python-connector/blob/main/samples/notebooks/postgres_python_connector.ipynb)
 ![CI](https://storage.googleapis.com/cloud-devrel-public/cloud-sql-connectors/python/python3.10_linux.svg)
 [![pypi](https://img.shields.io/pypi/v/cloud-sql-python-connector)](https://pypi.org/project/cloud-sql-python-connector)
 [![python](https://img.shields.io/pypi/pyversions/cloud-sql-python-connector)](https://pypi.org/project/cloud-sql-python-connector)
-</p>
-
----
 
 **Warning**: This project is currently in _beta_. Please [open an issue](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/new/choose) if you would like to report a bug or documentation issue, request a feature, or have a question.
 
