@@ -1,5 +1,7 @@
 <p align="center">
-    <img src="docs/images/cloud-sql-python-connector.png" alt="cloud-sql-python-connector image">
+    <a href="https://cloud.google.com/blog/topics/developers-practitioners/how-connect-cloud-sql-using-python-easy-way">
+        <img src="docs/images/cloud-sql-python-connector.png" alt="cloud-sql-python-connector image">
+    </a>
 </p>
 
 <h1 align="center">Cloud SQL Python Connector</h1>
