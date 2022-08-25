@@ -1,4 +1,11 @@
-# Cloud SQL Connector for Python Drivers
+<p align="center">
+    <a href="https://cloud.google.com/blog/topics/developers-practitioners/how-connect-cloud-sql-using-python-easy-way">
+        <img src="docs/images/cloud-sql-python-connector.png" alt="cloud-sql-python-connector image">
+    </a>
+</p>
+
+<h1 align="center">Cloud SQL Python Connector</h1>
+
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/GoogleCloudPlatform/cloud-sql-python-connector/blob/main/samples/notebooks/postgres_python_connector.ipynb)
 ![CI](https://storage.googleapis.com/cloud-devrel-public/cloud-sql-connectors/python/python3.10_linux.svg)
 [![pypi](https://img.shields.io/pypi/v/cloud-sql-python-connector)](https://pypi.org/project/cloud-sql-python-connector)
