@@ -87,9 +87,15 @@ class InvalidMySQLDatabaseUser(Exception):
     pass
 
 
+def remove_suffix(input_string, suffix):
+    if suffix and input_string.endswith(suffix):
+        return input_string[:-len(suffix)]
+    return input_string
+
+
 def validate_database_user(database_version: str, user: str) -> None:
     if database_version.startswith("POSTGRES") and user.endswith(".gserviceaccount.com"):
-        formatted_user = user.removesuffix(".gserviceaccount.com")
+        formatted_user = remove_suffix(user, ".gserviceaccount.com")
         raise InvalidPostgresDatabaseUser(
             "Improperly formatted `user` argument.\nPostgres IAM service account "
             "database users should have their `.gserviceaccount.com` suffix "
