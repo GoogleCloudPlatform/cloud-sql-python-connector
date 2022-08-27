@@ -18,7 +18,7 @@ from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 
-from typing import Tuple
+from typing import Tuple, Any
 
 
 async def generate_keys() -> Tuple[bytes, str]:
@@ -77,3 +77,31 @@ def write_to_file(
         priv_out.write(priv_key)
 
     return (ca_filename, cert_filename, key_filename)
+
+
+class InvalidPostgresDatabaseUser(Exception):
+    pass
+
+
+class InvalidMySQLDatabaseUser(Exception):
+    pass
+
+
+def validate_database_user(database_version: str, user: str) -> None:
+    if database_version.startswith("POSTGRES") and user.endswith(".gserviceaccount.com"):
+        formatted_user = user.removesuffix(".gserviceaccount.com")
+        raise InvalidPostgresDatabaseUser(
+            "Improperly formatted `user` argument.\nPostgres IAM service account "
+            "database users should have their `.gserviceaccount.com` suffix "
+            f"removed.\nGot '{user}', try '{formatted_user}' instead."
+        )
+
+    elif database_version.startswith("MYSQL") and "@" in user:
+        formatted_user = user.split("@")[0]
+        raise InvalidMySQLDatabaseUser(
+            "Improperly formatted `user` argument. MySQL IAM database users are "
+            "truncated as follows: \n"
+            "\tIAM User: test-user@test.com -> test-user\n"
+            "\tIAM service account: account@project.iam.gserviceaccount -> account"
+            f"\nGot {user}, try {formatted_user} instead."
+        )
