@@ -109,5 +109,5 @@ def validate_database_user(database_version: str, user: str) -> None:
             "truncated as follows: \n"
             "\tIAM User: test-user@test.com -> test-user\n"
             "\tIAM service account: account@project.iam.gserviceaccount -> account"
-            f"\nGot {user}, try {formatted_user} instead."
+            f"\nGot '{user}', try '{formatted_user}' instead."
         )
