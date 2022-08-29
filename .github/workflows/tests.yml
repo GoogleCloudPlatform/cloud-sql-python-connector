@@ -17,18 +17,50 @@ on:
   pull_request:
   push:
     branches:
-      - main
+      - 
+  pull_request_target:
+    types: [labeled]
+  schedule:
+  - cron:  '0 2 * * *'
 
 jobs:
-  build:
-    name: "unit tests"
+  integration:
+    # run job on proper workflow event triggers (skip job for pull_request event from forks and only run pull_request_target for "tests: run" label)
+    if: "${{ (github.event.action != 'labeled' && github.event.pull_request.head.repo.full_name == github.event.pull_request.base.repo.full_name) || github.event.label.name == 'tests: run' }}"
+    name: integration tests
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         os: [macos-latest, windows-latest, ubuntu-latest]
         python-version: ["3.7", "3.8", "3.9", "3.10"]
       fail-fast: false
+    permissions:
+      contents: 'read'
+      id-token: 'write'
     steps:
+      - name: Remove PR label
+        if: "${{ github.event.action == 'labeled' && github.event.label.name == 'tests: run' }}"
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            try {
+              await github.rest.issues.removeLabel({
+                name: 'tests: run',
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.payload.pull_request.number
+              });
+            } catch (e) {
+              console.log('Failed to remove label. Another job may have already removed it!');
+            }
+
+      - name: Checkout code
+        uses: 'actions/checkout@v3'
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+
       - name: Setup Python ${{ matrix.python-version }}
         uses: actions/setup-python@v4
         with:
@@ -37,8 +69,91 @@ jobs:
       - name: Install nox
         run: pip install nox
 
+      - id: 'auth'
+        name: 'Authenticate to Google Cloud'
+        uses: 'google-github-actions/auth@v0.8.0'
+        with:
+          workload_identity_provider: ${{ secrets.PROVIDER_NAME }}
+          service_account: ${{ secrets.SERVICE_ACCOUNT }}
+          access_token_lifetime: 600s
+
+      - id: 'secrets'
+        name: Get secrets
+        uses: 'google-github-actions/get-secretmanager-secrets@v0.5.0'
+        with:
+          secrets: |-
+            MYSQL_CONNECTION_NAME:${{ secrets.GOOGLE_CLOUD_PROJECT }}/MYSQL_CONNECTION_NAME
+            MYSQL_USER:${{ secrets.GOOGLE_CLOUD_PROJECT }}/MYSQL_USER
+            MYSQL_PASS:${{ secrets.GOOGLE_CLOUD_PROJECT }}/MYSQL_PASS
+            MYSQL_DB:${{ secrets.GOOGLE_CLOUD_PROJECT }}/MYSQL_DB
+            POSTGRES_CONNECTION_NAME:${{ secrets.GOOGLE_CLOUD_PROJECT }}/POSTGRES_CONNECTION_NAME
+            POSTGRES_USER:${{ secrets.GOOGLE_CLOUD_PROJECT }}/POSTGRES_USER
+            POSTGRES_USER_IAM:${{ secrets.GOOGLE_CLOUD_PROJECT }}/POSTGRES_USER_IAM
+            POSTGRES_PASS:${{ secrets.GOOGLE_CLOUD_PROJECT }}/POSTGRES_PASS
+            POSTGRES_DB:${{ secrets.GOOGLE_CLOUD_PROJECT }}/POSTGRES_DB
+            SQLSERVER_CONNECTION_NAME:${{ secrets.GOOGLE_CLOUD_PROJECT }}/SQLSERVER_CONNECTION_NAME
+            SQLSERVER_USER:${{ secrets.GOOGLE_CLOUD_PROJECT }}/SQLSERVER_USER
+            SQLSERVER_PASS:${{ secrets.GOOGLE_CLOUD_PROJECT }}/SQLSERVER_PASS
+            SQLSERVER_DB:${{ secrets.GOOGLE_CLOUD_PROJECT }}/SQLSERVER_DB
+
+      - name: Run tests
+        env:
+          MYSQL_CONNECTION_NAME: '${{ steps.secrets.outputs.MYSQL_CONNECTION_NAME }}'
+          MYSQL_USER: '${{ steps.secrets.outputs.MYSQL_USER }}'
+          MYSQL_PASS: '${{ steps.secrets.outputs.MYSQL_PASS }}'
+          MYSQL_DB: '${{ steps.secrets.outputs.MYSQL_DB }}'
+          POSTGRES_CONNECTION_NAME: '${{ steps.secrets.outputs.POSTGRES_CONNECTION_NAME }}'
+          POSTGRES_USER: '${{ steps.secrets.outputs.POSTGRES_USER }}'
+          POSTGRES_USER_IAM: '${{ steps.secrets.outputs.POSTGRES_USER_IAM }}'
+          POSTGRES_PASS: '${{ steps.secrets.outputs.POSTGRES_PASS }}'
+          POSTGRES_DB: '${{ steps.secrets.outputs.POSTGRES_DB }}'
+          SQLSERVER_CONNECTION_NAME: '${{ steps.secrets.outputs.SQLSERVER_CONNECTION_NAME }}'
+          SQLSERVER_USER: '${{ steps.secrets.outputs.SQLSERVER_USER }}'
+          SQLSERVER_PASS: '${{ steps.secrets.outputs.SQLSERVER_PASS }}'
+          SQLSERVER_DB: '${{ steps.secrets.outputs.SQLSERVER_DB }}'
+        run: nox -s system-${{ matrix.python-version }}
+  
+  unit:
+    # run job on proper workflow event triggers (skip job for pull_request event from forks and only run pull_request_target for "tests: run" label)  
+    if: "${{ (github.event.action != 'labeled' && github.event.pull_request.head.repo.full_name == github.event.pull_request.base.repo.full_name) || github.event.label.name == 'tests: run' }}"
+    name: unit tests
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [macos-latest, windows-latest, ubuntu-latest]
+        python-version: ["3.7", "3.8", "3.9", "3.10"]
+      fail-fast: false
+    steps:
+      - name: Remove PR label
+        if: "${{ github.event.action == 'labeled' && github.event.label.name == 'tests: run' }}"
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            try {
+              await github.rest.issues.removeLabel({
+                name: 'tests: run',
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.payload.pull_request.number
+              });
+            } catch (e) {
+              console.log('Failed to remove label. Another job may have already removed it!');
+            }
+
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: 'actions/checkout@v3'
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+
+      - name: Setup Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install nox
+        run: pip install nox
 
       - name: Run tests
         run: nox -s unit-${{ matrix.python-version }}
