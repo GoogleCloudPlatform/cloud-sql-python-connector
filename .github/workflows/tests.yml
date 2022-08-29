@@ -89,7 +89,7 @@ jobs:
             POSTGRES_CONNECTION_NAME:${{ secrets.GOOGLE_CLOUD_PROJECT }}/POSTGRES_CONNECTION_NAME
             POSTGRES_IAM_CONNECTION_NAME:${{ secrets.GOOGLE_CLOUD_PROJECT }}/POSTGRES_IAM_CONNECTION_NAME
             POSTGRES_USER:${{ secrets.GOOGLE_CLOUD_PROJECT }}/POSTGRES_USER
-            POSTGRES_USER_IAM:${{ secrets.GOOGLE_CLOUD_PROJECT }}/POSTGRES_USER_IAM_PYTHON
+            POSTGRES_IAM_USER:${{ secrets.GOOGLE_CLOUD_PROJECT }}/POSTGRES_USER_IAM_PYTHON
             POSTGRES_PASS:${{ secrets.GOOGLE_CLOUD_PROJECT }}/POSTGRES_PASS
             POSTGRES_DB:${{ secrets.GOOGLE_CLOUD_PROJECT }}/POSTGRES_DB
             SQLSERVER_CONNECTION_NAME:${{ secrets.GOOGLE_CLOUD_PROJECT }}/SQLSERVER_CONNECTION_NAME
@@ -106,7 +106,7 @@ jobs:
           POSTGRES_CONNECTION_NAME: '${{ steps.secrets.outputs.POSTGRES_CONNECTION_NAME }}'
           POSTGRES_IAM_CONNECTION_NAME: '${{ steps.secrets.outputs.POSTGRES_IAM_CONNECTION_NAME }}'
           POSTGRES_USER: '${{ steps.secrets.outputs.POSTGRES_USER }}'
-          POSTGRES_USER_IAM: '${{ steps.secrets.outputs.POSTGRES_USER_IAM }}'
+          POSTGRES_IAM_USER: '${{ steps.secrets.outputs.POSTGRES_IAM_USER }}'
           POSTGRES_PASS: '${{ steps.secrets.outputs.POSTGRES_PASS }}'
           POSTGRES_DB: '${{ steps.secrets.outputs.POSTGRES_DB }}'
           SQLSERVER_CONNECTION_NAME: '${{ steps.secrets.outputs.SQLSERVER_CONNECTION_NAME }}'
