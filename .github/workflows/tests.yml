@@ -104,6 +104,7 @@ jobs:
           MYSQL_PASS: '${{ steps.secrets.outputs.MYSQL_PASS }}'
           MYSQL_DB: '${{ steps.secrets.outputs.MYSQL_DB }}'
           POSTGRES_CONNECTION_NAME: '${{ steps.secrets.outputs.POSTGRES_CONNECTION_NAME }}'
+          POSTGRES_IAM_CONNECTION_NAME: '${{ steps.secrets.outputs.POSTGRES_IAM_CONNECTION_NAME }}'
           POSTGRES_USER: '${{ steps.secrets.outputs.POSTGRES_USER }}'
           POSTGRES_USER_IAM: '${{ steps.secrets.outputs.POSTGRES_USER_IAM }}'
           POSTGRES_PASS: '${{ steps.secrets.outputs.POSTGRES_PASS }}'
