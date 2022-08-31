@@ -7,7 +7,7 @@
 <h1 align="center">Cloud SQL Python Connector</h1>
 
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/GoogleCloudPlatform/cloud-sql-python-connector/blob/main/samples/notebooks/postgres_python_connector.ipynb)
-[![CI](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/actions/workflows/tests.yaml/badge.svg?event=push)(https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/actions/workflows/tests.yml?query=event%3Apush+branch%3Amain)]
+[![CI](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/actions/workflows/tests.yaml/badge.svg?event=push)](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/actions/workflows/tests.yml?query=event%3Apush+branch%3Amain)
 [![pypi](https://img.shields.io/pypi/v/cloud-sql-python-connector)](https://pypi.org/project/cloud-sql-python-connector)
 [![python](https://img.shields.io/pypi/pyversions/cloud-sql-python-connector)](https://pypi.org/project/cloud-sql-python-connector)
 
