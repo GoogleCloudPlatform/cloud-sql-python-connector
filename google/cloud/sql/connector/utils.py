@@ -87,27 +87,40 @@ class InvalidMySQLDatabaseUser(Exception):
     pass
 
 
-def remove_suffix(input_string, suffix):
+def remove_suffix(input_string: str, suffix: str):
+    """Remove suffix from input string if exists, else return string as is."""
     if suffix and input_string.endswith(suffix):
-        return input_string[:-len(suffix)]
+        return input_string[: -len(suffix)]
     return input_string
 
 
 def validate_database_user(database_version: str, user: str) -> None:
-    if database_version.startswith("POSTGRES") and user.endswith(".gserviceaccount.com"):
+    """
+    Validate if `user` param is properly formatted username for given database.
+
+    :type database_version: str
+    :param database_version
+        Cloud SQL database version. (i.e. POSTGRES_14, MYSQL8_0, etc.)
+
+    :type user: str
+    :param user
+        Database username to connect to Cloud SQL database with.
+    """
+    if database_version.startswith("POSTGRES") and user.endswith(
+        ".gserviceaccount.com"
+    ):
         formatted_user = remove_suffix(user, ".gserviceaccount.com")
         raise InvalidPostgresDatabaseUser(
-            "Improperly formatted `user` argument.\nPostgres IAM service account "
-            "database users should have their `.gserviceaccount.com` suffix "
-            f"removed.\nGot '{user}', try '{formatted_user}' instead."
+            "Improperly formatted `user` argument. Postgres IAM service account "
+            "database users should have their '.gserviceaccount.com' suffix "
+            f"removed. Got '{user}', try '{formatted_user}' instead."
         )
 
     elif database_version.startswith("MYSQL") and "@" in user:
         formatted_user = user.split("@")[0]
         raise InvalidMySQLDatabaseUser(
-            "Improperly formatted `user` argument.",
-            "MySQL IAM database users are truncated as follows: \n"
-            "\tIAM User: test-user@test.com -> test-user\n"
-            "\tIAM service account: account@project.iam.gserviceaccount -> account"
-            f"\nGot '{user}', try '{formatted_user}' instead."
+            "Improperly formatted `user` argument. MySQL IAM database users are "
+            "truncated as follows: (IAM user: test-user@test.com -> test-user, "
+            "IAM service account: account@project.iam.gserviceaccount -> account)."
+            f" Got '{user}', try '{formatted_user}' instead."
         )
