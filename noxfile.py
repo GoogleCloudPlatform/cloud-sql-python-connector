@@ -53,7 +53,7 @@ def default(session, path):
         "--cov-config=.coveragerc",
         "--cov-report=",
         "--cov-fail-under=0",
-        "--junitxml=results.xml",
+        "--junitxml=sponge_log.xml",
         path,
         *session.posargs,
     )
