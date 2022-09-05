@@ -50,6 +50,7 @@ def test_public_ip() -> None:
         pool = init_connection_engine(connector, IPTypes.PUBLIC)
         with pool.connect() as conn:
             conn.execute("SELECT 1")
+        raise Exception
 
 
 @pytest.mark.private_ip
