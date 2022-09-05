@@ -146,6 +146,9 @@ jobs:
         os: [macos-latest, windows-latest, ubuntu-latest]
         python-version: ["3.7", "3.8", "3.9", "3.10"]
       fail-fast: false
+    permissions:
+      contents: 'read'
+      id-token: 'write'
     steps:
       - name: Remove PR label
         if: "${{ github.event.action == 'labeled' && github.event.label.name == 'tests: run' }}"
