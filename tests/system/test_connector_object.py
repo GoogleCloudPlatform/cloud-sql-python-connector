@@ -15,6 +15,7 @@ limitations under the License.
 """
 import asyncio
 import os
+import pytest
 import pymysql
 import sqlalchemy
 import logging
@@ -23,6 +24,11 @@ from google.cloud.sql.connector import Connector
 import datetime
 import concurrent.futures
 from threading import Thread
+
+from google.cloud.sql.connector.utils import (
+    InvalidPostgresDatabaseUser,
+    InvalidMySQLDatabaseUser,
+)
 
 
 def init_connection_engine(
@@ -141,3 +147,35 @@ def test_connector_with_custom_loop() -> None:
         assert result[0] == 1
         # assert that Connector does not start its own thread
         assert connector._thread is None
+
+
+def test_connector_postgres_user_validation_error() -> None:
+    """
+    Test that connecting with improperly formatted Postgres
+    service account database user raises exception.
+    """
+    with pytest.raises(InvalidPostgresDatabaseUser):
+        with Connector() as connector:
+            connector.connect(
+                os.environ["POSTGRES_CONNECTION_NAME"],
+                "pg8000",
+                user="service-account@test.iam.gserviceaccount.com",
+                db="test-db",
+                enable_iam_auth=True,
+            )
+
+
+def test_connector_mysql_user_validation_error() -> None:
+    """
+    Test that connecting with improperly formatted MySQL
+    service account database user raises exception.
+    """
+    with pytest.raises(InvalidMySQLDatabaseUser):
+        with Connector() as connector:
+            connector.connect(
+                os.environ["MYSQL_CONNECTION_NAME"],
+                "pymysql",
+                user="service-account@test.iam.gserviceaccount.com",
+                db="test-db",
+                enable_iam_auth=True,
+            )
