@@ -88,10 +88,6 @@ This library uses the [Application Default Credentials (ADC)][adc] strategy for
 resolving credentials. Please see the [google.auth][google-auth] package 
 documentation for more information on how these credentials are sourced.
 
-If you are using the Python Connector with Cloud Run, App Engine, Cloud Functions,
-or Compute Engine, the application default credentials will **automatically default**
-**to the service account used to run each service**.
-
 To activate credentials locally the recommended approach is to ensure the Google
 Cloud SDK is installed on your machine. For manual installation see
 [Installing Cloud SDK][cloud-sdk]. 
@@ -101,22 +97,12 @@ Once installed, use the following `gcloud` command:
 gcloud auth application-default login
 ```
 
-To activate service account credentials locally, use one of the below methods:
-
-1. [Service Account Impersonation][sa-impersonation]
-```sh
-gcloud auth application-default login --impersonate-service-account=<YOUR_SERVICE_ACCOUNT_EMAIL>
-```
-2. [Service Account Keys][sa-keys]
-
 To explicitly set a specific source for the credentials, see
 [Configuring the Connector](#configuring-the-connector) below.
 
 [adc]: https://cloud.google.com/docs/authentication#adc
 [google-auth]: https://google-auth.readthedocs.io/en/master/reference/google.auth.html
 [cloud-sdk]: https://cloud.google.com/sdk/docs/install
-[sa-impersonation]: https://cloud.google.com/iam/docs/impersonating-service-accounts
-[sa-keys]: https://cloud.google.com/docs/authentication/provide-credentials-adc#local-key
 
 ### How to use this Connector
 
