@@ -96,43 +96,15 @@ To activate credentials locally the recommended approach is to ensure the Google
 Cloud SDK is installed on your machine. For manual installation see
 [Installing Cloud SDK][cloud-sdk]. 
 
-Once installed, use one of the following `gcloud` commands:
-
-#### Activate IAM User
+Once installed, use the following `gcloud` command:
 ```sh
 gcloud auth application-default login
 ```
 
-#### Activate IAM Service Account
-There are two methods to activate a service account locally.
+To activate service account credentials locally, use one of the below methods:
 
-##### 1. Activate a service account through [Service Account Impersonation][sa-impersonation].
-
-Replace `<SERVICE_ACCOUNT_EMAIL>` with your service account email.
-
-```sh
-gcloud auth application-default login --impersonate-service-account=<SERVICE_ACCOUNT_EMAIL>
-```
-
-For details on the `--impersonate-service-account` flag and potential additional
-required permissions see the [documentation][sa-impersonation-flag].
-
-##### 2. Set `GOOGLE_APPLICATION_CREDENTIALS` environment variable
-[Download a JSON service account key file](https://cloud.google.com/docs/authentication/provide-credentials-adc#local-key).
-
-Set the `GOOGLE_APPLICATION_CREDENTIALS` environment variable to the location
-of the JSON key file through one of the following methods.
-
-a) In your Python application code have the following:
-```python
-import os
-os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "path/to/keys.json"
-```
-
-b) export in terminal
-```sh
-export GOOGLE_APPLICATION_CREDENTIALS="path/to/keys.json"
-```
+1. [Service Account Impersonation][sa-impersonation]
+2. [Service Account Keys][sa-keys]
 
 To explicitly set a specific source for the credentials, see
 [Configuring the Connector](#configuring-the-connector) below.
@@ -141,7 +113,7 @@ To explicitly set a specific source for the credentials, see
 [google-auth]: https://google-auth.readthedocs.io/en/master/reference/google.auth.html
 [cloud-sdk]: https://cloud.google.com/sdk/docs/install
 [sa-impersonation]: https://cloud.google.com/iam/docs/impersonating-service-accounts
-[sa-impersonation-flag]: https://cloud.google.com/sdk/gcloud/reference#--impersonate-service-account
+[sa-keys]: https://cloud.google.com/docs/authentication/provide-credentials-adc#local-key
 
 ### How to use this Connector
 
