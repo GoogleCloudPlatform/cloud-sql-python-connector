@@ -247,7 +247,7 @@ class Connector:
         except Exception as e:
             # with any other exception, we attempt a force refresh, then throw the error
             instance.force_refresh()
-            raise
+            raise (e)
 
     def __enter__(self) -> Any:
         """Enter context manager by returning Connector object"""

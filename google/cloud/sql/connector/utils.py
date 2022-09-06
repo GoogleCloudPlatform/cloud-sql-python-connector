@@ -18,7 +18,7 @@ from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 
-from typing import Tuple, Any
+from typing import Tuple
 
 
 async def generate_keys() -> Tuple[bytes, str]:
@@ -87,7 +87,7 @@ class InvalidMySQLDatabaseUser(Exception):
     pass
 
 
-def remove_suffix(input_string: str, suffix: str):
+def remove_suffix(input_string: str, suffix: str) -> str:
     """Remove suffix from input string if exists, else return string as is."""
     if suffix and input_string.endswith(suffix):
         return input_string[: -len(suffix)]
