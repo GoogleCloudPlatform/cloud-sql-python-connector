@@ -104,6 +104,9 @@ gcloud auth application-default login
 To activate service account credentials locally, use one of the below methods:
 
 1. [Service Account Impersonation][sa-impersonation]
+```sh
+gcloud auth application-default login --impersonate-service-account=<YOUR_SERVICE_ACCOUNT_EMAIL>
+```
 2. [Service Account Keys][sa-keys]
 
 To explicitly set a specific source for the credentials, see
