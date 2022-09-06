@@ -88,21 +88,60 @@ This library uses the [Application Default Credentials (ADC)][adc] strategy for
 resolving credentials. Please see the [google.auth][google-auth] package 
 documentation for more information on how these credentials are sourced.
 
+If you are using the Python Connector with Cloud Run, App Engine, Cloud Functions,
+or Compute Engine, the application default credentials will **automatically default**
+**to the service account used to run each service**.
+
 To activate credentials locally the recommended approach is to ensure the Google
 Cloud SDK is installed on your machine. For manual installation see
 [Installing Cloud SDK][cloud-sdk]. 
 
-Once installed, use the following `gcloud` command:
-```
+Once installed, use one of the following `gcloud` commands:
+
+#### Activate IAM User
+```sh
 gcloud auth application-default login
+```
+
+#### Activate IAM Service Account
+There are two methods to activate a service account locally.
+
+1. Activate a service account through [Service Account Impersonation][sa-impersonation].
+
+Replace `<SERVICE_ACCOUNT_EMAIL>` with your service account email.
+
+```sh
+gcloud auth application-default login --impersonate-service-account=<SERVICE_ACCOUNT_EMAIL>
+```
+
+For details on the `--impersonate-service-account` flag and potential additional
+required permissions see the [documentation][sa-impersonation-flag].
+
+2. Set `GOOGLE_APPLICATION_CREDENTIALS` environment variable
+[Download a JSON service account key file](https://cloud.google.com/docs/authentication/provide-credentials-adc#local-key).
+
+Set the `GOOGLE_APPLICATION_CREDENTIALS` environment variable to the location
+of the JSON key file through one of the following methods.
+
+a) In your Python application code have the following:
+```python
+import os
+os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "path/to/keys.json"
+```
+
+b) export in terminal
+```sh
+export GOOGLE_APPLICATION_CREDENTIALS="path/to/keys.json"
 ```
 
 To explicitly set a specific source for the credentials to use, see
 [Configuring the Connector](#configuring-the-connector) below.
 
-[adc]: https://cloud.google.com/docs/authentication
+[adc]: https://cloud.google.com/docs/authentication#adc
 [google-auth]: https://google-auth.readthedocs.io/en/master/reference/google.auth.html
 [cloud-sdk]: https://cloud.google.com/sdk/docs/install
+[sa-impersonation]: https://cloud.google.com/iam/docs/impersonating-service-accounts
+[sa-impersonation-flag]: https://cloud.google.com/sdk/gcloud/reference#--impersonate-service-account
 
 ### How to use this Connector
 
