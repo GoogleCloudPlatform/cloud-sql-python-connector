@@ -134,7 +134,7 @@ b) export in terminal
 export GOOGLE_APPLICATION_CREDENTIALS="path/to/keys.json"
 ```
 
-To explicitly set a specific source for the credentials to use, see
+To explicitly set a specific source for the credentials, see
 [Configuring the Connector](#configuring-the-connector) below.
 
 [adc]: https://cloud.google.com/docs/authentication#adc
