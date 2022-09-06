@@ -106,7 +106,7 @@ gcloud auth application-default login
 #### Activate IAM Service Account
 There are two methods to activate a service account locally.
 
-1. Activate a service account through [Service Account Impersonation][sa-impersonation].
+##### 1. Activate a service account through [Service Account Impersonation][sa-impersonation].
 
 Replace `<SERVICE_ACCOUNT_EMAIL>` with your service account email.
 
@@ -117,7 +117,7 @@ gcloud auth application-default login --impersonate-service-account=<SERVICE_ACC
 For details on the `--impersonate-service-account` flag and potential additional
 required permissions see the [documentation][sa-impersonation-flag].
 
-2. Set `GOOGLE_APPLICATION_CREDENTIALS` environment variable
+##### 2. Set `GOOGLE_APPLICATION_CREDENTIALS` environment variable
 [Download a JSON service account key file](https://cloud.google.com/docs/authentication/provide-credentials-adc#local-key).
 
 Set the `GOOGLE_APPLICATION_CREDENTIALS` environment variable to the location
