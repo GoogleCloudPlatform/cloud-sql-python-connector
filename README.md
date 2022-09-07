@@ -85,24 +85,16 @@ the IAM principal.
 ### Credentials
 
 This library uses the [Application Default Credentials (ADC)][adc] strategy for
-resolving credentials. Please see the [google.auth][google-auth] package 
-documentation for more information on how these credentials are sourced.
+resolving credentials. Please see [these instructions for how to set your ADC][set-adc]
+(Google Cloud Application vs Local Development, IAM user vs service account credentials),
+or consult the [google.auth][google-auth] package.
 
-To activate credentials locally the recommended approach is to ensure the Google
-Cloud SDK is installed on your machine. For manual installation see
-[Installing Cloud SDK][cloud-sdk]. 
-
-Once installed, use the following `gcloud` command:
-```
-gcloud auth application-default login
-```
-
-To explicitly set a specific source for the credentials to use, see
+To explicitly set a specific source for the credentials, see
 [Configuring the Connector](#configuring-the-connector) below.
 
-[adc]: https://cloud.google.com/docs/authentication
+[adc]: https://cloud.google.com/docs/authentication#adc
+[set-adc]: https://cloud.google.com/docs/authentication/provide-credentials-adc
 [google-auth]: https://google-auth.readthedocs.io/en/master/reference/google.auth.html
-[cloud-sdk]: https://cloud.google.com/sdk/docs/install
 
 ### How to use this Connector
 
