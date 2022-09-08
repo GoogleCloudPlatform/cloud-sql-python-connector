@@ -1,6 +1,13 @@
-# Cloud SQL Connector for Python Drivers
+<p align="center">
+    <a href="https://cloud.google.com/blog/topics/developers-practitioners/how-connect-cloud-sql-using-python-easy-way">
+        <img src="docs/images/cloud-sql-python-connector.png" alt="cloud-sql-python-connector image">
+    </a>
+</p>
+
+<h1 align="center">Cloud SQL Python Connector</h1>
+
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/GoogleCloudPlatform/cloud-sql-python-connector/blob/main/samples/notebooks/postgres_python_connector.ipynb)
-![CI](https://storage.googleapis.com/cloud-devrel-public/cloud-sql-connectors/python/python3.10_linux.svg)
+[![CI](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/actions/workflows/tests.yml/badge.svg?event=push)](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/actions/workflows/tests.yml?query=event%3Apush+branch%3Amain)
 [![pypi](https://img.shields.io/pypi/v/cloud-sql-python-connector)](https://pypi.org/project/cloud-sql-python-connector)
 [![python](https://img.shields.io/pypi/pyversions/cloud-sql-python-connector)](https://pypi.org/project/cloud-sql-python-connector)
 
@@ -78,24 +85,16 @@ the IAM principal.
 ### Credentials
 
 This library uses the [Application Default Credentials (ADC)][adc] strategy for
-resolving credentials. Please see the [google.auth][google-auth] package 
-documentation for more information on how these credentials are sourced.
+resolving credentials. Please see [these instructions for how to set your ADC][set-adc]
+(Google Cloud Application vs Local Development, IAM user vs service account credentials),
+or consult the [google.auth][google-auth] package.
 
-To activate credentials locally the recommended approach is to ensure the Google
-Cloud SDK is installed on your machine. For manual installation see
-[Installing Cloud SDK][cloud-sdk]. 
-
-Once installed, use the following `gcloud` command:
-```
-gcloud auth application-default login
-```
-
-To explicitly set a specific source for the credentials to use, see
+To explicitly set a specific source for the credentials, see
 [Configuring the Connector](#configuring-the-connector) below.
 
-[adc]: https://cloud.google.com/docs/authentication
+[adc]: https://cloud.google.com/docs/authentication#adc
+[set-adc]: https://cloud.google.com/docs/authentication/provide-credentials-adc
 [google-auth]: https://google-auth.readthedocs.io/en/master/reference/google.auth.html
-[cloud-sdk]: https://cloud.google.com/sdk/docs/install
 
 ### How to use this Connector
 
@@ -282,6 +281,98 @@ connector.connect(
     ip_type=IPTypes.PRIVATE
 )
 ``` 
+
+### Using the Python Connector with Python Web Frameworks
+The Python Connector can be used alongside popular Python web frameworks such
+as Flask, FastAPI, etc, to integrate Cloud SQL databases within your
+web applications.
+
+#### Flask-SQLAlchemy
+[Flask-SQLAlchemy](https://flask-sqlalchemy.palletsprojects.com/en/2.x/)
+is an extension for [Flask](https://flask.palletsprojects.com/en/2.2.x/)
+that adds support for [SQLAlchemy](https://www.sqlalchemy.org/) to your
+application. It aims to simplify using SQLAlchemy with Flask by providing
+useful defaults and extra helpers that make it easier to accomplish
+common tasks.
+
+You can configure Flask-SQLAlchemy to connect to a Cloud SQL database from
+your web application through the following:
+
+```python
+from flask import Flask
+from flask_sqlalchemy import SQLAlchemy
+from google.cloud.sql.connector import Connector, IPTypes
+
+
+# Python Connector database connection function
+def getconn():
+    with Connector() as connector:
+        conn = connector.connect(
+            "project:region:instance-name", # Cloud SQL Instance Connection Name
+            "pg8000",
+            user="my-user",
+            password="my-password",
+            db="my-database",
+            ip_type= IPTypes.PUBLIC  # IPTypes.PRIVATE for private IP
+        )
+        return conn
+
+
+app = Flask(__name__)
+
+# configure Flask-SQLAlchemy to use Python Connector
+app.config['SQLALCHEMY_DATABASE_URI'] = "postgresql+pg8000://"
+app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+    "creator": getconn
+}
+
+db = SQLAlchemy(app)
+```
+
+For more details on how to use Flask-SQLAlchemy, check out the
+[Flask-SQLAlchemy Quickstarts](https://flask-sqlalchemy.palletsprojects.com/en/2.x/quickstart/#)
+
+#### FastAPI
+[FastAPI](https://fastapi.tiangolo.com/) is a modern, fast (high-performance),
+web framework for building APIs with Python based on standard Python type hints.
+
+You can configure FastAPI to connect to a Cloud SQL database from
+your web application using [SQLAlchemy ORM](https://docs.sqlalchemy.org/en/14/orm/)
+through the following:
+
+```python
+from sqlalchemy import create_engine
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
+from google.cloud.sql.connector import Connector, IPTypes
+
+# Python Connector database connection function
+def getconn():
+    with Connector() as connector:
+        conn = connector.connect(
+            "project:region:instance-name", # Cloud SQL Instance Connection Name
+            "pg8000",
+            user="my-user",
+            password="my-password",
+            db="my-database",
+            ip_type= IPTypes.PUBLIC  # IPTypes.PRIVATE for private IP
+        )
+    return conn
+
+SQLALCHEMY_DATABASE_URL = "postgresql+pg8000://"
+
+engine = create_engine(
+    SQLALCHEMY_DATABASE_URL , creator=getconn
+)
+
+# create SQLAlchemy ORM session
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+Base = declarative_base()
+```
+
+To learn more about integrating a database into your FastAPI application,
+follow along the [FastAPI SQL Database guide](https://fastapi.tiangolo.com/tutorial/sql-databases/#create-the-database-models).
 
 ### Async Driver Usage
 The Cloud SQL Connector is compatible with
