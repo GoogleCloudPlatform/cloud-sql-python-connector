@@ -59,7 +59,7 @@ def default(session, path):
     )
 
 
-@nox.session(python=["3.7", "3.8", "3.9", "3.10"])
+@nox.session(python=["3.7", "3.8", "3.9", "3.10", "pypy3.9"])
 def unit(session):
     default(session, os.path.join("tests", "unit"))
 
