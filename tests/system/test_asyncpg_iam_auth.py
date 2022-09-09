@@ -15,9 +15,10 @@ limitations under the License.
 """
 import os
 import uuid
-from typing import AsyncGenerator
+from typing import AsyncGenerator, TYPE_CHECKING
 
-import asyncpg
+if TYPE_CHECKING:
+    import asyncpg
 import pytest
 from google.cloud.sql.connector import create_async_connector
 
@@ -48,7 +49,7 @@ async def setup() -> AsyncGenerator:
     # cleanup Connector object
     await connector.close_async()
 
-
+@pytest.mark.skip(reason="skipping asyncpg tests to test pypy")
 @pytest.mark.asyncio
 async def test_connection_with_asyncpg_iam_auth(conn: asyncpg.Connection) -> None:
     await conn.execute(
