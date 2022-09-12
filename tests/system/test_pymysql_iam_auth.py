@@ -24,6 +24,7 @@ from google.cloud.sql.connector import Connector
 
 table_name = f"books_{uuid.uuid4().hex}"
 
+
 # [START cloud_sql_connector_mysql_pymysql_iam_auth]
 # The Cloud SQL Python Connector can be used along with SQLAlchemy using the
 # 'creator' argument to 'create_engine'
