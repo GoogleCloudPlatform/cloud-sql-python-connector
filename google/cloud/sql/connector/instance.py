@@ -183,7 +183,8 @@ class Instance:
         If not specified, Application Default Credentials are used.
 
     :param enable_iam_auth
-        Enables IAM based authentication for Postgres instances.
+        Enables automatic IAM database authentication for Postgres or MySQL
+        instances.
     :type enable_iam_auth: bool
 
     :param loop:
