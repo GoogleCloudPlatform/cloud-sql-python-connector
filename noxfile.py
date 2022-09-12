@@ -41,6 +41,7 @@ def lint(session):
 
 
 def default(session, path):
+    print("Python Version: ", session.python)
     # Install all test dependencies, then install this package in-place.
     session.install("-r", "requirements-test.txt")
     session.install("-e", ".")
