@@ -60,15 +60,15 @@ def pytest_configure(config: Any) -> None:
 
 def pytest_collection_modifyitems(config: Any, items: Any) -> None:
     # early exit, run all tests
-    if config.getoption("--run_private_ip") and config.getoption("--pypy") == False:
+    if config.getoption("--run_private_ip") and config.getoption("--pypy") is False:
         return
     skip_private_ip = pytest.mark.skip(reason="need --run_private_ip option to run")
     skip_pypy = pytest.mark.skip(reason="test is not supported for pypy")
-    if config.getoption("--run_private_ip") == False:
+    if config.getoption("--run_private_ip") is False:
         for item in items:
             if "private_ip" in item.keywords:
                 item.add_marker(skip_private_ip)
-    if config.getoption("--pypy") == True:
+    if config.getoption("--pypy"):
         for item in items:
             if "skip_pypy" in item.keywords:
                 item.add_marker(skip_pypy)
