@@ -41,7 +41,19 @@ def lint(session):
 
 
 def default(session, path):
-    print("Python Version: ", session.python)
+    # if pypy environment, skip unsupported tests and deps
+    if session.python == "pypy3.9":
+        # add pytest arg --pypy to skip tests
+        session.posargs.append("--pypy")
+        # remove asyncpg from requirements-test.txt
+        with open("requirements-test.txt", "r") as f:
+            lines = f.readlines()
+        with open("requirements-test.txt", "w") as f:
+            for line in lines:
+                if line.startswith("asyncpg"):
+                    pass
+                else:
+                    f.write(line)
     # Install all test dependencies, then install this package in-place.
     session.install("-r", "requirements-test.txt")
     session.install("-e", ".")
@@ -70,7 +82,7 @@ def system(session):
     default(session, os.path.join("tests", "system"))
 
 
-@nox.session(python=["3.7", "3.8", "3.9", "3.10"])
+@nox.session(python=["3.7", "3.8", "3.9", "3.10", "pypy3.9"])
 def test(session):
     default(session, os.path.join("tests", "unit"))
     default(session, os.path.join("tests", "system"))

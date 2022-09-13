@@ -20,7 +20,8 @@ from mock import patch, AsyncMock
 
 from google.cloud.sql.connector.asyncpg import connect
 
-@pytest.mark.skip(reason="skipping asyncpg tests to test pypy")
+
+@pytest.mark.skip_pypy
 @pytest.mark.asyncio
 @patch("asyncpg.connect", new_callable=AsyncMock)
 async def test_asyncpg(mock_connect: AsyncMock, kwargs: Any) -> None:

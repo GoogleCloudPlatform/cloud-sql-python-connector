@@ -49,9 +49,10 @@ async def setup() -> AsyncGenerator:
     # cleanup Connector object
     await connector.close_async()
 
-@pytest.mark.skip(reason="skipping asyncpg tests to test pypy")
+
+@pytest.mark.skip_pypy
 @pytest.mark.asyncio
-async def test_connection_with_asyncpg_iam_auth(conn) -> None:
+async def test_connection_with_asyncpg_iam_auth(conn: "asyncpg.Connection") -> None:
     await conn.execute(
         f"INSERT INTO {table_name} (id, title) VALUES ('book1', 'Book One')"
     )

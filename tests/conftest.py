@@ -43,21 +43,35 @@ def pytest_addoption(parser: Any) -> None:
         default=False,
         help="run tests that need to be running in VPC network",
     )
+    parser.addoption(
+        "--pypy",
+        action="store_true",
+        default=False,
+        help="run only tests that are supported by pypy",
+    )
 
 
 def pytest_configure(config: Any) -> None:
     config.addinivalue_line(
         "markers", "private_ip: mark test as requiring private IP access"
     )
+    config.addinivalue_line("markers", "skip_pypy: mark test as not supported by pypy")
 
 
 def pytest_collection_modifyitems(config: Any, items: Any) -> None:
-    if config.getoption("--run_private_ip"):
+    # early exit, run all tests
+    if config.getoption("--run_private_ip") and config.getoption("--pypy") == False:
         return
     skip_private_ip = pytest.mark.skip(reason="need --run_private_ip option to run")
-    for item in items:
-        if "private_ip" in item.keywords:
-            item.add_marker(skip_private_ip)
+    skip_pypy = pytest.mark.skip(reason="test is not supported for pypy")
+    if config.getoption("--run_private_ip") == False:
+        for item in items:
+            if "private_ip" in item.keywords:
+                item.add_marker(skip_private_ip)
+    if config.getoption("--pypy") == True:
+        for item in items:
+            if "skip_pypy" in item.keywords:
+                item.add_marker(skip_pypy)
 
 
 @pytest.fixture
