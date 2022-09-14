@@ -195,6 +195,12 @@ class Instance:
         The Project ID for an existing Google Cloud project. The project specified
         is used for quota and billing purposes. If not specified, defaults to
         project sourced from environment.
+
+    :type sqladmin_api_endpoint: str
+    :param sqladmin_api_endpoint:
+        Base URL to use when calling the Cloud SQL Admin API endpoint.
+        Defaults to "https://sqladmin.googleapis.com", this argument should
+        only be used in development.
     """
 
     # asyncio.AbstractEventLoop is used because the default loop,
@@ -227,6 +233,7 @@ class Instance:
 
     _instance_connection_string: str
     _user_agent_string: str
+    _sqladmin_api_endpoint: str
     _instance: str
     _project: str
     _region: str
@@ -245,6 +252,7 @@ class Instance:
         credentials: Optional[Credentials] = None,
         enable_iam_auth: bool = False,
         quota_project: str = None,
+        sqladmin_api_endpoint: str = "https://sqladmin.googleapis.com",
     ) -> None:
         # Validate connection string
         connection_string_split = instance_connection_string.split(":")
@@ -265,6 +273,7 @@ class Instance:
 
         self._user_agent_string = f"{APPLICATION_NAME}/{version}+{driver_name}"
         self._quota_project = quota_project
+        self._sqladmin_api_endpoint = sqladmin_api_endpoint
         self._loop = loop
         self._keys = keys
         # validate credentials type
@@ -339,6 +348,7 @@ class Instance:
             metadata_task = self._loop.create_task(
                 _get_metadata(
                     self._client_session,
+                    self._sqladmin_api_endpoint,
                     self._credentials,
                     self._project,
                     self._instance,
@@ -348,6 +358,7 @@ class Instance:
             ephemeral_task = self._loop.create_task(
                 _get_ephemeral(
                     self._client_session,
+                    self._sqladmin_api_endpoint,
                     self._credentials,
                     self._project,
                     self._instance,
