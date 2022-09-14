@@ -189,6 +189,12 @@ class Instance:
     :param loop:
         A new event loop for the refresh function to run in.
     :type loop: asyncio.AbstractEventLoop
+
+    :type quota_project: str
+    :param quota_project
+        The Project ID for an existing Google Cloud project. The project specified
+        is used for quota and billing purposes. If not specified, defaults to
+        project sourced from environment.
     """
 
     # asyncio.AbstractEventLoop is used because the default loop,
@@ -206,13 +212,14 @@ class Instance:
     @property
     def _client_session(self) -> aiohttp.ClientSession:
         if self.__client_session is None:
-            self.__client_session = aiohttp.ClientSession(
-                headers={
-                    "x-goog-api-client": self._user_agent_string,
-                    "User-Agent": self._user_agent_string,
-                    "Content-Type": "application/json",
-                }
-            )
+            headers = {
+                "x-goog-api-client": self._user_agent_string,
+                "User-Agent": self._user_agent_string,
+                "Content-Type": "application/json",
+            }
+            if self._quota_project:
+                headers["x-goog-user-project"] = self._quota_project
+            self.__client_session = aiohttp.ClientSession(headers=headers)
         return self.__client_session
 
     _credentials: Optional[Credentials] = None
@@ -237,6 +244,7 @@ class Instance:
         loop: asyncio.AbstractEventLoop,
         credentials: Optional[Credentials] = None,
         enable_iam_auth: bool = False,
+        quota_project: str = None,
     ) -> None:
         # Validate connection string
         connection_string_split = instance_connection_string.split(":")
@@ -256,6 +264,7 @@ class Instance:
         self._enable_iam_auth = enable_iam_auth
 
         self._user_agent_string = f"{APPLICATION_NAME}/{version}+{driver_name}"
+        self._quota_project = quota_project
         self._loop = loop
         self._keys = keys
         # validate credentials type
