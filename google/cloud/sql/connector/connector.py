@@ -85,7 +85,7 @@ class Connector:
         timeout: int = 30,
         credentials: Optional[Credentials] = None,
         loop: asyncio.AbstractEventLoop = None,
-        quota_project: str = None,
+        quota_project: Optional[str] = None,
     ) -> None:
         # if event loop is given, use for background tasks
         if loop:
