@@ -406,7 +406,7 @@ async def main():
 
     # create connection to Cloud SQL database
     conn: asyncpg.Connection = await connector.connect_async(
-        "project:region:instance", # Cloud SQL instance connection name
+        "project:region:instance",  # Cloud SQL instance connection name
         "asyncpg",
         user="my-user",
         password="my-password",
@@ -419,12 +419,13 @@ async def main():
 
     # query Cloud SQL database (example)
     results = await conn.fetch("SELECT * from ratings")
+
+    # ... do something with results
     for row in results:
         print(row)
-        # or do something with results
 
     # close asyncpg connection
-    await conn.close
+    await conn.close()
 
     # close Cloud SQL Connector
     await connector.close_async()
@@ -459,7 +460,7 @@ async def main():
 
         # create connection to Cloud SQL database
         conn: asyncpg.Connection = await connector.connect_async(
-            "project:region:instance", # Cloud SQL instance connection name
+            "project:region:instance",  # Cloud SQL instance connection name
             "asyncpg",
             user="my-user",
             password="my-password",
@@ -472,11 +473,16 @@ async def main():
 
         # query Cloud SQL database (example)
         results = await conn.fetch("SELECT * from ratings")
+
+        # ... do something with results
         for row in results:
-            # ... do something with results
+            print(row)
 
         # close asyncpg connection
-        await conn.close
+        await conn.close()
+
+# Test connection with `asyncio`
+asyncio.run(main())
 ```
 
 ## Support policy
