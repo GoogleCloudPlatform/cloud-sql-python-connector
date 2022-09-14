@@ -163,7 +163,7 @@ connector.close()
 ### Configuring the Connector
 
 If you need to customize something about the connector, or want to specify
-defaults for each connection to make, you can initialize a 
+defaults for each connection to make, you can initialize a
 `Connector` object as follows:
 
 ```python
@@ -269,7 +269,7 @@ connector.connect(
     active_directory_auth=True,
     server_name="public.[instance].[location].[project].cloudsql.[domain]",
 )
-``` 
+```
 Or, if using Private IP:
 ```python
 connector.connect(
@@ -280,7 +280,7 @@ connector.connect(
     server_name="private.[instance].[location].[project].cloudsql.[domain]",
     ip_type=IPTypes.PRIVATE
 )
-``` 
+```
 
 ### Using the Python Connector with Python Web Frameworks
 The Python Connector can be used alongside popular Python web frameworks such
@@ -395,8 +395,10 @@ Once a `Connector` object is returned by `create_async_connector` you can call
 its `connect_async` method, just as you would the `connect` method:
 
 ```python
+import asyncio
 import asyncpg
 from google.cloud.sql.connector import create_async_connector
+
 
 async def main():
     # intialize Connector object using 'create_async_connector'
@@ -404,12 +406,12 @@ async def main():
 
     # create connection to Cloud SQL database
     conn: asyncpg.Connection = await connector.connect_async(
-        "project:region:instance", # Cloud SQL instance connection name
+        "project:region:instance",  # Cloud SQL instance connection name
         "asyncpg",
         user="my-user",
         password="my-password",
         db="my-db-name"
-        # ... additional database driver args 
+        # ... additional database driver args
     )
 
     # insert into Cloud SQL database (example)
@@ -417,14 +419,20 @@ async def main():
 
     # query Cloud SQL database (example)
     results = await conn.fetch("SELECT * from ratings")
+
+    # ... do something with results
     for row in results:
-        # ... do something with results
-    
+        print(row)
+
     # close asyncpg connection
-    await conn.close
+    await conn.close()
 
     # close Cloud SQL Connector
     await connector.close_async()
+
+
+# Test connection with `asyncio`
+asyncio.run(main())
 ```
 
 For more details on interacting with an `asyncpg.Connection`, please visit
@@ -434,7 +442,7 @@ the [official documentation](https://magicstack.github.io/asyncpg/current/api/in
 
 An alternative to using the `create_async_connector` function is initializing
 a `Connector` as an async context manager, removing the need for explicit
-calls to `connector.close_async()` to cleanup resources. 
+calls to `connector.close_async()` to cleanup resources.
 
 **Note:** This alternative requires that the running event loop be
 passed in as the `loop` argument to `Connector()`.
@@ -452,12 +460,12 @@ async def main():
 
         # create connection to Cloud SQL database
         conn: asyncpg.Connection = await connector.connect_async(
-            "project:region:instance", # Cloud SQL instance connection name
+            "project:region:instance",  # Cloud SQL instance connection name
             "asyncpg",
             user="my-user",
             password="my-password",
             db="my-db-name"
-            # ... additional database driver args 
+            # ... additional database driver args
         )
 
         # insert into Cloud SQL database (example)
@@ -465,11 +473,16 @@ async def main():
 
         # query Cloud SQL database (example)
         results = await conn.fetch("SELECT * from ratings")
+
+        # ... do something with results
         for row in results:
-            # ... do something with results
-        
+            print(row)
+
         # close asyncpg connection
-        await conn.close
+        await conn.close()
+
+# Test connection with `asyncio`
+asyncio.run(main())
 ```
 
 ## Support policy
@@ -491,7 +504,7 @@ considered publicly unsupported.
 
 We test and support at a minimum, every [active version until it's
 end-of-life date][pyver]. Changes in supported Python versions will be
-considered a minor change, and will be listed in the release notes. 
+considered a minor change, and will be listed in the release notes.
 
 [pyver]: https://devguide.python.org/#status-of-python-branches
 
@@ -502,5 +515,5 @@ dependencies is released.
 
 ### Contributing
 
-We welcome outside contributions. Please see our 
-[Contributing Guide](CONTRIBUTING.md) for details on how best to contribute. 
+We welcome outside contributions. Please see our
+[Contributing Guide](CONTRIBUTING.md) for details on how best to contribute.
