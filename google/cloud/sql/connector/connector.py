@@ -66,6 +66,12 @@ class Connector:
         Credentials object used to authenticate connections to Cloud SQL server.
         If not specified, Application Default Credentials are used.
 
+    :type quota_project: str
+    :param quota_project
+        The Project ID for an existing Google Cloud project. The project specified
+        is used for quota and billing purposes. If not specified, defaults to
+        project sourced from environment.
+
     :type loop: asyncio.AbstractEventLoop
     :param loop
         Event loop to run asyncio tasks, if not specified, defaults to
@@ -79,6 +85,7 @@ class Connector:
         timeout: int = 30,
         credentials: Optional[Credentials] = None,
         loop: asyncio.AbstractEventLoop = None,
+        quota_project: Optional[str] = None,
     ) -> None:
         # if event loop is given, use for background tasks
         if loop:
@@ -100,6 +107,7 @@ class Connector:
         self._timeout = timeout
         self._enable_iam_auth = enable_iam_auth
         self._ip_type = ip_type
+        self._quota_project = quota_project
         self._credentials = credentials
 
     def connect(
@@ -195,6 +203,7 @@ class Connector:
                 self._loop,
                 self._credentials,
                 enable_iam_auth,
+                self._quota_project,
             )
             self._instances[instance_connection_string] = instance
 
