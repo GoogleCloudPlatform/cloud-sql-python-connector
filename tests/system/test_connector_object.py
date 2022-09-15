@@ -172,5 +172,6 @@ def test_connector_sqlserver_iam_auth_error() -> None:
                 os.environ["SQLSERVER_CONNECTION_NAME"],
                 "pytds",
                 user="my-user",
+                password="my-pass",
                 db="my-db",
             )
