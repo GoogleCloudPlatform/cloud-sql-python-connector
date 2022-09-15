@@ -22,7 +22,7 @@ from google.cloud.sql.connector.refresh_utils import (
     _seconds_until_refresh,
     _is_valid,
 )
-from google.cloud.sql.connector.utils import verify_iam_auth, write_to_file
+from google.cloud.sql.connector.utils import write_to_file
 from google.cloud.sql.connector.version import __version__ as version
 
 # Importing libraries
@@ -98,6 +98,15 @@ class ExpiredInstanceMetadata(Exception):
 
     def __init__(self, *args: Any) -> None:
         super(ExpiredInstanceMetadata, self).__init__(self, *args)
+
+
+class AutoIAMAuthNotSupported(Exception):
+    """
+    Exception to be raised when Automatic IAM Authentication is not
+    supported with database engine version.
+    """
+
+    pass
 
 
 class InstanceMetadata:
@@ -355,19 +364,16 @@ class Instance:
                 )
             )
 
-            # gather Admin API tasks, return_exceptions=True to check auto iam authn
-            metadata, ephemeral_cert = await asyncio.gather(
-                metadata_task, ephemeral_task, return_exceptions=True
-            )
-
-            if isinstance(metadata, BaseException):
-                raise metadata
-
+            metadata = await metadata_task
             # check if automatic IAM database authn is supported for database engine
-            verify_iam_auth(metadata["database_version"], self._enable_iam_auth)
+            if self._enable_iam_auth and not metadata["database_version"].startswith(
+                "POSTGRES"
+            ):
+                raise AutoIAMAuthNotSupported(
+                    f"'{metadata['database_version']}' does not support automatic IAM authentication. It is only supported with Cloud SQL Postgres instances."
+                )
 
-            if isinstance(ephemeral_cert, BaseException):
-                raise ephemeral_cert
+            ephemeral_cert = await ephemeral_task
 
             x509 = load_pem_x509_certificate(
                 ephemeral_cert.encode("UTF-8"), default_backend()

@@ -77,35 +77,3 @@ def write_to_file(
         priv_out.write(priv_key)
 
     return (ca_filename, cert_filename, key_filename)
-
-
-class AutoIAMAuthNotSupported(Exception):
-    """
-    Exception to be raised when Automatic IAM Authentication is not
-    supported with database engine version.
-    """
-
-    pass
-
-
-def verify_iam_auth(database_version: str, enable_iam_auth: bool) -> None:
-    """
-    Check if database engine supports automatic IAM authentication. (Postgres only)
-
-    :type database_version: str
-    :param database_version
-        Cloud SQL database version. (i.e. POSTGRES_14, MYSQL_8_0, etc.)
-
-    :type enable_iam_auth: bool
-    :param enable_iam_auth
-        Enables automatic IAM database authentication.
-    """
-    # don't check engine version if IAM AuthN isn't enabled
-    if not enable_iam_auth:
-        return
-    if database_version.startswith("POSTGRES"):
-        pass
-    else:
-        raise AutoIAMAuthNotSupported(
-            f"'{database_version}' does not support automatic IAM authentication. It is only supported with Cloud SQL Postgres instances."
-        )

@@ -21,11 +21,10 @@ import sqlalchemy
 import logging
 import google.auth
 from google.cloud.sql.connector import Connector
+from google.cloud.sql.connector.instance import AutoIAMAuthNotSupported
 import datetime
 import concurrent.futures
 from threading import Thread
-
-from google.cloud.sql.connector.utils import AutoIAMAuthNotSupported
 
 
 def init_connection_engine(
