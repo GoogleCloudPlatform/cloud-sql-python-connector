@@ -234,7 +234,6 @@ class Connector:
         # helper function to wrap in timeout
         async def get_connection() -> Any:
             instance_data, ip_address = await instance.connect_info(ip_type)
-
             # async drivers are unblocking and can be awaited directly
             if driver in ASYNC_DRIVERS:
                 return await connector(ip_address, instance_data.context, **kwargs)
