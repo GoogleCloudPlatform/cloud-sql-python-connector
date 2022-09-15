@@ -15,6 +15,7 @@ limitations under the License.
 """
 import asyncio
 import os
+import pytest
 import pymysql
 import sqlalchemy
 import logging
@@ -23,6 +24,8 @@ from google.cloud.sql.connector import Connector
 import datetime
 import concurrent.futures
 from threading import Thread
+
+from google.cloud.sql.connector.utils import AutoIAMAuthNotSupported
 
 
 def init_connection_engine(
@@ -141,3 +144,33 @@ def test_connector_with_custom_loop() -> None:
         assert result[0] == 1
         # assert that Connector does not start its own thread
         assert connector._thread is None
+
+
+def test_connector_mysql_iam_auth_error() -> None:
+    """
+    Test that connecting with enable_iam_auth set to True
+    for MySQL raises exception.
+    """
+    with pytest.raises(AutoIAMAuthNotSupported):
+        with Connector(enable_iam_auth=True) as connector:
+            connector.connect(
+                os.environ["MYSQL_CONNECTION_NAME"],
+                "pymysql",
+                user="my-user",
+                db="my-db",
+            )
+
+
+def test_connector_sqlserver_iam_auth_error() -> None:
+    """
+    Test that connecting with enable_iam_auth set to True
+    for SQL Server raises exception.
+    """
+    with pytest.raises(AutoIAMAuthNotSupported):
+        with Connector(enable_iam_auth=True) as connector:
+            connector.connect(
+                os.environ["SQLSERVER_CONNECTION_NAME"],
+                "pytds",
+                user="my-user",
+                db="my-db",
+            )
