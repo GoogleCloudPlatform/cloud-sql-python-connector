@@ -76,6 +76,12 @@ class Connector:
     :param loop
         Event loop to run asyncio tasks, if not specified, defaults to
         creating new event loop on background thread.
+
+    :type sqladmin_api_endpoint: str
+    :param sqladmin_api_endpoint:
+        Base URL to use when calling the Cloud SQL Admin API endpoint.
+        Defaults to "https://sqladmin.googleapis.com", this argument should
+        only be used in development.
     """
 
     def __init__(
@@ -86,6 +92,7 @@ class Connector:
         credentials: Optional[Credentials] = None,
         loop: asyncio.AbstractEventLoop = None,
         quota_project: Optional[str] = None,
+        sqladmin_api_endpoint: str = "https://sqladmin.googleapis.com",
     ) -> None:
         # if event loop is given, use for background tasks
         if loop:
@@ -108,6 +115,7 @@ class Connector:
         self._enable_iam_auth = enable_iam_auth
         self._ip_type = ip_type
         self._quota_project = quota_project
+        self._sqladmin_api_endpoint = sqladmin_api_endpoint
         self._credentials = credentials
 
     def connect(
@@ -204,6 +212,7 @@ class Connector:
                 self._credentials,
                 enable_iam_auth,
                 self._quota_project,
+                self._sqladmin_api_endpoint,
             )
             self._instances[instance_connection_string] = instance
 

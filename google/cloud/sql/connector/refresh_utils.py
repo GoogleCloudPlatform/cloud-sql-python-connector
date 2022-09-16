@@ -42,6 +42,7 @@ _iam_auth_refresh_buffer: int = 55  # seconds
 
 async def _get_metadata(
     client_session: aiohttp.ClientSession,
+    sqladmin_api_endpoint: str,
     credentials: Credentials,
     project: str,
     instance: str,
@@ -49,6 +50,10 @@ async def _get_metadata(
     """Requests metadata from the Cloud SQL Instance
     and returns a dictionary containing the IP addresses and certificate
     authority of the Cloud SQL Instance.
+
+    :type sqladmin_api_endpoint: str
+    :param sqladmin_api_endpoint:
+        Base URL to use when calling the Cloud SQL Admin API endpoint.
 
     :type credentials: google.auth.credentials.Credentials
     :param credentials:
@@ -89,8 +94,8 @@ async def _get_metadata(
         "Authorization": "Bearer {}".format(credentials.token),
     }
 
-    url = "https://sqladmin.googleapis.com/sql/{}/projects/{}/instances/{}/connectSettings".format(
-        _sql_api_version, project, instance
+    url = "{}/sql/{}/projects/{}/instances/{}/connectSettings".format(
+        sqladmin_api_endpoint, _sql_api_version, project, instance
     )
 
     logger.debug(f"['{instance}']: Requesting metadata")
@@ -109,6 +114,7 @@ async def _get_metadata(
 
 async def _get_ephemeral(
     client_session: aiohttp.ClientSession,
+    sqladmin_api_endpoint: str,
     credentials: Credentials,
     project: str,
     instance: str,
@@ -116,6 +122,10 @@ async def _get_ephemeral(
     enable_iam_auth: bool = False,
 ) -> str:
     """Asynchronously requests an ephemeral certificate from the Cloud SQL Instance.
+
+    :type sqladmin_api_endpoint: str
+    :param sqladmin_api_endpoint:
+        Base URL to use when calling the Cloud SQL Admin API endpoint.
 
     :type credentials: google.auth.credentials.Credentials
     :param credentials: A credentials object
@@ -165,8 +175,8 @@ async def _get_ephemeral(
         "Authorization": f"Bearer {credentials.token}",
     }
 
-    url = "https://sqladmin.googleapis.com/sql/{}/projects/{}/instances/{}:generateEphemeralCert".format(
-        _sql_api_version, project, instance
+    url = "{}/sql/{}/projects/{}/instances/{}:generateEphemeralCert".format(
+        sqladmin_api_endpoint, _sql_api_version, project, instance
     )
 
     data = {"public_key": pub_key}
