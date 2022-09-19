@@ -19,7 +19,6 @@ import aiohttp
 import google.auth
 from google.auth.credentials import Credentials
 import google.auth.transport.requests
-import json
 from typing import Any, Dict
 import datetime
 import asyncio
@@ -101,7 +100,7 @@ async def _get_metadata(
     logger.debug(f"['{instance}']: Requesting metadata")
 
     resp = await client_session.get(url, headers=headers, raise_for_status=True)
-    ret_dict = json.loads(await resp.text())
+    ret_dict = await resp.json()
 
     metadata = {
         "ip_addresses": {ip["type"]: ip["ipAddress"] for ip in ret_dict["ipAddresses"]},
@@ -187,7 +186,7 @@ async def _get_ephemeral(
         url, headers=headers, json=data, raise_for_status=True
     )
 
-    ret_dict = json.loads(await resp.text())
+    ret_dict = await resp.json()
 
     return ret_dict["ephemeralCert"]["cert"]
 
