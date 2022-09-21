@@ -374,15 +374,19 @@ class Instance:
                     self._enable_iam_auth,
                 )
             )
-
-            metadata = await metadata_task
-            # check if automatic IAM database authn is supported for database engine
-            if self._enable_iam_auth and not metadata["database_version"].startswith(
-                "POSTGRES"
-            ):
-                raise AutoIAMAuthNotSupported(
-                    f"'{metadata['database_version']}' does not support automatic IAM authentication. It is only supported with Cloud SQL Postgres instances."
-                )
+            try:
+                metadata = await metadata_task
+                # check if automatic IAM database authn is supported for database engine
+                if self._enable_iam_auth and not metadata[
+                    "database_version"
+                ].startswith("POSTGRES"):
+                    raise AutoIAMAuthNotSupported(
+                        f"'{metadata['database_version']}' does not support automatic IAM authentication. It is only supported with Cloud SQL Postgres instances."
+                    )
+            except Exception:
+                # cancel ephemeral cert task if excpetion occurs during metadata task
+                ephemeral_task.cancel()
+                raise
 
             ephemeral_cert = await ephemeral_task
 
