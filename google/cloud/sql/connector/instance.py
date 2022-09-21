@@ -384,7 +384,7 @@ class Instance:
                         f"'{metadata['database_version']}' does not support automatic IAM authentication. It is only supported with Cloud SQL Postgres instances."
                     )
             except Exception:
-                # cancel ephemeral cert task if excpetion occurs during metadata task
+                # cancel ephemeral cert task if exception occurs before it is awaited
                 ephemeral_task.cancel()
                 raise
 
