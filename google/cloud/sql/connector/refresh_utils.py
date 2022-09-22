@@ -105,6 +105,7 @@ async def _get_metadata(
     metadata = {
         "ip_addresses": {ip["type"]: ip["ipAddress"] for ip in ret_dict["ipAddresses"]},
         "server_ca_cert": ret_dict["serverCaCert"]["cert"],
+        "database_version": ret_dict["databaseVersion"],
     }
 
     return metadata

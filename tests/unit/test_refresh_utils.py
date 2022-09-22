@@ -164,8 +164,10 @@ async def test_get_metadata(
                 instance,
             )
 
-    assert result["ip_addresses"] is not None and isinstance(
-        result["server_ca_cert"], str
+    assert (
+        result["ip_addresses"] is not None
+        and result["database_version"] == "POSTGRES_14"
+        and isinstance(result["server_ca_cert"], str)
     )
 
 

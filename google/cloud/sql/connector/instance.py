@@ -100,6 +100,15 @@ class ExpiredInstanceMetadata(Exception):
         super(ExpiredInstanceMetadata, self).__init__(self, *args)
 
 
+class AutoIAMAuthNotSupported(Exception):
+    """
+    Exception to be raised when Automatic IAM Authentication is not
+    supported with database engine version.
+    """
+
+    pass
+
+
 class InstanceMetadata:
     ip_addrs: Dict[str, Any]
     context: ssl.SSLContext
@@ -115,7 +124,6 @@ class InstanceMetadata:
         enable_iam_auth: bool,
     ) -> None:
         self.ip_addrs = ip_addrs
-
         self.context = ssl.SSLContext(ssl.PROTOCOL_TLS)
 
         # verify OpenSSL version supports TLSv1.3
@@ -366,10 +374,21 @@ class Instance:
                     self._enable_iam_auth,
                 )
             )
+            try:
+                metadata = await metadata_task
+                # check if automatic IAM database authn is supported for database engine
+                if self._enable_iam_auth and not metadata[
+                    "database_version"
+                ].startswith("POSTGRES"):
+                    raise AutoIAMAuthNotSupported(
+                        f"'{metadata['database_version']}' does not support automatic IAM authentication. It is only supported with Cloud SQL Postgres instances."
+                    )
+            except Exception:
+                # cancel ephemeral cert task if exception occurs before it is awaited
+                ephemeral_task.cancel()
+                raise
 
-            metadata, ephemeral_cert = await asyncio.gather(
-                metadata_task, ephemeral_task
-            )
+            ephemeral_cert = await ephemeral_task
 
             x509 = load_pem_x509_certificate(
                 ephemeral_cert.encode("UTF-8"), default_backend()
