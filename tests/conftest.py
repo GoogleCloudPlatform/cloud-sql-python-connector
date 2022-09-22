@@ -153,7 +153,6 @@ async def instance(
     """
     Instance with mocked API calls.
     """
-    print("DB Version: ", mock_instance.db_version)
     # generate client key pair
     keys = event_loop.create_task(generate_keys())
     _, client_key = await keys
