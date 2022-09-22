@@ -409,11 +409,11 @@ class Instance:
                 e.message = "Forbidden: Authenticated IAM principal does not seeem authorized to make API request. Verify 'Cloud SQL Admin API' is enabled within your GCP project and 'Cloud SQL Client' role has been granted to IAM principal."
             raise
 
-        except Exception as e:
+        except Exception:
             logger.debug(
                 f"['{self._instance_connection_string}']: Error occurred during _perform_refresh."
             )
-            raise e
+            raise
 
         finally:
             self._refresh_in_progress.clear()
@@ -451,11 +451,11 @@ class Instance:
                     await asyncio.sleep(delay)
                 refresh_task = self._loop.create_task(self._perform_refresh())
                 refresh_data = await refresh_task
-            except asyncio.CancelledError as e:
+            except asyncio.CancelledError:
                 logger.debug(
                     f"['{self._instance_connection_string}']: Schedule refresh task cancelled."
                 )
-                raise e
+                raise
             # bad refresh attempt
             except Exception as e:
                 logger.exception(
@@ -470,7 +470,7 @@ class Instance:
                     self._current = refresh_task
                 # schedule new refresh attempt immediately
                 self._next = self._schedule_refresh(0)
-                raise e
+                raise
             # if valid refresh, replace current with valid metadata and schedule next refresh
             self._current = refresh_task
             # Ephemeral certificate expires in 1 hour, so we schedule a refresh to happen in 55 minutes.
