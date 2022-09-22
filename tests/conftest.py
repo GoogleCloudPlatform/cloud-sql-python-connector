@@ -153,6 +153,7 @@ async def instance(
     """
     Instance with mocked API calls.
     """
+    print("DB Version: ", mock_instance.db_version)
     # generate client key pair
     keys = event_loop.create_task(generate_keys())
     _, client_key = await keys
@@ -162,20 +163,23 @@ async def instance(
         # mock Cloud SQL Admin API calls
         with aioresponses() as mocked:
             mocked.get(
-                "https://sqladmin.googleapis.com/sql/v1beta4/projects/my-project/instances/my-instance/connectSettings",
+                f"https://sqladmin.googleapis.com/sql/v1beta4/projects/{mock_instance.project}/instances/{mock_instance.name}/connectSettings",
                 status=200,
                 body=mock_instance.connect_settings(),
                 repeat=True,
             )
             mocked.post(
-                "https://sqladmin.googleapis.com/sql/v1beta4/projects/my-project/instances/my-instance:generateEphemeralCert",
+                f"https://sqladmin.googleapis.com/sql/v1beta4/projects/{mock_instance.project}/instances/{mock_instance.name}:generateEphemeralCert",
                 status=200,
                 body=mock_instance.generate_ephemeral(client_key),
                 repeat=True,
             )
 
             instance = Instance(
-                "my-project:my-region:my-instance", "pg8000", keys, event_loop
+                f"{mock_instance.project}:{mock_instance.region}:{mock_instance.name}",
+                "pg8000",
+                keys,
+                event_loop,
             )
 
             yield instance

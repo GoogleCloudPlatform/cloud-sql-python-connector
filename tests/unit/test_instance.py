@@ -20,6 +20,7 @@ import datetime
 from google.cloud.sql.connector.rate_limiter import AsyncRateLimiter
 from google.auth.credentials import Credentials
 from google.cloud.sql.connector.instance import (
+    AutoIAMAuthNotSupported,
     IPTypes,
     Instance,
     CredentialsTypeError,
@@ -402,3 +403,21 @@ async def test_ClientResponseError(
             )
         finally:
             await instance.close()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "mock_instance",
+    [
+        mocks.FakeCSQLInstance(db_version="SQLSERVER_2019_STANDARD"),
+        mocks.FakeCSQLInstance(db_version="MYSQL_8_0"),
+    ],
+)
+async def test_AutoIAMAuthNotSupportedError(instance: Instance) -> None:
+    """
+    Test that AutoIAMAuthNotSupported exception is raised
+    for SQL Server and MySQL instances.
+    """
+    instance._enable_iam_auth = True
+    with pytest.raises(AutoIAMAuthNotSupported):
+        await instance._current
