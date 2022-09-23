@@ -24,6 +24,12 @@ from google.cloud.sql.connector.refresh_utils import (
 )
 from google.cloud.sql.connector.utils import write_to_file
 from google.cloud.sql.connector.version import __version__ as version
+from google.cloud.sql.connector.exceptions import (
+    TLSVersionError,
+    CloudSQLIPTypeError,
+    CredentialsTypeError,
+    AutoIAMAuthNotSupported,
+)
 
 # Importing libraries
 import asyncio
@@ -53,60 +59,6 @@ APPLICATION_NAME = "cloud-sql-python-connector"
 class IPTypes(Enum):
     PUBLIC: str = "PRIMARY"
     PRIVATE: str = "PRIVATE"
-
-
-class TLSVersionError(Exception):
-    """
-    Raised when the required TLS protocol version is not supported.
-    """
-
-    def __init__(self, *args: Any) -> None:
-        super(TLSVersionError, self).__init__(self, *args)
-
-
-class CloudSQLIPTypeError(Exception):
-    """
-    Raised when IP address for the preferred IP type is not found.
-    """
-
-    def __init__(self, *args: Any) -> None:
-        super(CloudSQLIPTypeError, self).__init__(self, *args)
-
-
-class PlatformNotSupportedError(Exception):
-    """
-    Raised when a feature is not supported on the current platform.
-    """
-
-    def __init__(self, *args: Any) -> None:
-        super(PlatformNotSupportedError, self).__init__(self, *args)
-
-
-class CredentialsTypeError(Exception):
-    """
-    Raised when credentials parameter is not proper type.
-    """
-
-    def __init__(self, *args: Any) -> None:
-        super(CredentialsTypeError, self).__init__(self, *args)
-
-
-class ExpiredInstanceMetadata(Exception):
-    """
-    Raised when InstanceMetadata is expired.
-    """
-
-    def __init__(self, *args: Any) -> None:
-        super(ExpiredInstanceMetadata, self).__init__(self, *args)
-
-
-class AutoIAMAuthNotSupported(Exception):
-    """
-    Exception to be raised when Automatic IAM Authentication is not
-    supported with database engine version.
-    """
-
-    pass
 
 
 class InstanceMetadata:

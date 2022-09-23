@@ -25,6 +25,7 @@ import google.cloud.sql.connector.pg8000 as pg8000
 import google.cloud.sql.connector.pytds as pytds
 import google.cloud.sql.connector.asyncpg as asyncpg
 from google.cloud.sql.connector.utils import generate_keys
+from google.cloud.sql.connector.exceptions import ConnectorLoopError
 from google.auth.credentials import Credentials
 from threading import Thread
 from typing import Any, Dict, Optional, Type
@@ -33,16 +34,6 @@ from functools import partial
 logger = logging.getLogger(name=__name__)
 
 ASYNC_DRIVERS = ["asyncpg"]
-
-
-class ConnectorLoopError(Exception):
-    """
-    Raised when Connector.connect is called with Connector._loop
-        in an invalid state (event loop in current thread).
-    """
-
-    def __init__(self, *args: Any) -> None:
-        super(ConnectorLoopError, self).__init__(self, *args)
 
 
 class Connector:
