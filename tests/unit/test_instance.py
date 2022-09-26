@@ -20,12 +20,14 @@ import datetime
 from google.cloud.sql.connector.rate_limiter import AsyncRateLimiter
 from google.auth.credentials import Credentials
 from google.cloud.sql.connector.instance import (
-    AutoIAMAuthNotSupported,
     IPTypes,
     Instance,
-    CredentialsTypeError,
-    CloudSQLIPTypeError,
     InstanceMetadata,
+)
+from google.cloud.sql.connector.exceptions import (
+    AutoIAMAuthNotSupported,
+    CloudSQLIPTypeError,
+    CredentialsTypeError,
 )
 from google.cloud.sql.connector.utils import generate_keys
 from mock import patch

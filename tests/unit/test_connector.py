@@ -18,7 +18,7 @@ import pytest  # noqa F401 Needed to run the tests
 import asyncio
 
 from google.cloud.sql.connector import Connector, IPTypes, create_async_connector
-from google.cloud.sql.connector.connector import ConnectorLoopError
+from google.cloud.sql.connector.exceptions import ConnectorLoopError
 
 from mock import patch
 from typing import Any
