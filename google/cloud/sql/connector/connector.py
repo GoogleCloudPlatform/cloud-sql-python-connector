@@ -248,10 +248,10 @@ class Connector:
             return await asyncio.wait_for(get_connection(), timeout)
         except asyncio.TimeoutError:
             raise TimeoutError(f"Connection timed out after {timeout}s")
-        except Exception as e:
+        except Exception:
             # with any other exception, we attempt a force refresh, then throw the error
             instance.force_refresh()
-            raise (e)
+            raise
 
     def __enter__(self) -> Any:
         """Enter context manager by returning Connector object"""
