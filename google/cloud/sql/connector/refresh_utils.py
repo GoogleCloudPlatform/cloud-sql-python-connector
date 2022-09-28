@@ -17,10 +17,11 @@ limitations under the License.
 
 import aiohttp
 import google.auth
-from google.auth.credentials import Credentials
+from google.auth.credentials import Credentials, Scoped
 import google.auth.transport.requests
-from typing import Any, Dict
+from typing import Any, Dict, List
 import datetime
+import copy
 import asyncio
 import logging
 
@@ -181,7 +182,8 @@ async def _get_ephemeral(
     data = {"public_key": pub_key}
 
     if enable_iam_auth:
-        data["access_token"] = credentials.token
+        login_creds = _downscope_credentials(credentials)
+        data["access_token"] = login_creds.token
 
     resp = await client_session.post(
         url, headers=headers, json=data, raise_for_status=True
@@ -229,3 +231,21 @@ async def _is_valid(task: asyncio.Task) -> bool:
         # supress any errors from task
         logger.debug("Current instance metadata is invalid.")
     return False
+
+
+def _downscope_credentials(
+    credentials: Credentials,
+    scopes: List[str] = ["https://www.googleapis.com/auth/sqlservice.login"],
+) -> Credentials:
+    if isinstance(credentials, Scoped):
+        scoped_creds = credentials.with_scopes(scopes=scopes)
+    # authenticated user credentials can not be re-scoped
+    else:
+        # create shallow copy to not overwrite scopes on default credentials
+        scoped_creds = copy.copy(credentials)
+        scoped_creds._scopes = scopes
+    # downscoped credentials require refresh
+    if not scoped_creds.valid:
+        request = google.auth.transport.requests.Request()
+        scoped_creds.refresh(request)
+    return scoped_creds
