@@ -237,6 +237,19 @@ def _downscope_credentials(
     credentials: Credentials,
     scopes: List[str] = ["https://www.googleapis.com/auth/sqlservice.login"],
 ) -> Credentials:
+    """Generate a down-scoped credential.
+
+    :type credentials: google.auth.credentials.Credentials
+    :param credentials
+        Credentials object used to generate down-scoped credentials.
+
+    :type scopes: List[str]
+    :param scopes
+        List of Google scopes to include in down-scoped credentials object.
+
+    :rtype: google.auth.credentials.Credentials
+    :returns: Down-scoped credentials object.
+    """
     if isinstance(credentials, Scoped):
         scoped_creds = credentials.with_scopes(scopes=scopes)
     # authenticated user credentials can not be re-scoped

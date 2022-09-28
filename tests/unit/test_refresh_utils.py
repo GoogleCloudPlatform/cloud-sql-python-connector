@@ -237,6 +237,10 @@ async def test_is_valid_with_expired_metadata() -> None:
 
 
 def test_downscope_credentials_service_account(fake_credentials: Credentials) -> None:
+    """
+    Test _downscope_credentials with google.oauth2.service_account.Credentials
+    which mimics an authenticated service account.
+    """
     # set all credentials to valid to skip refreshing credentials
     with patch.object(Credentials, "valid", True):
         credentials = _downscope_credentials(fake_credentials)
@@ -248,6 +252,10 @@ def test_downscope_credentials_service_account(fake_credentials: Credentials) ->
 
 
 def test_downscope_credentials_user() -> None:
+    """
+    Test _downscope_credentials with google.oauth2.credentials.Credentials
+    which mimics an authenticated user.
+    """
     creds = google.oauth2.credentials.Credentials("token", scopes=SCOPES)
     # set all credentials to valid to skip refreshing credentials
     with patch.object(Credentials, "valid", True):
