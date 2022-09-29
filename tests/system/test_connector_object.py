@@ -21,15 +21,13 @@ import sqlalchemy
 import logging
 import google.auth
 from google.cloud.sql.connector import Connector
-from google.cloud.sql.connector.instance import AutoIAMAuthNotSupported
+from google.cloud.sql.connector.exceptions import (
+    AutoIAMAuthNotSupported,
+    InvalidIAMDatabaseUser,
+)
 import datetime
 import concurrent.futures
 from threading import Thread
-
-from google.cloud.sql.connector.utils import (
-    InvalidPostgresDatabaseUser,
-    InvalidMySQLDatabaseUser,
-)
 
 
 def init_connection_engine(
@@ -155,7 +153,7 @@ def test_connector_postgres_user_validation_error() -> None:
     Test that connecting with improperly formatted Postgres
     service account database user raises exception.
     """
-    with pytest.raises(InvalidPostgresDatabaseUser):
+    with pytest.raises(InvalidIAMDatabaseUser):
         with Connector() as connector:
             connector.connect(
                 os.environ["POSTGRES_CONNECTION_NAME"],
@@ -171,7 +169,7 @@ def test_connector_mysql_user_validation_error() -> None:
     Test that connecting with improperly formatted MySQL
     service account database user raises exception.
     """
-    with pytest.raises(InvalidMySQLDatabaseUser):
+    with pytest.raises(InvalidIAMDatabaseUser):
         with Connector() as connector:
             connector.connect(
                 os.environ["MYSQL_CONNECTION_NAME"],

@@ -63,3 +63,12 @@ class AutoIAMAuthNotSupported(Exception):
     """
 
     pass
+
+
+class InvalidIAMDatabaseUser(Exception):
+    """
+    Raised when Automatic IAM Authentication database user is not
+    formatted properly.
+    """
+
+    pass

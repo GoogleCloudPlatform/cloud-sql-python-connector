@@ -20,6 +20,8 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 
 from typing import Tuple
 
+from google.cloud.sql.connector.exceptions import InvalidIAMDatabaseUser
+
 
 async def generate_keys() -> Tuple[bytes, str]:
     """A helper function to generate the private and public keys.
@@ -79,14 +81,6 @@ def write_to_file(
     return (ca_filename, cert_filename, key_filename)
 
 
-class InvalidPostgresDatabaseUser(Exception):
-    pass
-
-
-class InvalidMySQLDatabaseUser(Exception):
-    pass
-
-
 def remove_suffix(input_string: str, suffix: str) -> str:
     """Remove suffix from input string if exists, else return string as is."""
     if suffix and input_string.endswith(suffix):
@@ -110,7 +104,7 @@ def validate_database_user(database_version: str, user: str) -> None:
         ".gserviceaccount.com"
     ):
         formatted_user = remove_suffix(user, ".gserviceaccount.com")
-        raise InvalidPostgresDatabaseUser(
+        raise InvalidIAMDatabaseUser(
             "Improperly formatted `user` argument. Postgres IAM service account "
             "database users should have their '.gserviceaccount.com' suffix "
             f"removed. Got '{user}', try '{formatted_user}' instead."
@@ -118,7 +112,7 @@ def validate_database_user(database_version: str, user: str) -> None:
 
     elif database_version.startswith("MYSQL") and "@" in user:
         formatted_user = user.split("@")[0]
-        raise InvalidMySQLDatabaseUser(
+        raise InvalidIAMDatabaseUser(
             "Improperly formatted `user` argument. MySQL IAM database users are "
             "truncated as follows: (IAM user: test-user@test.com -> test-user, "
             "IAM service account: account@project.iam.gserviceaccount -> account)."

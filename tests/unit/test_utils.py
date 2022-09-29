@@ -15,6 +15,7 @@ limitations under the License.
 """
 
 from google.cloud.sql.connector import utils
+from google.cloud.sql.connector.exceptions import InvalidIAMDatabaseUser
 
 import pytest  # noqa F401 Needed to run the tests
 
@@ -77,27 +78,27 @@ def test_validate_database_user_mysql() -> None:
     utils.validate_database_user("MYSQL_8_0", "test")
 
 
-def test_validate_database_user_InvalidPostgresDatabaseUser() -> None:
+def test_validate_database_user_postgres_InvalidIAMDatabaseUser() -> None:
     """
     Test that validate_database user raises exception with improperly
     formatted Postgres service account database user.
     """
-    with pytest.raises(utils.InvalidPostgresDatabaseUser):
+    with pytest.raises(InvalidIAMDatabaseUser):
         utils.validate_database_user(
             "POSTGRES_14", "service-account@test.iam.gserviceaccount.com"
         )
 
 
-def test_validate_database_user_InvalidMySQLDatabaseUser() -> None:
+def test_validate_database_user_mysql_InvalidIAMDatabaseUser() -> None:
     """
     Test that validate_database user raises exception with improperly
     formatted MySQL database user.
     """
     # test IAM service account user
-    with pytest.raises(utils.InvalidMySQLDatabaseUser):
+    with pytest.raises(InvalidIAMDatabaseUser):
         utils.validate_database_user(
             "MYSQL_8_0", "service-account@test.iam.gserviceaccount.com"
         )
     # test IAM user
-    with pytest.raises(utils.InvalidMySQLDatabaseUser):
+    with pytest.raises(InvalidIAMDatabaseUser):
         utils.validate_database_user("MYSQL_8_0", "test@test.com")
