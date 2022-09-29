@@ -25,6 +25,7 @@ import google.cloud.sql.connector.pg8000 as pg8000
 import google.cloud.sql.connector.pytds as pytds
 import google.cloud.sql.connector.asyncpg as asyncpg
 from google.cloud.sql.connector.utils import generate_keys, validate_database_user
+from google.cloud.sql.connector.exceptions import ConnectorLoopError
 from google.auth.credentials import Credentials
 from threading import Thread
 from typing import Any, Dict, Optional, Type
@@ -33,16 +34,6 @@ from functools import partial
 logger = logging.getLogger(name=__name__)
 
 ASYNC_DRIVERS = ["asyncpg"]
-
-
-class ConnectorLoopError(Exception):
-    """
-    Raised when Connector.connect is called with Connector._loop
-        in an invalid state (event loop in current thread).
-    """
-
-    def __init__(self, *args: Any) -> None:
-        super(ConnectorLoopError, self).__init__(self, *args)
 
 
 class Connector:
@@ -66,10 +57,22 @@ class Connector:
         Credentials object used to authenticate connections to Cloud SQL server.
         If not specified, Application Default Credentials are used.
 
+    :type quota_project: str
+    :param quota_project
+        The Project ID for an existing Google Cloud project. The project specified
+        is used for quota and billing purposes. If not specified, defaults to
+        project sourced from environment.
+
     :type loop: asyncio.AbstractEventLoop
     :param loop
         Event loop to run asyncio tasks, if not specified, defaults to
         creating new event loop on background thread.
+
+    :type sqladmin_api_endpoint: str
+    :param sqladmin_api_endpoint:
+        Base URL to use when calling the Cloud SQL Admin API endpoint.
+        Defaults to "https://sqladmin.googleapis.com", this argument should
+        only be used in development.
     """
 
     def __init__(
@@ -79,6 +82,8 @@ class Connector:
         timeout: int = 30,
         credentials: Optional[Credentials] = None,
         loop: asyncio.AbstractEventLoop = None,
+        quota_project: Optional[str] = None,
+        sqladmin_api_endpoint: str = "https://sqladmin.googleapis.com",
     ) -> None:
         # if event loop is given, use for background tasks
         if loop:
@@ -100,6 +105,8 @@ class Connector:
         self._timeout = timeout
         self._enable_iam_auth = enable_iam_auth
         self._ip_type = ip_type
+        self._quota_project = quota_project
+        self._sqladmin_api_endpoint = sqladmin_api_endpoint
         self._credentials = credentials
 
     def connect(
@@ -195,6 +202,8 @@ class Connector:
                 self._loop,
                 self._credentials,
                 enable_iam_auth,
+                self._quota_project,
+                self._sqladmin_api_endpoint,
             )
             self._instances[instance_connection_string] = instance
 
@@ -244,10 +253,10 @@ class Connector:
             return await asyncio.wait_for(get_connection(), timeout)
         except asyncio.TimeoutError:
             raise TimeoutError(f"Connection timed out after {timeout}s")
-        except Exception as e:
+        except Exception:
             # with any other exception, we attempt a force refresh, then throw the error
             instance.force_refresh()
-            raise (e)
+            raise
 
     def __enter__(self) -> Any:
         """Enter context manager by returning Connector object"""

@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.1](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v0.8.0...v0.8.1) (2022-09-07)
+
+
+### Documentation
+
+* add README code sample for Flask-SQLAlchemy and FastAPI ([#432](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/432)) ([fadc357](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/fadc3577b3552dc1650d120c144fdd8ab2500870))
+
 ## [0.8.0](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v0.7.0...v0.8.0) (2022-07-29)
 
 

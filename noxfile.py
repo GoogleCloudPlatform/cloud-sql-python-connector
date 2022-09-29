@@ -47,12 +47,13 @@ def default(session, path):
     session.install("-r", "requirements.txt")
     # Run py.test against the unit tests.
     session.run(
-        "py.test",
+        "pytest",
         "--cov=google/cloud/sql/connector",
         "-v",
         "--cov-config=.coveragerc",
         "--cov-report=",
         "--cov-fail-under=0",
+        "--junitxml=sponge_log.xml",
         path,
         *session.posargs,
     )
