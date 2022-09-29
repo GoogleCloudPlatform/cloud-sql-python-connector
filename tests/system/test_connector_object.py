@@ -164,22 +164,6 @@ def test_connector_postgres_user_validation_error() -> None:
             )
 
 
-def test_connector_mysql_user_validation_error() -> None:
-    """
-    Test that connecting with improperly formatted MySQL
-    service account database user raises exception.
-    """
-    with pytest.raises(InvalidIAMDatabaseUser):
-        with Connector() as connector:
-            connector.connect(
-                os.environ["MYSQL_CONNECTION_NAME"],
-                "pymysql",
-                user="service-account@test.iam.gserviceaccount.com",
-                db="test-db",
-                enable_iam_auth=True,
-            )
-
-
 def test_connector_mysql_iam_auth_error() -> None:
     """
     Test that connecting with enable_iam_auth set to True
