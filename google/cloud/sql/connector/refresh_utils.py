@@ -250,6 +250,8 @@ def _downscope_credentials(
     :rtype: google.auth.credentials.Credentials
     :returns: Down-scoped credentials object.
     """
+    # credentials sourced from a service account or metadata are children of
+    # Scoped class and are capable of being re-scoped
     if isinstance(credentials, Scoped):
         scoped_creds = credentials.with_scopes(scopes=scopes)
     # authenticated user credentials can not be re-scoped
@@ -257,7 +259,7 @@ def _downscope_credentials(
         # create shallow copy to not overwrite scopes on default credentials
         scoped_creds = copy.copy(credentials)
         scoped_creds._scopes = scopes
-    # downscoped credentials require refresh
+    # down-scoped credentials require refresh, are invalid after being re-scoped
     if not scoped_creds.valid:
         request = google.auth.transport.requests.Request()
         scoped_creds.refresh(request)
