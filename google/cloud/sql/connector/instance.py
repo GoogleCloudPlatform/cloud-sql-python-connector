@@ -261,10 +261,7 @@ class Instance:
             Credentials object used to authenticate connections to Cloud SQL server.
             If not specified, Application Default Credentials are used.
         """
-        scopes = [
-            "https://www.googleapis.com/auth/sqlservice.admin",
-            "https://www.googleapis.com/auth/cloud-platform",
-        ]
+        scopes = ["https://www.googleapis.com/auth/sqlservice.admin"]
         # if Credentials object is passed in, use for authentication
         if isinstance(credentials, Credentials):
             credentials = with_scopes_if_required(credentials, scopes=scopes)

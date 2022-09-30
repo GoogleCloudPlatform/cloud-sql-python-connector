@@ -17,8 +17,9 @@ from typing import Any, no_type_check
 
 import aiohttp
 from google.auth.credentials import Credentials
+import google.oauth2.credentials
 import pytest  # noqa F401 Needed to run the tests
-from mock import Mock
+from mock import Mock, patch
 from aioresponses import aioresponses
 import asyncio
 
@@ -26,6 +27,7 @@ from google.cloud.sql.connector.refresh_utils import (
     _get_ephemeral,
     _get_metadata,
     _is_valid,
+    _downscope_credentials,
 )
 from google.cloud.sql.connector.utils import generate_keys
 
@@ -35,6 +37,7 @@ from mocks import (  # type: ignore
     instance_metadata_expired,
     FakeCSQLInstance,
 )
+from tests.conftest import SCOPES  # type: ignore
 
 
 @pytest.fixture
@@ -231,3 +234,34 @@ async def test_is_valid_with_expired_metadata() -> None:
     # task that returns class with expiration 10 mins in past
     task = asyncio.create_task(instance_metadata_expired())
     assert not await _is_valid(task)
+
+
+def test_downscope_credentials_service_account(fake_credentials: Credentials) -> None:
+    """
+    Test _downscope_credentials with google.oauth2.service_account.Credentials
+    which mimics an authenticated service account.
+    """
+    # set all credentials to valid to skip refreshing credentials
+    with patch.object(Credentials, "valid", True):
+        credentials = _downscope_credentials(fake_credentials)
+    # verify default credential scopes have not been altered
+    assert fake_credentials.scopes == SCOPES
+    # verify downscoped credentials have new scope
+    assert credentials.scopes == ["https://www.googleapis.com/auth/sqlservice.login"]
+    assert credentials != fake_credentials
+
+
+def test_downscope_credentials_user() -> None:
+    """
+    Test _downscope_credentials with google.oauth2.credentials.Credentials
+    which mimics an authenticated user.
+    """
+    creds = google.oauth2.credentials.Credentials("token", scopes=SCOPES)
+    # set all credentials to valid to skip refreshing credentials
+    with patch.object(Credentials, "valid", True):
+        credentials = _downscope_credentials(creds)
+    # verify default credential scopes have not been altered
+    assert creds.scopes == SCOPES
+    # verify downscoped credentials have new scope
+    assert credentials.scopes == ["https://www.googleapis.com/auth/sqlservice.login"]
+    assert credentials != creds
