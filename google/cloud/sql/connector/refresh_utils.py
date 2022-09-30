@@ -182,6 +182,7 @@ async def _get_ephemeral(
     data = {"public_key": pub_key}
 
     if enable_iam_auth:
+        # down-scope credentials with only IAM login scope (refreshes them too)
         login_creds = _downscope_credentials(credentials)
         data["access_token"] = login_creds.token
 
