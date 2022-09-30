@@ -167,7 +167,7 @@ async def _get_ephemeral(
     elif not isinstance(pub_key, str):
         raise TypeError(f"pub_key must be of type str, got {type(pub_key)}")
 
-    if not credentials.valid or enable_iam_auth:
+    if not credentials.valid:
         request = google.auth.transport.requests.Request()
         credentials.refresh(request)
 
@@ -258,6 +258,8 @@ def _downscope_credentials(
     else:
         # create shallow copy to not overwrite scopes on default credentials
         scoped_creds = copy.copy(credentials)
+        # overwrite '_scopes' to down-scope user credentials
+        # Cloud SDK reference: https://github.com/google-cloud-sdk-unofficial/google-cloud-sdk/blob/93920ccb6d2cce0fe6d1ce841e9e33410551d66b/lib/googlecloudsdk/command_lib/sql/generate_login_token_util.py#L116
         scoped_creds._scopes = scopes
     # down-scoped credentials require refresh, are invalid after being re-scoped
     if not scoped_creds.valid:
