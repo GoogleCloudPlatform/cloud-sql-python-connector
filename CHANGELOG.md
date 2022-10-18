@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.9.0](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v0.8.1...v0.9.0) (2022-10-18)
+
+
+### Features
+
+* add `sqladmin_api_endpoint` arg to specify Cloud SQL Admin API endpoint ([#475](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/475)) ([bf1a909](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/bf1a90973cff33c5350b2ced799b5d6089878076))
+* add quota_project arg to specify quota and billing project ([#472](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/472)) ([528852a](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/528852a6ec3ecf7a55749697c1245624cc226208))
+* downscope token used for IAM DB AuthN ([#488](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/488)) ([d461d75](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/d461d75b0809563b4120aa59ef61fdfdc59c43de))
+
+
+### Bug Fixes
+
+* throw error if Auto IAM AuthN is unsupported ([#476](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/476)) ([fef0cd7](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/fef0cd7b5fd56016ad220f3c7b8f3abd720ab81f))
+
 ## [0.8.1](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v0.8.0...v0.8.1) (2022-09-07)
 
 
