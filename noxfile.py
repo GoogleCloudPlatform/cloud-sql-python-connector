@@ -35,7 +35,7 @@ def lint(session):
     session.install("-r", "requirements.txt")
     session.run("black", "--check", *BLACK_PATHS)
     session.run("flake8", "google", "tests")
-    session.run("mypy", "--disallow-untyped-signatures", "google", "tests")
+    session.run("mypy", "--disallow-untyped-defs", "google", "tests")
     session.run("python", "setup.py", "sdist")
     session.run("twine", "check", "dist/*")
 
