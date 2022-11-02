@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.2](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v0.9.1...v0.9.2) (2022-11-02)
+
+
+### Bug Fixes
+
+* update cryptography to latest release ([#527](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/527)) ([d6276ec](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/d6276ece7639f6e9fa751345754099a9d52fee2d))
+
 ## [0.9.1](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v0.9.0...v0.9.1) (2022-11-01)
 
 
