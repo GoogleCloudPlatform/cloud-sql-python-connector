@@ -5,7 +5,7 @@
 
 ### Bug Fixes
 
-* set minimum version constraint on cryptography ([#531](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/531)) ([1537920](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/1537920dc353223fa05d7265a3e2239f2d830410))
+* set minimum version constraint on cryptography ([#530](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/530)) ([d2dc58f](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/d2dc58f2428ae9e0c2174f7fbd100791a13a45a1))
 
 ## [0.9.2](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v0.9.1...v0.9.2) (2022-11-02)
 
