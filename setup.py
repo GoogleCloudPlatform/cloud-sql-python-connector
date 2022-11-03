@@ -44,7 +44,7 @@ version = version["__version__"]
 release_status = "Development Status :: 4 - Beta"
 core_dependencies = [
     "aiohttp",
-    "cryptography",
+    "cryptography>=38.0.3",
     "Requests",
     "google-auth",
 ]
