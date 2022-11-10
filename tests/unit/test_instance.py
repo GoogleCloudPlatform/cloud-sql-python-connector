@@ -414,7 +414,6 @@ async def test_ClientResponseError(
     "mock_instance",
     [
         mocks.FakeCSQLInstance(db_version="SQLSERVER_2019_STANDARD"),
-        mocks.FakeCSQLInstance(db_version="MYSQL_8_0"),
     ],
 )
 async def test_AutoIAMAuthNotSupportedError(instance: Instance) -> None:
