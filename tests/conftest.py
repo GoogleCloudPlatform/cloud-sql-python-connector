@@ -30,10 +30,7 @@ from google.cloud.sql.connector import Connector
 from google.cloud.sql.connector.instance import Instance
 from google.cloud.sql.connector.utils import generate_keys
 
-SCOPES = [
-    "https://www.googleapis.com/auth/sqlservice.admin",
-    "https://www.googleapis.com/auth/cloud-platform",
-]
+SCOPES = ["https://www.googleapis.com/auth/sqlservice.admin"]
 
 
 def pytest_addoption(parser: Any) -> None:
@@ -162,20 +159,23 @@ async def instance(
         # mock Cloud SQL Admin API calls
         with aioresponses() as mocked:
             mocked.get(
-                "https://sqladmin.googleapis.com/sql/v1beta4/projects/my-project/instances/my-instance/connectSettings",
+                f"https://sqladmin.googleapis.com/sql/v1beta4/projects/{mock_instance.project}/instances/{mock_instance.name}/connectSettings",
                 status=200,
                 body=mock_instance.connect_settings(),
                 repeat=True,
             )
             mocked.post(
-                "https://sqladmin.googleapis.com/sql/v1beta4/projects/my-project/instances/my-instance:generateEphemeralCert",
+                f"https://sqladmin.googleapis.com/sql/v1beta4/projects/{mock_instance.project}/instances/{mock_instance.name}:generateEphemeralCert",
                 status=200,
                 body=mock_instance.generate_ephemeral(client_key),
                 repeat=True,
             )
 
             instance = Instance(
-                "my-project:my-region:my-instance", "pg8000", keys, event_loop
+                f"{mock_instance.project}:{mock_instance.region}:{mock_instance.name}",
+                "pg8000",
+                keys,
+                event_loop,
             )
 
             yield instance

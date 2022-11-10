@@ -17,7 +17,7 @@ import pytest
 from unittest.mock import patch
 import platform
 from typing import Any
-from google.cloud.sql.connector.instance import PlatformNotSupportedError
+from google.cloud.sql.connector.exceptions import PlatformNotSupportedError
 from mocks import create_ssl_context
 from google.cloud.sql.connector.pytds import connect
 from functools import partial

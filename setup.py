@@ -44,7 +44,7 @@ version = version["__version__"]
 release_status = "Development Status :: 4 - Beta"
 core_dependencies = [
     "aiohttp",
-    "cryptography",
+    "cryptography>=38.0.3",
     "Requests",
     "google-auth",
 ]
@@ -77,9 +77,9 @@ setup(
     install_requires=core_dependencies,
     extras_require={
         "pymysql": ["PyMySQL==1.0.2"],
-        "pg8000": ["pg8000==1.29.1"],
+        "pg8000": ["pg8000==1.29.3"],
         "pytds": ["python-tds==1.11.0"],
-        "asyncpg": ["asyncpg==0.26.0"]
+        "asyncpg": ["asyncpg==0.27.0"]
     },
     python_requires=">=3.7",
     include_package_data=True,
