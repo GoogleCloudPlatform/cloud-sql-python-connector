@@ -125,7 +125,7 @@ class Connector:
         :type driver: str
         :param: driver:
             A string representing the driver to connect with. Supported drivers are
-            pymysql, pg8000, and pytds.
+            pymysql, pg8000, asyncpg, and pytds.
 
         :param kwargs:
             Pass in any driver-specific arguments needed to connect to the Cloud
