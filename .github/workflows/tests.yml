@@ -83,7 +83,9 @@ jobs:
         with:
           secrets: |-
             MYSQL_CONNECTION_NAME:${{ secrets.GOOGLE_CLOUD_PROJECT }}/MYSQL_CONNECTION_NAME
+            MYSQL_IAM_CONNECTION_NAME:${{ secrets.GOOGLE_CLOUD_PROJECT }}/MYSQL_IAM_CONNECTION_NAME
             MYSQL_USER:${{ secrets.GOOGLE_CLOUD_PROJECT }}/MYSQL_USER
+            MYSQL_IAM_USER:${{ secrets.GOOGLE_CLOUD_PROJECT }}/MYSQL_USER_IAM_PYTHON
             MYSQL_PASS:${{ secrets.GOOGLE_CLOUD_PROJECT }}/MYSQL_PASS
             MYSQL_DB:${{ secrets.GOOGLE_CLOUD_PROJECT }}/MYSQL_DB
             POSTGRES_CONNECTION_NAME:${{ secrets.GOOGLE_CLOUD_PROJECT }}/POSTGRES_CONNECTION_NAME
@@ -100,7 +102,9 @@ jobs:
       - name: Run tests
         env:
           MYSQL_CONNECTION_NAME: '${{ steps.secrets.outputs.MYSQL_CONNECTION_NAME }}'
+          MYSQL_IAM_CONNECTION_NAME: '${{ steps.secrets.outputs.MYSQL_IAM_CONNECTION_NAME }}'
           MYSQL_USER: '${{ steps.secrets.outputs.MYSQL_USER }}'
+          MYSQL_IAM_USER: '${{ steps.secrets.outputs.MYSQL_IAM_USER }}'
           MYSQL_PASS: '${{ steps.secrets.outputs.MYSQL_PASS }}'
           MYSQL_DB: '${{ steps.secrets.outputs.MYSQL_DB }}'
           POSTGRES_CONNECTION_NAME: '${{ steps.secrets.outputs.POSTGRES_CONNECTION_NAME }}'

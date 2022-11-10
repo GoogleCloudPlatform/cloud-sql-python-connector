@@ -33,7 +33,7 @@ def init_connection_engine() -> sqlalchemy.engine.Engine:
         # initialize Connector object for connections to Cloud SQL
         with Connector() as connector:
             conn: pymysql.connections.Connection = connector.connect(
-                os.environ["MYSQL_CONNECTION_NAME"],
+                os.environ["MYSQL_IAM_CONNECTION_NAME"],
                 "pymysql",
                 user=os.environ["MYSQL_IAM_USER"],
                 db=os.environ["MYSQL_DB"],
