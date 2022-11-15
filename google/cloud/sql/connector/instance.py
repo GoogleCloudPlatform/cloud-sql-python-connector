@@ -327,9 +327,9 @@ class Instance:
             try:
                 metadata = await metadata_task
                 # check if automatic IAM database authn is supported for database engine
-                if self._enable_iam_auth and metadata["database_version"].startswith(
-                    "SQLSERVER"
-                ):
+                if self._enable_iam_auth and not metadata[
+                    "database_version"
+                ].startswith(("POSTGRES", "MYSQL")):
                     raise AutoIAMAuthNotSupported(
                         f"'{metadata['database_version']}' does not support automatic IAM authentication. It is only supported with Cloud SQL Postgres or MySQL instances."
                     )
