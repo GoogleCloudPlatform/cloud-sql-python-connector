@@ -18,7 +18,7 @@ import pytest  # noqa F401 Needed to run the tests
 import asyncio
 
 from google.cloud.sql.connector import Connector, IPTypes, create_async_connector
-from google.cloud.sql.connector.connector import ConnectorLoopError
+from google.cloud.sql.connector.exceptions import ConnectorLoopError
 
 from mock import patch
 from typing import Any
@@ -87,7 +87,6 @@ def test_connect_with_unsupported_driver(connector: Connector) -> None:
         )
     # assert custom error message for unsupported driver is present
     assert exc_info.value.args[0] == "Driver 'bad_driver' is not supported."
-    connector.close()
 
 
 @pytest.mark.asyncio
@@ -157,3 +156,14 @@ async def test_create_async_connector() -> None:
     connector = await create_async_connector()
     assert connector._loop == asyncio.get_running_loop()
     await connector.close_async()
+
+
+def test_Connector_close_kills_thread() -> None:
+    """Test that Connector.close kills background threads."""
+    # open and close Connector object
+    connector = Connector()
+    # verify background thread exists
+    assert connector._thread
+    connector.close()
+    # check that connector thread is no longer running
+    assert connector._thread.is_alive() is False

@@ -178,11 +178,17 @@ async def create_ssl_context() -> ssl.SSLContext:
 
 
 class FakeCSQLInstance:
-    def __init__(self, project: str, region: str, name: str) -> None:
+    def __init__(
+        self,
+        project: str = "my-project",
+        region: str = "my-region",
+        name: str = "my-instance",
+        db_version: str = "POSTGRES_14",
+    ) -> None:
         self.project = project
         self.region = region
         self.name = name
-        self.db_version = "POSTGRES_14"  # arbitrary value
+        self.db_version = db_version
         self.ip_addrs = {"PRIMARY": "0.0.0.0", "PRIVATE": "1.1.1.1"}
         self.backend_type = "SECOND_GEN"
 

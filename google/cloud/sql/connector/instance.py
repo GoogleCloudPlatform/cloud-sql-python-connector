@@ -24,6 +24,12 @@ from google.cloud.sql.connector.refresh_utils import (
 )
 from google.cloud.sql.connector.utils import write_to_file
 from google.cloud.sql.connector.version import __version__ as version
+from google.cloud.sql.connector.exceptions import (
+    TLSVersionError,
+    CloudSQLIPTypeError,
+    CredentialsTypeError,
+    AutoIAMAuthNotSupported,
+)
 
 # Importing libraries
 import asyncio
@@ -32,8 +38,9 @@ import datetime
 from enum import Enum
 import google.auth
 from google.auth.credentials import Credentials, with_scopes_if_required
+from cryptography.x509 import load_pem_x509_certificate
+from cryptography.hazmat.backends import default_backend
 import google.auth.transport.requests
-import OpenSSL
 import ssl
 from tempfile import TemporaryDirectory
 from typing import (
@@ -54,61 +61,6 @@ class IPTypes(Enum):
     PRIVATE: str = "PRIVATE"
 
 
-class ConnectionSSLContext(ssl.SSLContext):
-    """Subclass of ssl.SSLContext with added request_ssl attribute. This is
-    required for compatibility with pg8000 driver.
-    """
-
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
-        self.request_ssl = False
-        super(ConnectionSSLContext, self).__init__(*args, **kwargs)
-
-
-class TLSVersionError(Exception):
-    """
-    Raised when the required TLS protocol version is not supported.
-    """
-
-    def __init__(self, *args: Any) -> None:
-        super(TLSVersionError, self).__init__(self, *args)
-
-
-class CloudSQLIPTypeError(Exception):
-    """
-    Raised when IP address for the preferred IP type is not found.
-    """
-
-    def __init__(self, *args: Any) -> None:
-        super(CloudSQLIPTypeError, self).__init__(self, *args)
-
-
-class PlatformNotSupportedError(Exception):
-    """
-    Raised when a feature is not supported on the current platform.
-    """
-
-    def __init__(self, *args: Any) -> None:
-        super(PlatformNotSupportedError, self).__init__(self, *args)
-
-
-class CredentialsTypeError(Exception):
-    """
-    Raised when credentials parameter is not proper type.
-    """
-
-    def __init__(self, *args: Any) -> None:
-        super(CredentialsTypeError, self).__init__(self, *args)
-
-
-class ExpiredInstanceMetadata(Exception):
-    """
-    Raised when InstanceMetadata is expired.
-    """
-
-    def __init__(self, *args: Any) -> None:
-        super(ExpiredInstanceMetadata, self).__init__(self, *args)
-
-
 class InstanceMetadata:
     ip_addrs: Dict[str, Any]
     context: ssl.SSLContext
@@ -124,14 +76,30 @@ class InstanceMetadata:
         enable_iam_auth: bool,
     ) -> None:
         self.ip_addrs = ip_addrs
+        self.context = ssl.SSLContext(ssl.PROTOCOL_TLS)
 
-        if enable_iam_auth and not ssl.HAS_TLSv1_3:  # type: ignore
-            raise TLSVersionError(
-                "Your current version of OpenSSL does not support TLSv1.3, "
-                "which is required to use IAM Authentication."
+        # verify OpenSSL version supports TLSv1.3
+        if ssl.HAS_TLSv1_3:
+            # force TLSv1.3 if supported by client
+            self.context.minimum_version = ssl.TLSVersion.TLSv1_3
+        # fallback to TLSv1.2 for older versions of OpenSSL
+        else:
+            if enable_iam_auth:
+                raise TLSVersionError(
+                    f"Your current version of OpenSSL ({ssl.OPENSSL_VERSION}) does not "
+                    "support TLSv1.3, which is required to use IAM Authentication.\n"
+                    "Upgrade your OpenSSL version to 1.1.1 for TLSv1.3 support."
+                )
+            logger.warning(
+                "TLSv1.3 is not supported with your version of OpenSSL "
+                f"({ssl.OPENSSL_VERSION}), falling back to TLSv1.2\n"
+                "Upgrade your OpenSSL version to 1.1.1 for TLSv1.3 support."
             )
+            self.context.minimum_version = ssl.TLSVersion.TLSv1_2
 
-        self.context = ConnectionSSLContext()
+        # add request_ssl attribute to ssl.SSLContext, required for pg8000 driver
+        self.context.request_ssl = False  # type: ignore
+
         self.expiration = expiration
 
         # tmpdir and its contents are automatically deleted after the CA cert
@@ -181,6 +149,18 @@ class Instance:
     :param loop:
         A new event loop for the refresh function to run in.
     :type loop: asyncio.AbstractEventLoop
+
+    :type quota_project: str
+    :param quota_project
+        The Project ID for an existing Google Cloud project. The project specified
+        is used for quota and billing purposes. If not specified, defaults to
+        project sourced from environment.
+
+    :type sqladmin_api_endpoint: str
+    :param sqladmin_api_endpoint:
+        Base URL to use when calling the Cloud SQL Admin API endpoint.
+        Defaults to "https://sqladmin.googleapis.com", this argument should
+        only be used in development.
     """
 
     # asyncio.AbstractEventLoop is used because the default loop,
@@ -198,13 +178,14 @@ class Instance:
     @property
     def _client_session(self) -> aiohttp.ClientSession:
         if self.__client_session is None:
-            self.__client_session = aiohttp.ClientSession(
-                headers={
-                    "x-goog-api-client": self._user_agent_string,
-                    "User-Agent": self._user_agent_string,
-                    "Content-Type": "application/json",
-                }
-            )
+            headers = {
+                "x-goog-api-client": self._user_agent_string,
+                "User-Agent": self._user_agent_string,
+                "Content-Type": "application/json",
+            }
+            if self._quota_project:
+                headers["x-goog-user-project"] = self._quota_project
+            self.__client_session = aiohttp.ClientSession(headers=headers)
         return self.__client_session
 
     _credentials: Optional[Credentials] = None
@@ -212,6 +193,7 @@ class Instance:
 
     _instance_connection_string: str
     _user_agent_string: str
+    _sqladmin_api_endpoint: str
     _instance: str
     _project: str
     _region: str
@@ -229,6 +211,8 @@ class Instance:
         loop: asyncio.AbstractEventLoop,
         credentials: Optional[Credentials] = None,
         enable_iam_auth: bool = False,
+        quota_project: str = None,
+        sqladmin_api_endpoint: str = "https://sqladmin.googleapis.com",
     ) -> None:
         # Validate connection string
         connection_string_split = instance_connection_string.split(":")
@@ -248,6 +232,8 @@ class Instance:
         self._enable_iam_auth = enable_iam_auth
 
         self._user_agent_string = f"{APPLICATION_NAME}/{version}+{driver_name}"
+        self._quota_project = quota_project
+        self._sqladmin_api_endpoint = sqladmin_api_endpoint
         self._loop = loop
         self._keys = keys
         # validate credentials type
@@ -275,10 +261,7 @@ class Instance:
             Credentials object used to authenticate connections to Cloud SQL server.
             If not specified, Application Default Credentials are used.
         """
-        scopes = [
-            "https://www.googleapis.com/auth/sqlservice.admin",
-            "https://www.googleapis.com/auth/cloud-platform",
-        ]
+        scopes = ["https://www.googleapis.com/auth/sqlservice.admin"]
         # if Credentials object is passed in, use for authentication
         if isinstance(credentials, Credentials):
             credentials = with_scopes_if_required(credentials, scopes=scopes)
@@ -322,6 +305,7 @@ class Instance:
             metadata_task = self._loop.create_task(
                 _get_metadata(
                     self._client_session,
+                    self._sqladmin_api_endpoint,
                     self._credentials,
                     self._project,
                     self._instance,
@@ -331,6 +315,7 @@ class Instance:
             ephemeral_task = self._loop.create_task(
                 _get_ephemeral(
                     self._client_session,
+                    self._sqladmin_api_endpoint,
                     self._credentials,
                     self._project,
                     self._instance,
@@ -338,17 +323,26 @@ class Instance:
                     self._enable_iam_auth,
                 )
             )
+            try:
+                metadata = await metadata_task
+                # check if automatic IAM database authn is supported for database engine
+                if self._enable_iam_auth and not metadata[
+                    "database_version"
+                ].startswith("POSTGRES"):
+                    raise AutoIAMAuthNotSupported(
+                        f"'{metadata['database_version']}' does not support automatic IAM authentication. It is only supported with Cloud SQL Postgres instances."
+                    )
+            except Exception:
+                # cancel ephemeral cert task if exception occurs before it is awaited
+                ephemeral_task.cancel()
+                raise
 
-            metadata, ephemeral_cert = await asyncio.gather(
-                metadata_task, ephemeral_task
-            )
+            ephemeral_cert = await ephemeral_task
 
-            x509 = OpenSSL.crypto.load_certificate(
-                OpenSSL.crypto.FILETYPE_PEM, ephemeral_cert
+            x509 = load_pem_x509_certificate(
+                ephemeral_cert.encode("UTF-8"), default_backend()
             )
-            expiration = datetime.datetime.strptime(
-                x509.get_notAfter().decode("ascii"), "%Y%m%d%H%M%SZ"
-            )
+            expiration = x509.not_valid_after
 
             if self._enable_iam_auth:
                 if self._credentials is not None:
@@ -364,11 +358,11 @@ class Instance:
                 e.message = "Forbidden: Authenticated IAM principal does not seeem authorized to make API request. Verify 'Cloud SQL Admin API' is enabled within your GCP project and 'Cloud SQL Client' role has been granted to IAM principal."
             raise
 
-        except Exception as e:
+        except Exception:
             logger.debug(
                 f"['{self._instance_connection_string}']: Error occurred during _perform_refresh."
             )
-            raise e
+            raise
 
         finally:
             self._refresh_in_progress.clear()
@@ -406,11 +400,11 @@ class Instance:
                     await asyncio.sleep(delay)
                 refresh_task = self._loop.create_task(self._perform_refresh())
                 refresh_data = await refresh_task
-            except asyncio.CancelledError as e:
+            except asyncio.CancelledError:
                 logger.debug(
                     f"['{self._instance_connection_string}']: Schedule refresh task cancelled."
                 )
-                raise e
+                raise
             # bad refresh attempt
             except Exception as e:
                 logger.exception(
@@ -425,7 +419,7 @@ class Instance:
                     self._current = refresh_task
                 # schedule new refresh attempt immediately
                 self._next = self._schedule_refresh(0)
-                raise e
+                raise
             # if valid refresh, replace current with valid metadata and schedule next refresh
             self._current = refresh_task
             # Ephemeral certificate expires in 1 hour, so we schedule a refresh to happen in 55 minutes.

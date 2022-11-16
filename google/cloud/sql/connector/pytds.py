@@ -17,9 +17,7 @@ import ssl
 import socket
 import platform
 from typing import Any, TYPE_CHECKING
-from google.cloud.sql.connector.instance import (
-    PlatformNotSupportedError,
-)
+from google.cloud.sql.connector.exceptions import PlatformNotSupportedError
 
 SERVER_PROXY_PORT = 3307
 
