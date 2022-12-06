@@ -248,7 +248,7 @@ and [add an IAM database user](https://cloud.google.com/sql/docs/postgres/create
 
 Now, you can connect using user or service account credentials instead of a password.
 In the call to connect, set the `enable_iam_auth` keyword argument to true and the `user` argument to the appropriately formatted IAM principal.
-> Postgres: The `user` argument should be the email address for IAM users. For a service account, it is the service account's email without the `.gserviceaccount.com` domain suffix.
+> Postgres: For an IAM user account, this is the user's email address. For a service account, it is the service account's email without the `.gserviceaccount.com` domain suffix.
 
 > MySQL: For an IAM user account, this is the user's email address, without the @ or domain name. For example, for `test-user@gmail.com`, set the `user` argument to `test-user`. For a service account, this is the service account's email address without the `@project-id.iam.gserviceaccount.com` suffix.
 
