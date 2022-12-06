@@ -41,7 +41,7 @@ with open("google/cloud/sql/connector/version.py") as fp:
     exec(fp.read(), version)
 version = version["__version__"]
 
-release_status = "Development Status :: 4 - Beta"
+release_status = "Development Status :: 5 - Production/Stable"
 core_dependencies = [
     "aiohttp",
     "cryptography>=38.0.3",
@@ -61,8 +61,6 @@ setup(
     url="https://github.com/GoogleCloudPlatform/cloud-sql-python-connector",
     classifiers=[
         release_status,
-        "Intended Audience :: Developers",
-        "Development Status :: 4 - Beta",
         "Intended Audience :: Developers",
         "License :: OSI Approved :: Apache Software License",
         "Programming Language :: Python",

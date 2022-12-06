@@ -11,8 +11,6 @@
 [![pypi](https://img.shields.io/pypi/v/cloud-sql-python-connector)](https://pypi.org/project/cloud-sql-python-connector)
 [![python](https://img.shields.io/pypi/pyversions/cloud-sql-python-connector)](https://pypi.org/project/cloud-sql-python-connector)
 
-**Warning**: This project is currently in _beta_. Please [open an issue](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/new/choose) if you would like to report a bug or documentation issue, request a feature, or have a question.
-
 The _Cloud SQL Python Connector_ is a Cloud SQL connector designed for use with the
 Python language. Using a Cloud SQL connector provides the following benefits:
 * **IAM Authorization:** uses IAM permissions to control who/what can connect to
