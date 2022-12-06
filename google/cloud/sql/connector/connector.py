@@ -46,7 +46,8 @@ class Connector:
 
     :type enable_iam_auth: bool
     :param enable_iam_auth
-        Enables IAM based authentication (Postgres only).
+        Enables automatic IAM database authentication for Postgres or MySQL
+        instances.
 
     :type timeout: int
     :param timeout
@@ -319,7 +320,8 @@ async def create_async_connector(
 
     :type enable_iam_auth: bool
     :param enable_iam_auth
-        Enables IAM based authentication (Postgres only).
+        Enables automatic IAM database authentication for Postgres or MySQL
+        instances.
 
     :type timeout: int
     :param timeout

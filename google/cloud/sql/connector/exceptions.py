@@ -59,7 +59,7 @@ class CredentialsTypeError(Exception):
 class AutoIAMAuthNotSupported(Exception):
     """
     Exception to be raised when Automatic IAM Authentication is not
-    supported with database engine version.f
+    supported with database engine version.
     """
 
     pass

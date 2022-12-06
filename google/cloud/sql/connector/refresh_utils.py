@@ -144,7 +144,8 @@ async def _get_ephemeral(
 
     :type enable_iam_auth: bool
     :param enable_iam_auth
-        Enables IAM based authentication for Postgres instances.
+        Enables automatic IAM database authentication for Postgres or MySQL
+        instances.
 
     :rtype: str
     :returns: An ephemeral certificate from the Cloud SQL instance that allows

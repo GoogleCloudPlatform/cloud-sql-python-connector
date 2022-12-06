@@ -242,10 +242,16 @@ connector.connect(
 Note: If specifying Private IP, your application must already be in the same VPC network as your Cloud SQL Instance.
 
 ### IAM Authentication
-Connections using [Automatic IAM database authentication](https://cloud.google.com/sql/docs/postgres/authentication#automatic) are supported when using the Postgres driver. This feature is unsupported for other drivers. If automatic IAM authentication is not supported for your driver, you can use [Manual IAM database authentication](https://cloud.google.com/sql/docs/postgres/authentication#manual) to connect.
-First, make sure to [configure your Cloud SQL Instance to allow IAM authentication](https://cloud.google.com/sql/docs/postgres/create-edit-iam-instances#configure-iam-db-instance) and [add an IAM database user](https://cloud.google.com/sql/docs/postgres/create-manage-iam-users#creating-a-database-user).
+Connections using [Automatic IAM database authentication](https://cloud.google.com/sql/docs/postgres/authentication#automatic) are supported when using Postgres or MySQL drivers.
+First, make sure to [configure your Cloud SQL Instance to allow IAM authentication](https://cloud.google.com/sql/docs/postgres/create-edit-iam-instances#configure-iam-db-instance)
+and [add an IAM database user](https://cloud.google.com/sql/docs/postgres/create-manage-iam-users#creating-a-database-user).
+
 Now, you can connect using user or service account credentials instead of a password.
-In the call to connect, set the `enable_iam_auth` keyword argument to true and `user` to the email address associated with your IAM user.
+In the call to connect, set the `enable_iam_auth` keyword argument to true and the `user` argument to the appropriately formatted IAM principal.
+> Postgres: For an IAM user account, this is the user's email address. For a service account, it is the service account's email without the `.gserviceaccount.com` domain suffix.
+
+> MySQL: For an IAM user account, this is the user's email address, without the @ or domain name. For example, for `test-user@gmail.com`, set the `user` argument to `test-user`. For a service account, this is the service account's email address without the `@project-id.iam.gserviceaccount.com` suffix.
+
 Example:
 ```python
 connector.connect(

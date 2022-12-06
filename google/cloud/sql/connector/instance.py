@@ -143,7 +143,8 @@ class Instance:
         If not specified, Application Default Credentials are used.
 
     :param enable_iam_auth
-        Enables IAM based authentication for Postgres instances.
+        Enables automatic IAM database authentication for Postgres or MySQL
+        instances.
     :type enable_iam_auth: bool
 
     :param loop:
@@ -328,9 +329,9 @@ class Instance:
                 # check if automatic IAM database authn is supported for database engine
                 if self._enable_iam_auth and not metadata[
                     "database_version"
-                ].startswith("POSTGRES"):
+                ].startswith(("POSTGRES", "MYSQL")):
                     raise AutoIAMAuthNotSupported(
-                        f"'{metadata['database_version']}' does not support automatic IAM authentication. It is only supported with Cloud SQL Postgres instances."
+                        f"'{metadata['database_version']}' does not support automatic IAM authentication. It is only supported with Cloud SQL Postgres or MySQL instances."
                     )
             except Exception:
                 # cancel ephemeral cert task if exception occurs before it is awaited
