@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.0](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v0.9.3...v1.0.0) (2022-12-06)
+
+
+### Features
+
+* add support for MySQL auto IAM AuthN ([#466](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/466)) ([80644d7](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/80644d7296321d7f00c0dd9b9fd8041bb92bb512))
+
 ## [0.9.3](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v0.9.2...v0.9.3) (2022-11-03)
 
 
