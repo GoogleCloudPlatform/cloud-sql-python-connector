@@ -33,6 +33,8 @@ Currently Python versions >= 3.7 are supported.
 
 You can install this library with `pip install`, replacing `driver` with one of the database driver names listed above:
 ```
+
+
 pip install cloud-sql-python-connector[driver]
 ```
 For example, to use the Python connector with `pymysql`, run `pip install cloud-sql-python-connector[pymysql]`
