@@ -30,10 +30,7 @@ from google.cloud.sql.connector import Connector
 from google.cloud.sql.connector.instance import Instance
 from google.cloud.sql.connector.utils import generate_keys
 
-SCOPES = [
-    "https://www.googleapis.com/auth/sqlservice.admin",
-    "https://www.googleapis.com/auth/cloud-platform",
-]
+SCOPES = ["https://www.googleapis.com/auth/sqlservice.admin"]
 
 
 def pytest_addoption(parser: Any) -> None:

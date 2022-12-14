@@ -1,4 +1,4 @@
-# Copyright 2021 Google LLC
+# Copyright 2022 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,15 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-assign_issues:
-#   - shubha-rajan
-#   - kurtisvg
-  - jackwotherspoon
-#   - enocom
+name: Sync labels
+on:
+  push:
+    branches:
+      - main
 
-
-assign_prs:
-#   - shubha-rajan
-#   - kurtisvg
-  - jackwotherspoon
-#   - enocom
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: micnncim/action-label-syncer@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

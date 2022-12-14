@@ -20,8 +20,6 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 
 from typing import Tuple
 
-from google.cloud.sql.connector.exceptions import InvalidIAMDatabaseUser
-
 
 async def generate_keys() -> Tuple[bytes, str]:
     """A helper function to generate the private and public keys.
@@ -88,9 +86,9 @@ def remove_suffix(input_string: str, suffix: str) -> str:
     return input_string
 
 
-def validate_database_user(database_version: str, user: str) -> None:
+def format_database_user(database_version: str, user: str) -> str:
     """
-    Validate if `user` param is properly formatted username for given database.
+    Format database `user` param for Cloud SQL automatic IAM authentication.
 
     :type database_version: str
     :param database_version
@@ -100,21 +98,12 @@ def validate_database_user(database_version: str, user: str) -> None:
     :param user
         Database username to connect to Cloud SQL database with.
     """
-    if database_version.startswith("POSTGRES") and user.endswith(
-        ".gserviceaccount.com"
-    ):
-        formatted_user = remove_suffix(user, ".gserviceaccount.com")
-        raise InvalidIAMDatabaseUser(
-            "Improperly formatted `user` argument. Postgres IAM service account "
-            "database users should have their '.gserviceaccount.com' suffix "
-            f"removed. Got '{user}', try '{formatted_user}' instead."
-        )
+    # remove suffix for Postgres service accounts
+    if database_version.startswith("POSTGRES"):
+        return remove_suffix(user, ".gserviceaccount.com")
 
+    # remove everything after and including the @ for MySQL
     elif database_version.startswith("MYSQL") and "@" in user:
-        formatted_user = user.split("@")[0]
-        raise InvalidIAMDatabaseUser(
-            "Improperly formatted `user` argument. MySQL IAM database users are "
-            "truncated as follows: (IAM user: test-user@test.com -> test-user, "
-            "IAM service account: account@project.iam.gserviceaccount -> account)."
-            f" Got '{user}', try '{formatted_user}' instead."
-        )
+        return user.split("@")[0]
+
+    return user

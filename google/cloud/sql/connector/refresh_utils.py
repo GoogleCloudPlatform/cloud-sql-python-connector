@@ -17,10 +17,11 @@ limitations under the License.
 
 import aiohttp
 import google.auth
-from google.auth.credentials import Credentials
+from google.auth.credentials import Credentials, Scoped
 import google.auth.transport.requests
-from typing import Any, Dict
+from typing import Any, Dict, List
 import datetime
+import copy
 import asyncio
 import logging
 
@@ -143,7 +144,8 @@ async def _get_ephemeral(
 
     :type enable_iam_auth: bool
     :param enable_iam_auth
-        Enables IAM based authentication for Postgres instances.
+        Enables automatic IAM database authentication for Postgres or MySQL
+        instances.
 
     :rtype: str
     :returns: An ephemeral certificate from the Cloud SQL instance that allows
@@ -166,7 +168,7 @@ async def _get_ephemeral(
     elif not isinstance(pub_key, str):
         raise TypeError(f"pub_key must be of type str, got {type(pub_key)}")
 
-    if not credentials.valid or enable_iam_auth:
+    if not credentials.valid:
         request = google.auth.transport.requests.Request()
         credentials.refresh(request)
 
@@ -181,7 +183,9 @@ async def _get_ephemeral(
     data = {"public_key": pub_key}
 
     if enable_iam_auth:
-        data["access_token"] = credentials.token
+        # down-scope credentials with only IAM login scope (refreshes them too)
+        login_creds = _downscope_credentials(credentials)
+        data["access_token"] = login_creds.token
 
     resp = await client_session.post(
         url, headers=headers, json=data, raise_for_status=True
@@ -229,3 +233,38 @@ async def _is_valid(task: asyncio.Task) -> bool:
         # supress any errors from task
         logger.debug("Current instance metadata is invalid.")
     return False
+
+
+def _downscope_credentials(
+    credentials: Credentials,
+    scopes: List[str] = ["https://www.googleapis.com/auth/sqlservice.login"],
+) -> Credentials:
+    """Generate a down-scoped credential.
+
+    :type credentials: google.auth.credentials.Credentials
+    :param credentials
+        Credentials object used to generate down-scoped credentials.
+
+    :type scopes: List[str]
+    :param scopes
+        List of Google scopes to include in down-scoped credentials object.
+
+    :rtype: google.auth.credentials.Credentials
+    :returns: Down-scoped credentials object.
+    """
+    # credentials sourced from a service account or metadata are children of
+    # Scoped class and are capable of being re-scoped
+    if isinstance(credentials, Scoped):
+        scoped_creds = credentials.with_scopes(scopes=scopes)
+    # authenticated user credentials can not be re-scoped
+    else:
+        # create shallow copy to not overwrite scopes on default credentials
+        scoped_creds = copy.copy(credentials)
+        # overwrite '_scopes' to down-scope user credentials
+        # Cloud SDK reference: https://github.com/google-cloud-sdk-unofficial/google-cloud-sdk/blob/93920ccb6d2cce0fe6d1ce841e9e33410551d66b/lib/googlecloudsdk/command_lib/sql/generate_login_token_util.py#L116
+        scoped_creds._scopes = scopes
+    # down-scoped credentials require refresh, are invalid after being re-scoped
+    if not scoped_creds.valid:
+        request = google.auth.transport.requests.Request()
+        scoped_creds.refresh(request)
+    return scoped_creds

@@ -46,6 +46,9 @@ def connect(
             'Unable to import module "pymysql." Please install and try again.'
         )
 
+    # allow automatic IAM database authentication to not require password
+    kwargs["password"] = kwargs["password"] if "password" in kwargs else None
+
     # Create socket and wrap with context.
     sock = ctx.wrap_socket(
         socket.create_connection((ip_address, SERVER_PROXY_PORT)),

@@ -23,7 +23,6 @@ import google.auth
 from google.cloud.sql.connector import Connector
 from google.cloud.sql.connector.exceptions import (
     AutoIAMAuthNotSupported,
-    InvalidIAMDatabaseUser,
 )
 import datetime
 import concurrent.futures
@@ -146,37 +145,6 @@ def test_connector_with_custom_loop() -> None:
         assert result[0] == 1
         # assert that Connector does not start its own thread
         assert connector._thread is None
-
-
-def test_connector_postgres_user_validation_error() -> None:
-    """
-    Test that connecting with improperly formatted Postgres
-    service account database user raises exception.
-    """
-    with pytest.raises(InvalidIAMDatabaseUser):
-        with Connector() as connector:
-            connector.connect(
-                os.environ["POSTGRES_CONNECTION_NAME"],
-                "pg8000",
-                user="service-account@test.iam.gserviceaccount.com",
-                db="test-db",
-                enable_iam_auth=True,
-            )
-
-
-def test_connector_mysql_iam_auth_error() -> None:
-    """
-    Test that connecting with enable_iam_auth set to True
-    for MySQL raises exception.
-    """
-    with pytest.raises(AutoIAMAuthNotSupported):
-        with Connector(enable_iam_auth=True) as connector:
-            connector.connect(
-                os.environ["MYSQL_CONNECTION_NAME"],
-                "pymysql",
-                user="my-user",
-                db="my-db",
-            )
 
 
 def test_connector_sqlserver_iam_auth_error() -> None:

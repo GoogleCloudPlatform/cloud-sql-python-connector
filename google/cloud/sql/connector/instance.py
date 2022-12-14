@@ -146,7 +146,8 @@ class Instance:
         If not specified, Application Default Credentials are used.
 
     :param enable_iam_auth
-        Enables IAM based authentication for Postgres instances.
+        Enables automatic IAM database authentication for Postgres or MySQL
+        instances.
     :type enable_iam_auth: bool
 
     :param loop:
@@ -264,10 +265,7 @@ class Instance:
             Credentials object used to authenticate connections to Cloud SQL server.
             If not specified, Application Default Credentials are used.
         """
-        scopes = [
-            "https://www.googleapis.com/auth/sqlservice.admin",
-            "https://www.googleapis.com/auth/cloud-platform",
-        ]
+        scopes = ["https://www.googleapis.com/auth/sqlservice.admin"]
         # if Credentials object is passed in, use for authentication
         if isinstance(credentials, Credentials):
             credentials = with_scopes_if_required(credentials, scopes=scopes)
@@ -334,9 +332,9 @@ class Instance:
                 # check if automatic IAM database authn is supported for database engine
                 if self._enable_iam_auth and not metadata[
                     "database_version"
-                ].startswith("POSTGRES"):
+                ].startswith(("POSTGRES", "MYSQL")):
                     raise AutoIAMAuthNotSupported(
-                        f"'{metadata['database_version']}' does not support automatic IAM authentication. It is only supported with Cloud SQL Postgres instances."
+                        f"'{metadata['database_version']}' does not support automatic IAM authentication. It is only supported with Cloud SQL Postgres or MySQL instances."
                     )
             except Exception:
                 # cancel ephemeral cert task if exception occurs before it is awaited

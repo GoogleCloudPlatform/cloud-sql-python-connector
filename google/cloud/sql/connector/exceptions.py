@@ -59,16 +59,7 @@ class CredentialsTypeError(Exception):
 class AutoIAMAuthNotSupported(Exception):
     """
     Exception to be raised when Automatic IAM Authentication is not
-    supported with database engine version.f
-    """
-
-    pass
-
-
-class InvalidIAMDatabaseUser(Exception):
-    """
-    Raised when Automatic IAM Authentication database user is not
-    formatted properly.
+    supported with database engine version.
     """
 
     pass
