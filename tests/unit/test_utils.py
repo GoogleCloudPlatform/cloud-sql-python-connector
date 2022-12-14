@@ -61,8 +61,7 @@ def test_remove_suffix_without_suffix() -> None:
 
 def test_format_database_user_postgres() -> None:
     """
-    Test that format_database_user throws no exception for properly
-    formatted Postgres database users.
+    Test that format_database_user properly formats Postgres IAM database users.
     """
     service_account = utils.format_database_user(
         "POSTGRES_14", "service-account@test.iam"
@@ -78,8 +77,7 @@ def test_format_database_user_postgres() -> None:
 
 def test_format_database_user_mysql() -> None:
     """
-    Test that validate_database user throws no exception for properly
-    formatted MySQL database users.
+    Test that format_database _user properly formats MySQL IAM database users.
     """
     service_account = utils.format_database_user(
         "MYSQL_8_0", "service-account@test.iam"
