@@ -2,7 +2,7 @@ pytest==7.2.0
 mock==4.0.3
 pytest-cov==4.0.0
 pytest-asyncio==0.20.3
-SQLAlchemy==1.4.44
+SQLAlchemy==1.4.45
 sqlalchemy-pytds==0.3.4
 flake8==5.0.4
 flake8-annotations==2.9.1
@@ -14,7 +14,7 @@ types-PyMySQL==1.0.19.1
 types-mock==4.0.15.2
 twine==4.0.2
 PyMySQL==1.0.2
-pg8000==1.29.3
+pg8000==1.29.4
 asyncpg==0.27.0
 python-tds==1.11.0
-aioresponses==0.7.3
+aioresponses==0.7.4
