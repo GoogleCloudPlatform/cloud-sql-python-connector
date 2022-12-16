@@ -79,13 +79,6 @@ def write_to_file(
     return (ca_filename, cert_filename, key_filename)
 
 
-def remove_suffix(input_string: str, suffix: str) -> str:
-    """Remove suffix from input string if exists, else return string as is."""
-    if suffix and input_string.endswith(suffix):
-        return input_string[: -len(suffix)]
-    return input_string
-
-
 def format_database_user(database_version: str, user: str) -> str:
     """
     Format database `user` param for Cloud SQL automatic IAM authentication.
@@ -100,10 +93,12 @@ def format_database_user(database_version: str, user: str) -> str:
     """
     # remove suffix for Postgres service accounts
     if database_version.startswith("POSTGRES"):
-        return remove_suffix(user, ".gserviceaccount.com")
+        suffix = ".gserviceaccount.com"
+        user = user[: -len(suffix)] if user.endswith(suffix) else user
+        return user
 
     # remove everything after and including the @ for MySQL
-    elif database_version.startswith("MYSQL") and "@" in user:
+    if database_version.startswith("MYSQL") and "@" in user:
         return user.split("@")[0]
 
     return user

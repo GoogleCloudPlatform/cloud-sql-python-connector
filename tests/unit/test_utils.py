@@ -41,24 +41,6 @@ async def test_generate_keys_returns_bytes_and_str() -> None:
     assert isinstance(res1, bytes) and (isinstance(res2, str))
 
 
-def test_remove_suffix_with_suffix() -> None:
-    """
-    Test to check if remove_suffix returns string with suffix removed.
-    """
-    output = utils.remove_suffix(
-        "service-account@test.iam.gserviceaccount.com", ".gserviceaccount.com"
-    )
-    assert output == "service-account@test.iam"
-
-
-def test_remove_suffix_without_suffix() -> None:
-    """
-    Test to check if remove_suffix returns input string if suffix not present.
-    """
-    output = utils.remove_suffix("service-account@test.iam", ".gserviceaccount.com")
-    assert output == "service-account@test.iam"
-
-
 def test_format_database_user_postgres() -> None:
     """
     Test that format_database_user properly formats Postgres IAM database users.

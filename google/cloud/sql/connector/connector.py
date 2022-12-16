@@ -238,9 +238,14 @@ class Connector:
 
             # format `user` param for automatic IAM database authn
             if enable_iam_auth:
-                kwargs["user"] = format_database_user(
+                formatted_user = format_database_user(
                     instance_data.database_version, kwargs["user"]
                 )
+                if formatted_user != kwargs["user"]:
+                    logger.debug(
+                        f"['{instance_connection_string}']: Truncated IAM database username from {kwargs['user']} to {formatted_user}"
+                    )
+                    kwargs["user"] = formatted_user
 
             # async drivers are unblocking and can be awaited directly
             if driver in ASYNC_DRIVERS:
