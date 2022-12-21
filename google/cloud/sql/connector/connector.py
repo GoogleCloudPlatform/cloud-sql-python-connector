@@ -24,7 +24,7 @@ import google.cloud.sql.connector.pymysql as pymysql
 import google.cloud.sql.connector.pg8000 as pg8000
 import google.cloud.sql.connector.pytds as pytds
 import google.cloud.sql.connector.asyncpg as asyncpg
-from google.cloud.sql.connector.utils import generate_keys
+from google.cloud.sql.connector.utils import generate_keys, format_database_user
 from google.cloud.sql.connector.exceptions import ConnectorLoopError
 from google.auth.credentials import Credentials
 from threading import Thread
@@ -235,6 +235,18 @@ class Connector:
         # helper function to wrap in timeout
         async def get_connection() -> Any:
             instance_data, ip_address = await instance.connect_info(ip_type)
+
+            # format `user` param for automatic IAM database authn
+            if enable_iam_auth:
+                formatted_user = format_database_user(
+                    instance_data.database_version, kwargs["user"]
+                )
+                if formatted_user != kwargs["user"]:
+                    logger.debug(
+                        f"['{instance_connection_string}']: Truncated IAM database username from {kwargs['user']} to {formatted_user}"
+                    )
+                    kwargs["user"] = formatted_user
+
             # async drivers are unblocking and can be awaited directly
             if driver in ASYNC_DRIVERS:
                 return await connector(ip_address, instance_data.context, **kwargs)

@@ -39,3 +39,39 @@ async def test_generate_keys_returns_bytes_and_str() -> None:
 
     res1, res2 = await utils.generate_keys()
     assert isinstance(res1, bytes) and (isinstance(res2, str))
+
+
+def test_format_database_user_postgres() -> None:
+    """
+    Test that format_database_user properly formats Postgres IAM database users.
+    """
+    service_account = utils.format_database_user(
+        "POSTGRES_14", "service-account@test.iam"
+    )
+    service_account2 = utils.format_database_user(
+        "POSTGRES_14", "service-account@test.iam.gserviceaccount.com"
+    )
+    assert service_account == "service-account@test.iam"
+    assert service_account2 == "service-account@test.iam"
+    user = utils.format_database_user("POSTGRES_14", "test@test.com")
+    assert user == "test@test.com"
+
+
+def test_format_database_user_mysql() -> None:
+    """
+    Test that format_database _user properly formats MySQL IAM database users.
+    """
+    service_account = utils.format_database_user(
+        "MYSQL_8_0", "service-account@test.iam"
+    )
+    service_account2 = utils.format_database_user(
+        "MYSQL_8_0", "service-account@test.iam.gserviceaccount.com"
+    )
+    service_account3 = utils.format_database_user("MYSQL_8_0", "service-account")
+    assert service_account == "service-account"
+    assert service_account2 == "service-account"
+    assert service_account3 == "service-account"
+    user = utils.format_database_user("MYSQL_8_0", "test@test.com")
+    user2 = utils.format_database_user("MYSQL_8_0", "test")
+    assert user == "test"
+    assert user2 == "test"

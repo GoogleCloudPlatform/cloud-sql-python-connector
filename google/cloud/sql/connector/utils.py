@@ -77,3 +77,28 @@ def write_to_file(
         priv_out.write(priv_key)
 
     return (ca_filename, cert_filename, key_filename)
+
+
+def format_database_user(database_version: str, user: str) -> str:
+    """
+    Format database `user` param for Cloud SQL automatic IAM authentication.
+
+    :type database_version: str
+    :param database_version
+        Cloud SQL database version. (i.e. POSTGRES_14, MYSQL8_0, etc.)
+
+    :type user: str
+    :param user
+        Database username to connect to Cloud SQL database with.
+    """
+    # remove suffix for Postgres service accounts
+    if database_version.startswith("POSTGRES"):
+        suffix = ".gserviceaccount.com"
+        user = user[: -len(suffix)] if user.endswith(suffix) else user
+        return user
+
+    # remove everything after and including the @ for MySQL
+    if database_version.startswith("MYSQL") and "@" in user:
+        return user.split("@")[0]
+
+    return user

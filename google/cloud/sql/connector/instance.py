@@ -64,11 +64,13 @@ class IPTypes(Enum):
 class InstanceMetadata:
     ip_addrs: Dict[str, Any]
     context: ssl.SSLContext
+    database_version: str
     expiration: datetime.datetime
 
     def __init__(
         self,
         ephemeral_cert: str,
+        database_version: str,
         ip_addrs: Dict[str, Any],
         private_key: bytes,
         server_ca_cert: str,
@@ -76,6 +78,7 @@ class InstanceMetadata:
         enable_iam_auth: bool,
     ) -> None:
         self.ip_addrs = ip_addrs
+        self.database_version = database_version
         self.context = ssl.SSLContext(ssl.PROTOCOL_TLS)
 
         # verify OpenSSL version supports TLSv1.3
@@ -370,6 +373,7 @@ class Instance:
 
         return InstanceMetadata(
             ephemeral_cert,
+            metadata["database_version"],
             metadata["ip_addresses"],
             priv_key,
             metadata["server_ca_cert"],
