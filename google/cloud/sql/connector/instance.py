@@ -79,7 +79,11 @@ class InstanceMetadata:
     ) -> None:
         self.ip_addrs = ip_addrs
         self.database_version = database_version
-        self.context = ssl.SSLContext(ssl.PROTOCOL_TLS)
+        self.context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+
+        # update ssl.PROTOCOL_TLS_CLIENT defaults
+        self.context.check_hostname = False
+        self.context.verify_mode = ssl.VerifyMode.CERT_NONE
 
         # verify OpenSSL version supports TLSv1.3
         if ssl.HAS_TLSv1_3:
