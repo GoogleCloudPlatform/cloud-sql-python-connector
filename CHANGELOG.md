@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.1.0](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v1.0.0...v1.1.0) (2023-01-10)
+
+
+### Features
+
+* add support for Python 3.11 ([#577](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/577)) ([b2669be](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/b2669bef72ec3a056be0646d92c18acf9a8166c7))
+* format `user` argument for automatic IAM authn ([#449](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/449)) ([88f5bcd](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/88f5bcd531aec696998fe8c7485b9291a26f3c2e))
+
+
+### Bug Fixes
+
+* update TLS protocol for python3.10 ([#575](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/575)) ([bb4ab5d](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/bb4ab5d482d8065e8e866648ffcf43b9b4f8e9a2))
+
 ## [1.0.0](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v0.9.3...v1.0.0) (2022-12-06)
 
 
