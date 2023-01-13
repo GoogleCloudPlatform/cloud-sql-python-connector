@@ -91,12 +91,10 @@ async def _get_metadata(
         credentials.refresh(request)
 
     headers = {
-        "Authorization": "Bearer {}".format(credentials.token),
+        "Authorization": f"Bearer {credentials.token}",
     }
 
-    url = "{}/sql/{}/projects/{}/instances/{}/connectSettings".format(
-        sqladmin_api_endpoint, _sql_api_version, project, instance
-    )
+    url = f"{sqladmin_api_endpoint}/sql/{_sql_api_version}/projects/{project}/instances/{instance}/connectSettings"
 
     logger.debug(f"['{instance}']: Requesting metadata")
 
@@ -176,9 +174,7 @@ async def _get_ephemeral(
         "Authorization": f"Bearer {credentials.token}",
     }
 
-    url = "{}/sql/{}/projects/{}/instances/{}:generateEphemeralCert".format(
-        sqladmin_api_endpoint, _sql_api_version, project, instance
-    )
+    url = f"{sqladmin_api_endpoint}/sql/{_sql_api_version}/projects/{project}/instances/{instance}:generateEphemeralCert"
 
     data = {"public_key": pub_key}
 
