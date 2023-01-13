@@ -91,7 +91,7 @@ def generate_cert(
             x509.NameAttribute(NameOID.STATE_OR_PROVINCE_NAME, "California"),
             x509.NameAttribute(NameOID.LOCALITY_NAME, "Mountain View"),
             x509.NameAttribute(NameOID.ORGANIZATION_NAME, "Google Inc"),
-            x509.NameAttribute(NameOID.COMMON_NAME, "{}".format(common_name)),
+            x509.NameAttribute(NameOID.COMMON_NAME, common_name),
         ]
     )
     # build cert
