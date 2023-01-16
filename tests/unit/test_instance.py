@@ -207,42 +207,6 @@ async def test_force_refresh_cancels_pending_refresh(
 
 
 @pytest.mark.asyncio
-async def test_auth_init_with_credentials_object(
-    instance: Instance, fake_credentials: Credentials
-) -> None:
-    """
-    Test that Instance's _auth_init initializes _credentials
-    when passed a google.auth.credentials.Credentials object.
-    """
-    setattr(instance, "_credentials", None)
-    with patch(
-        "google.cloud.sql.connector.instance.with_scopes_if_required"
-    ) as mock_auth:
-        mock_auth.return_value = fake_credentials
-        instance._auth_init(credentials=fake_credentials)
-        assert isinstance(instance._credentials, Credentials)
-        mock_auth.assert_called_once()
-    await instance.close()
-
-
-@pytest.mark.asyncio
-async def test_auth_init_with_default_credentials(
-    instance: Instance, fake_credentials: Credentials
-) -> None:
-    """
-    Test that Instance's _auth_init initializes _credentials
-    with application default credentials when credentials are not specified.
-    """
-    setattr(instance, "_credentials", None)
-    with patch("google.auth.default") as mock_auth:
-        mock_auth.return_value = fake_credentials, None
-        instance._auth_init(credentials=None)
-        assert isinstance(instance._credentials, Credentials)
-        mock_auth.assert_called_once()
-    await instance.close()
-
-
-@pytest.mark.asyncio
 async def test_Instance_close(instance: Instance) -> None:
     """
     Test that Instance's close method

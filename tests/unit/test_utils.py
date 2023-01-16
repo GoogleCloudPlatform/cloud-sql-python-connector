@@ -15,6 +15,8 @@ limitations under the License.
 """
 
 from google.cloud.sql.connector import utils
+from google.auth.credentials import Credentials
+from mock import patch
 
 import pytest  # noqa F401 Needed to run the tests
 
@@ -75,3 +77,29 @@ def test_format_database_user_mysql() -> None:
     user2 = utils.format_database_user("MYSQL_8_0", "test")
     assert user == "test"
     assert user2 == "test"
+
+
+def test_auth_init_with_credentials_object(fake_credentials: Credentials) -> None:
+    """
+    Test that _auth_init initializes credentials with scopes
+    when passed a google.auth.credentials.Credentials object.
+    """
+    with patch("google.cloud.sql.connector.utils.with_scopes_if_required") as mock_auth:
+        mock_auth.return_value = fake_credentials
+        credentials = utils._auth_init(credentials=fake_credentials)
+        assert isinstance(credentials, Credentials)
+        mock_auth.assert_called_once()
+
+
+def test_auth_init_with_default_credentials(
+    fake_credentials: Credentials,
+) -> None:
+    """
+    Test that _auth_init initializes _credentials
+    with application default credentials when credentials are not specified.
+    """
+    with patch("google.cloud.sql.connector.utils.default") as mock_auth:
+        mock_auth.return_value = fake_credentials, None
+        credentials = utils._auth_init(credentials=None)
+        assert isinstance(credentials, Credentials)
+        mock_auth.assert_called_once()

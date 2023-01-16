@@ -17,8 +17,10 @@ limitations under the License.
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
+from google.auth import default
+from google.auth.credentials import Credentials, with_scopes_if_required
 
-from typing import Tuple
+from typing import Tuple, Optional
 
 
 async def generate_keys() -> Tuple[bytes, str]:
@@ -102,3 +104,23 @@ def format_database_user(database_version: str, user: str) -> str:
         return user.split("@")[0]
 
     return user
+
+
+def _auth_init(credentials: Optional[Credentials]) -> Credentials:
+    """Creates and assigns a Google Python API service object for
+    Google Cloud SQL Admin API.
+
+    :type credentials: google.auth.credentials.Credentials
+    :param credentials
+        Credentials object used to authenticate connections to Cloud SQL server.
+        If not specified, Application Default Credentials are used.
+    """
+    scopes = ["https://www.googleapis.com/auth/sqlservice.admin"]
+    # if Credentials object is passed in, use for authentication
+    if isinstance(credentials, Credentials):
+        credentials = with_scopes_if_required(credentials, scopes=scopes)
+    # otherwise use application default credentials
+    else:
+        credentials, _ = default(scopes=scopes)
+
+    return credentials
