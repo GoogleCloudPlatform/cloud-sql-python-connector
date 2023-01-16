@@ -56,7 +56,7 @@ async def test_Instance_init(
     keys = asyncio.wrap_future(
         asyncio.run_coroutine_threadsafe(generate_keys(), event_loop), loop=event_loop
     )
-    with patch("google.auth.default") as mock_auth:
+    with patch("google.cloud.sql.connector.utils.default") as mock_auth:
         mock_auth.return_value = fake_credentials, None
         instance = Instance(connect_string, "pymysql", keys, event_loop)
     project_result = instance._project

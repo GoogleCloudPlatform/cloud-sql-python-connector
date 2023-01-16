@@ -154,7 +154,7 @@ async def instance(
     keys = event_loop.create_task(generate_keys())
     _, client_key = await keys
 
-    with patch("google.auth.default") as mock_auth:
+    with patch("google.cloud.sql.connector.utils.default") as mock_auth:
         mock_auth.return_value = fake_credentials, None
         # mock Cloud SQL Admin API calls
         with aioresponses() as mocked:
@@ -188,7 +188,7 @@ async def connector(fake_credentials: Credentials) -> AsyncGenerator[Connector, 
     project, region, instance_name = instance_connection_name.split(":")
     # initialize connector
     connector = Connector()
-    with patch("google.auth.default") as mock_auth:
+    with patch("google.cloud.sql.connector.utils.default") as mock_auth:
         mock_auth.return_value = fake_credentials, None
         # mock Cloud SQL Admin API calls
         mock_instance = FakeCSQLInstance(project, region, instance_name)
