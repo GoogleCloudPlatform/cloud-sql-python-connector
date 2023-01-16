@@ -107,8 +107,8 @@ def format_database_user(database_version: str, user: str) -> str:
 
 
 def _auth_init(credentials: Optional[Credentials]) -> Credentials:
-    """Creates and assigns a Google Python API service object for
-    Google Cloud SQL Admin API.
+    """Creates google.auth credentials object with scopes required to make
+    calls to the Cloud SQL Admin APIs.
 
     :type credentials: google.auth.credentials.Credentials
     :param credentials
