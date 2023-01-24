@@ -22,7 +22,7 @@ from google.cloud.sql.connector.refresh_utils import (
     _seconds_until_refresh,
     _is_valid,
 )
-from google.cloud.sql.connector.utils import write_to_file
+from google.cloud.sql.connector.utils import write_to_file, _auth_init
 from google.cloud.sql.connector.version import __version__ as version
 from google.cloud.sql.connector.exceptions import (
     TLSVersionError,
@@ -36,11 +36,9 @@ import asyncio
 import aiohttp
 import datetime
 from enum import Enum
-import google.auth
-from google.auth.credentials import Credentials, with_scopes_if_required
+from google.auth.credentials import Credentials
 from cryptography.x509 import load_pem_x509_certificate
 from cryptography.hazmat.backends import default_backend
-import google.auth.transport.requests
 import ssl
 from tempfile import TemporaryDirectory
 from typing import (
@@ -249,34 +247,13 @@ class Instance:
                 "Arg credentials must be type 'google.auth.credentials.Credentials' "
                 "or None (to use Application Default Credentials)"
             )
-
-        self._auth_init(credentials)
-
+        self._credentials = _auth_init(credentials)
         self._refresh_rate_limiter = AsyncRateLimiter(
             max_capacity=2, rate=1 / 30, loop=self._loop
         )
         self._refresh_in_progress = asyncio.locks.Event()
         self._current = self._schedule_refresh(0)
         self._next = self._current
-
-    def _auth_init(self, credentials: Optional[Credentials]) -> None:
-        """Creates and assigns a Google Python API service object for
-        Google Cloud SQL Admin API.
-
-        :type credentials: google.auth.credentials.Credentials
-        :param credentials
-            Credentials object used to authenticate connections to Cloud SQL server.
-            If not specified, Application Default Credentials are used.
-        """
-        scopes = ["https://www.googleapis.com/auth/sqlservice.admin"]
-        # if Credentials object is passed in, use for authentication
-        if isinstance(credentials, Credentials):
-            credentials = with_scopes_if_required(credentials, scopes=scopes)
-        # otherwise use application default credentials
-        else:
-            credentials, project = google.auth.default(scopes=scopes)
-
-        self._credentials = credentials
 
     def force_refresh(self) -> None:
         """

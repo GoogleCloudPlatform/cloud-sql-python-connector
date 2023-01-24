@@ -56,7 +56,7 @@ async def test_Instance_init(
     keys = asyncio.wrap_future(
         asyncio.run_coroutine_threadsafe(generate_keys(), event_loop), loop=event_loop
     )
-    with patch("google.auth.default") as mock_auth:
+    with patch("google.cloud.sql.connector.utils.default") as mock_auth:
         mock_auth.return_value = fake_credentials, None
         instance = Instance(connect_string, "pymysql", keys, event_loop)
     project_result = instance._project
@@ -204,42 +204,6 @@ async def test_force_refresh_cancels_pending_refresh(
     # verify pending_refresh has now been cancelled
     assert pending_refresh.cancelled() is True
     assert isinstance(await instance._current, InstanceMetadata)
-
-
-@pytest.mark.asyncio
-async def test_auth_init_with_credentials_object(
-    instance: Instance, fake_credentials: Credentials
-) -> None:
-    """
-    Test that Instance's _auth_init initializes _credentials
-    when passed a google.auth.credentials.Credentials object.
-    """
-    setattr(instance, "_credentials", None)
-    with patch(
-        "google.cloud.sql.connector.instance.with_scopes_if_required"
-    ) as mock_auth:
-        mock_auth.return_value = fake_credentials
-        instance._auth_init(credentials=fake_credentials)
-        assert isinstance(instance._credentials, Credentials)
-        mock_auth.assert_called_once()
-    await instance.close()
-
-
-@pytest.mark.asyncio
-async def test_auth_init_with_default_credentials(
-    instance: Instance, fake_credentials: Credentials
-) -> None:
-    """
-    Test that Instance's _auth_init initializes _credentials
-    with application default credentials when credentials are not specified.
-    """
-    setattr(instance, "_credentials", None)
-    with patch("google.auth.default") as mock_auth:
-        mock_auth.return_value = fake_credentials, None
-        instance._auth_init(credentials=None)
-        assert isinstance(instance._credentials, Credentials)
-        mock_auth.assert_called_once()
-    await instance.close()
 
 
 @pytest.mark.asyncio
