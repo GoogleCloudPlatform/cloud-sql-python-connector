@@ -186,7 +186,7 @@ def _seconds_until_refresh(
     expiration: datetime.datetime,
 ) -> int:
     """
-    Returns the duration to wait before starting the next refresh.
+    Calculates the duration to wait before starting the next refresh.
 
     Usually the duration will be half of the time until certificate
     expiration.
