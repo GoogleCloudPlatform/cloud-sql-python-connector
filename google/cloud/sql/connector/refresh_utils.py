@@ -29,16 +29,6 @@ logger = logging.getLogger(name=__name__)
 
 _sql_api_version: str = "v1beta4"
 
-# default_refresh_buffer is the amount of time before a refresh's result expires
-# that a new refresh operation begins.
-_default_refresh_buffer: int = 5 * 60  # 5 minutes
-
-# _iam_auth_refresh_buffer is the amount of time before a refresh's result expires
-# that a new refresh operation begins when IAM DB AuthN is enabled. Because token
-# sources may be cached until ~60 seconds before expiration, this value must be smaller
-# than default_refresh_buffer.
-_iam_auth_refresh_buffer: int = 55  # seconds
-
 
 async def _get_metadata(
     client_session: aiohttp.ClientSession,
@@ -194,29 +184,29 @@ async def _get_ephemeral(
 
 def _seconds_until_refresh(
     expiration: datetime.datetime,
-    enable_iam_auth: bool,
 ) -> int:
     """
-    Helper function to get time in seconds before performing next refresh.
+    Returns the duration to wait before starting the next refresh.
+
+    Usually the duration will be half of the time until certificate
+    expiration.
 
     :rtype: int
     :returns: Time in seconds to wait before performing next refresh.
     """
-    if enable_iam_auth:
-        refresh_buffer = _iam_auth_refresh_buffer
-    else:
-        refresh_buffer = _default_refresh_buffer
+    refresh_buffer = 4 * 60  # 4 minutes
 
-    delay = (expiration - datetime.datetime.now()) - datetime.timedelta(
-        seconds=refresh_buffer
-    )
+    duration = int((expiration - datetime.datetime.now()).total_seconds())
 
-    if delay.total_seconds() < 0:
-        # If the time until the certificate expires is less than the buffer,
-        # schedule the refresh closer to the expiration time
-        delay = (expiration - datetime.datetime.now()) - datetime.timedelta(seconds=5)
+    # if certificate duration is less than 1 hour
+    if duration < 3600:
+        # something is wrong with certificate, refresh now
+        if duration < refresh_buffer:
+            return 0
+        # otherwise wait 4 minutes before next refresh
+        return refresh_buffer
 
-    return int(delay.total_seconds())
+    return duration // 2
 
 
 async def _is_valid(task: asyncio.Task) -> bool:

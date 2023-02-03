@@ -407,10 +407,8 @@ class Instance:
                 raise
             # if valid refresh, replace current with valid metadata and schedule next refresh
             self._current = refresh_task
-            # Ephemeral certificate expires in 1 hour, so we schedule a refresh to happen in 55 minutes.
-            delay = _seconds_until_refresh(
-                refresh_data.expiration, self._enable_iam_auth
-            )
+            # calculate refresh delay based on certificate expiration
+            delay = _seconds_until_refresh(refresh_data.expiration)
             self._next = self._schedule_refresh(delay)
 
             return refresh_data
