@@ -29,6 +29,10 @@ logger = logging.getLogger(name=__name__)
 
 _sql_api_version: str = "v1beta4"
 
+# _refresh_buffer is the amount of time before a refresh's result expires
+# that a new refresh operation begins.
+_refresh_buffer: int = 4 * 60  # 4 minutes
+
 
 async def _get_metadata(
     client_session: aiohttp.ClientSession,
@@ -194,17 +198,16 @@ def _seconds_until_refresh(
     :rtype: int
     :returns: Time in seconds to wait before performing next refresh.
     """
-    refresh_buffer = 4 * 60  # 4 minutes
 
     duration = int((expiration - datetime.datetime.now()).total_seconds())
 
     # if certificate duration is less than 1 hour
     if duration < 3600:
         # something is wrong with certificate, refresh now
-        if duration < refresh_buffer:
+        if duration < _refresh_buffer:
             return 0
-        # otherwise wait 4 minutes before next refresh
-        return refresh_buffer
+        # otherwise wait until 4 minutes before expiration for next refresh
+        return duration - _refresh_buffer
 
     return duration // 2
 
