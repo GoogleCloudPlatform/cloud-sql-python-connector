@@ -149,11 +149,12 @@ async def test_get_metadata(
     parameters.
     """
     project = "my-project"
+    region = "my-region"
     instance = "my-instance"
     # mock Cloud SQL Admin API call
     with aioresponses() as mocked:
         mocked.get(
-            "https://sqladmin.googleapis.com/sql/v1beta4/projects/my-project/instances/my-instance/connectSettings",
+            f"https://sqladmin.googleapis.com/sql/v1beta4/projects/{project}/instances/{instance}/connectSettings",
             status=200,
             body=mock_instance.connect_settings(),
             repeat=True,
@@ -165,6 +166,7 @@ async def test_get_metadata(
                 "https://sqladmin.googleapis.com",
                 credentials,
                 project,
+                region,
                 instance,
             )
 
@@ -184,6 +186,7 @@ async def test_get_metadata_TypeError(credentials: Credentials) -> None:
     """
     client_session = Mock(aiohttp.ClientSession)
     project = "my-project"
+    region = "my-region"
     instance = "my-instance"
 
     # incorrect credentials type
@@ -193,6 +196,7 @@ async def test_get_metadata_TypeError(credentials: Credentials) -> None:
             sqladmin_api_endpoint="https://sqladmin.googleapis.com",
             credentials="bad-credentials",
             project=project,
+            region=region,
             instance=instance,
         )
     # incorrect project type
@@ -202,6 +206,17 @@ async def test_get_metadata_TypeError(credentials: Credentials) -> None:
             sqladmin_api_endpoint="https://sqladmin.googleapis.com",
             credentials=credentials,
             project=12345,
+            region=region,
+            instance=instance,
+        )
+    # incorrect region type
+    with pytest.raises(TypeError):
+        await _get_metadata(
+            client_session=client_session,
+            sqladmin_api_endpoint="https://sqladmin.googleapis.com",
+            credentials=credentials,
+            project=project,
+            region=1,
             instance=instance,
         )
     # incorrect instance type
@@ -211,8 +226,44 @@ async def test_get_metadata_TypeError(credentials: Credentials) -> None:
             sqladmin_api_endpoint="https://sqladmin.googleapis.com",
             credentials=credentials,
             project=project,
+            region=region,
             instance=12345,
         )
+
+
+@pytest.mark.asyncio
+@no_type_check
+async def test_get_metadata_region_mismatch(
+    mock_instance: FakeCSQLInstance, credentials: Credentials
+) -> None:
+    """
+    Test to check whether _get_metadata throws proper ValueError
+    when given mismatched region.
+    """
+    client_session = Mock(aiohttp.ClientSession)
+    project = "my-project"
+    region = "bad-region"
+    instance = "my-instance"
+
+    # mock Cloud SQL Admin API call
+    with aioresponses() as mocked:
+        mocked.get(
+            f"https://sqladmin.googleapis.com/sql/v1beta4/projects/{project}/instances/{instance}/connectSettings",
+            status=200,
+            body=mock_instance.connect_settings(),
+            repeat=True,
+        )
+
+        async with aiohttp.ClientSession() as client_session:
+            with pytest.raises(ValueError):
+                await _get_metadata(
+                    client_session=client_session,
+                    sqladmin_api_endpoint="https://sqladmin.googleapis.com",
+                    credentials=credentials,
+                    project=project,
+                    region=region,
+                    instance=instance,
+                )
 
 
 @pytest.mark.asyncio
