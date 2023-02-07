@@ -39,6 +39,7 @@ async def _get_metadata(
     sqladmin_api_endpoint: str,
     credentials: Credentials,
     project: str,
+    region: str,
     instance: str,
 ) -> Dict[str, Any]:
     """Requests metadata from the Cloud SQL Instance
@@ -59,6 +60,9 @@ async def _get_metadata(
     :param project:
         A string representing the name of the project.
 
+    :type region: str
+    :param region : A string representing the name of the region.
+
     :type instance: str
     :param instance: A string representing the name of the instance.
 
@@ -77,6 +81,8 @@ async def _get_metadata(
         )
     elif not isinstance(project, str):
         raise TypeError(f"project must be of type str, got {type(project)}")
+    elif not isinstance(region, str):
+        raise TypeError(f"region must be of type str, got {type(region)}")
     elif not isinstance(instance, str):
         raise TypeError(f"instance must be of type str, got {type(instance)}")
 
@@ -94,6 +100,11 @@ async def _get_metadata(
 
     resp = await client_session.get(url, headers=headers, raise_for_status=True)
     ret_dict = await resp.json()
+
+    if ret_dict["region"] != region:
+        raise ValueError(
+            f'[{project}:{region}:{instance}]: Provided region was mismatched - got region {region}, expected {ret_dict["region"]}.'
+        )
 
     metadata = {
         "ip_addresses": {ip["type"]: ip["ipAddress"] for ip in ret_dict["ipAddresses"]},

@@ -292,6 +292,7 @@ class Instance:
                     self._sqladmin_api_endpoint,
                     self._credentials,
                     self._project,
+                    self._region,
                     self._instance,
                 )
             )
