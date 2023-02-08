@@ -41,6 +41,7 @@ def init_connection_engine(
     pool = sqlalchemy.create_engine(
         "mysql+pymysql://",
         creator=getconn,
+        execution_options={"isolation_level": "AUTOCOMMIT"},
     )
     return pool
 

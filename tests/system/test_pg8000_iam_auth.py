@@ -48,6 +48,7 @@ def init_connection_engine() -> sqlalchemy.engine.Engine:
     pool = sqlalchemy.create_engine(
         "postgresql+pg8000://",
         creator=getconn,
+        execution_options={"isolation_level": "AUTOCOMMIT"},
     )
     pool.dialect.description_encoding = None
     return pool
