@@ -80,8 +80,8 @@ def test_pooled_connection_with_pg8000(pool: sqlalchemy.engine.Engine) -> None:
         f"INSERT INTO {table_name} (id, title) VALUES (:id, :title)",
     )
     with pool.connect() as conn:
-        conn.execute(insert_stmt, id="book1", title="Book One")
-        conn.execute(insert_stmt, id="book2", title="Book Two")
+        conn.execute(insert_stmt, parameters={"id": "book1", "title": "Book One"})
+        conn.execute(insert_stmt, parameters={"id": "book2", "title": "Book Two"})
 
     select_stmt = sqlalchemy.text(f"SELECT title FROM {table_name} ORDER BY ID;")
     with pool.connect() as conn:
