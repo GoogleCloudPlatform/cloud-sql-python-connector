@@ -50,7 +50,6 @@ def init_connection_engine() -> sqlalchemy.engine.Engine:
     pool = sqlalchemy.create_engine(
         "mssql+pytds://localhost",
         creator=getconn,
-        execution_options={"isolation_level": "AUTOCOMMIT"},
     )
     pool.dialect.description_encoding = None
     return pool
@@ -70,11 +69,13 @@ def setup() -> Generator:
                 " ( id CHAR(20) NOT NULL, title TEXT NOT NULL );"
             )
         )
+        conn.commit()
 
     yield pool
 
     with pool.connect() as conn:
         conn.execute(sqlalchemy.text(f"DROP TABLE {table_name}"))
+        conn.commit()
 
 
 def test_pooled_connection_with_pytds(pool: sqlalchemy.engine.Engine) -> None:
@@ -84,6 +85,7 @@ def test_pooled_connection_with_pytds(pool: sqlalchemy.engine.Engine) -> None:
     with pool.connect() as conn:
         conn.execute(insert_stmt, parameters={"id": "book1", "title": "Book One"})
         conn.execute(insert_stmt, parameters={"id": "book2", "title": "Book Two"})
+        conn.commit()
 
     select_stmt = sqlalchemy.text(f"SELECT title FROM {table_name} ORDER BY ID;")
     with pool.connect() as conn:
