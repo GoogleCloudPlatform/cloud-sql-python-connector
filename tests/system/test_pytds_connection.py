@@ -50,6 +50,7 @@ def init_connection_engine() -> sqlalchemy.engine.Engine:
     pool = sqlalchemy.create_engine(
         "mssql+pytds://localhost",
         creator=getconn,
+        execution_options={"isolation_level": "AUTOCOMMIT"},
     )
     pool.dialect.description_encoding = None
     return pool

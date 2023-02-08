@@ -52,7 +52,7 @@ def init_connection_engine(
 
 def test_connector_with_credentials() -> None:
     """Test Connector object connection with credentials loaded from file."""
-    credentials, project = google.auth.load_credentials_from_file(
+    credentials, _ = google.auth.load_credentials_from_file(
         os.environ["GOOGLE_APPLICATION_CREDENTIALS"]
     )
     custom_connector = Connector(credentials=credentials)
