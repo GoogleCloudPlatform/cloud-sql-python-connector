@@ -59,7 +59,7 @@ def test_connector_with_credentials() -> None:
         pool = init_connection_engine(custom_connector)
 
         with pool.connect() as conn:
-            conn.execute("SELECT 1")
+            conn.execute(sqlalchemy.text("SELECT 1"))
 
     except Exception as e:
         logging.exception("Failed to connect with credentials from file!", e)
@@ -76,10 +76,10 @@ def test_multiple_connectors() -> None:
         pool2 = init_connection_engine(second_connector)
 
         with pool.connect() as conn:
-            conn.execute("SELECT 1")
+            conn.execute(sqlalchemy.text("SELECT 1"))
 
         with pool2.connect() as conn:
-            conn.execute("SELECT 1")
+            conn.execute(sqlalchemy.text("SELECT 1"))
 
         instance_connection_string = os.environ["MYSQL_CONNECTION_NAME"]
         assert instance_connection_string in first_connector._instances
@@ -108,7 +108,7 @@ def test_connector_in_ThreadPoolExecutor() -> None:
 
         # connect to database and get current time
         with pool.connect() as conn:
-            current_time = conn.execute("SELECT NOW()").fetchone()
+            current_time = conn.execute(sqlalchemy.text("SELECT NOW()")).fetchone()
 
         # close connector
         default_connector.close()
@@ -127,7 +127,7 @@ def test_connector_as_context_manager() -> None:
         pool = init_connection_engine(connector)
 
         with pool.connect() as conn:
-            conn.execute("SELECT 1")
+            conn.execute(sqlalchemy.text("SELECT 1"))
 
 
 def test_connector_with_custom_loop() -> None:
@@ -141,7 +141,7 @@ def test_connector_with_custom_loop() -> None:
         pool = init_connection_engine(connector)
 
         with pool.connect() as conn:
-            result = conn.execute("SELECT 1").fetchone()
+            result = conn.execute(sqlalchemy.text("SELECT 1")).fetchone()
         assert result[0] == 1
         # assert that Connector does not start its own thread
         assert connector._thread is None

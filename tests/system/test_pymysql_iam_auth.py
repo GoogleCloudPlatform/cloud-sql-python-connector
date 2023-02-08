@@ -58,14 +58,16 @@ def setup() -> Generator:
 
     with pool.connect() as conn:
         conn.execute(
-            f"CREATE TABLE IF NOT EXISTS {table_name}"
-            " ( id CHAR(20) NOT NULL, title TEXT NOT NULL );"
+            sqlalchemy.text(
+                f"CREATE TABLE IF NOT EXISTS {table_name}"
+                " ( id CHAR(20) NOT NULL, title TEXT NOT NULL );"
+            )
         )
 
     yield pool
 
     with pool.connect() as conn:
-        conn.execute(f"DROP TABLE IF EXISTS {table_name}")
+        conn.execute(sqlalchemy.text(f"DROP TABLE IF EXISTS {table_name}"))
 
 
 def test_pooled_connection_with_pymysql_iam_auth(

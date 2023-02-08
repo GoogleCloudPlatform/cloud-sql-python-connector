@@ -64,14 +64,16 @@ def setup() -> Generator:
 
     with pool.connect() as conn:
         conn.execute(
-            f"CREATE TABLE {table_name}"
-            " ( id CHAR(20) NOT NULL, title TEXT NOT NULL );"
+            sqlalchemy.text(
+                f"CREATE TABLE {table_name}"
+                " ( id CHAR(20) NOT NULL, title TEXT NOT NULL );"
+            )
         )
 
     yield pool
 
     with pool.connect() as conn:
-        conn.execute(f"DROP TABLE {table_name}")
+        conn.execute(sqlalchemy.text(f"DROP TABLE {table_name}"))
 
 
 def test_pooled_connection_with_pytds(pool: sqlalchemy.engine.Engine) -> None:

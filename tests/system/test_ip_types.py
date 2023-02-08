@@ -49,7 +49,7 @@ def test_public_ip() -> None:
     with Connector() as connector:
         pool = init_connection_engine(connector, IPTypes.PUBLIC)
         with pool.connect() as conn:
-            conn.execute("SELECT 1")
+            conn.execute(sqlalchemy.text("SELECT 1"))
 
 
 @pytest.mark.private_ip
@@ -57,4 +57,4 @@ def test_private_ip() -> None:
     with Connector() as connector:
         pool = init_connection_engine(connector, IPTypes.PRIVATE)
         with pool.connect() as conn:
-            conn.execute("SELECT 1")
+            conn.execute(sqlalchemy.text("SELECT 1"))
