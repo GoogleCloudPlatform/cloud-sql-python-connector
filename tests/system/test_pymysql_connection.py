@@ -49,6 +49,7 @@ def init_connection_engine() -> sqlalchemy.engine.Engine:
     pool = sqlalchemy.create_engine(
         "mysql+pymysql://",
         creator=getconn,
+        execution_options={"isolation_level": "AUTOCOMMIT"},
     )
     return pool
 
@@ -62,14 +63,16 @@ def setup() -> Generator:
 
     with pool.connect() as conn:
         conn.execute(
-            f"CREATE TABLE IF NOT EXISTS `{table_name}`"
-            " ( id CHAR(20) NOT NULL, title TEXT NOT NULL );"
+            sqlalchemy.text(
+                f"CREATE TABLE IF NOT EXISTS `{table_name}`"
+                " ( id CHAR(20) NOT NULL, title TEXT NOT NULL );"
+            )
         )
 
     yield pool
 
     with pool.connect() as conn:
-        conn.execute(f"DROP TABLE IF EXISTS `{table_name}`")
+        conn.execute(sqlalchemy.text(f"DROP TABLE IF EXISTS `{table_name}`"))
 
 
 def test_pooled_connection_with_pymysql(pool: sqlalchemy.engine.Engine) -> None:
@@ -77,8 +80,8 @@ def test_pooled_connection_with_pymysql(pool: sqlalchemy.engine.Engine) -> None:
         f"INSERT INTO {table_name} (id, title) VALUES (:id, :title)",
     )
     with pool.connect() as conn:
-        conn.execute(insert_stmt, id="book1", title="Book One")
-        conn.execute(insert_stmt, id="book2", title="Book Two")
+        conn.execute(insert_stmt, parameters={"id": "book1", "title": "Book One"})
+        conn.execute(insert_stmt, parameters={"id": "book2", "title": "Book Two"})
 
     select_stmt = sqlalchemy.text(f"SELECT title FROM {table_name} ORDER BY ID;")
     with pool.connect() as conn:

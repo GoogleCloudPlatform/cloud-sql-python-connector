@@ -138,10 +138,10 @@ insert_stmt = sqlalchemy.text(
 
 with pool.connect() as db_conn:
     # insert into database
-    db_conn.execute(insert_stmt, id="book1", title="Book One")
+    db_conn.execute(insert_stmt, parameters={"id": "book1", "title": "Book One"})
 
     # query database
-    result = db_conn.execute("SELECT * from my_table").fetchall()
+    result = db_conn.execute(sqlalchemy.text("SELECT * from my_table")).fetchall()
 
     # Do something with the results
     for row in result:
@@ -186,6 +186,7 @@ Connector as a context manager:
 
 ```python
 from google.cloud.sql.connector import Connector
+import sqlalchemy
 
 # build connection
 def getconn() -> pymysql.connections.Connection:
@@ -213,10 +214,10 @@ insert_stmt = sqlalchemy.text(
 # interact with Cloud SQL database using connection pool
 with pool.connect() as db_conn:
     # insert into database
-    db_conn.execute(insert_stmt, id="book1", title="Book One")
+    db_conn.execute(insert_stmt, parameters={"id": "book1", "title": "Book One"})
 
     # query database
-    result = db_conn.execute("SELECT * from my_table").fetchall()
+    result = db_conn.execute(sqlalchemy.text("SELECT * from my_table")).fetchall()
 
     # Do something with the results
     for row in result:
