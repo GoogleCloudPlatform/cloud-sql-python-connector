@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.0](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v1.1.0...v1.2.0) (2023-02-13)
+
+
+### Features
+
+* improve reliability of certificate refresh ([#599](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/599)) ([e546efb](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/e546efbff967cd6880d2238ba4be2f8711952562))
+
 ## [1.1.0](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v1.0.0...v1.1.0) (2023-01-10)
 
 
