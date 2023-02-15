@@ -1,0 +1,64 @@
+name: 🐞 Bug Report
+description: File a bug report
+title: "Brief summary of what bug or error was observed"
+labels: ["type: bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for stopping by to let us know something could be better!<br/>
+        ### PLEASE READ PRIOR TO CREATING BUG
+        If you have a support contract with Google, please create an issue in the [support console](https://cloud.google.com/support/) instead of filing it here on GitHub. This will ensure a timely response.
+        
+        Please run down the following list and make sure you've tried the usual "quick fixes":
+        - Search the [current open issues](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues)
+        - Check for answers on [StackOverflow](https://stackoverflow.com/questions/tagged/google-cloud-sql) (under the 'google-cloud-sql' tag)
+        
+        If you are still having issues, please include as much information as possible below! :smile:
+  - type: textarea
+    id: bug-description
+    attributes:
+      label: Bug Description
+      description: "Please enter a detailed description of the bug, and any information about what behavior you noticed and why it is defective or unintentional."
+    validations:
+      required: true
+  - type: textarea
+    id: example-code
+    attributes:
+      label: Example code (or command)
+      description: "Please paste any useful application code related to the bug below. (if your code is in a public repo, feel free to paste a link!)"
+      render: Python
+  - type: textarea
+    id: stacktrace
+    attributes:
+      label: Stacktrace
+      description: "Paste any relevant stacktrace or error you are running into here. Be sure to filter sensitive information!"
+      render: bash
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce?
+      description: "How do you trigger this bug? Please walk us through it step by step."
+      value: |
+        1. ?
+        2. ?
+        3. ?
+        ...
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: "Let us know some details about the environment in which you are seeing the bug!"
+      value: |
+        1. OS type and version:
+        2. Python version:
+        3. Cloud SQL Python Connector version: 
+    validations:
+      required: true
+  - type: textarea
+    id: additional-details
+    attributes:
+      label: Additional Details
+      description: "Any other information you want us to know?"
