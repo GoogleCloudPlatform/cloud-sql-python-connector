@@ -48,7 +48,7 @@ def init_connection_engine() -> sqlalchemy.engine.Engine:
 
     # create SQLAlchemy connection pool
     pool = sqlalchemy.create_engine(
-        "mssql+pytds://localhost",
+        "mssql+pytds://",
         creator=getconn,
     )
     pool.dialect.description_encoding = None
