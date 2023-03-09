@@ -6,10 +6,20 @@
 
 <h1 align="center">Cloud SQL Python Connector</h1>
 
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/GoogleCloudPlatform/cloud-sql-python-connector/blob/main/samples/notebooks/postgres_python_connector.ipynb)
-[![CI](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/actions/workflows/tests.yml/badge.svg?event=push)](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/actions/workflows/tests.yml?query=event%3Apush+branch%3Amain)
-[![pypi](https://img.shields.io/pypi/v/cloud-sql-python-connector)](https://pypi.org/project/cloud-sql-python-connector)
-[![python](https://img.shields.io/pypi/pyversions/cloud-sql-python-connector)](https://pypi.org/project/cloud-sql-python-connector)
+[![Open In Colab][colab-badge]][colab-notebook]
+[![CI][ci-badge]][ci-build]
+[![pypi][pypi-badge]][pypi-docs]
+[![PyPI download month][pypi-downloads]][pypi-docs]
+[![python][python-versions]][pypi-docs]
+
+[colab-badge]: https://colab.research.google.com/assets/colab-badge.svg
+[colab-notebook]: https://colab.research.google.com/github/GoogleCloudPlatform/cloud-sql-python-connector/blob/main/samples/notebooks/postgres_python_connector.ipynb
+[ci-badge]: https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/actions/workflows/tests.yml/badge.svg?event=push
+[ci-build]: https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/actions/workflows/tests.yml?query=event%3Apush+branch%3Amain
+[pypi-badge]: https://img.shields.io/pypi/v/cloud-sql-python-connector
+[pypi-docs]: https://pypi.org/project/cloud-sql-python-connector
+[pypi-downloads]: https://img.shields.io/pypi/dm/cloud-sql-python-connector.svg
+[python-versions]: https://img.shields.io/pypi/pyversions/cloud-sql-python-connector
 
 The _Cloud SQL Python Connector_ is a Cloud SQL connector designed for use with the
 Python language. Using a Cloud SQL connector provides the following benefits:
