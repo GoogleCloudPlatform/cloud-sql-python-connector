@@ -18,6 +18,10 @@ set -eo pipefail
 # Ensure that we have the latest versions of Twine, Wheel, and Setuptools.
 python3 -m pip install --upgrade twine wheel setuptools
 
+# Start the releasetool reporter
+python3 -m pip install gcp-releasetool
+python3 -m releasetool publish-reporter-script > /tmp/publisher-script; source /tmp/publisher-script
+
 # Disable buffering, so that the logs stream through.
 export PYTHONUNBUFFERED=1
 
