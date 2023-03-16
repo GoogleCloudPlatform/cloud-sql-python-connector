@@ -26,7 +26,7 @@ jobs:
     steps:
       - name: Remove PR Label
         if: "${{ github.event.action == 'labeled' && github.event.label.name == 'tests: run' }}"
-        uses: actions/github-script@v6
+        uses: actions/github-script@98814c53be79b1d30f795b907e553d8679345975 # v6.4.0
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -42,7 +42,7 @@ jobs:
             }
 
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@d27e3f3d7c64b4bbf8e4abfb9b63b83e846e0435 # v4.5.0
         with:
           python-version: "3.10"
       
@@ -50,7 +50,7 @@ jobs:
         run: pip install nox
 
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           repository: ${{ github.event.pull_request.head.repo.full_name }}
