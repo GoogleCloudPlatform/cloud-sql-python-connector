@@ -70,10 +70,15 @@ class Connector:
         creating new event loop on background thread.
 
     :type sqladmin_api_endpoint: str
-    :param sqladmin_api_endpoint:
+    :param sqladmin_api_endpoint
         Base URL to use when calling the Cloud SQL Admin API endpoint.
         Defaults to "https://sqladmin.googleapis.com", this argument should
         only be used in development.
+
+    :type http_proxy: bool
+    :param http_proxy
+        Enables extracting proxy configuration from HTTP_PROXY, HTTPS_PROXY,
+        WS_PROXY or WSS_PROXY environment variables (all are case insensitive).
     """
 
     def __init__(
@@ -85,6 +90,7 @@ class Connector:
         loop: asyncio.AbstractEventLoop = None,
         quota_project: Optional[str] = None,
         sqladmin_api_endpoint: str = "https://sqladmin.googleapis.com",
+        http_proxy: bool = False,
     ) -> None:
         # if event loop is given, use for background tasks
         if loop:
@@ -109,6 +115,7 @@ class Connector:
         self._quota_project = quota_project
         self._sqladmin_api_endpoint = sqladmin_api_endpoint
         self._credentials = credentials
+        self._http_proxy = http_proxy
 
     def connect(
         self, instance_connection_string: str, driver: str, **kwargs: Any
@@ -205,6 +212,7 @@ class Connector:
                 enable_iam_auth,
                 self._quota_project,
                 self._sqladmin_api_endpoint,
+                self._http_proxy,
             )
             self._instances[instance_connection_string] = instance
 

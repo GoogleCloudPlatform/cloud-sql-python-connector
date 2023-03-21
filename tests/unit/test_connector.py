@@ -111,6 +111,7 @@ def test_Connector_Init() -> None:
     assert connector._enable_iam_auth is False
     assert connector._timeout == 30
     assert connector._credentials is None
+    assert connector._http_proxy is False
     connector.close()
 
 
@@ -121,6 +122,7 @@ def test_Connector_Init_context_manager() -> None:
         assert connector._enable_iam_auth is False
         assert connector._timeout == 30
         assert connector._credentials is None
+        assert connector._http_proxy is False
 
 
 @pytest.mark.asyncio
@@ -133,6 +135,7 @@ async def test_Connector_Init_async_context_manager() -> None:
         assert connector._enable_iam_auth is False
         assert connector._timeout == 30
         assert connector._credentials is None
+        assert connector._http_proxy is False
         assert connector._loop == loop
 
 

@@ -166,6 +166,11 @@ class Instance:
         Base URL to use when calling the Cloud SQL Admin API endpoint.
         Defaults to "https://sqladmin.googleapis.com", this argument should
         only be used in development.
+
+    :type http_proxy: bool
+    :param http_proxy
+        Enables extracting proxy configuration from HTTP_PROXY, HTTPS_PROXY,
+        WS_PROXY or WSS_PROXY environment variables (all are case insensitive).
     """
 
     # asyncio.AbstractEventLoop is used because the default loop,
@@ -190,7 +195,7 @@ class Instance:
             }
             if self._quota_project:
                 headers["x-goog-user-project"] = self._quota_project
-            self.__client_session = aiohttp.ClientSession(headers=headers)
+            self.__client_session = aiohttp.ClientSession(headers=headers, trust_env=self._http_proxy)
         return self.__client_session
 
     _credentials: Optional[Credentials] = None
@@ -199,6 +204,7 @@ class Instance:
     _instance_connection_string: str
     _user_agent_string: str
     _sqladmin_api_endpoint: str
+    _http_proxy: bool
     _instance: str
     _project: str
     _region: str
@@ -218,6 +224,7 @@ class Instance:
         enable_iam_auth: bool = False,
         quota_project: str = None,
         sqladmin_api_endpoint: str = "https://sqladmin.googleapis.com",
+        http_proxy: bool = False,
     ) -> None:
         # Validate connection string
         connection_string_split = instance_connection_string.split(":")
@@ -239,6 +246,7 @@ class Instance:
         self._user_agent_string = f"{APPLICATION_NAME}/{version}+{driver_name}"
         self._quota_project = quota_project
         self._sqladmin_api_endpoint = sqladmin_api_endpoint
+        self._http_proxy = http_proxy
         self._loop = loop
         self._keys = keys
         # validate credentials type
