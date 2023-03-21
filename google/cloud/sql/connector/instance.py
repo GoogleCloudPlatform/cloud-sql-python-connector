@@ -195,7 +195,9 @@ class Instance:
             }
             if self._quota_project:
                 headers["x-goog-user-project"] = self._quota_project
-            self.__client_session = aiohttp.ClientSession(headers=headers, trust_env=self._http_proxy)
+            self.__client_session = aiohttp.ClientSession(
+                headers=headers, trust_env=self._http_proxy
+            )
         return self.__client_session
 
     _credentials: Optional[Credentials] = None
