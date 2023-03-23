@@ -4,11 +4,12 @@
     ":semanticCommitTypeAll(chore)",
     "helpers:pinGitHubActionDigests"
   ],
+  "commitMessagePrefix": "deps: ",
   "ignorePresets": [":semanticPrefixFixDepsChoreOthers"],
   "prConcurrentLimit": 0,
   "rebaseStalePrs": true,
   "dependencyDashboard": true,
-  "semanticCommits": true,
+  "semanticCommits": false,
   "pip_requirements": {
     "fileMatch": ["requirements-test.txt"]
   }
