@@ -19,8 +19,14 @@ on:
     branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
+    paths-ignore:
+      - '**/*.md'
+      - '**/*.txt'
   pull_request_target:
     types: [labeled]
+    paths-ignore:
+      - '**/*.md'
+      - '**/*.txt'
 
 # Declare default permissions as read only.
 permissions: read-all
