@@ -18,6 +18,9 @@ on:
   pull_request_target:
     types: [labeled]
 
+# Declare default permissions as read only.
+permissions: read-all
+
 jobs:
   coverage:
     if: "${{ github.event.action != 'labeled' || github.event.label.name == 'tests: run' }}"

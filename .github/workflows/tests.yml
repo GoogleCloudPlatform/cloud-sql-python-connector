@@ -23,6 +23,9 @@ on:
   schedule:
   - cron:  '0 2 * * *'
 
+# Declare default permissions as read only.
+permissions: read-all
+
 jobs:
   integration:
     # run job on proper workflow event triggers (skip job for pull_request event from forks and only run pull_request_target for "tests: run" label)
