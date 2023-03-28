@@ -32,8 +32,6 @@ jobs:
     permissions:
       # Needed to upload the results to code-scanning dashboard.
       security-events: write
-      # Needed to publish results and get a badge (see publish_results below).
-      id-token: write
 
     steps:
       - name: "Checkout code"
@@ -46,12 +44,16 @@ jobs:
         with:
           results_file: results.sarif
           results_format: sarif
-          # Public repositories:
-          #   - Publish results to OpenSSF REST API for easy access by consumers
-          #   - Allows the repository to include the Scorecard badge.
-          #   - See https://github.com/ossf/scorecard-action#publishing-results.
-          publish_results: true
-
+      
+      - name: Filter SARIF to skip false positives
+        # filter out DangerousWorkflow alerts as they do not account for safe use of labels to trigger actions
+        env:
+          SCORECARD_SKIPPED_RULE_IDS: "DangerousWorkflowID"
+        run: |
+          SCORECARD_SKIPPED_RULE_IDS_JSON=$(echo $SCORECARD_SKIPPED_RULE_IDS | jq -cR 'split(",")')
+          # Trim the SARIF file to remove false positive detections
+          cat results.sarif | jq '.runs[].results |= map(select(.ruleId as $id | '$SCORECARD_SKIPPED_RULE_IDS_JSON' | all($id != .)))' > resultsFiltered.sarif
+      
       # Upload the results as artifacts (optional). Commenting out will disable uploads of run results in SARIF
       # format to the repository Actions tab.
       - name: "Upload artifact"
@@ -65,4 +67,4 @@ jobs:
       - name: "Upload to code-scanning"
         uses: github/codeql-action/upload-sarif@04df1262e6247151b5ac09cd2c303ac36ad3f62b # v2.2.9
         with:
-          sarif_file: results.sarif
+          sarif_file: resultsFiltered.sarif
