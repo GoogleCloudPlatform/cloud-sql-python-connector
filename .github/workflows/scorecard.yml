@@ -51,7 +51,15 @@ jobs:
           #   - Allows the repository to include the Scorecard badge.
           #   - See https://github.com/ossf/scorecard-action#publishing-results.
           publish_results: true
-
+      
+      - name: Filter SARIF to skip false positives
+        env:
+          SCORECARD_SKIPPED_RULE_IDS: "DangerousWorkflowID"
+        run: |
+          SCORECARD_SKIPPED_RULE_IDS_JSON=$(echo $SCORECARD_SKIPPED_RULE_IDS | jq -cR 'split(",")')
+          # Trim the SARIF file to remove false positive detections
+          cat results.sarif | jq '.runs[].results |= map(select(.ruleId as $id | '$SCORECARD_SKIPPED_RULE_IDS_JSON' | all($id != .)))' > resultsFiltered.sarif
+      
       # Upload the results as artifacts (optional). Commenting out will disable uploads of run results in SARIF
       # format to the repository Actions tab.
       - name: "Upload artifact"
@@ -65,4 +73,4 @@ jobs:
       - name: "Upload to code-scanning"
         uses: github/codeql-action/upload-sarif@04df1262e6247151b5ac09cd2c303ac36ad3f62b # v2.2.9
         with:
-          sarif_file: results.sarif
+          sarif_file: resultsFiltered.sarif
