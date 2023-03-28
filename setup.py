@@ -75,7 +75,7 @@ setup(
     namespace_packages=namespaces,
     install_requires=core_dependencies,
     extras_require={
-        "pymysql": ["PyMySQL==1.0.2"],
+        "pymysql": ["PyMySQL==1.0.3"],
         "pg8000": ["pg8000==1.29.4"],
         "pytds": ["python-tds==1.12.0"],
         "asyncpg": ["asyncpg==0.27.0"]
