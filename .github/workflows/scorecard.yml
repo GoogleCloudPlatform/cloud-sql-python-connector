@@ -53,6 +53,7 @@ jobs:
           publish_results: true
       
       - name: Filter SARIF to skip false positives
+        # filter out DangerousWorkflow alerts as they do not account for safe use of labels to trigger actions
         env:
           SCORECARD_SKIPPED_RULE_IDS: "DangerousWorkflowID"
         run: |
