@@ -6,7 +6,7 @@ SQLAlchemy==2.0.7
 sqlalchemy-pytds==0.3.5
 flake8==5.0.4
 flake8-annotations==2.9.1
-black==23.1.0
+black==23.3.0
 mypy==0.982
 sqlalchemy-stubs==0.4
 types-pkg-resources==0.1.3
