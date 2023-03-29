@@ -26,6 +26,9 @@ jobs:
     if: "${{ github.event.action != 'labeled' || github.event.label.name == 'tests: run' }}"
     name: Run lint
     runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      pull-requests: write
     steps:
       - name: Remove PR Label
         if: "${{ github.event.action == 'labeled' && github.event.label.name == 'tests: run' }}"
