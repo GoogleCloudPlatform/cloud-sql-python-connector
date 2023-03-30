@@ -114,6 +114,7 @@ The `Connector` itself creates connection objects by calling its `connect` metho
 In the Connector's `connect` method below, input your connection string as the first positional argument and the name of the database driver for the second positional argument. Insert the rest of your connection keyword arguments like user, password and database. You can also set the optional `timeout` or `ip_type` keyword arguments.
 
 To use this connector with SQLAlchemy, use the `creator` argument for `sqlalchemy.create_engine`:
+
 ```python
 from google.cloud.sql.connector import Connector
 import sqlalchemy
@@ -140,6 +141,7 @@ pool = sqlalchemy.create_engine(
 ```
 
 The returned connection pool engine can then be used to query and modify the database.
+
 ```python
 # insert statement
 insert_stmt = sqlalchemy.text(
@@ -152,6 +154,9 @@ with pool.connect() as db_conn:
 
     # query database
     result = db_conn.execute(sqlalchemy.text("SELECT * from my_table")).fetchall()
+
+    # commit transaction (SQLAlchemy v2.X.X is commit as you go)
+    db_conn.commit()
 
     # Do something with the results
     for row in result:
@@ -226,6 +231,9 @@ with pool.connect() as db_conn:
     # insert into database
     db_conn.execute(insert_stmt, parameters={"id": "book1", "title": "Book One"})
 
+    # commit transaction (SQLAlchemy v2.X.X is commit as you go)
+    db_conn.commit()
+
     # query database
     result = db_conn.execute(sqlalchemy.text("SELECT * from my_table")).fetchall()
 
@@ -235,8 +243,10 @@ with pool.connect() as db_conn:
 ```
 
 ### Specifying Public or Private IP
+
 The Cloud SQL Connector for Python can be used to connect to Cloud SQL instances using both public and private IP addresses. To specify which IP address to use to connect, set the `ip_type` keyword argument Possible values are `IPTypes.PUBLIC` and `IPTypes.PRIVATE`.
 Example:
+
 ```python
 from google.cloud.sql.connector import IPTypes
 
@@ -251,6 +261,7 @@ connector.connect(
 Note: If specifying Private IP, your application must already be in the same VPC network as your Cloud SQL Instance.
 
 ### IAM Authentication
+
 Connections using [Automatic IAM database authentication](https://cloud.google.com/sql/docs/postgres/authentication#automatic) are supported when using Postgres or MySQL drivers.
 First, make sure to [configure your Cloud SQL Instance to allow IAM authentication](https://cloud.google.com/sql/docs/postgres/create-edit-iam-instances#configure-iam-db-instance)
 and [add an IAM database user](https://cloud.google.com/sql/docs/postgres/create-manage-iam-users#creating-a-database-user).
@@ -262,6 +273,7 @@ In the call to connect, set the `enable_iam_auth` keyword argument to true and t
 > MySQL: For an IAM user account, this is the user's email address, without the @ or domain name. For example, for `test-user@gmail.com`, set the `user` argument to `test-user`. For a service account, this is the service account's email address without the `@project-id.iam.gserviceaccount.com` suffix.
 
 Example:
+
 ```python
 connector.connect(
      "project:region:instance",
@@ -273,9 +285,11 @@ connector.connect(
 ```
 
 ### SQL Server Active Directory Authentication
+
 Active Directory authentication for SQL Server instances is currently only supported on Windows. First, make sure to follow [these steps](https://cloud.google.com/blog/topics/developers-practitioners/creating-sql-server-instance-integrated-active-directory-using-google-cloud-sql) to set up a Managed AD domain and join your Cloud SQL instance to the domain. [See here for more info on Cloud SQL Active Directory integration](https://cloud.google.com/sql/docs/sqlserver/ad).
 
 Once you have followed the steps linked above, you can run the following code to return a connection object:
+
 ```python
 connector.connect(
     "project:region:instance",
@@ -285,7 +299,9 @@ connector.connect(
     server_name="public.[instance].[location].[project].cloudsql.[domain]",
 )
 ```
+
 Or, if using Private IP:
+
 ```python
 connector.connect(
     "project:region:instance",
@@ -298,11 +314,13 @@ connector.connect(
 ```
 
 ### Using the Python Connector with Python Web Frameworks
+
 The Python Connector can be used alongside popular Python web frameworks such
 as Flask, FastAPI, etc, to integrate Cloud SQL databases within your
 web applications.
 
 #### Flask-SQLAlchemy
+
 [Flask-SQLAlchemy](https://flask-sqlalchemy.palletsprojects.com/en/2.x/)
 is an extension for [Flask](https://flask.palletsprojects.com/en/2.2.x/)
 that adds support for [SQLAlchemy](https://www.sqlalchemy.org/) to your
@@ -348,6 +366,7 @@ For more details on how to use Flask-SQLAlchemy, check out the
 [Flask-SQLAlchemy Quickstarts](https://flask-sqlalchemy.palletsprojects.com/en/2.x/quickstart/#)
 
 #### FastAPI
+
 [FastAPI](https://fastapi.tiangolo.com/) is a modern, fast (high-performance),
 web framework for building APIs with Python based on standard Python type hints.
 
@@ -390,6 +409,7 @@ To learn more about integrating a database into your FastAPI application,
 follow along the [FastAPI SQL Database guide](https://fastapi.tiangolo.com/tutorial/sql-databases/#create-the-database-models).
 
 ### Async Driver Usage
+
 The Cloud SQL Connector is compatible with
 [asyncio](https://docs.python.org/3/library/asyncio.html) to improve the speed
 and efficiency of database connections through concurrency. You can use all
