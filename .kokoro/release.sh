@@ -15,6 +15,10 @@
 
 set -eo pipefail
 
+ls
+
+ls -l github/cloud-sql-python-connector
+
 # Start the releasetool reporter
 python3 -m pip install --require-hashes -r github/cloud-sql-python-connector/.kokoro/requirements.txt
 python3 -m releasetool publish-reporter-script > /tmp/publisher-script; source /tmp/publisher-script
