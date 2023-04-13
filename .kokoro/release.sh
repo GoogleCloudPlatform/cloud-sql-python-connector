@@ -15,10 +15,6 @@
 
 set -eo pipefail
 
-ls
-
-ls -l github/cloud-sql-python-connector
-
 # Start the releasetool reporter
 python3 -m pip install --require-hashes -r github/cloud-sql-python-connector/.kokoro/requirements.txt
 python3 -m releasetool publish-reporter-script > /tmp/publisher-script; source /tmp/publisher-script
@@ -30,4 +26,4 @@ export PYTHONUNBUFFERED=1
 TWINE_PASSWORD=$(cat "${KOKORO_KEYSTORE_DIR}/73713_google-cloud-pypi-token-keystore-1")
 cd github/cloud-sql-python-connector
 python3 setup.py sdist bdist_wheel
-# twine upload --username __token__ --password "${TWINE_PASSWORD}" dist/*
+twine upload --username __token__ --password "${TWINE_PASSWORD}" dist/*
