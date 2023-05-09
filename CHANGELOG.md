@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.2.3](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v1.2.2...v1.2.3) (2023-05-08)
+
+
+### Dependencies
+
+* Update dependency cryptography to v40.0.2 ([#705](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/705)) ([5544086](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/55440868ffbea4ad653af9412aaeb762eb754277))
+* Update dependency google-auth to v2.17.3 ([#698](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/698)) ([37a5150](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/37a51509153e6353c9458dcbf9bc1100a963ddc2))
+* Update dependency Requests to v2.30.0 ([#717](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/717)) ([db4fbcb](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/db4fbcbfe3b35a64a3935320e650da36e1fd9e2d))
+
 ## [1.2.2](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v1.2.1...v1.2.2) (2023-04-10)
 
 
