@@ -58,12 +58,16 @@ def pytest_collection_modifyitems(config: Any, items: Any) -> None:
 
 
 @pytest.fixture
-def event_loop() -> asyncio.AbstractEventLoop:
+def event_loop() -> Generator:
     """
     Creates an event loop to use for testing.
     """
     loop: asyncio.AbstractEventLoop = asyncio.new_event_loop()
-    return loop
+    yield loop
+    # close loop gracefully
+    if loop.is_running():
+        loop.call_soon_threadsafe(loop.stop)
+    loop.close()
 
 
 @pytest.fixture
