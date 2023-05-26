@@ -13,32 +13,10 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
-
-# Custom utils import
-from google.cloud.sql.connector.rate_limiter import AsyncRateLimiter
-from google.cloud.sql.connector.refresh_utils import (
-    _get_ephemeral,
-    _get_metadata,
-    _seconds_until_refresh,
-    _is_valid,
-)
-from google.cloud.sql.connector.utils import write_to_file, _auth_init
-from google.cloud.sql.connector.version import __version__ as version
-from google.cloud.sql.connector.exceptions import (
-    TLSVersionError,
-    CloudSQLIPTypeError,
-    CredentialsTypeError,
-    AutoIAMAuthNotSupported,
-)
-
-# Importing libraries
 import asyncio
-import aiohttp
 import datetime
 from enum import Enum
-from google.auth.credentials import Credentials
-from cryptography.x509 import load_pem_x509_certificate
-from cryptography.hazmat.backends import default_backend
+import logging
 import ssl
 from tempfile import TemporaryDirectory
 from typing import (
@@ -47,7 +25,27 @@ from typing import (
     Optional,
     Tuple,
 )
-import logging
+
+import aiohttp
+from cryptography.hazmat.backends import default_backend
+from cryptography.x509 import load_pem_x509_certificate
+
+from google.auth.credentials import Credentials
+from google.cloud.sql.connector.exceptions import (
+    AutoIAMAuthNotSupported,
+    CloudSQLIPTypeError,
+    CredentialsTypeError,
+    TLSVersionError,
+)
+from google.cloud.sql.connector.rate_limiter import AsyncRateLimiter
+from google.cloud.sql.connector.refresh_utils import (
+    _get_ephemeral,
+    _get_metadata,
+    _is_valid,
+    _seconds_until_refresh,
+)
+from google.cloud.sql.connector.utils import _auth_init, write_to_file
+from google.cloud.sql.connector.version import __version__ as version
 
 logger = logging.getLogger(name=__name__)
 

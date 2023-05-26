@@ -13,18 +13,15 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
-
-import pytest  # noqa F401 Needed to run the tests
 import asyncio
-
-from google.cloud.sql.connector import Connector, IPTypes, create_async_connector
-from google.cloud.sql.connector.exceptions import ConnectorLoopError
-
-from mock import patch
 from typing import Any
 
-# import mocks
+from mock import patch
 from mocks import MockInstance
+import pytest  # noqa F401 Needed to run the tests
+
+from google.cloud.sql.connector import Connector, create_async_connector, IPTypes
+from google.cloud.sql.connector.exceptions import ConnectorLoopError
 
 
 async def timeout_stub(*args: Any, **kwargs: Any) -> None:

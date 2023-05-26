@@ -13,29 +13,28 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
-
 import asyncio
-import pytest  # noqa F401 Needed to run the tests
 import datetime
-from google.cloud.sql.connector.rate_limiter import AsyncRateLimiter
+
+from aiohttp import ClientResponseError, RequestInfo
+from aioresponses import aioresponses
+from mock import patch
+import mocks
+import pytest  # noqa F401 Needed to run the tests
+
 from google.auth.credentials import Credentials
-from google.cloud.sql.connector.instance import (
-    IPTypes,
-    Instance,
-    InstanceMetadata,
-)
 from google.cloud.sql.connector.exceptions import (
     AutoIAMAuthNotSupported,
     CloudSQLIPTypeError,
     CredentialsTypeError,
 )
+from google.cloud.sql.connector.instance import (
+    Instance,
+    InstanceMetadata,
+    IPTypes,
+)
+from google.cloud.sql.connector.rate_limiter import AsyncRateLimiter
 from google.cloud.sql.connector.utils import generate_keys
-from mock import patch
-from aioresponses import aioresponses
-from aiohttp import ClientResponseError, RequestInfo
-
-# import mocks
-import mocks
 
 
 @pytest.fixture

@@ -14,11 +14,12 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 import os
-import uuid
 from typing import AsyncGenerator
+import uuid
 
 import asyncpg
 import pytest
+
 from google.cloud.sql.connector import create_async_connector
 
 table_name = f"books_{uuid.uuid4().hex}"

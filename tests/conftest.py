@@ -13,22 +13,22 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
+import asyncio
 import os
 import socket
-import asyncio
-import pytest  # noqa F401 Needed to run the tests
-
 from threading import Thread
-from typing import Any, Generator, AsyncGenerator, Tuple
-from google.auth.credentials import Credentials, with_scopes_if_required
-from google.oauth2 import service_account
+from typing import Any, AsyncGenerator, Generator, Tuple
+
 from aioresponses import aioresponses
 from mock import patch
-
+import pytest  # noqa F401 Needed to run the tests
 from unit.mocks import FakeCSQLInstance  # type: ignore
+
+from google.auth.credentials import Credentials, with_scopes_if_required
 from google.cloud.sql.connector import Connector
 from google.cloud.sql.connector.instance import Instance
 from google.cloud.sql.connector.utils import generate_keys
+from google.oauth2 import service_account
 
 SCOPES = ["https://www.googleapis.com/auth/sqlservice.admin"]
 

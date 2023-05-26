@@ -14,9 +14,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 import ssl
-import pytest
 from typing import Any
-from mock import patch, AsyncMock
+
+from mock import AsyncMock, patch
+import pytest
 
 from google.cloud.sql.connector.asyncpg import connect
 

@@ -13,13 +13,15 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
-import pytest
-from unittest.mock import patch
+from functools import partial
 import ssl
 from typing import Any
+
+from mock import patch
 from mocks import create_ssl_context
+import pytest
+
 from google.cloud.sql.connector.pymysql import connect as pymysql_connect
-from functools import partial
 
 
 class MockConnection:
