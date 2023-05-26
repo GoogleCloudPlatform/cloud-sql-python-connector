@@ -14,12 +14,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 import os
-import uuid
 from typing import Generator
+import uuid
 
-import pytest
 import pymysql
+import pytest
 import sqlalchemy
+
 from google.cloud.sql.connector import Connector
 
 table_name = f"books_{uuid.uuid4().hex}"

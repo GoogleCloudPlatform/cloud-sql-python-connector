@@ -13,32 +13,31 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
-from typing import Any, no_type_check
-from datetime import datetime, timedelta
-import aiohttp
-from google.auth.credentials import Credentials
-import google.oauth2.credentials
-import pytest  # noqa F401 Needed to run the tests
-from mock import Mock, patch
-from aioresponses import aioresponses
 import asyncio
+from datetime import datetime, timedelta
+from typing import Any, no_type_check
 
+import aiohttp
+from aioresponses import aioresponses
+from conftest import SCOPES  # type: ignore
+from mock import Mock, patch
+from mocks import (  # type: ignore
+    FakeCSQLInstance,
+    instance_metadata_expired,
+    instance_metadata_success,
+)
+import pytest  # noqa F401 Needed to run the tests
+
+from google.auth.credentials import Credentials
 from google.cloud.sql.connector.refresh_utils import (
+    _downscope_credentials,
     _get_ephemeral,
     _get_metadata,
     _is_valid,
-    _downscope_credentials,
     _seconds_until_refresh,
 )
 from google.cloud.sql.connector.utils import generate_keys
-
-# import mocks
-from mocks import (  # type: ignore
-    instance_metadata_success,
-    instance_metadata_expired,
-    FakeCSQLInstance,
-)
-from conftest import SCOPES  # type: ignore
+import google.oauth2.credentials
 
 
 @pytest.fixture

@@ -14,22 +14,23 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 import asyncio
+from functools import partial
 import logging
+from threading import Thread
 from types import TracebackType
+from typing import Any, Dict, Optional, Type
+
+from google.auth.credentials import Credentials
+import google.cloud.sql.connector.asyncpg as asyncpg
+from google.cloud.sql.connector.exceptions import ConnectorLoopError
 from google.cloud.sql.connector.instance import (
     Instance,
     IPTypes,
 )
-import google.cloud.sql.connector.pymysql as pymysql
 import google.cloud.sql.connector.pg8000 as pg8000
+import google.cloud.sql.connector.pymysql as pymysql
 import google.cloud.sql.connector.pytds as pytds
-import google.cloud.sql.connector.asyncpg as asyncpg
-from google.cloud.sql.connector.utils import generate_keys, format_database_user
-from google.cloud.sql.connector.exceptions import ConnectorLoopError
-from google.auth.credentials import Credentials
-from threading import Thread
-from typing import Any, Dict, Optional, Type
-from functools import partial
+from google.cloud.sql.connector.utils import format_database_user, generate_keys
 
 logger = logging.getLogger(name=__name__)
 

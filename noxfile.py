@@ -33,8 +33,15 @@ def lint(session):
     """
     session.install("-r", "requirements-test.txt")
     session.install("-r", "requirements.txt")
+    session.install("flake8-import-order")
     session.run("black", "--check", *BLACK_PATHS)
-    session.run("flake8", "google", "tests")
+    session.run(
+        "flake8",
+        "--import-order-style=google",
+        "--application-import-names=google,tests",
+        "google",
+        "tests",
+    )
     session.run("mypy", "google", "tests")
     session.run("python", "setup.py", "sdist")
     session.run("twine", "check", "dist/*")

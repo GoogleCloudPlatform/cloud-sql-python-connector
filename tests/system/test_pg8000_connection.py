@@ -14,14 +14,14 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 import os
-import uuid
 from typing import Generator
-
-import pytest
+import uuid
 
 # [START cloud_sql_connector_postgres_pg8000]
 import pg8000
+import pytest
 import sqlalchemy
+
 from google.cloud.sql.connector import Connector
 
 # [END cloud_sql_connector_postgres_pg8000]

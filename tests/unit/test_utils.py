@@ -13,12 +13,11 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
-
-from google.cloud.sql.connector import utils
-from google.auth.credentials import Credentials
 from mock import patch
-
 import pytest  # noqa F401 Needed to run the tests
+
+from google.auth.credentials import Credentials
+from google.cloud.sql.connector import utils
 
 
 @pytest.mark.asyncio

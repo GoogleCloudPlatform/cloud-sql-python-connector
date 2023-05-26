@@ -13,14 +13,16 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
-import pytest
-from unittest.mock import patch
+from functools import partial
 import platform
 from typing import Any
-from google.cloud.sql.connector.exceptions import PlatformNotSupportedError
+
+from mock import patch
 from mocks import create_ssl_context
+import pytest
+
+from google.cloud.sql.connector.exceptions import PlatformNotSupportedError
 from google.cloud.sql.connector.pytds import connect
-from functools import partial
 
 
 def stub_platform_linux() -> str:

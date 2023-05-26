@@ -14,19 +14,21 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 import asyncio
-import os
-import pytest
-import pymysql
-import sqlalchemy
+import concurrent.futures
+import datetime
 import logging
+import os
+from threading import Thread
+
+import pymysql
+import pytest
+import sqlalchemy
+
 import google.auth
 from google.cloud.sql.connector import Connector
 from google.cloud.sql.connector.exceptions import (
     AutoIAMAuthNotSupported,
 )
-import datetime
-import concurrent.futures
-from threading import Thread
 
 
 def init_connection_engine(

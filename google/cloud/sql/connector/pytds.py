@@ -13,10 +13,11 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
-import ssl
-import socket
 import platform
+import socket
+import ssl
 from typing import Any, TYPE_CHECKING
+
 from google.cloud.sql.connector.exceptions import PlatformNotSupportedError
 
 SERVER_PROXY_PORT = 3307

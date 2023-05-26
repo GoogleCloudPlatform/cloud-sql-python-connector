@@ -14,14 +14,14 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 import os
-import uuid
 from typing import Generator
-
-import pytest
+import uuid
 
 # [START cloud_sql_connector_mysql_pytds]
 import pytds
+import pytest
 import sqlalchemy
+
 from google.cloud.sql.connector import Connector
 
 # [END cloud_sql_connector_mysql_pytds]
