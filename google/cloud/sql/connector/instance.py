@@ -13,8 +13,9 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
+from __future__ import annotations
+
 import asyncio
-import datetime
 from enum import Enum
 import logging
 import ssl
@@ -24,6 +25,7 @@ from typing import (
     Dict,
     Optional,
     Tuple,
+    TYPE_CHECKING,
 )
 
 import aiohttp
@@ -46,6 +48,9 @@ from google.cloud.sql.connector.refresh_utils import (
 )
 from google.cloud.sql.connector.utils import _auth_init, write_to_file
 from google.cloud.sql.connector.version import __version__ as version
+
+if TYPE_CHECKING:
+    import datetime
 
 logger = logging.getLogger(name=__name__)
 

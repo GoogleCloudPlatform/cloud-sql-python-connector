@@ -13,14 +13,15 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
+from __future__ import annotations
+
 import asyncio
 from functools import partial
 import logging
 from threading import Thread
 from types import TracebackType
-from typing import Any, Dict, Optional, Type
+from typing import Any, Dict, Optional, Type, TYPE_CHECKING
 
-from google.auth.credentials import Credentials
 import google.cloud.sql.connector.asyncpg as asyncpg
 from google.cloud.sql.connector.exceptions import ConnectorLoopError
 from google.cloud.sql.connector.instance import (
@@ -31,6 +32,9 @@ import google.cloud.sql.connector.pg8000 as pg8000
 import google.cloud.sql.connector.pymysql as pymysql
 import google.cloud.sql.connector.pytds as pytds
 from google.cloud.sql.connector.utils import format_database_user, generate_keys
+
+if TYPE_CHECKING:
+    from google.auth.credentials import Credentials
 
 logger = logging.getLogger(name=__name__)
 
