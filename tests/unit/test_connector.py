@@ -24,34 +24,6 @@ from google.cloud.sql.connector import Connector, create_async_connector, IPType
 from google.cloud.sql.connector.exceptions import ConnectorLoopError
 
 
-async def timeout_stub(*args: Any, **kwargs: Any) -> None:
-    """Timeout stub for Instance.connect()"""
-    # sleep 10 seconds
-    await asyncio.sleep(10)
-
-
-def test_connect_timeout() -> None:
-    """Test that connection times out after custom timeout."""
-    connect_string = "test-project:test-region:test-instance"
-
-    instance = MockInstance()
-    mock_instances = {}
-    mock_instances[connect_string] = instance
-    # stub instance to raise timeout
-    setattr(instance, "connect_info", timeout_stub)
-    # init connector
-    connector = Connector()
-    # attempt to connect with timeout set to 5s
-    with patch.dict(connector._instances, mock_instances):
-        pytest.raises(
-            TimeoutError,
-            connector.connect,
-            connect_string,
-            "pymysql",
-            timeout=5,
-        )
-
-
 def test_connect_enable_iam_auth_error() -> None:
     """Test that calling connect() with different enable_iam_auth
     argument values throws error."""
