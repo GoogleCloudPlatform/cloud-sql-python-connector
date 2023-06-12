@@ -227,7 +227,7 @@ class Connector:
             raise KeyError(f"Driver '{driver}' is not supported.")
 
         ip_type = kwargs.pop("ip_type", self._ip_type)
-        kwargs["timeout"] = kwargs.pop("timeout", self._timeout)
+        kwargs["timeout"] = kwargs.get("timeout", self._timeout)
 
         # Host and ssl options come from the certificates and metadata, so we don't
         # want the user to specify them.
