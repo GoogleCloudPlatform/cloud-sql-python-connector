@@ -13,53 +13,76 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
+import asyncio
 import os
 from typing import AsyncGenerator
 import uuid
 
 import asyncpg
 import pytest
+import sqlalchemy
+from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
-from google.cloud.sql.connector import create_async_connector
+from google.cloud.sql.connector import Connector
 
 table_name = f"books_{uuid.uuid4().hex}"
 
+# The Cloud SQL Python Connector can be used along with SQLAlchemy using the
+# 'async_creator' argument to 'create_async_engine'
+async def init_connection_pool() -> AsyncEngine:
+    async def getconn() -> asyncpg.Connection:
+        loop = asyncio.get_running_loop()
+        # initialize Connector object for connections to Cloud SQL
+        async with Connector(loop=loop) as connector:
+            conn: asyncpg.Connection = await connector.connect_async(
+                os.environ["POSTGRES_CONNECTION_NAME"],
+                "asyncpg",
+                user=os.environ["POSTGRES_USER"],
+                password=os.environ["POSTGRES_PASS"],
+                db=os.environ["POSTGRES_DB"],
+            )
+            return conn
 
-@pytest.fixture(name="conn")
+    # create SQLAlchemy connection pool
+    pool = create_async_engine(
+        "postgresql+asyncpg://",
+        async_creator=getconn,
+        execution_options={"isolation_level": "AUTOCOMMIT"},
+    )
+    pool.dialect.description_encoding = None
+    return pool
+
+
+@pytest.fixture(name="pool")
 async def setup() -> AsyncGenerator:
-    # initialize Cloud SQL Python Connector object
-    connector = await create_async_connector()
-    conn: asyncpg.Connection = await connector.connect_async(
-        os.environ["POSTGRES_CONNECTION_NAME"],
-        "asyncpg",
-        user=os.environ["POSTGRES_USER"],
-        password=os.environ["POSTGRES_PASS"],
-        db=os.environ["POSTGRES_DB"],
-    )
-    await conn.execute(
-        f"CREATE TABLE IF NOT EXISTS {table_name}"
-        " ( id CHAR(20) NOT NULL, title TEXT NOT NULL );"
-    )
+    pool = await init_connection_pool()
+    async with pool.connect() as conn:
+        await conn.execute(
+            sqlalchemy.text(
+                f"CREATE TABLE IF NOT EXISTS {table_name}"
+                " ( id CHAR(20) NOT NULL, title TEXT NOT NULL );"
+            )
+        )
 
-    yield conn
+    yield pool
 
-    await conn.execute(f"DROP TABLE IF EXISTS {table_name}")
-    # close asyncpg connection
-    await conn.close()
-    # cleanup Connector object
-    await connector.close_async()
+    async with pool.connect() as conn:
+        await conn.execute(sqlalchemy.text(f"DROP TABLE IF EXISTS {table_name}"))
+    # dispose of asyncpg connection pool
+    await pool.dispose()
 
 
 @pytest.mark.asyncio
-async def test_connection_with_asyncpg(conn: asyncpg.Connection) -> None:
-    await conn.execute(
-        f"INSERT INTO {table_name} (id, title) VALUES ('book1', 'Book One')"
+async def test_connection_with_asyncpg(pool: AsyncEngine) -> None:
+    insert_stmt = sqlalchemy.text(
+        f"INSERT INTO {table_name} (id, title) VALUES (:id, :title)",
     )
-    await conn.execute(
-        f"INSERT INTO {table_name} (id, title) VALUES ('book2', 'Book Two')"
-    )
+    async with pool.connect() as conn:
+        await conn.execute(insert_stmt, parameters={"id": "book1", "title": "Book One"})
+        await conn.execute(insert_stmt, parameters={"id": "book2", "title": "Book Two"})
 
-    rows = await conn.fetch(f"SELECT title FROM {table_name} ORDER BY ID")
-    titles = [row[0] for row in rows]
+        select_stmt = sqlalchemy.text(f"SELECT title FROM {table_name} ORDER BY ID;")
+        rows = await conn.execute(select_stmt).fetchall()
+        titles = [row[0] for row in rows]
 
     assert titles == ["Book One", "Book Two"]

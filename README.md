@@ -430,48 +430,55 @@ Once a `Connector` object is returned by `create_async_connector` you can call
 its `connect_async` method, just as you would the `connect` method:
 
 ```python
-import asyncio
 import asyncpg
-from google.cloud.sql.connector import create_async_connector
 
+import sqlalchemy
+from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
+
+from google.cloud.sql.connector import Connector, create_async_connector
+
+async def init_connection_pool(connector: Connector) -> AsyncEngine:
+    # initialize Connector object for connections to Cloud SQL
+    async def getconn() -> asyncpg.Connection:
+            conn: asyncpg.Connection = await connector.connect_async(
+                "project:region:instance",  # Cloud SQL instance connection name
+                "asyncpg",
+                user="my-user",
+                password="my-password",
+                db="my-db-name"
+                # ... additional database driver args
+            )
+            return conn
+
+    # The Cloud SQL Python Connector can be used along with SQLAlchemy using the
+    # 'async_creator' argument to 'create_async_engine'
+    pool = create_async_engine(
+        "postgresql+asyncpg://",
+        async_creator=getconn,
+    )
+    return pool
 
 async def main():
-    # intialize Connector object using 'create_async_connector'
+    # initialize Connector object for connections to Cloud SQL
     connector = await create_async_connector()
 
-    # create connection to Cloud SQL database
-    conn: asyncpg.Connection = await connector.connect_async(
-        "project:region:instance",  # Cloud SQL instance connection name
-        "asyncpg",
-        user="my-user",
-        password="my-password",
-        db="my-db-name"
-        # ... additional database driver args
-    )
+    # initialize connection pool
+    pool = await init_connection_pool(connector)
 
-    # insert into Cloud SQL database (example)
-    await conn.execute("INSERT INTO ratings (title, genre, rating) VALUES ('Batman', 'Action', 8.2)")
+    # example query
+    async with pool.connect() as conn:
+        await conn.execute(sqlalchemy.text("SELECT NOW()"))
 
-    # query Cloud SQL database (example)
-    results = await conn.fetch("SELECT * from ratings")
-
-    # ... do something with results
-    for row in results:
-        print(row)
-
-    # close asyncpg connection
-    await conn.close()
-
-    # close Cloud SQL Connector
+    # close Connector
     await connector.close_async()
 
-
-# Test connection with `asyncio`
-asyncio.run(main())
+    # dispose of connection pool
+    await pool.dispose()
 ```
 
-For more details on interacting with an `asyncpg.Connection`, please visit
-the [official documentation](https://magicstack.github.io/asyncpg/current/api/index.html).
+For more details on additionaly database arguments with an `asyncpg.Connection`
+, please visit the
+[official documentation](https://magicstack.github.io/asyncpg/current/api/index.html).
 
 ### Async Context Manager
 
@@ -485,44 +492,52 @@ passed in as the `loop` argument to `Connector()`.
 ```python
 import asyncio
 import asyncpg
+
+import sqlalchemy
+from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
+
 from google.cloud.sql.connector import Connector
 
+async def init_connection_pool(connector: Connector) -> AsyncEngine:
+    # initialize Connector object for connections to Cloud SQL
+    async def getconn() -> asyncpg.Connection:
+            conn: asyncpg.Connection = await connector.connect_async(
+                "project:region:instance",  # Cloud SQL instance connection name
+                "asyncpg",
+                user="my-user",
+                password="my-password",
+                db="my-db-name"
+                # ... additional database driver args
+            )
+            return conn
+
+    # The Cloud SQL Python Connector can be used along with SQLAlchemy using the
+    # 'async_creator' argument to 'create_async_engine'
+    pool = create_async_engine(
+        "postgresql+asyncpg://",
+        async_creator=getconn,
+    )
+    return pool
+
 async def main():
-    # get current running event loop to be used with Connector
+    # initialize Connector object for connections to Cloud SQL
     loop = asyncio.get_running_loop()
-    # intialize Connector object as async context manager
     async with Connector(loop=loop) as connector:
+        # initialize connection pool
+        pool = await init_connection_pool(connector)
 
-        # create connection to Cloud SQL database
-        conn: asyncpg.Connection = await connector.connect_async(
-            "project:region:instance",  # Cloud SQL instance connection name
-            "asyncpg",
-            user="my-user",
-            password="my-password",
-            db="my-db-name"
-            # ... additional database driver args
-        )
+        # example query
+        async with pool.connect() as conn:
+            await conn.execute(sqlalchemy.text("SELECT NOW()"))
 
-        # insert into Cloud SQL database (example)
-        await conn.execute("INSERT INTO ratings (title, genre, rating) VALUES ('Batman', 'Action', 8.2)")
-
-        # query Cloud SQL database (example)
-        results = await conn.fetch("SELECT * from ratings")
-
-        # ... do something with results
-        for row in results:
-            print(row)
-
-        # close asyncpg connection
-        await conn.close()
-
-# Test connection with `asyncio`
-asyncio.run(main())
+        # dispose of connection pool
+        await pool.dispose()
 ```
 
 ## Support policy
 
 ### Major version lifecycle
+
 This project uses [semantic versioning](https://semver.org/), and uses the
 following lifecycle regarding support for a major version:
 
