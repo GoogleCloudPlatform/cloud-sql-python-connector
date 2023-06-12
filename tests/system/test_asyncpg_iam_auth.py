@@ -40,7 +40,7 @@ async def init_connection_pool() -> AsyncEngine:
                 "asyncpg",
                 user=os.environ["POSTGRES_IAM_USER"],
                 db=os.environ["POSTGRES_DB"],
-                enable_iam_authn=True,
+                enable_iam_auth=True,
             )
             return conn
 
