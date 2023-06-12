@@ -440,15 +440,15 @@ from google.cloud.sql.connector import Connector, create_async_connector
 async def init_connection_pool(connector: Connector) -> AsyncEngine:
     # initialize Connector object for connections to Cloud SQL
     async def getconn() -> asyncpg.Connection:
-            conn: asyncpg.Connection = await connector.connect_async(
-                "project:region:instance",  # Cloud SQL instance connection name
-                "asyncpg",
-                user="my-user",
-                password="my-password",
-                db="my-db-name"
-                # ... additional database driver args
-            )
-            return conn
+        conn: asyncpg.Connection = await connector.connect_async(
+            "project:region:instance",  # Cloud SQL instance connection name
+            "asyncpg",
+            user="my-user",
+            password="my-password",
+            db="my-db-name"
+            # ... additional database driver args
+        )
+        return conn
 
     # The Cloud SQL Python Connector can be used along with SQLAlchemy using the
     # 'async_creator' argument to 'create_async_engine'
@@ -476,7 +476,7 @@ async def main():
     await pool.dispose()
 ```
 
-For more details on additionaly database arguments with an `asyncpg.Connection`
+For more details on additional database arguments with an `asyncpg.Connection`
 , please visit the
 [official documentation](https://magicstack.github.io/asyncpg/current/api/index.html).
 
