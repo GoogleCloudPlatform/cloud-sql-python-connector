@@ -27,6 +27,7 @@ from google.cloud.sql.connector import Connector
 
 table_name = f"books_{uuid.uuid4().hex}"
 
+
 # The Cloud SQL Python Connector can be used along with SQLAlchemy using the
 # 'async_creator' argument to 'create_async_engine'
 async def init_connection_pool() -> AsyncEngine:
@@ -49,7 +50,6 @@ async def init_connection_pool() -> AsyncEngine:
         async_creator=getconn,
         execution_options={"isolation_level": "AUTOCOMMIT"},
     )
-    pool.dialect.description_encoding = None
     return pool
 
 
@@ -82,7 +82,7 @@ async def test_connection_with_asyncpg(pool: AsyncEngine) -> None:
         await conn.execute(insert_stmt, parameters={"id": "book2", "title": "Book Two"})
 
         select_stmt = sqlalchemy.text(f"SELECT title FROM {table_name} ORDER BY ID;")
-        rows = await conn.execute(select_stmt).fetchall()
+        rows = (await conn.execute(select_stmt)).fetchall()
         titles = [row[0] for row in rows]
 
     assert titles == ["Book One", "Book Two"]
