@@ -227,9 +227,7 @@ class Connector:
             raise KeyError(f"Driver '{driver}' is not supported.")
 
         ip_type = kwargs.pop("ip_type", self._ip_type)
-        timeout = kwargs.pop("timeout", self._timeout)
-        if "connect_timeout" in kwargs:
-            timeout = kwargs.pop("connect_timeout")
+        kwargs["timeout"] = kwargs.get("timeout", self._timeout)
 
         # Host and ssl options come from the certificates and metadata, so we don't
         # want the user to specify them.
@@ -237,8 +235,8 @@ class Connector:
         kwargs.pop("ssl", None)
         kwargs.pop("port", None)
 
-        # helper function to wrap in timeout
-        async def get_connection() -> Any:
+        # attempt to make connection to Cloud SQL instance
+        try:
             instance_data, ip_address = await instance.connect_info(ip_type)
 
             # format `user` param for automatic IAM database authn
@@ -261,13 +259,8 @@ class Connector:
             )
             return await self._loop.run_in_executor(None, connect_partial)
 
-        # attempt to make connection to Cloud SQL instance for given timeout
-        try:
-            return await asyncio.wait_for(get_connection(), timeout)
-        except asyncio.TimeoutError:
-            raise TimeoutError(f"Connection timed out after {timeout}s")
         except Exception:
-            # with any other exception, we attempt a force refresh, then throw the error
+            # with any exception, we attempt a force refresh, then throw the error
             instance.force_refresh()
             raise
 

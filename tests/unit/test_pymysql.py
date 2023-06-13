@@ -45,6 +45,7 @@ async def test_pymysql(kwargs: Any) -> None:
         "wrap_socket",
         partial(context.wrap_socket, do_handshake_on_connect=False),
     )
+    kwargs["timeout"] = 30
     with patch("pymysql.Connection") as mock_connect:
         mock_connect.return_value = MockConnection
         pymysql_connect(ip_addr, context, **kwargs)
