@@ -1,5 +1,25 @@
 # Changelog
 
+## [1.2.4](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v1.2.3...v1.2.4) (2023-06-13)
+
+
+### Bug Fixes
+
+* improve `timeout` handling ([#760](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/760)) ([723b6f1](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/723b6f1b7996dbc8a14993b4b630809585edd245))
+
+
+### Dependencies
+
+* Update dependency cryptography to v41.0.1 ([#749](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/749)) ([e89755c](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/e89755c0ca10bf7463787a0474d137896457c409))
+* Update dependency google-auth to v2.19.1 ([#751](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/751)) ([eee33ae](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/eee33ae9e0fcdfef2cf8934490e4587eabcd77b4))
+* Update dependency pg8000 to v1.29.6 ([#746](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/746)) ([47d6d87](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/47d6d87b7b92413037aeddacebc36e2a78d57a08))
+* Update dependency Requests to v2.31.0 ([#733](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/733)) ([c18869d](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/c18869ddf1daecfcd5d8c6ee62a4ae679db7a6df))
+
+
+### Documentation
+
+* document SQLAlchemy async connection pooling ([#758](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/758)) ([bb1c72a](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/bb1c72a74f879e0752e6156cd1c0335a196ca882))
+
 ## [1.2.3](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v1.2.2...v1.2.3) (2023-05-08)
 
 
