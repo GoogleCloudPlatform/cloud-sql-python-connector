@@ -552,11 +552,11 @@ considered publicly unsupported.
 
 ## Supported Python Versions
 
-We test and support at a minimum, every [active version until it's
-end-of-life date][pyver]. Changes in supported Python versions will be
+We follow the [Python Version Support Policy][pyver] used by Google Cloud
+Libraries for Python. Changes in supported Python versions will be
 considered a minor change, and will be listed in the release notes.
 
-[pyver]: https://devguide.python.org/versions/#status-of-python-versions
+[pyver]: https://cloud.google.com/python/docs/supported-python-versions
 
 ### Release cadence
 This project aims for a minimum monthly release cadence. If no new
