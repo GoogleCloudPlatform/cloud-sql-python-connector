@@ -239,7 +239,6 @@ class Connector:
         # attempt to make connection to Cloud SQL instance
         try:
             instance_data, ip_address = await instance.connect_info(ip_type)
-            print(ip_address)
             # resolve DNS name into IP address for PSC
             if ip_type.value == "PSC":
                 ip_address = socket.gethostbyname(ip_address)
