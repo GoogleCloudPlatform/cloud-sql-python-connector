@@ -18,6 +18,7 @@ from __future__ import annotations
 import asyncio
 from functools import partial
 import logging
+import socket
 from threading import Thread
 from types import TracebackType
 from typing import Any, Dict, Optional, Type, TYPE_CHECKING
@@ -238,6 +239,10 @@ class Connector:
         # attempt to make connection to Cloud SQL instance
         try:
             instance_data, ip_address = await instance.connect_info(ip_type)
+            print(ip_address)
+            # resolve DNS name into IP address for PSC
+            if ip_type.value == "PSC":
+                ip_address = socket.gethostbyname(ip_address)
 
             # format `user` param for automatic IAM database authn
             if enable_iam_auth:
