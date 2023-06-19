@@ -108,8 +108,16 @@ async def _get_metadata(
             f'[{project}:{region}:{instance}]: Provided region was mismatched - got region {region}, expected {ret_dict["region"]}.'
         )
 
+    ip_addresses = (
+        {ip["type"]: ip["ipAddress"] for ip in ret_dict["ipAddresses"]}
+        if "ipAddresses" in ret_dict
+        else {}
+    )
+    if "dnsName" in ret_dict:
+        ip_addresses["PSC"] = ret_dict["dnsName"]
+
     metadata = {
-        "ip_addresses": {ip["type"]: ip["ipAddress"] for ip in ret_dict["ipAddresses"]},
+        "ip_addresses": ip_addresses,
         "server_ca_cert": ret_dict["serverCaCert"]["cert"],
         "database_version": ret_dict["databaseVersion"],
     }

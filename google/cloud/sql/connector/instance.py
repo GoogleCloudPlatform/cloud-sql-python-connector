@@ -60,6 +60,7 @@ APPLICATION_NAME = "cloud-sql-python-connector"
 class IPTypes(Enum):
     PUBLIC: str = "PRIMARY"
     PRIVATE: str = "PRIVATE"
+    PSC: str = "PSC"
 
 
 class InstanceMetadata:
