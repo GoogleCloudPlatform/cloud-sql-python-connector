@@ -22,7 +22,10 @@
 [python-versions]: https://img.shields.io/pypi/pyversions/cloud-sql-python-connector
 
 The _Cloud SQL Python Connector_ is a Cloud SQL connector designed for use with the
-Python language. Using a Cloud SQL connector provides the following benefits:
+Python language. Using a Cloud SQL connector provides a native alternative to the
+[Cloud SQL Auth Proxy](https://cloud.google.com/sql/docs/mysql/sql-proxy) while
+providing the following benefits:
+
 * **IAM Authorization:** uses IAM permissions to control who/what can connect to
   your Cloud SQL instances
 * **Improved Security:** uses robust, updated TLS 1.3 encryption and
