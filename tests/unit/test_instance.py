@@ -306,6 +306,7 @@ async def test_get_preferred_ip(instance: Instance) -> None:
     # verify private ip address is preferred
     assert ip_addr == "abcde.12345.us-central1.sql.goog"
 
+
 @pytest.mark.asyncio
 async def test_get_preferred_ip_CloudSQLIPTypeError(instance: Instance) -> None:
     """
@@ -326,6 +327,7 @@ async def test_get_preferred_ip_CloudSQLIPTypeError(instance: Instance) -> None:
     # test error when PSC is missing
     with pytest.raises(CloudSQLIPTypeError):
         instance_metadata.get_preferred_ip(IPTypes.PSC)
+
 
 @pytest.mark.asyncio
 async def test_ClientResponseError(
