@@ -219,6 +219,7 @@ class FakeCSQLInstance:
                         datetime.datetime.utcnow() + datetime.timedelta(minutes=10)
                     ),
                 },
+                "dnsName": "abcde.12345.us-central1.sql.goog",
                 "ipAddresses": ip_addresses,
                 "region": self.region,
                 "databaseVersion": self.db_version,
