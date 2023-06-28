@@ -211,13 +211,13 @@ import sqlalchemy
 def init_connection_pool(connector: Connector) -> sqlalchemy.engine.Engine:
     # function used to generate database connection
     def getconn() -> pymysql.connections.Connection:
-            conn = connector.connect(
-                "project:region:instance",
-                "pymysql",
-                user="my-user",
-                password="my-password",
-                db="my-db-name"
-            )
+        conn = connector.connect(
+            "project:region:instance",
+            "pymysql",
+            user="my-user",
+            password="my-password",
+            db="my-db-name"
+        )
         return conn
 
     # create connection pool
