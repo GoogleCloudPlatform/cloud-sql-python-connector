@@ -377,7 +377,7 @@ db.init_app(app)
 ```
 
 For more details on how to use Flask-SQLAlchemy, check out the
-[Flask-SQLAlchemy Quickstarts](https://flask-sqlalchemy.palletsprojects.com/en/2.x/quickstart/#)
+[Flask-SQLAlchemy Quickstarts](https://flask-sqlalchemy.palletsprojects.com/en/3.0.x/quickstart/)
 
 #### FastAPI
 
