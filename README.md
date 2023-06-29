@@ -389,13 +389,14 @@ your web application using [SQLAlchemy ORM](https://docs.sqlalchemy.org/en/14/or
 through the following:
 
 ```python
-from sqlalchemy import create_engine, engine
+from sqlalchemy import create_engine
+from sqlalchemy.engine import Engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from google.cloud.sql.connector import Connector, IPTypes
 
 # helper function to return SQLAlchemy connection pool
-def init_connection_pool(connector: Connector) -> engine.Engine:
+def init_connection_pool(connector: Connector) -> Engine:
     # Python Connector database connection function
     def getconn():
         conn = connector.connect(
