@@ -64,7 +64,6 @@ setup(
         "Intended Audience :: Developers",
         "License :: OSI Approved :: Apache Software License",
         "Programming Language :: Python",
-        "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
@@ -76,11 +75,11 @@ setup(
     install_requires=core_dependencies,
     extras_require={
         "pymysql": ["PyMySQL==1.0.3"],
-        "pg8000": ["pg8000==1.29.6"],
+        "pg8000": ["pg8000==1.29.8"],
         "pytds": ["python-tds==1.12.0"],
         "asyncpg": ["asyncpg==0.27.0"]
     },
-    python_requires=">=3.7",
+    python_requires=">=3.8",
     include_package_data=True,
     zip_safe=False,
 )
