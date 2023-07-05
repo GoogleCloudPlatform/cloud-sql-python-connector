@@ -303,7 +303,7 @@ async def test_get_preferred_ip(instance: Instance) -> None:
 
     # test PSC as preferred IP type for connection
     ip_addr = instance_metadata.get_preferred_ip(IPTypes.PSC)
-    # verify private ip address is preferred
+    # verify PSC ip address is preferred
     assert ip_addr == "abcde.12345.us-central1.sql.goog"
 
 
