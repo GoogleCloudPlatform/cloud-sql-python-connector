@@ -241,7 +241,9 @@ class Connector:
             instance_data, ip_address = await instance.connect_info(ip_type)
             # resolve DNS name into IP address for PSC
             if ip_type.value == "PSC":
-                ip_address = socket.gethostbyname(ip_address)
+                loop = asyncio.get_running_loop()
+                addr_info = await loop.getaddrinfo(ip_address, None, socket.AF_INET)
+                ip_address = addr_info[0][4][0]
 
             # format `user` param for automatic IAM database authn
             if enable_iam_auth:
