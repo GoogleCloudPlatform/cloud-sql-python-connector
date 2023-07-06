@@ -241,8 +241,7 @@ class Connector:
             instance_data, ip_address = await instance.connect_info(ip_type)
             # resolve DNS name into IP address for PSC
             if ip_type.value == "PSC":
-                loop = asyncio.get_running_loop()
-                addr_info = await loop.getaddrinfo(
+                addr_info = await self._loop.getaddrinfo(
                     ip_address, None, family=socket.AF_INET
                 )
                 ip_address = addr_info[0][4][0]
