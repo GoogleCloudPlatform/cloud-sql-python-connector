@@ -245,7 +245,7 @@ class Connector:
             # resolve DNS name into IP address for PSC
             if ip_type.value == "PSC":
                 addr_info = await self._loop.getaddrinfo(
-                    ip_address, None, family=socket.AF_INET
+                    ip_address, None, family=socket.AF_INET, type=socket.SOCK_STREAM
                 )
                 # getaddrinfo returns a list of 5-tuples that contain socket
                 # connection info in the form
