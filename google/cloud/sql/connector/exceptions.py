@@ -63,3 +63,10 @@ class AutoIAMAuthNotSupported(Exception):
     """
 
     pass
+
+
+class DnsNameResolutionError(Exception):
+    """
+    Exception to be raised when the DnsName of a PSC connection to a
+    Cloud SQL instance can not be resolved to a proper IP address.
+    """

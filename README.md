@@ -252,9 +252,17 @@ with Connector() as connector:
             print(row)
 ```
 
-### Specifying Public or Private IP
+### Specifying IP Address Type
 
-The Cloud SQL Connector for Python can be used to connect to Cloud SQL instances using both public and private IP addresses. To specify which IP address to use to connect, set the `ip_type` keyword argument Possible values are `IPTypes.PUBLIC` and `IPTypes.PRIVATE`.
+The Cloud SQL Python Connector can be used to connect to Cloud SQL instances
+using both public and private IP addresses, as well as
+[Private Service Connect][psc] (PSC). To specify which IP address type to connect
+with, set the `ip_type` keyword argument when initializing a `Connector()` or when
+calling `connector.connect()`.
+
+Possible values for `ip_type` are `IPTypes.PUBLIC` (default value),
+`IPTypes.PRIVATE`, and `IPTypes.PSC`.
+
 Example:
 
 ```python
@@ -268,9 +276,14 @@ conn = connector.connect(
 )
 ```
 
-Note: If specifying Private IP, your application must already be in the same VPC network as your Cloud SQL Instance.
+Note: If specifying Private IP or Private Service Connect, your application must be
+attached to the proper VPC network to connect to your Cloud SQL instance. For most
+applications this will require the use of a [VPC Connector][vpc-connector].
 
-### IAM Authentication
+[psc]: https://cloud.google.com/vpc/docs/private-service-connect
+[vpc-connector]: https://cloud.google.com/vpc/docs/configure-serverless-vpc-access#create-connector
+
+### Automatic IAM Database Authentication
 
 Connections using [Automatic IAM database authentication](https://cloud.google.com/sql/docs/postgres/authentication#automatic) are supported when using Postgres or MySQL drivers.
 First, make sure to [configure your Cloud SQL Instance to allow IAM authentication](https://cloud.google.com/sql/docs/postgres/create-edit-iam-instances#configure-iam-db-instance)
