@@ -241,7 +241,6 @@ class Connector:
             instance_data, ip_address = await instance.connect_info(ip_type)
             # resolve DNS name into IP address for PSC
             if ip_type.value == "PSC":
-                print(socket.getaddrinfo(ip_address, None, socket.AF_INET))
                 ip_address = socket.gethostbyname(ip_address)
 
             # format `user` param for automatic IAM database authn
