@@ -256,9 +256,11 @@ with Connector() as connector:
 
 The Cloud SQL Python Connector can be used to connect to Cloud SQL instances
 using both public and private IP addresses, as well as
-[Private Service Connect][psc](PSC). To specify which IP address type to connect
+[Private Service Connect][psc] (PSC). To specify which IP address type to connect
 with, set the `ip_type` keyword argument when initializing a `Connector()` or when
-calling `connector.connect()`. Possible values are `IPTypes.PUBLIC` (default value),
+calling `connector.connect()`.
+
+Possible values for `ip_type` are `IPTypes.PUBLIC` (default value),
 `IPTypes.PRIVATE`, and `IPTypes.PSC`.
 
 Example:
