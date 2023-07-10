@@ -13,6 +13,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
+import socket
 import ssl
 from typing import Any, TYPE_CHECKING
 
@@ -39,26 +40,26 @@ def connect(
     :rtype: pg8000.dbapi.Connection
     :returns: A pg8000 Connection object for the Cloud SQL instance.
     """
-    # Connecting through pg8000 is done by passing in an SSL Context and setting the
-    # "request_ssl" attr to false. This works because when "request_ssl" is false,
-    # the driver skips the database level SSL/TLS exchange, but still uses the
-    # ssl_context (if it is not None) to create the connection.
     try:
         import pg8000
     except ImportError:
         raise ImportError(
             'Unable to import module "pg8000." Please install and try again.'
         )
+
+    # Create socket and wrap with context.
+    sock = ctx.wrap_socket(
+        socket.create_connection((ip_address, SERVER_PROXY_PORT)),
+        server_hostname=ip_address,
+    )
+
     user = kwargs.pop("user")
     db = kwargs.pop("db")
     passwd = kwargs.pop("password", None)
-    setattr(ctx, "request_ssl", False)
     return pg8000.dbapi.connect(
         user,
         database=db,
         password=passwd,
-        host=ip_address,
-        port=SERVER_PROXY_PORT,
-        ssl_context=ctx,
+        sock=sock,
         **kwargs,
     )
