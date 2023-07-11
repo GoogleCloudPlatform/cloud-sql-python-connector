@@ -1,5 +1,27 @@
 # Changelog
 
+## [1.3.0](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v1.2.4...v1.3.0) (2023-07-11)
+
+
+### Features
+
+* add support for PSC connections ([#766](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/766)) ([c238fe3](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/c238fe34e7e18a82c53112c56c141fdf38649523))
+* remove support for Python 3.7 ([#761](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/761)) ([5b8a172](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/5b8a172e23e322ef6b425740cab4bed0a308c171))
+
+
+### Documentation
+
+* update getconn in README samples ([#773](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/773)) ([179c06e](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/179c06e025d1e7a46e4d82bfae19bd21a03b160d))
+
+
+### Dependencies
+
+* Update dependency asyncpg to v0.28.0 ([#785](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/785)) ([036982e](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/036982e9bf11cc441a30e6c1922cf132ed0a8daa))
+* Update dependency cryptography to v41.0.2 ([#790](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/790)) ([869fb49](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/869fb490e193ca9fb7f10a709d2d96648c5b3eb9))
+* Update dependency google-auth to v2.21.0 ([#781](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/781)) ([be4b492](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/be4b4924b6adef227eeda03bfeed52bf2e83abf1))
+* Update dependency pg8000 to v1.29.8 ([#778](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/778)) ([46e8637](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/46e8637b234ec41521695228d9e1d919d61d58bd))
+* Update dependency PyMySQL to v1.1.0 ([#780](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/780)) ([dd3fa64](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/dd3fa642eb9aedc47b4893807f2de8284e4441f3))
+
 ## [1.2.4](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v1.2.3...v1.2.4) (2023-06-13)
 
 
