@@ -444,6 +444,50 @@ Base = declarative_base()
 To learn more about integrating a database into your FastAPI application,
 follow along the [FastAPI SQL Database guide](https://fastapi.tiangolo.com/tutorial/sql-databases/#create-the-database-models).
 
+#### Django
+
+[Django](https://djangoproject.com)  is a high-level Python web framework that
+encourages rapid development and clean, pragmatic design. 
+
+To use the Cloud SQL Connector with Django, you need to create a custom database
+backend which subclasses the existing MySQL backend. (Note, at present Postgres
+is not supported because Django requires the psycopg2 driver, which is not
+currently compatible with the connector.)
+
+Create a `cloudsql` directory in your project with a blank `__init__.py` and a 
+`base.py` containing the following code:
+
+```python
+from django.db.backends.mysql import base
+from google.cloud.sql.connector import Connector
+
+
+class DatabaseWrapper(base.DatabaseWrapper):
+    def get_new_connection(self, conn_params):
+        return Connector().connect(**conn_params)
+```
+
+Then in your settings.py file, set your `DATABASES` setting as follows:
+
+```python
+DATABASES = {
+  "default": {
+    "ENGINE": "cloudsql",
+    "USER": "...",
+    "PASSWORD": "...",
+    "NAME": "...",
+    "OPTIONS": {
+      "driver": "pymysql",
+      "instance_connection_string": "project:region:instance"
+    }
+}
+
+# Needed because Django does not support PyMySQL out of the box
+import pymysql
+pymysql.install_as_MySQLdb()
+```
+
+
 ### Async Driver Usage
 
 The Cloud SQL Connector is compatible with
