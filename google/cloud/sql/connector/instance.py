@@ -104,10 +104,6 @@ class InstanceMetadata:
                 "Upgrade your OpenSSL version to 1.1.1 for TLSv1.3 support."
             )
             self.context.minimum_version = ssl.TLSVersion.TLSv1_2
-
-        # add request_ssl attribute to ssl.SSLContext, required for pg8000 driver
-        self.context.request_ssl = False  # type: ignore
-
         self.expiration = expiration
 
         # tmpdir and its contents are automatically deleted after the CA cert

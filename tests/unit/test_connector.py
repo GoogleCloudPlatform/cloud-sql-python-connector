@@ -108,7 +108,7 @@ def test_Connector_connect(connector: Connector) -> None:
     """Test that Connector.connect can properly return a DB API connection."""
     connect_string = "my-project:my-region:my-instance"
     # patch db connection creation
-    with patch("pg8000.dbapi.connect") as mock_connect:
+    with patch("google.cloud.sql.connector.pg8000.connect") as mock_connect:
         mock_connect.return_value = True
         connection = connector.connect(
             connect_string, "pg8000", user="my-user", password="my-pass", db="my-db"
