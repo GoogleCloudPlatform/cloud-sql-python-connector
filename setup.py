@@ -75,11 +75,12 @@ setup(
     install_requires=core_dependencies,
     extras_require={
         "pymysql": ["PyMySQL==1.1.0"],
-        "pg8000": ["pg8000==1.29.8"],
+        "pg8000": ["pg8000==1.30.1"],
         "pytds": ["python-tds==1.12.0"],
         "asyncpg": ["asyncpg==0.28.0"]
     },
     python_requires=">=3.8",
     include_package_data=True,
     zip_safe=False,
+    package_data={"google.cloud.sql.connector": ["py.typed"]},
 )
