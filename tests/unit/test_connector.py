@@ -104,6 +104,19 @@ async def test_Connector_Init_async_context_manager() -> None:
         assert connector._loop == loop
 
 
+def test_Connector_connect(connector: Connector) -> None:
+    """Test that Connector.connect can properly return a DB API connection."""
+    connect_string = "my-project:my-region:my-instance"
+    # patch db connection creation
+    with patch("google.cloud.sql.connector.pg8000.connect") as mock_connect:
+        mock_connect.return_value = True
+        connection = connector.connect(
+            connect_string, "pg8000", user="my-user", password="my-pass", db="my-db"
+        )
+        # verify connector made connection call
+        assert connection is True
+
+
 @pytest.mark.asyncio
 async def test_create_async_connector() -> None:
     """Test that create_async_connector properly initializes connector
