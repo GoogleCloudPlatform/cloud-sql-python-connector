@@ -104,7 +104,6 @@ class InstanceMetadata:
                 "Upgrade your OpenSSL version to 1.1.1 for TLSv1.3 support."
             )
             self.context.minimum_version = ssl.TLSVersion.TLSv1_2
-
         self.expiration = expiration
 
         # tmpdir and its contents are automatically deleted after the CA cert
