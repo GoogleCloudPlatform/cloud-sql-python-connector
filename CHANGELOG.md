@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.4.0](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v1.3.0...v1.4.0) (2023-08-08)
+
+
+### Features
+
+* configure pg8000 connection with SSLSocket ([#789](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/789)) ([a6433b9](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/a6433b98323f91378cdb285f9c732dd45a7376a3))
+
+
+### Dependencies
+
+* Update dependency aiohttp to v3.8.5 ([#801](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/801)) ([7ed23d0](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/7ed23d00fabeb6cda498c64bb994fe7e6a0f4a2e))
+* Update dependency cryptography to v41.0.3 [SECURITY] ([#810](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/810)) ([d11b3a5](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/d11b3a58090b923c27539bae20051f957f34fcde))
+* Update dependency pg8000 to v1.30.1 ([#808](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/808)) ([c4cd9bc](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/c4cd9bc5bb64bb170eba7d30c0f303e8b839beef))
+* Update dependency python-tds to v1.13.0 ([#818](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/818)) ([65cccf3](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/65cccf361057cff1f4b676474b7e1798f66d9408))
+
 ## [1.3.0](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v1.2.4...v1.3.0) (2023-07-11)
 
 
