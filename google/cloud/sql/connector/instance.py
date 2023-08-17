@@ -263,8 +263,9 @@ class Instance:
         if not self._refresh_in_progress.is_set():
             self._next.cancel()
             self._next = self._schedule_refresh(0)
-        # block all sequential connection attempts on the next refresh result
-        self._current = self._next
+        # block all sequential connection attempts on the next refresh result if current is invalid
+        if not _is_valid(self._current):
+            self._current = self._next
 
     async def _perform_refresh(self) -> InstanceMetadata:
         """Retrieves instance metadata and ephemeral certificate from the
