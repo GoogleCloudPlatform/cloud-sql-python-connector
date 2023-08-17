@@ -280,7 +280,7 @@ class Connector:
 
         except Exception:
             # with any exception, we attempt a force refresh, then throw the error
-            instance.force_refresh()
+            await instance.force_refresh()
             raise
 
     def __enter__(self) -> Any:

@@ -255,7 +255,7 @@ class Instance:
         self._current = self._schedule_refresh(0)
         self._next = self._current
 
-    def force_refresh(self) -> None:
+    async def force_refresh(self) -> None:
         """
         Forces a new refresh attempt immediately to be used for future connection attempts.
         """
@@ -264,7 +264,7 @@ class Instance:
             self._next.cancel()
             self._next = self._schedule_refresh(0)
         # block all sequential connection attempts on the next refresh result if current is invalid
-        if not _is_valid(self._current):
+        if not await _is_valid(self._current):
             self._current = self._next
 
     async def _perform_refresh(self) -> InstanceMetadata:
