@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.1](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v1.4.0...v1.4.1) (2023-08-18)
+
+
+### Bug Fixes
+
+* re-use existing connections on force refresh ([#828](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/828)) ([f98c1b6](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/f98c1b6e29a2328a1911fda10ac5ce463ec70197))
+
 ## [1.4.0](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v1.3.0...v1.4.0) (2023-08-08)
 
 
