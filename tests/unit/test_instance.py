@@ -194,7 +194,7 @@ async def test_force_refresh_cancels_pending_refresh(
     pending_refresh = instance._next
     assert instance._refresh_in_progress.is_set() is False
 
-    instance.force_refresh()
+    await instance.force_refresh()
 
     # pending_refresh has to be awaited for it to raised as cancelled
     with pytest.raises(asyncio.CancelledError):
