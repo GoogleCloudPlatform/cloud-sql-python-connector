@@ -7,12 +7,6 @@
 
 * re-use existing connections on force refresh ([#828](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/828)) ([f98c1b6](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/f98c1b6e29a2328a1911fda10ac5ce463ec70197))
 
-
-### Dependencies
-
-* Update dependency SQLAlchemy to v2.0.20 ([#827](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/827)) ([c13bcb1](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/c13bcb1cb83f942533ec38e385448dc1a593954e))
-* Update github/codeql-action action to v2.21.4 ([#825](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/825)) ([2a6d7a9](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/2a6d7a9cbffcf63dd10efc5ce9868543541dd929))
-
 ## [1.4.0](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v1.3.0...v1.4.0) (2023-08-08)
 
 
