@@ -1,6 +1,6 @@
 {
   "extends": [
-    "config:base",
+    "config:recommended",
     ":semanticCommitTypeAll(chore)",
     "helpers:pinGitHubActionDigests"
   ],
@@ -8,10 +8,28 @@
   "ignorePresets": [":semanticPrefixFixDepsChoreOthers"],
   "ignorePaths": [".kokoro/requirements.txt"],
   "prConcurrentLimit": 0,
-  "rebaseStalePrs": true,
+  "rebaseWhen": "behind-base-branch",
   "dependencyDashboard": true,
-  "semanticCommits": false,
+  "semanticCommits": "disabled",
   "pip_requirements": {
     "fileMatch": ["requirements-test.txt"]
-  }
+  },
+  "packageRules": [
+    {
+      "matchPackagePatterns": [
+        "^actions/checkout",
+        "^actions/github-script",
+        "^actions/setup-python",
+        "^actions/upload-artifact",
+        "^dorny/paths-filter",
+        "^github/codeql-action",
+        "^google-github-actions/auth",
+        "^google-github-actions/get-secretmanager-secrets",
+        "^google-github-actions/setup-gcloud",
+        "^micnncim/action-label-syncer",
+        "^ossf/scorecard-action"
+      ],
+      "groupName": "dependencies for github"
+    }
+  ]
 }
