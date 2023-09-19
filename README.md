@@ -586,7 +586,7 @@ supported for 1 year.
 **Unsupported** - Any major version that has been deprecated for >=1 year is
 considered publicly unsupported.
 
-## Supported Python Versions
+### Supported Python Versions
 
 We follow the [Python Version Support Policy][pyver] used by Google Cloud
 Libraries for Python. Changes in supported Python versions will be
