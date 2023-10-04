@@ -14,8 +14,8 @@
 
 assign_issues:
 #   - shubha-rajan
-  - jackwotherspoon
-#   - enocom
+#   - jackwotherspoon
+  - enocom
 
 
 assign_prs:
