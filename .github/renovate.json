@@ -10,6 +10,7 @@
   "prConcurrentLimit": 0,
   "rebaseWhen": "behind-base-branch",
   "dependencyDashboard": true,
+  "dependencyDashboardLabels": ["type: process"],
   "semanticCommits": "disabled",
   "pip_requirements": {
     "fileMatch": ["requirements-test.txt"]
