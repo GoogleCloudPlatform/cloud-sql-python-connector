@@ -13,12 +13,8 @@
 # limitations under the License.
 
 assign_issues:
-#   - shubha-rajan
-#   - jackwotherspoon
-  - enocom
+  - jackwotherspoon
 
 
 assign_prs:
-#   - shubha-rajan
   - jackwotherspoon
-#   - enocom
