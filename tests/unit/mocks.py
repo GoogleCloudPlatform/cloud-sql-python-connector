@@ -28,7 +28,7 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.x509.oid import NameOID
 
 from google.cloud.sql.connector import IPTypes
-from google.cloud.sql.connector.instance import InstanceMetadata
+from google.cloud.sql.connector.instance import ConnectionInfo
 from google.cloud.sql.connector.utils import generate_keys, write_to_file
 
 
@@ -55,8 +55,8 @@ class BadRefresh(Exception):
     pass
 
 
-class MockMetadata(InstanceMetadata):
-    """Mock class for InstanceMetadata"""
+class MockMetadata(ConnectionInfo):
+    """Mock class for ConnectionInfo"""
 
     def __init__(
         self, expiration: datetime.datetime, ip_addrs: Dict = {"PRIMARY": "0.0.0.0"}

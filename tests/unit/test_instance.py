@@ -30,7 +30,7 @@ from google.cloud.sql.connector.exceptions import (
 )
 from google.cloud.sql.connector.instance import (
     Instance,
-    InstanceMetadata,
+    ConnectionInfo,
     IPTypes,
 )
 from google.cloud.sql.connector.rate_limiter import AsyncRateLimiter
@@ -140,7 +140,7 @@ async def test_schedule_refresh_wont_replace_valid_result_with_invalid(
 
     # check that invalid refresh did not replace valid current metadata
     assert instance._current == old_task
-    assert isinstance(await instance._current, InstanceMetadata)
+    assert isinstance(await instance._current, ConnectionInfo)
 
 
 @pytest.mark.asyncio
@@ -202,7 +202,7 @@ async def test_force_refresh_cancels_pending_refresh(
 
     # verify pending_refresh has now been cancelled
     assert pending_refresh.cancelled() is True
-    assert isinstance(await instance._current, InstanceMetadata)
+    assert isinstance(await instance._current, ConnectionInfo)
 
 
 @pytest.mark.asyncio
@@ -230,12 +230,12 @@ async def test_perform_refresh(
     mock_instance: mocks.FakeCSQLInstance,
 ) -> None:
     """
-    Test that _perform_refresh returns valid InstanceMetadata object.
+    Test that _perform_refresh returns valid ConnectionInfo object.
     """
     instance_metadata = await instance._perform_refresh()
 
     # verify instance metadata object is returned
-    assert isinstance(instance_metadata, InstanceMetadata)
+    assert isinstance(instance_metadata, ConnectionInfo)
     # verify instance metadata expiration
     assert (
         mock_instance.cert._not_valid_after.replace(microsecond=0)  # type: ignore
@@ -248,7 +248,7 @@ async def test_perform_refresh_expiration(
     instance: Instance,
 ) -> None:
     """
-    Test that _perform_refresh returns InstanceMetadata with proper expiration.
+    Test that _perform_refresh returns ConnectionInfo with proper expiration.
 
     If credentials expiration is less than cert expiration,
     credentials expiration should be used.
@@ -262,7 +262,7 @@ async def test_perform_refresh_expiration(
         instance_metadata = await instance._perform_refresh()
 
     # verify instance metadata object is returned
-    assert isinstance(instance_metadata, InstanceMetadata)
+    assert isinstance(instance_metadata, ConnectionInfo)
     # verify instance metadata uses credentials expiration
     assert expiration == instance_metadata.expiration
 
@@ -277,7 +277,7 @@ async def test_connect_info(
     instance_metadata, ip_addr = await instance.connect_info(IPTypes.PUBLIC)
 
     # verify metadata and ip address
-    assert isinstance(instance_metadata, InstanceMetadata)
+    assert isinstance(instance_metadata, ConnectionInfo)
     assert ip_addr == "0.0.0.0"
     # cleanup instance
     await instance.close()
@@ -289,7 +289,7 @@ async def test_get_preferred_ip(instance: Instance) -> None:
     Test that get_preferred_ip returns proper IP address
     for both Public and Private IP addresses.
     """
-    instance_metadata: InstanceMetadata = await instance._current
+    instance_metadata: ConnectionInfo = await instance._current
 
     # test public IP as preferred IP for connection
     ip_addr = instance_metadata.get_preferred_ip(IPTypes.PUBLIC)
@@ -313,7 +313,7 @@ async def test_get_preferred_ip_CloudSQLIPTypeError(instance: Instance) -> None:
     Test that get_preferred_ip throws proper CloudSQLIPTypeError
     when missing Public or Private IP addresses.
     """
-    instance_metadata: InstanceMetadata = await instance._current
+    instance_metadata: ConnectionInfo = await instance._current
     instance_metadata.ip_addrs = {"PRIVATE": "1.1.1.1"}
     # test error when Public IP is missing
     with pytest.raises(CloudSQLIPTypeError):
