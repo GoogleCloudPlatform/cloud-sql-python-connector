@@ -63,7 +63,7 @@ class IPTypes(Enum):
     PSC: str = "PSC"
 
 
-class InstanceMetadata:
+class ConnectionInfo:
     ip_addrs: Dict[str, Any]
     context: ssl.SSLContext
     database_version: str
@@ -205,7 +205,7 @@ class Instance:
 
     _refresh_rate_limiter: AsyncRateLimiter
     _refresh_in_progress: asyncio.locks.Event
-    _current: asyncio.Task  # task wraps coroutine that returns InstanceMetadata
+    _current: asyncio.Task  # task wraps coroutine that returns ConnectionInfo
     _next: asyncio.Task  # task wraps coroutine that returns another task
 
     def __init__(
@@ -267,11 +267,11 @@ class Instance:
         if not await _is_valid(self._current):
             self._current = self._next
 
-    async def _perform_refresh(self) -> InstanceMetadata:
+    async def _perform_refresh(self) -> ConnectionInfo:
         """Retrieves instance metadata and ephemeral certificate from the
         Cloud SQL Instance.
 
-        :rtype: InstanceMetadata
+        :rtype: ConnectionInfo
         :returns: A dataclass containing a string representing the ephemeral certificate, a dict
             containing the instances IP adresses, a string representing a PEM-encoded private key
             and a string representing a PEM-encoded certificate authority.
@@ -353,7 +353,7 @@ class Instance:
         finally:
             self._refresh_in_progress.clear()
 
-        return InstanceMetadata(
+        return ConnectionInfo(
             ephemeral_cert,
             metadata["database_version"],
             metadata["ip_addresses"],
@@ -365,7 +365,7 @@ class Instance:
 
     def _schedule_refresh(self, delay: int) -> asyncio.Task:
         """
-        Schedule task to sleep and then perform refresh to get InstanceMetadata.
+        Schedule task to sleep and then perform refresh to get ConnectionInfo.
 
         :type delay: int
         :param delay
@@ -375,7 +375,7 @@ class Instance:
         :returns: A Task representing the scheduled _perform_refresh.
         """
 
-        async def _refresh_task(self: Instance, delay: int) -> InstanceMetadata:
+        async def _refresh_task(self: Instance, delay: int) -> ConnectionInfo:
             """
             A coroutine that sleeps for the specified amount of time before
             running _perform_refresh.
@@ -422,7 +422,7 @@ class Instance:
     async def connect_info(
         self,
         ip_type: IPTypes,
-    ) -> Tuple[InstanceMetadata, str]:
+    ) -> Tuple[ConnectionInfo, str]:
         """Retrieve instance metadata and ip address required
         for making connection to Cloud SQL instance.
 
@@ -430,7 +430,7 @@ class Instance:
         :param ip_type: Enum specifying whether to look for public
             or private IP address.
 
-        :rtype instance_data: InstanceMetadata
+        :rtype instance_data: ConnectionInfo
         :returns: Instance metadata for Cloud SQL instance.
 
         :rtype ip_address: str
@@ -441,7 +441,7 @@ class Instance:
             f"['{self._instance_connection_string}']: Entered connect_info method"
         )
 
-        instance_data: InstanceMetadata
+        instance_data: ConnectionInfo
 
         instance_data = await self._current
         ip_address: str = instance_data.get_preferred_ip(ip_type)
