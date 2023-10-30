@@ -29,8 +29,8 @@ from google.cloud.sql.connector.exceptions import (
     CredentialsTypeError,
 )
 from google.cloud.sql.connector.instance import (
-    Instance,
     ConnectionInfo,
+    Instance,
     IPTypes,
 )
 from google.cloud.sql.connector.rate_limiter import AsyncRateLimiter
