@@ -1,7 +1,7 @@
 pytest==7.4.3
 mock==5.1.0
 pytest-cov==4.1.0
-pytest-asyncio==0.21.1
+pytest-asyncio==0.22.0
 SQLAlchemy==2.0.22
 sqlalchemy-pytds==1.0.0
 flake8==5.0.4
