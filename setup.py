@@ -77,7 +77,7 @@ setup(
         "pymysql": ["PyMySQL==1.1.0"],
         "pg8000": ["pg8000==1.30.3"],
         "pytds": ["python-tds==1.13.0"],
-        "asyncpg": ["asyncpg==0.28.0"]
+        "asyncpg": ["asyncpg==0.29.0"]
     },
     python_requires=">=3.8",
     include_package_data=True,
