@@ -335,10 +335,10 @@ async def test_ClientResponseError(
     """
     Test that detailed error message is applied to ClientResponseError.
     """
-    loop = asyncio.get_running_loop()
+    event_loop = asyncio.get_running_loop()
     # mock Cloud SQL Admin API calls with exceptions
     keys = asyncio.wrap_future(
-        asyncio.run_coroutine_threadsafe(generate_keys(), loop), loop=loop
+        asyncio.run_coroutine_threadsafe(generate_keys(), event_loop), loop=event_loop
     )
     get_url = "https://sqladmin.googleapis.com/sql/v1beta4/projects/my-project/instances/my-instance/connectSettings"
     post_url = "https://sqladmin.googleapis.com/sql/v1beta4/projects/my-project/instances/my-instance:generateEphemeralCert"
@@ -365,7 +365,7 @@ async def test_ClientResponseError(
                 "my-project:my-region:my-instance",
                 "pymysql",
                 keys,
-                loop,
+                event_loop,
                 credentials=fake_credentials,
             )
             await instance._current
