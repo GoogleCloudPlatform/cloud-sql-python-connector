@@ -326,7 +326,7 @@ def test_seconds_until_refresh_over_1_hour() -> None:
     """
     # using pytest.approx since sometimes can be off by a second
     assert (
-        pytest.approx(_seconds_until_refresh(datetime.now() + timedelta(minutes=62)), 1)
+        pytest.approx(_seconds_until_refresh(datetime.utcnow() + timedelta(minutes=62)), 1)
         == 31 * 60
     )
 
@@ -340,7 +340,7 @@ def test_seconds_until_refresh_under_1_hour_over_4_mins() -> None:
     """
     # using pytest.approx since sometimes can be off by a second
     assert (
-        pytest.approx(_seconds_until_refresh(datetime.now() + timedelta(minutes=5)), 1)
+        pytest.approx(_seconds_until_refresh(datetime.utcnow() + timedelta(minutes=5)), 1)
         == 60
     )
 
@@ -351,4 +351,4 @@ def test_seconds_until_refresh_under_4_mins() -> None:
 
     If expiration is under 4 minutes, should return 0.
     """
-    assert _seconds_until_refresh(datetime.now() + timedelta(minutes=3)) == 0
+    assert _seconds_until_refresh(datetime.utcnow() + timedelta(minutes=3)) == 0
