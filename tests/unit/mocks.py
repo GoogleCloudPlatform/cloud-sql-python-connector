@@ -66,11 +66,11 @@ class MockMetadata(ConnectionInfo):
 
 
 async def instance_metadata_success(*args: Any, **kwargs: Any) -> MockMetadata:
-    return MockMetadata(datetime.datetime.now() + datetime.timedelta(minutes=10))
+    return MockMetadata(datetime.datetime.utcnow() + datetime.timedelta(minutes=10))
 
 
 async def instance_metadata_expired(*args: Any, **kwargs: Any) -> MockMetadata:
-    return MockMetadata(datetime.datetime.now() - datetime.timedelta(minutes=10))
+    return MockMetadata(datetime.datetime.utcnow() - datetime.timedelta(minutes=10))
 
 
 async def instance_metadata_error(*args: Any, **kwargs: Any) -> None:
