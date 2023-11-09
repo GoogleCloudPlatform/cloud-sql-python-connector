@@ -38,19 +38,19 @@ from google.cloud.sql.connector.utils import generate_keys
 
 
 @pytest.fixture
-def test_rate_limiter(event_loop: asyncio.AbstractEventLoop) -> AsyncRateLimiter:
-    return AsyncRateLimiter(max_capacity=1, rate=1 / 2, loop=event_loop)
+def test_rate_limiter() -> AsyncRateLimiter:
+    return AsyncRateLimiter(max_capacity=1, rate=1 / 2)
 
 
 @pytest.mark.asyncio
 async def test_Instance_init(
-    fake_credentials: Credentials, event_loop: asyncio.AbstractEventLoop
+    fake_credentials: Credentials,
 ) -> None:
     """
     Test to check whether the __init__ method of Instance
     can tell if the connection string that's passed in is formatted correctly.
     """
-
+    event_loop = asyncio.get_running_loop()
     connect_string = "test-project:test-region:test-instance"
     keys = asyncio.wrap_future(
         asyncio.run_coroutine_threadsafe(generate_keys(), event_loop), loop=event_loop
@@ -71,13 +71,12 @@ async def test_Instance_init(
 
 
 @pytest.mark.asyncio
-async def test_Instance_init_bad_credentials(
-    event_loop: asyncio.AbstractEventLoop,
-) -> None:
+async def test_Instance_init_bad_credentials() -> None:
     """
     Test to check whether the __init__ method of Instance
     throws proper error for bad credentials arg type.
     """
+    event_loop = asyncio.get_running_loop()
     connect_string = "test-project:test-region:test-instance"
     keys = asyncio.wrap_future(
         asyncio.run_coroutine_threadsafe(generate_keys(), event_loop), loop=event_loop
@@ -331,11 +330,12 @@ async def test_get_preferred_ip_CloudSQLIPTypeError(instance: Instance) -> None:
 
 @pytest.mark.asyncio
 async def test_ClientResponseError(
-    fake_credentials: Credentials, event_loop: asyncio.AbstractEventLoop
+    fake_credentials: Credentials,
 ) -> None:
     """
     Test that detailed error message is applied to ClientResponseError.
     """
+    event_loop = asyncio.get_running_loop()
     # mock Cloud SQL Admin API calls with exceptions
     keys = asyncio.wrap_future(
         asyncio.run_coroutine_threadsafe(generate_keys(), event_loop), loop=event_loop

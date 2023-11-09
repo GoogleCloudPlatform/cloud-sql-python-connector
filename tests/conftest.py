@@ -58,19 +58,6 @@ def pytest_collection_modifyitems(config: Any, items: Any) -> None:
 
 
 @pytest.fixture
-def event_loop() -> Generator:
-    """
-    Creates an event loop to use for testing.
-    """
-    loop: asyncio.AbstractEventLoop = asyncio.new_event_loop()
-    yield loop
-    # close loop gracefully
-    if loop.is_running():
-        loop.call_soon_threadsafe(loop.stop)
-    loop.close()
-
-
-@pytest.fixture
 def connect_string() -> str:
     """
     Retrieves a valid connection string from the environment and
@@ -149,13 +136,13 @@ def mock_instance() -> FakeCSQLInstance:
 async def instance(
     mock_instance: FakeCSQLInstance,
     fake_credentials: Credentials,
-    event_loop: asyncio.AbstractEventLoop,
 ) -> AsyncGenerator[Instance, None]:
     """
     Instance with mocked API calls.
     """
+    loop = asyncio.get_running_loop()
     # generate client key pair
-    keys = event_loop.create_task(generate_keys())
+    keys = asyncio.create_task(generate_keys())
     _, client_key = await keys
 
     with patch("google.cloud.sql.connector.utils.default") as mock_auth:
@@ -179,7 +166,7 @@ async def instance(
                 f"{mock_instance.project}:{mock_instance.region}:{mock_instance.name}",
                 "pg8000",
                 keys,
-                event_loop,
+                loop,
             )
 
             yield instance

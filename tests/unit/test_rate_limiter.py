@@ -23,13 +23,12 @@ from google.cloud.sql.connector.rate_limiter import (
 
 
 @pytest.mark.asyncio
-async def test_rate_limiter_throttles_requests(
-    event_loop: asyncio.AbstractEventLoop,
-) -> None:
+async def test_rate_limiter_throttles_requests() -> None:
     """Test to check whether rate limiter will throttle incoming requests."""
+    event_loop = asyncio.get_running_loop()
     counter = 0
     # allow 2 requests to go through every 5 seconds
-    rate_limiter = AsyncRateLimiter(max_capacity=2, rate=1 / 5, loop=event_loop)
+    rate_limiter = AsyncRateLimiter(max_capacity=2, rate=1 / 5)
 
     async def increment() -> None:
         await rate_limiter.acquire()
@@ -53,13 +52,12 @@ async def test_rate_limiter_throttles_requests(
 
 
 @pytest.mark.asyncio
-async def test_rate_limiter_completes_all_tasks(
-    event_loop: asyncio.AbstractEventLoop,
-) -> None:
+async def test_rate_limiter_completes_all_tasks() -> None:
     """Test to check all requests will go through rate limiter successfully."""
+    event_loop = asyncio.get_running_loop()
     counter = 0
     # allow 1 request to go through per second
-    rate_limiter = AsyncRateLimiter(max_capacity=1, rate=1, loop=event_loop)
+    rate_limiter = AsyncRateLimiter(max_capacity=1, rate=1)
 
     async def increment() -> None:
         await rate_limiter.acquire()
