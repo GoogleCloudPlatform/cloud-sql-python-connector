@@ -88,10 +88,6 @@ async def _get_metadata(
     elif not isinstance(instance, str):
         raise TypeError(f"instance must be of type str, got {type(instance)}")
 
-    if not credentials.valid:
-        request = google.auth.transport.requests.Request()
-        credentials.refresh(request)
-
     headers = {
         "Authorization": f"Bearer {credentials.token}",
     }
@@ -180,10 +176,6 @@ async def _get_ephemeral(
         raise TypeError(f"instance must be of type str, got {type(instance)}")
     elif not isinstance(pub_key, str):
         raise TypeError(f"pub_key must be of type str, got {type(pub_key)}")
-
-    if not credentials.valid:
-        request = google.auth.transport.requests.Request()
-        credentials.refresh(request)
 
     headers = {
         "Authorization": f"Bearer {credentials.token}",

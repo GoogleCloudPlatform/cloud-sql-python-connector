@@ -33,6 +33,7 @@ from cryptography.hazmat.backends import default_backend
 from cryptography.x509 import load_pem_x509_certificate
 
 from google.auth.credentials import Credentials
+import google.auth.transport.requests
 from google.cloud.sql.connector.exceptions import (
     AutoIAMAuthNotSupported,
     CloudSQLIPTypeError,
@@ -193,7 +194,7 @@ class Instance:
             self.__client_session = aiohttp.ClientSession(headers=headers)
         return self.__client_session
 
-    _credentials: Optional[Credentials] = None
+    _credentials: Credentials
     _keys: asyncio.Future
 
     _instance_connection_string: str
@@ -286,6 +287,10 @@ class Instance:
             priv_key, pub_key = await self._keys
 
             logger.debug(f"['{self._instance_connection_string}']: Creating context")
+
+            # refresh credentials for fresh Oauth2 token
+            request = google.auth.transport.requests.Request()
+            self._credentials.refresh(request)
 
             metadata_task = self._loop.create_task(
                 _get_metadata(
