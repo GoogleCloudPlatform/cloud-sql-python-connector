@@ -288,7 +288,7 @@ class Instance:
 
             logger.debug(f"['{self._instance_connection_string}']: Creating context")
 
-            # refresh credentials for fresh Oauth2 token
+            # refresh credentials for fresh OAuth2 token
             request = google.auth.transport.requests.Request()
             self._credentials.refresh(request)
 
