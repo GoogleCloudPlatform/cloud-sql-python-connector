@@ -335,9 +335,10 @@ class Instance:
             )
             expiration = x509.not_valid_after
 
+            # for IAM authentication OAuth2 token is embedded in cert so it
+            # must still be valid for successful connection
             if self._enable_iam_auth:
-                if self._credentials is not None:
-                    token_expiration: datetime.datetime = self._credentials.expiry
+                token_expiration: datetime.datetime = self._credentials.expiry
                 if expiration > token_expiration:
                     expiration = token_expiration
 
