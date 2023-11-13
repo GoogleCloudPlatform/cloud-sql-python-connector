@@ -17,4 +17,4 @@ PyMySQL==1.1.0
 pg8000==1.30.3
 asyncpg==0.29.0
 python-tds==1.13.0
-aioresponses==0.7.4
+aioresponses==0.7.5
