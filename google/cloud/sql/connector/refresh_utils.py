@@ -19,7 +19,10 @@ import asyncio
 import copy
 import datetime
 import logging
-from typing import Any, Dict, List, TYPE_CHECKING
+from typing import Any, Dict, List, Tuple, TYPE_CHECKING
+
+from cryptography.hazmat.backends import default_backend
+from cryptography.x509 import load_pem_x509_certificate
 
 from google.auth.credentials import Credentials, Scoped
 import google.auth.transport.requests
@@ -133,7 +136,7 @@ async def _get_ephemeral(
     instance: str,
     pub_key: str,
     enable_iam_auth: bool = False,
-) -> str:
+) -> Tuple[str, datetime.datetime]:
     """Asynchronously requests an ephemeral certificate from the Cloud SQL Instance.
 
     :type sqladmin_api_endpoint: str
@@ -204,7 +207,18 @@ async def _get_ephemeral(
 
     ret_dict = await resp.json()
 
-    return ret_dict["ephemeralCert"]["cert"]
+    ephemeral_cert: str = ret_dict["ephemeralCert"]["cert"]
+
+    # decode cert to read expiration
+    x509 = load_pem_x509_certificate(ephemeral_cert.encode("UTF-8"), default_backend())
+    expiration = x509.not_valid_after
+    # for IAM authentication OAuth2 token is embedded in cert so it
+    # must still be valid for successful connection
+    if enable_iam_auth:
+        token_expiration: datetime.datetime = login_creds.expiry
+        if expiration > token_expiration:
+            expiration = token_expiration
+    return ephemeral_cert, expiration
 
 
 def _seconds_until_refresh(

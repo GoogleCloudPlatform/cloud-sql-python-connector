@@ -28,6 +28,7 @@ from mocks import (  # type: ignore
 )
 import pytest  # noqa F401 Needed to run the tests
 
+import google.auth
 from google.auth.credentials import Credentials
 from google.cloud.sql.connector.refresh_utils import (
     _downscope_credentials,
@@ -76,12 +77,13 @@ async def test_get_ephemeral(
                 instance,
                 pub_key,
             )
-    result = result.strip()  # remove any trailing whitespace
-    result = result.split("\n")
+    cert, _ = result
+    cert = cert.strip()  # remove any trailing whitespace
+    cert = cert.split("\n")
 
     assert (
-        result[0] == "-----BEGIN CERTIFICATE-----"
-        and result[len(result) - 1] == "-----END CERTIFICATE-----"
+        cert[0] == "-----BEGIN CERTIFICATE-----"
+        and cert[len(cert) - 1] == "-----END CERTIFICATE-----"
     )
 
 

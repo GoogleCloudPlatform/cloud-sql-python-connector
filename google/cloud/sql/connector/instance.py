@@ -29,8 +29,6 @@ from typing import (
 )
 
 import aiohttp
-from cryptography.hazmat.backends import default_backend
-from cryptography.x509 import load_pem_x509_certificate
 
 from google.auth.credentials import Credentials
 from google.cloud.sql.connector.exceptions import (
@@ -323,18 +321,7 @@ class Instance:
                 ephemeral_task.cancel()
                 raise
 
-            ephemeral_cert = await ephemeral_task
-
-            x509 = load_pem_x509_certificate(
-                ephemeral_cert.encode("UTF-8"), default_backend()
-            )
-            expiration = x509.not_valid_after
-
-            if self._enable_iam_auth:
-                if self._credentials is not None:
-                    token_expiration: datetime.datetime = self._credentials.expiry
-                if expiration > token_expiration:
-                    expiration = token_expiration
+            ephemeral_cert, expiration = await ephemeral_task
 
         except aiohttp.ClientResponseError as e:
             logger.debug(
