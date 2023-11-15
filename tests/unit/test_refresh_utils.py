@@ -288,7 +288,7 @@ async def test_is_valid_with_expired_metadata() -> None:
     task = asyncio.create_task(instance_metadata_expired())
     assert not await _is_valid(task)
 
-
+# TODO: https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/901
 # def test_downscope_credentials_service_account(fake_credentials: Credentials) -> None:
 #     """
 #     Test _downscope_credentials with google.oauth2.service_account.Credentials
