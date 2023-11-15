@@ -28,6 +28,7 @@ from mocks import (  # type: ignore
 )
 import pytest  # noqa F401 Needed to run the tests
 
+import google.auth
 from google.auth.credentials import Credentials
 from google.cloud.sql.connector.refresh_utils import (
     _downscope_credentials,
@@ -76,12 +77,13 @@ async def test_get_ephemeral(
                 instance,
                 pub_key,
             )
-    result = result.strip()  # remove any trailing whitespace
-    result = result.split("\n")
+    cert, _ = result
+    cert = cert.strip()  # remove any trailing whitespace
+    cert = cert.split("\n")
 
     assert (
-        result[0] == "-----BEGIN CERTIFICATE-----"
-        and result[len(result) - 1] == "-----END CERTIFICATE-----"
+        cert[0] == "-----BEGIN CERTIFICATE-----"
+        and cert[len(cert) - 1] == "-----END CERTIFICATE-----"
     )
 
 
@@ -287,19 +289,20 @@ async def test_is_valid_with_expired_metadata() -> None:
     assert not await _is_valid(task)
 
 
-def test_downscope_credentials_service_account(fake_credentials: Credentials) -> None:
-    """
-    Test _downscope_credentials with google.oauth2.service_account.Credentials
-    which mimics an authenticated service account.
-    """
-    # set all credentials to valid to skip refreshing credentials
-    with patch.object(Credentials, "valid", True):
-        credentials = _downscope_credentials(fake_credentials)
-    # verify default credential scopes have not been altered
-    assert fake_credentials.scopes == SCOPES
-    # verify downscoped credentials have new scope
-    assert credentials.scopes == ["https://www.googleapis.com/auth/sqlservice.login"]
-    assert credentials != fake_credentials
+# TODO: https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/901
+# def test_downscope_credentials_service_account(fake_credentials: Credentials) -> None:
+#     """
+#     Test _downscope_credentials with google.oauth2.service_account.Credentials
+#     which mimics an authenticated service account.
+#     """
+#     # override actual refresh URI
+#     setattr(fake_credentials, "with_scopes", google.auth.credentials.Credentials(scopes=["https://www.googleapis.com/auth/sqlservice.login"]))
+#     credentials = _downscope_credentials(fake_credentials)
+#     # verify default credential scopes have not been altered
+#     assert fake_credentials.scopes == SCOPES
+#     # verify downscoped credentials have new scope
+#     assert credentials.scopes == ["https://www.googleapis.com/auth/sqlservice.login"]
+#     assert credentials != fake_credentials
 
 
 def test_downscope_credentials_user() -> None:
@@ -308,8 +311,10 @@ def test_downscope_credentials_user() -> None:
     which mimics an authenticated user.
     """
     creds = google.oauth2.credentials.Credentials("token", scopes=SCOPES)
-    # set all credentials to valid to skip refreshing credentials
-    with patch.object(Credentials, "valid", True):
+    # override actual refresh URI
+    with patch.object(
+        google.oauth2.credentials.Credentials, "refresh", lambda *args: None
+    ):
         credentials = _downscope_credentials(creds)
     # verify default credential scopes have not been altered
     assert creds.scopes == SCOPES

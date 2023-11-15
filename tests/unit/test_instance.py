@@ -244,7 +244,7 @@ async def test_perform_refresh(
 
 @pytest.mark.asyncio
 async def test_perform_refresh_expiration(
-    instance: Instance,
+    instance: Instance, fake_credentials: Credentials
 ) -> None:
     """
     Test that _perform_refresh returns ConnectionInfo with proper expiration.
@@ -254,10 +254,13 @@ async def test_perform_refresh_expiration(
     """
     # set credentials expiration to 1 minute from now
     expiration = datetime.datetime.utcnow() + datetime.timedelta(minutes=1)
-    setattr(instance._credentials, "expiry", expiration)
     setattr(instance, "_enable_iam_auth", True)
-    # set all credentials to valid so downscoped credential does not refresh
-    with patch.object(Credentials, "valid", True):
+    # set downscoped credential to mock
+    with patch(
+        "google.cloud.sql.connector.refresh_utils._downscope_credentials"
+    ) as mock_auth:
+        setattr(fake_credentials, "expiry", expiration)
+        mock_auth.return_value = fake_credentials
         instance_metadata = await instance._perform_refresh()
 
     # verify instance metadata object is returned
