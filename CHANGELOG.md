@@ -11,22 +11,9 @@
 
 ### Dependencies
 
-* Update actions/github-script action to v7 ([#896](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/896)) ([501d8da](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/501d8da0c5a3ac1eefa789d9bf4570bdfa15a164))
-* Update dependencies for github ([#865](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/865)) ([cacf85a](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/cacf85a43c12e297b698ed041370e0f54167054b))
-* Update dependency aioresponses to v0.7.5 ([#895](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/895)) ([1ab750a](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/1ab750a9f1ea0e7362eea2a7f830aa59c4d114b8))
 * Update dependency asyncpg to v0.29.0 ([#887](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/887)) ([9c566ea](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/9c566eaa3ed08874c6653d0ce35f92c3ab99888c))
-* Update dependency black to v23.10.0 ([#867](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/867)) ([4bc1790](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/4bc17904c609d540d1fa6b7110de1aa36a88ae9b))
-* Update dependency black to v23.10.1 ([#871](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/871)) ([0db7f58](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/0db7f589468099eed29591ec87ddc11cc312d51f))
-* Update dependency black to v23.11.0 ([#889](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/889)) ([2a95532](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/2a955322251a22e8c8b9d2494209b6db94b0d14d))
 * Update dependency cryptography to v41.0.5 ([#874](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/874)) ([9f9dd0d](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/9f9dd0dc5ac43fa9402ccb7477b8972a74fa3703))
 * Update dependency pg8000 to v1.30.3 ([#882](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/882)) ([13e9d31](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/13e9d3132290989a788157f1d91b83103ccb3764))
-* Update dependency pytest to v7.4.3 ([#875](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/875)) ([2423e2e](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/2423e2e061198ef44365799e453acae63e729a94))
-* Update dependency pytest-asyncio to v0.22.0 ([#881](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/881)) ([65e5550](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/65e55503fbf3434f27414b734ff54f28b8303f2f))
-* Update dependency SQLAlchemy to v2.0.22 ([#866](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/866)) ([67ff095](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/67ff095b5a567e92759f2e5b9dfd63acab910a55))
-* Update dependency SQLAlchemy to v2.0.23 ([#884](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/884)) ([1741f1f](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/1741f1f6eaefc1e9be107d454f5dbdfa9421ee88))
-* Update github/codeql-action action to v2.22.5 ([#879](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/879)) ([2cc1a54](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/2cc1a54ce90e1ffa926262cebb5ddf2b4a7efa52))
-* Update github/codeql-action action to v2.22.6 ([#897](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/897)) ([ca019f6](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/ca019f6a8af075ebe413c2572baf6b20a30bde49))
-* Update ossf/scorecard-action action to v2.3.1 ([#872](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/872)) ([32c6481](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/32c64817aa1a3e5c3a86409535d57568a5782852))
 
 ## [1.4.2](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v1.4.1...v1.4.2) (2023-10-09)
 
