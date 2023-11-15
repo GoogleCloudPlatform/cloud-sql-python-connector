@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.4.3](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v1.4.2...v1.4.3) (2023-11-15)
+
+
+### Bug Fixes
+
+* use IAM login creds in expiration logic ([#898](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/898)) ([7f8a3a4](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/7f8a3a46ce754de7ffcf8adb58a075cb43c987f4))
+* Use utcnow() in refresh calculation ([#890](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/890)) ([469ed04](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/469ed044c45947f8153133a10753eaf078b133dd))
+
+
+### Dependencies
+
+* Update dependency asyncpg to v0.29.0 ([#887](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/887)) ([9c566ea](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/9c566eaa3ed08874c6653d0ce35f92c3ab99888c))
+* Update dependency cryptography to v41.0.5 ([#874](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/874)) ([9f9dd0d](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/9f9dd0dc5ac43fa9402ccb7477b8972a74fa3703))
+* Update dependency pg8000 to v1.30.3 ([#882](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/882)) ([13e9d31](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/13e9d3132290989a788157f1d91b83103ccb3764))
+
 ## [1.4.2](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v1.4.1...v1.4.2) (2023-10-09)
 
 
