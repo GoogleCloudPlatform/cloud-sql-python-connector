@@ -13,11 +13,12 @@
 # limitations under the License.
 
 import os
+import pathlib
 import subprocess
 import sys
 
 
-def test_namespace_package_compat(tmp_path):
+def test_namespace_package_compat(tmp_path: pathlib.PosixPath) -> None:
     """
     The ``google`` namespace package should not be masked
     by the presence of this package.

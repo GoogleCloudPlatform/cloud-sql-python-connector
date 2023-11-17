@@ -14,9 +14,9 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-from google.cloud.sql.connector.version import __version__
 from google.cloud.sql.connector.connector import Connector, create_async_connector
 from google.cloud.sql.connector.instance import IPTypes
+from google.cloud.sql.connector.version import __version__
 
 
 __all__ = [__version__, create_async_connector, Connector, IPTypes]
