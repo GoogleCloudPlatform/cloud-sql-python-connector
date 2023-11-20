@@ -19,13 +19,29 @@ import sys
 
 
 def test_namespace_package_compat(tmp_path: pathlib.PosixPath) -> None:
-    """
-    The ``google`` namespace package should not be masked
-    by the presence of this package.
-    """
+    # The ``google`` namespace package should not be masked
+    # by the presence of ``cloud-sql-python-connector``.
     google = tmp_path / "google"
     google.mkdir()
     google.joinpath("othermod.py").write_text("")
     env = dict(os.environ, PYTHONPATH=str(tmp_path))
     cmd = [sys.executable, "-m", "google.othermod"]
+    subprocess.check_call(cmd, env=env)
+
+    # The ``google.cloud`` namespace package should not be masked
+    # by the presence of ``cloud-sql-python-connector``.
+    google_cloud = tmp_path / "google" / "cloud"
+    google_cloud.mkdir()
+    google_cloud.joinpath("othermod.py").write_text("")
+    env = dict(os.environ, PYTHONPATH=str(tmp_path))
+    cmd = [sys.executable, "-m", "google.cloud.othermod"]
+    subprocess.check_call(cmd, env=env)
+
+    # The ``google.cloud.sql`` namespace package should not be masked
+    # by the presence of ``cloud-sql-python-connector``.
+    google_cloud_sql = tmp_path / "google" / "cloud" / "sql"
+    google_cloud_sql.mkdir()
+    google_cloud_sql.joinpath("othermod.py").write_text("")
+    env = dict(os.environ, PYTHONPATH=str(tmp_path))
+    cmd = [sys.executable, "-m", "google.cloud.sql.othermod"]
     subprocess.check_call(cmd, env=env)
