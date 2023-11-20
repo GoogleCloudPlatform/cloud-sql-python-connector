@@ -19,4 +19,4 @@ from google.cloud.sql.connector.instance import IPTypes
 from google.cloud.sql.connector.version import __version__
 
 
-__all__ = [__version__, create_async_connector, Connector, IPTypes]
+__all__ = ["__version__", "create_async_connector", "Connector", "IPTypes"]
