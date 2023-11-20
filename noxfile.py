@@ -42,7 +42,7 @@ def lint(session):
         "google",
         "tests",
     )
-    session.run("mypy", "google", "tests")
+    session.run("mypy", "-p", "google", "--show-traceback")
     session.run("python", "setup.py", "sdist")
     session.run("twine", "check", "dist/*")
 
