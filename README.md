@@ -70,14 +70,6 @@ pip install "cloud-sql-python-connector[asyncpg]"
 ```
 pip install "cloud-sql-python-connector[pytds]"
 ```
-## Usage
-
-This package provides several functions for authorizing and encrypting
-connections. These functions are used with your database driver to connect to
-your Cloud SQL instance.
-
-The instance connection name for your Cloud SQL instance is always in the
-format "project:region:instance".
 
 ### APIs and Services
 
@@ -106,6 +98,15 @@ To explicitly set a specific source for the credentials, see
 [adc]: https://cloud.google.com/docs/authentication#adc
 [set-adc]: https://cloud.google.com/docs/authentication/provide-credentials-adc
 [google-auth]: https://google-auth.readthedocs.io/en/master/reference/google.auth.html
+
+## Usage
+
+This package provides several functions for authorizing and encrypting
+connections. These functions are used with your database driver to connect to
+your Cloud SQL instance.
+
+The instance connection name for your Cloud SQL instance is always in the
+format "project:region:instance".
 
 ### How to use this Connector
 
