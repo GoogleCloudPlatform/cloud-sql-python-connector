@@ -10,7 +10,7 @@ black==23.11.0
 mypy==0.982
 sqlalchemy-stubs==0.4
 types-PyMySQL==1.1.0.1
-types-mock==5.1.0.2
+types-mock==5.1.0.3
 twine==4.0.2
 PyMySQL==1.1.0
 pg8000==1.30.3
