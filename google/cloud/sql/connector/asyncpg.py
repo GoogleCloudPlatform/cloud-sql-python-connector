@@ -60,8 +60,8 @@ async def connect(
     async def async_sock_func() -> socket.socket:
         # TODO: switch to asyncio.to_thread once Python 3.8 support is dropped
         loop = asyncio.get_running_loop()
-        ctx = contextvars.copy_context()
-        func_call = functools.partial(ctx.run, sock_func, ip_address)
+        ctx_vars = contextvars.copy_context()
+        func_call = functools.partial(ctx_vars.run, sock_func, ip_address)
         return await loop.run_in_executor(None, func_call)
 
     user = kwargs.pop("user")
