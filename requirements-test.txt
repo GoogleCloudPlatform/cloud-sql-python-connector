@@ -9,12 +9,11 @@ flake8-annotations==2.9.1
 black==23.11.0
 mypy==0.982
 sqlalchemy-stubs==0.4
-types-pkg-resources==0.1.3
 types-PyMySQL==1.1.0.1
-types-mock==5.1.0.2
+types-mock==5.1.0.3
 twine==4.0.2
 PyMySQL==1.1.0
 pg8000==1.30.3
 git+https://github.com/jackwotherspoon/asyncpg.git@e4c436c24ef6fdd04e9cdd593bd668fb1278db8c
 python-tds==1.13.0
-aioresponses==0.7.5
+aioresponses==0.7.6
