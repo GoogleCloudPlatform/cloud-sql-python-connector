@@ -24,13 +24,8 @@ if TYPE_CHECKING:
     import asyncpg
 
 
-def sock_func(ip_address: str, ctx: ssl.SSLContext) -> ssl.SSLSocket:
-    # create socket and wrap with context.
-    sock = ctx.wrap_socket(
-        socket.create_connection((ip_address, SERVER_PROXY_PORT)),
-        server_hostname=ip_address,
-    )
-    return sock
+def sock_func(ip_address: str) -> socket.socket:
+    return socket.create_connection((ip_address, SERVER_PROXY_PORT))
 
 
 async def connect(
@@ -60,8 +55,8 @@ async def connect(
             'Unable to import module "asyncpg." Please install and try again.'
         )
 
-    async def async_sock_func() -> ssl.SSLSocket:
-        return await asyncio.to_thread(sock_func, ip_address, ctx)
+    async def async_sock_func() -> socket.socket:
+        return await asyncio.to_thread(sock_func, ip_address)
 
     user = kwargs.pop("user")
     db = kwargs.pop("db")
@@ -71,8 +66,7 @@ async def connect(
         user=user,
         database=db,
         password=passwd,
-        host=ip_address,
-        port=SERVER_PROXY_PORT,
+        ssl=ctx,
         socket_callback=async_sock_func,
         **kwargs,
     )
