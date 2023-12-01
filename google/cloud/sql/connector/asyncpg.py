@@ -13,6 +13,8 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
+import asyncio
+import socket
 import ssl
 from typing import Any, TYPE_CHECKING
 
@@ -20,6 +22,15 @@ SERVER_PROXY_PORT = 3307
 
 if TYPE_CHECKING:
     import asyncpg
+
+
+def sock_func(ip_address: str, ctx: ssl.SSLContext) -> ssl.SSLSocket:
+    # create socket and wrap with context.
+    sock = ctx.wrap_socket(
+        socket.create_connection((ip_address, SERVER_PROXY_PORT)),
+        server_hostname=ip_address,
+    )
+    return sock
 
 
 async def connect(
@@ -48,6 +59,10 @@ async def connect(
         raise ImportError(
             'Unable to import module "asyncpg." Please install and try again.'
         )
+
+    async def async_sock_func() -> ssl.SSLSocket:
+        return await asyncio.to_thread(sock_func, ip_address, ctx)
+
     user = kwargs.pop("user")
     db = kwargs.pop("db")
     passwd = kwargs.pop("password", None)
@@ -58,7 +73,6 @@ async def connect(
         password=passwd,
         host=ip_address,
         port=SERVER_PROXY_PORT,
-        ssl=ctx,
-        direct_tls=True,
+        socket_callback=async_sock_func,
         **kwargs,
     )
