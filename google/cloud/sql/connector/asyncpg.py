@@ -14,6 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 import asyncio
+import contextvars
+import functools
 import socket
 import ssl
 from typing import Any, TYPE_CHECKING
@@ -56,7 +58,10 @@ async def connect(
         )
 
     async def async_sock_func() -> socket.socket:
-        return await asyncio.to_thread(sock_func, ip_address)
+        loop = asyncio.get_running_loop()
+        ctx = contextvars.copy_context()
+        func_call = functools.partial(ctx.run, sock_func, ip_address)
+        return await loop.run_in_executor(None, func_call)
 
     user = kwargs.pop("user")
     db = kwargs.pop("db")
