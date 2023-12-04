@@ -62,7 +62,7 @@ async def connect(
         loop = asyncio.get_running_loop()
         ctx_vars = contextvars.copy_context()
         func_call = functools.partial(ctx_vars.run, sock_func, ip_address)
-        return await loop.run_in_executor(None, func_call)
+        return await loop.run_in_executor(None, func_call)  # type: ignore
 
     user = kwargs.pop("user")
     db = kwargs.pop("db")
