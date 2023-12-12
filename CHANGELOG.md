@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.5.0](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v1.4.3...v1.5.0) (2023-12-12)
+
+
+### Features
+
+* introduce compatibility with native namespace packages ([#906](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/906)) ([083da11](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/083da1193a838be9f16653f2d4efb4ad8bcfa73a))
+
+
+### Dependencies
+
+* Update dependency aiohttp to v3.9.1 ([#916](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/916)) ([b6f9485](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/b6f9485d644b6ff3203ebed175ec8a3754bf319b))
+* Update dependency cryptography to v41.0.7 ([#917](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/917)) ([43e22e1](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/43e22e1e03c5066c328729920b5f8a8bb6480d07))
+* Update dependency google-auth to v2.25.2 ([#929](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/929)) ([24439a9](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/24439a991df189ebe252415f369ff4ce93a42d58))
+
 ## [1.4.3](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v1.4.2...v1.4.3) (2023-11-15)
 
 
