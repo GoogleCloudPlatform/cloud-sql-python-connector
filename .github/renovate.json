@@ -20,6 +20,6 @@
       "matchManagers": ["github-actions"],
       "groupName": "dependencies for github",
       "commitMessagePrefix": "chore(deps):"
-    },
+    }
   ]
 }
