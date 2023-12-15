@@ -18,6 +18,7 @@ from __future__ import annotations
 import asyncio
 from enum import Enum
 import logging
+import re
 import ssl
 from tempfile import TemporaryDirectory
 from typing import (
@@ -53,6 +54,22 @@ if TYPE_CHECKING:
 logger = logging.getLogger(name=__name__)
 
 APPLICATION_NAME = "cloud-sql-python-connector"
+
+# Instance connection name is the format <PROJECT>:<REGION>:<INSTANCE>
+# Additionally, we have to support legacy "domain-scoped" projects
+# (e.g. "google.com:PROJECT")
+CONN_NAME_REGEX = re.compile(("([^:]+(:[^:]+)?):([^:]+):([^:]+)"))
+
+
+def _parse_instance_connection_name(connection_name: str) -> Tuple[str, str, str]:
+    if CONN_NAME_REGEX.fullmatch(connection_name) is None:
+        raise ValueError(
+            "Arg `instance_connection_string` must have "
+            "format: PROJECT:REGION:INSTANCE, "
+            f"got {connection_name}."
+        )
+    connection_name_split = CONN_NAME_REGEX.split(connection_name)
+    return connection_name_split[1], connection_name_split[3], connection_name_split[4]
 
 
 class IPTypes(Enum):
@@ -217,20 +234,11 @@ class Instance:
         quota_project: str = None,
         sqladmin_api_endpoint: str = "https://sqladmin.googleapis.com",
     ) -> None:
-        # Validate connection string
-        connection_string_split = instance_connection_string.split(":")
-
-        if len(connection_string_split) == 3:
-            self._instance_connection_string = instance_connection_string
-            self._project = connection_string_split[0]
-            self._region = connection_string_split[1]
-            self._instance = connection_string_split[2]
-        else:
-            raise ValueError(
-                "Arg `instance_connection_string` must have "
-                "format: PROJECT:REGION:INSTANCE, "
-                f"got {instance_connection_string}."
-            )
+        # validate and parse instance connection name
+        self._project, self._region, self._instance = _parse_instance_connection_name(
+            instance_connection_string
+        )
+        self._instance_connection_string = instance_connection_string
 
         self._enable_iam_auth = enable_iam_auth
 
