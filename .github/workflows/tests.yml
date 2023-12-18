@@ -67,7 +67,7 @@ jobs:
           repository: ${{ github.event.pull_request.head.repo.full_name }}
 
       - name: Setup Python ${{ matrix.python-version }}
-        uses: actions/setup-python@65d7f2d534ac1bc67fcd62888c5f4f3d2cb2b236 # v4.7.1
+        uses: actions/setup-python@0a5c61591373683505ea898e09a3ea4f39ef2b9c # v5.0.0
         with:
           python-version: ${{ matrix.python-version }}
 
@@ -76,7 +76,7 @@ jobs:
 
       - id: 'auth'
         name: 'Authenticate to Google Cloud'
-        uses: google-github-actions/auth@f105ef0cdb3b102a020be1767fcc8a974898b7c6 # v1.2.0
+        uses: google-github-actions/auth@67e9c72af6e0492df856527b474995862b7b6591 # v2.0.0
         with:
           workload_identity_provider: ${{ secrets.PROVIDER_NAME }}
           service_account: ${{ secrets.SERVICE_ACCOUNT }}
@@ -84,7 +84,7 @@ jobs:
 
       - id: 'secrets'
         name: Get secrets
-        uses: google-github-actions/get-secretmanager-secrets@4d6d3dfd94110800dda8d84109cb6da0f6a5919d # v1.0.1
+        uses: google-github-actions/get-secretmanager-secrets@ae0d4054c32840e2ced71207a9df55161ae3debc # v2.0.0
         with:
           secrets: |-
             MYSQL_CONNECTION_NAME:${{ secrets.GOOGLE_CLOUD_PROJECT }}/MYSQL_CONNECTION_NAME
@@ -184,7 +184,7 @@ jobs:
           repository: ${{ github.event.pull_request.head.repo.full_name }}
 
       - name: Setup Python ${{ matrix.python-version }}
-        uses: actions/setup-python@65d7f2d534ac1bc67fcd62888c5f4f3d2cb2b236 # v4.7.1
+        uses: actions/setup-python@0a5c61591373683505ea898e09a3ea4f39ef2b9c # v5.0.0
         with:
           python-version: ${{ matrix.python-version }}
 
@@ -195,7 +195,7 @@ jobs:
         name: 'Authenticate to Google Cloud'
         # only needed for Flakybot on periodic (schedule) and continuous (push) events
         if: ${{ github.event_name == 'schedule' || github.event_name == 'push' }}
-        uses: google-github-actions/auth@f105ef0cdb3b102a020be1767fcc8a974898b7c6 # v1.2.0
+        uses: google-github-actions/auth@67e9c72af6e0492df856527b474995862b7b6591 # v2.0.0
         with:
           workload_identity_provider: ${{ secrets.PROVIDER_NAME }}
           service_account: ${{ secrets.SERVICE_ACCOUNT }}
