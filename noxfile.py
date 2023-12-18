@@ -68,15 +68,21 @@ def default(session, path):
 
 @nox.session(python=["3.8", "3.9", "3.10", "3.11", "3.12"])
 def unit(session):
+    if session.python == "3.12":
+        session.install("setuptools")
     default(session, os.path.join("tests", "unit"))
 
 
 @nox.session(python=["3.8", "3.9", "3.10", "3.11", "3.12"])
 def system(session):
+    if session.python == "3.12":
+        session.install("setuptools")
     default(session, os.path.join("tests", "system"))
 
 
 @nox.session(python=["3.8", "3.9", "3.10", "3.11", "3.12"])
 def test(session):
+    if session.python == "3.12":
+        session.install("setuptools")
     default(session, os.path.join("tests", "unit"))
     default(session, os.path.join("tests", "system"))
