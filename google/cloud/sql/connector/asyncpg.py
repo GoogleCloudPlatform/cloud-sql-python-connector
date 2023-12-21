@@ -22,6 +22,10 @@ if TYPE_CHECKING:
     import asyncpg
 
 
+async def _connector_factory(proto_factory, host, port, loop=None, ssl=None):
+    return await loop.create_connection(proto_factory, host, port, ssl=ssl)
+
+
 async def connect(
     ip_address: str, ctx: ssl.SSLContext, **kwargs: Any
 ) -> "asyncpg.Connection":
@@ -58,7 +62,7 @@ async def connect(
         password=passwd,
         host=ip_address,
         port=SERVER_PROXY_PORT,
+        connector_factory=_connector_factory,
         ssl=ctx,
-        direct_tls=True,
         **kwargs,
     )

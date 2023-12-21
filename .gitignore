@@ -5,3 +5,4 @@ venv
 .python-version
 cloud_sql_python_connector.egg-info/
 dist/
+.envrc
