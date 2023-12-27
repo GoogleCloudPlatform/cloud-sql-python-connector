@@ -14,6 +14,6 @@ types-mock==5.1.0.3
 twine==4.0.2
 PyMySQL==1.1.0
 pg8000==1.30.3
-asyncpg==0.29.0
 python-tds==1.14.0
+git+https://github.com/enocom/asyncpg.git@9b3e1c651b9ce39de842aded04a7b0c140fc15b4
 aioresponses==0.7.6
