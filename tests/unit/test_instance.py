@@ -17,24 +17,21 @@ import asyncio
 import datetime
 from typing import Tuple
 
-from aiohttp import ClientResponseError, RequestInfo
+from aiohttp import ClientResponseError
+from aiohttp import RequestInfo
 from aioresponses import aioresponses
+from google.auth.credentials import Credentials
 from mock import patch
 import mocks
 import pytest  # noqa F401 Needed to run the tests
 
-from google.auth.credentials import Credentials
-from google.cloud.sql.connector.exceptions import (
-    AutoIAMAuthNotSupported,
-    CloudSQLIPTypeError,
-    CredentialsTypeError,
-)
-from google.cloud.sql.connector.instance import (
-    _parse_instance_connection_name,
-    ConnectionInfo,
-    Instance,
-    IPTypes,
-)
+from google.cloud.sql.connector.exceptions import AutoIAMAuthNotSupported
+from google.cloud.sql.connector.exceptions import CloudSQLIPTypeError
+from google.cloud.sql.connector.exceptions import CredentialsTypeError
+from google.cloud.sql.connector.instance import _parse_instance_connection_name
+from google.cloud.sql.connector.instance import ConnectionInfo
+from google.cloud.sql.connector.instance import Instance
+from google.cloud.sql.connector.instance import IPTypes
 from google.cloud.sql.connector.rate_limiter import AsyncRateLimiter
 from google.cloud.sql.connector.utils import generate_keys
 

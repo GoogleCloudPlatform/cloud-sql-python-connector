@@ -23,8 +23,8 @@ from typing import Any, Dict, List, Tuple, TYPE_CHECKING
 
 from cryptography.hazmat.backends import default_backend
 from cryptography.x509 import load_pem_x509_certificate
-
-from google.auth.credentials import Credentials, Scoped
+from google.auth.credentials import Credentials
+from google.auth.credentials import Scoped
 import google.auth.transport.requests
 
 if TYPE_CHECKING:

@@ -4,14 +4,7 @@ pytest-cov==4.1.0
 pytest-asyncio==0.23.3
 SQLAlchemy==2.0.25
 sqlalchemy-pytds==1.0.0
-flake8==5.0.4
-flake8-annotations==2.9.1
-black==23.12.1
-mypy==0.982
 sqlalchemy-stubs==0.4
-types-PyMySQL==1.1.0.1
-types-mock==5.1.0.3
-twine==4.0.2
 PyMySQL==1.1.0
 pg8000==1.30.4
 asyncpg==0.29.0

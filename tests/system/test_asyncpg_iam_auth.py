@@ -21,7 +21,8 @@ import uuid
 import asyncpg
 import pytest
 import sqlalchemy
-from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncEngine
+from sqlalchemy.ext.asyncio import create_async_engine
 
 from google.cloud.sql.connector import Connector
 

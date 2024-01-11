@@ -14,31 +14,29 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 import asyncio
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
 from typing import Any, no_type_check
 
 import aiohttp
 from aioresponses import aioresponses
 from conftest import SCOPES  # type: ignore
-from mock import Mock, patch
-from mocks import (  # type: ignore
-    FakeCSQLInstance,
-    instance_metadata_expired,
-    instance_metadata_success,
-)
-import pytest  # noqa F401 Needed to run the tests
-
 import google.auth
 from google.auth.credentials import Credentials
-from google.cloud.sql.connector.refresh_utils import (
-    _downscope_credentials,
-    _get_ephemeral,
-    _get_metadata,
-    _is_valid,
-    _seconds_until_refresh,
-)
-from google.cloud.sql.connector.utils import generate_keys
 import google.oauth2.credentials
+from mock import Mock
+from mock import patch
+from mocks import FakeCSQLInstance  # type: ignore
+from mocks import instance_metadata_expired
+from mocks import instance_metadata_success
+import pytest  # noqa F401 Needed to run the tests
+
+from google.cloud.sql.connector.refresh_utils import _downscope_credentials
+from google.cloud.sql.connector.refresh_utils import _get_ephemeral
+from google.cloud.sql.connector.refresh_utils import _get_metadata
+from google.cloud.sql.connector.refresh_utils import _is_valid
+from google.cloud.sql.connector.refresh_utils import _seconds_until_refresh
+from google.cloud.sql.connector.utils import generate_keys
 
 
 @pytest.fixture

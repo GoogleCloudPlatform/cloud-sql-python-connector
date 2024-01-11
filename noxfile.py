@@ -16,13 +16,18 @@ limitations under the License.
 
 
 from __future__ import absolute_import
+
 import os
+
 import nox
 
-BLACK_PATHS = ["google", "tests"]
+BLACK_VERSION = "black==23.12.1"
+ISORT_VERSION = "isort==5.13.2"
+MYPY_VERSION = "mypy==0.982"
 
-if os.path.exists("samples"):
-    BLACK_PATHS.append("samples")
+LINT_PATHS = ["google", "tests", "noxfile.py", "setup.py"]
+
+TEST_PYTHON_VERSIONS = ["3.8", "3.9", "3.10", "3.11"]
 
 
 @nox.session
@@ -31,20 +36,61 @@ def lint(session):
     Returns a failure if the linters find linting errors or sufficiently
     serious code quality issues.
     """
-    session.install("-r", "requirements-test.txt")
     session.install("-r", "requirements.txt")
-    session.install("flake8-import-order")
-    session.run("black", "--check", *BLACK_PATHS)
+    session.install(
+        "flake8",
+        "flake8-annotations",
+        MYPY_VERSION,
+        BLACK_VERSION,
+        ISORT_VERSION,
+        "types-setuptools",
+        "twine",
+    )
+    session.run(
+        "isort",
+        "--fss",
+        "--check-only",
+        "--diff",
+        "--profile=google",
+        *LINT_PATHS,
+    )
+    session.run("black", "--check", "--diff", *LINT_PATHS)
     session.run(
         "flake8",
-        "--import-order-style=google",
-        "--application-import-names=google,tests",
         "google",
         "tests",
     )
-    session.run("mypy", "-p", "google", "--show-traceback")
+    session.run(
+        "mypy",
+        "-p",
+        "google",
+        "--install-types",
+        "--non-interactive",
+        "--show-traceback",
+    )
     session.run("python", "setup.py", "sdist")
     session.run("twine", "check", "dist/*")
+
+
+@nox.session()
+def format(session):
+    """
+    Run isort to sort imports. Then run black
+    to format code to uniform standard.
+    """
+    session.install(BLACK_VERSION, ISORT_VERSION)
+    # Use the --fss option to sort imports using strict alphabetical order.
+    # See https://pycqa.github.io/isort/docs/configuration/options.html#force-sort-within-sectionss
+    session.run(
+        "isort",
+        "--fss",
+        "--profile=google",
+        *LINT_PATHS,
+    )
+    session.run(
+        "black",
+        *LINT_PATHS,
+    )
 
 
 def default(session, path):
@@ -55,7 +101,7 @@ def default(session, path):
     # Run py.test against the unit tests.
     session.run(
         "pytest",
-        "--cov=google/cloud/sql/connector",
+        "--cov=google.cloud.sql.connector",
         "-v",
         "--cov-config=.coveragerc",
         "--cov-report=",
@@ -66,17 +112,17 @@ def default(session, path):
     )
 
 
-@nox.session(python=["3.8", "3.9", "3.10", "3.11"])
+@nox.session(python=TEST_PYTHON_VERSIONS)
 def unit(session):
     default(session, os.path.join("tests", "unit"))
 
 
-@nox.session(python=["3.8", "3.9", "3.10", "3.11"])
+@nox.session(python=TEST_PYTHON_VERSIONS)
 def system(session):
     default(session, os.path.join("tests", "system"))
 
 
-@nox.session(python=["3.8", "3.9", "3.10", "3.11"])
+@nox.session(python=TEST_PYTHON_VERSIONS)
 def test(session):
     default(session, os.path.join("tests", "unit"))
     default(session, os.path.join("tests", "system"))
