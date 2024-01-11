@@ -19,7 +19,9 @@ from mock import patch
 from mocks import MockInstance
 import pytest  # noqa F401 Needed to run the tests
 
-from google.cloud.sql.connector import Connector, create_async_connector, IPTypes
+from google.cloud.sql.connector import Connector
+from google.cloud.sql.connector import create_async_connector
+from google.cloud.sql.connector import IPTypes
 from google.cloud.sql.connector.exceptions import ConnectorLoopError
 
 

@@ -20,7 +20,8 @@ import pymysql
 import pytest
 import sqlalchemy
 
-from google.cloud.sql.connector import Connector, IPTypes
+from google.cloud.sql.connector import Connector
+from google.cloud.sql.connector import IPTypes
 
 table_name = f"books_{uuid.uuid4().hex}"
 

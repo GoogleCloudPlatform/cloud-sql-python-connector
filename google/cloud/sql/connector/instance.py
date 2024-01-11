@@ -21,31 +21,22 @@ import logging
 import re
 import ssl
 from tempfile import TemporaryDirectory
-from typing import (
-    Any,
-    Dict,
-    Optional,
-    Tuple,
-    TYPE_CHECKING,
-)
+from typing import Any, Dict, Optional, Tuple, TYPE_CHECKING
 
 import aiohttp
-
 from google.auth.credentials import Credentials
-from google.cloud.sql.connector.exceptions import (
-    AutoIAMAuthNotSupported,
-    CloudSQLIPTypeError,
-    CredentialsTypeError,
-    TLSVersionError,
-)
+
+from google.cloud.sql.connector.exceptions import AutoIAMAuthNotSupported
+from google.cloud.sql.connector.exceptions import CloudSQLIPTypeError
+from google.cloud.sql.connector.exceptions import CredentialsTypeError
+from google.cloud.sql.connector.exceptions import TLSVersionError
 from google.cloud.sql.connector.rate_limiter import AsyncRateLimiter
-from google.cloud.sql.connector.refresh_utils import (
-    _get_ephemeral,
-    _get_metadata,
-    _is_valid,
-    _seconds_until_refresh,
-)
-from google.cloud.sql.connector.utils import _auth_init, write_to_file
+from google.cloud.sql.connector.refresh_utils import _get_ephemeral
+from google.cloud.sql.connector.refresh_utils import _get_metadata
+from google.cloud.sql.connector.refresh_utils import _is_valid
+from google.cloud.sql.connector.refresh_utils import _seconds_until_refresh
+from google.cloud.sql.connector.utils import _auth_init
+from google.cloud.sql.connector.utils import write_to_file
 from google.cloud.sql.connector.version import __version__ as version
 
 if TYPE_CHECKING:

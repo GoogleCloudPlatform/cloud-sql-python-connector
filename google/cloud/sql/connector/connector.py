@@ -24,18 +24,15 @@ from types import TracebackType
 from typing import Any, Dict, Optional, Type, TYPE_CHECKING
 
 import google.cloud.sql.connector.asyncpg as asyncpg
-from google.cloud.sql.connector.exceptions import (
-    ConnectorLoopError,
-    DnsNameResolutionError,
-)
-from google.cloud.sql.connector.instance import (
-    Instance,
-    IPTypes,
-)
+from google.cloud.sql.connector.exceptions import ConnectorLoopError
+from google.cloud.sql.connector.exceptions import DnsNameResolutionError
+from google.cloud.sql.connector.instance import Instance
+from google.cloud.sql.connector.instance import IPTypes
 import google.cloud.sql.connector.pg8000 as pg8000
 import google.cloud.sql.connector.pymysql as pymysql
 import google.cloud.sql.connector.pytds as pytds
-from google.cloud.sql.connector.utils import format_database_user, generate_keys
+from google.cloud.sql.connector.utils import format_database_user
+from google.cloud.sql.connector.utils import generate_keys
 
 if TYPE_CHECKING:
     from google.auth.credentials import Credentials

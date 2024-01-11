@@ -20,15 +20,13 @@ import logging
 import os
 from threading import Thread
 
+import google.auth
 import pymysql
 import pytest
 import sqlalchemy
 
-import google.auth
 from google.cloud.sql.connector import Connector
-from google.cloud.sql.connector.exceptions import (
-    AutoIAMAuthNotSupported,
-)
+from google.cloud.sql.connector.exceptions import AutoIAMAuthNotSupported
 
 
 def init_connection_engine(
