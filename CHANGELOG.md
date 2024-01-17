@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.6.0](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v1.5.0...v1.6.0) (2024-01-17)
+
+
+### Features
+
+* add support for domain-scoped projects ([#937](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/937)) ([3d1f36e](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/3d1f36e176d1689380d71fc56f111dbb8de34dcb))
+
+
+### Dependencies
+
+* Update dependency google-auth to v2.26.2 ([#964](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/964)) ([43d7ad6](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/43d7ad6d7b57454256b933580d51113cc22a2206))
+* update dependency pg8000 to v1.30.4 ([#962](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/962)) ([8012c8f](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/8012c8f7d32cd59f851638d7167067f2804125f6))
+
 ## [1.5.0](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v1.4.3...v1.5.0) (2023-12-12)
 
 
