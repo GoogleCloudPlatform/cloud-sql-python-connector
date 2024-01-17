@@ -111,7 +111,7 @@ format "project:region:instance".
 ### How to use this Connector
 
 To connect to Cloud SQL using the connector, inititalize a `Connector`
-object and call it's `connect` method with the proper input parameters.
+object and call its `connect` method with the proper input parameters.
 
 The `Connector` itself creates connection objects by calling its `connect` method but does not manage database connection pooling. For this reason, it is recommended to use the connector alongside a library that can create connection pools, such as [SQLAlchemy](https://www.sqlalchemy.org/). This will allow for connections to remain open and be reused, reducing connection overhead and the number of connections needed.
 
@@ -167,7 +167,7 @@ with pool.connect() as db_conn:
         print(row)
 ```
 
-To close the `Connector` object's background resources, call it's `close()` method as follows:
+To close the `Connector` object's background resources, call its `close()` method as follows:
 
 ```python
 connector.close()
