@@ -88,7 +88,7 @@ class Connector:
         enable_iam_auth: bool = False,
         timeout: int = 30,
         credentials: Optional[Credentials] = None,
-        loop: asyncio.AbstractEventLoop = None,
+        loop: Optional[asyncio.AbstractEventLoop] = None,
         quota_project: Optional[str] = None,
         sqladmin_api_endpoint: str = "https://sqladmin.googleapis.com",
     ) -> None:
@@ -333,7 +333,7 @@ async def create_async_connector(
     enable_iam_auth: bool = False,
     timeout: int = 30,
     credentials: Optional[Credentials] = None,
-    loop: asyncio.AbstractEventLoop = None,
+    loop: Optional[asyncio.AbstractEventLoop] = None,
 ) -> Connector:
     """
     Create Connector object for asyncio connections that can auto-detect

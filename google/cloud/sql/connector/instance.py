@@ -222,7 +222,7 @@ class Instance:
         loop: asyncio.AbstractEventLoop,
         credentials: Optional[Credentials] = None,
         enable_iam_auth: bool = False,
-        quota_project: str = None,
+        quota_project: Optional[str] = None,
         sqladmin_api_endpoint: str = "https://sqladmin.googleapis.com",
     ) -> None:
         # validate and parse instance connection name

@@ -23,7 +23,7 @@ import nox
 
 BLACK_VERSION = "black==23.12.1"
 ISORT_VERSION = "isort==5.13.2"
-MYPY_VERSION = "mypy==0.982"
+MYPY_VERSION = "mypy==1.8.0"
 
 LINT_PATHS = ["google", "tests", "noxfile.py", "setup.py"]
 
