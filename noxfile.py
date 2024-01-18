@@ -23,7 +23,6 @@ import nox
 
 BLACK_VERSION = "black==23.12.1"
 ISORT_VERSION = "isort==5.13.2"
-MYPY_VERSION = "mypy==0.982"
 
 LINT_PATHS = ["google", "tests", "noxfile.py", "setup.py"]
 
@@ -40,7 +39,7 @@ def lint(session):
     session.install(
         "flake8",
         "flake8-annotations",
-        MYPY_VERSION,
+        "mypy",
         BLACK_VERSION,
         ISORT_VERSION,
         "types-setuptools",
