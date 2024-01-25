@@ -68,11 +68,15 @@ class MockMetadata(ConnectionInfo):
 
 
 async def instance_metadata_success(*args: Any, **kwargs: Any) -> MockMetadata:
-    return MockMetadata(datetime.datetime.utcnow() + datetime.timedelta(minutes=10))
+    return MockMetadata(
+        datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(minutes=10)
+    )
 
 
 async def instance_metadata_expired(*args: Any, **kwargs: Any) -> MockMetadata:
-    return MockMetadata(datetime.datetime.utcnow() - datetime.timedelta(minutes=10))
+    return MockMetadata(
+        datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(minutes=10)
+    )
 
 
 async def instance_metadata_error(*args: Any, **kwargs: Any) -> None:
@@ -105,10 +109,10 @@ def generate_cert(
         .issuer_name(issuer)
         .public_key(key.public_key())
         .serial_number(x509.random_serial_number())
-        .not_valid_before(datetime.datetime.utcnow())
+        .not_valid_before(datetime.datetime.now(datetime.timezone.utc))
         .not_valid_after(
             # cert valid for 10 mins
-            datetime.datetime.utcnow()
+            datetime.datetime.now(datetime.timezone.utc)
             + datetime.timedelta(minutes=60)
         )
     )
@@ -149,7 +153,7 @@ def client_key_signed_cert(
         .issuer_name(issuer)
         .public_key(client_key)
         .serial_number(x509.random_serial_number())
-        .not_valid_before(datetime.datetime.utcnow())
+        .not_valid_before(datetime.datetime.now(datetime.timezone.utc))
         .not_valid_after(cert._not_valid_after)  # type: ignore
     )
     return (
@@ -218,7 +222,8 @@ class FakeCSQLInstance:
                     "cert": server_ca_cert,
                     "instance": self.name,
                     "expirationTime": str(
-                        datetime.datetime.utcnow() + datetime.timedelta(minutes=10)
+                        datetime.datetime.now(datetime.timezone.utc)
+                        + datetime.timedelta(minutes=10)
                     ),
                 },
                 "dnsName": "abcde.12345.us-central1.sql.goog",
@@ -244,7 +249,8 @@ class FakeCSQLInstance:
                     "kind": "sql#sslCert",
                     "cert": ephemeral_cert,
                     "expirationTime": str(
-                        datetime.datetime.utcnow() + datetime.timedelta(minutes=10)
+                        datetime.datetime.now(datetime.timezone.utc)
+                        + datetime.timedelta(minutes=10)
                     ),
                 }
             }

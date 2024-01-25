@@ -14,8 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 import asyncio
-from datetime import datetime
-from datetime import timedelta
+import datetime
 from typing import Any, no_type_check
 
 import aiohttp
@@ -330,7 +329,11 @@ def test_seconds_until_refresh_over_1_hour() -> None:
     # using pytest.approx since sometimes can be off by a second
     assert (
         pytest.approx(
-            _seconds_until_refresh(datetime.utcnow() + timedelta(minutes=62)), 1
+            _seconds_until_refresh(
+                datetime.datetime.now(datetime.timezone.utc)
+                + datetime.timedelta(minutes=62)
+            ),
+            1,
         )
         == 31 * 60
     )
@@ -346,7 +349,11 @@ def test_seconds_until_refresh_under_1_hour_over_4_mins() -> None:
     # using pytest.approx since sometimes can be off by a second
     assert (
         pytest.approx(
-            _seconds_until_refresh(datetime.utcnow() + timedelta(minutes=5)), 1
+            _seconds_until_refresh(
+                datetime.datetime.now(datetime.timezone.utc)
+                + datetime.timedelta(minutes=5)
+            ),
+            1,
         )
         == 60
     )
@@ -358,4 +365,9 @@ def test_seconds_until_refresh_under_4_mins() -> None:
 
     If expiration is under 4 minutes, should return 0.
     """
-    assert _seconds_until_refresh(datetime.utcnow() + timedelta(minutes=3)) == 0
+    assert (
+        _seconds_until_refresh(
+            datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(minutes=3)
+        )
+        == 0
+    )
