@@ -91,6 +91,7 @@ class Connector:
         loop: Optional[asyncio.AbstractEventLoop] = None,
         quota_project: Optional[str] = None,
         sqladmin_api_endpoint: str = "https://sqladmin.googleapis.com",
+        user_agent: Optional[str] = None,
     ) -> None:
         # if event loop is given, use for background tasks
         if loop:
@@ -115,6 +116,7 @@ class Connector:
         self._quota_project = quota_project
         self._sqladmin_api_endpoint = sqladmin_api_endpoint
         self._credentials = credentials
+        self._user_agent = user_agent
 
     def connect(
         self, instance_connection_string: str, driver: str, **kwargs: Any
@@ -211,6 +213,7 @@ class Connector:
                 enable_iam_auth,
                 self._quota_project,
                 self._sqladmin_api_endpoint,
+                user_agent=self._user_agent,
             )
             self._instances[instance_connection_string] = instance
 

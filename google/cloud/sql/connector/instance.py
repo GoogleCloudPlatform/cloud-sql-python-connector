@@ -134,6 +134,13 @@ class ConnectionInfo:
         )
 
 
+def _format_user_agent(version: str, driver: str, custom: Optional[str]) -> str:
+    agent = f"{APPLICATION_NAME}/{version}+{driver}"
+    if custom:
+        agent = f"{agent} {custom}"
+    return agent
+
+
 class Instance:
     """A class to manage the details of the connection to a Cloud SQL
     instance, including refreshing the credentials.
@@ -224,6 +231,7 @@ class Instance:
         enable_iam_auth: bool = False,
         quota_project: Optional[str] = None,
         sqladmin_api_endpoint: str = "https://sqladmin.googleapis.com",
+        user_agent: Optional[str] = None,
     ) -> None:
         # validate and parse instance connection name
         self._project, self._region, self._instance = _parse_instance_connection_name(
@@ -233,7 +241,11 @@ class Instance:
 
         self._enable_iam_auth = enable_iam_auth
 
-        self._user_agent_string = f"{APPLICATION_NAME}/{version}+{driver_name}"
+        self._user_agent_string = _format_user_agent(
+            version,
+            driver_name,
+            user_agent,
+        )
         self._quota_project = quota_project
         self._sqladmin_api_endpoint = sqladmin_api_endpoint
         self._loop = loop
