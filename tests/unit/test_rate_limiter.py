@@ -17,9 +17,7 @@ import asyncio
 
 import pytest  # noqa F401 Needed to run the tests
 
-from google.cloud.sql.connector.rate_limiter import (
-    AsyncRateLimiter,
-)
+from google.cloud.sql.connector.rate_limiter import AsyncRateLimiter
 
 
 @pytest.mark.asyncio

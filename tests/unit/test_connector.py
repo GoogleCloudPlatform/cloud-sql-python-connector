@@ -19,7 +19,9 @@ from mock import patch
 from mocks import MockInstance
 import pytest  # noqa F401 Needed to run the tests
 
-from google.cloud.sql.connector import Connector, create_async_connector, IPTypes
+from google.cloud.sql.connector import Connector
+from google.cloud.sql.connector import create_async_connector
+from google.cloud.sql.connector import IPTypes
 from google.cloud.sql.connector.exceptions import ConnectorLoopError
 
 
@@ -135,3 +137,16 @@ def test_Connector_close_kills_thread() -> None:
     connector.close()
     # check that connector thread is no longer running
     assert connector._thread.is_alive() is False
+
+
+def test_Connector_close_called_multiple_times() -> None:
+    """Test that Connector.close can be called multiple times."""
+    # open and close Connector object
+    connector = Connector()
+    # verify background thread exists
+    assert connector._thread
+    connector.close()
+    # check that connector thread is no longer running
+    assert connector._thread.is_alive() is False
+    # call connector.close a second time
+    connector.close()

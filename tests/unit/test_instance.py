@@ -17,26 +17,24 @@ import asyncio
 import datetime
 from typing import Tuple
 
-from aiohttp import ClientResponseError, RequestInfo
+from aiohttp import ClientResponseError
+from aiohttp import RequestInfo
 from aioresponses import aioresponses
+from google.auth.credentials import Credentials
 from mock import patch
 import mocks
 import pytest  # noqa F401 Needed to run the tests
 
-from google.auth.credentials import Credentials
-from google.cloud.sql.connector.exceptions import (
-    AutoIAMAuthNotSupported,
-    CloudSQLIPTypeError,
-    CredentialsTypeError,
-)
-from google.cloud.sql.connector.instance import (
-    _parse_instance_connection_name,
-    ConnectionInfo,
-    Instance,
-    IPTypes,
-)
+from google.cloud.sql.connector.exceptions import AutoIAMAuthNotSupported
+from google.cloud.sql.connector.exceptions import CloudSQLIPTypeError
+from google.cloud.sql.connector.exceptions import CredentialsTypeError
+from google.cloud.sql.connector.instance import _parse_instance_connection_name
+from google.cloud.sql.connector.instance import ConnectionInfo
+from google.cloud.sql.connector.instance import Instance
+from google.cloud.sql.connector.instance import IPTypes
 from google.cloud.sql.connector.rate_limiter import AsyncRateLimiter
 from google.cloud.sql.connector.utils import generate_keys
+from google.cloud.sql.connector.version import __version__ as version
 
 
 @pytest.fixture
@@ -87,7 +85,13 @@ async def test_Instance_init(
     )
     with patch("google.cloud.sql.connector.utils.default") as mock_auth:
         mock_auth.return_value = fake_credentials, None
-        instance = Instance(connect_string, "pymysql", keys, event_loop)
+        instance = Instance(
+            connect_string,
+            "pymysql",
+            keys,
+            event_loop,
+            user_agent="custom/v1.0.0",
+        )
     project_result = instance._project
     region_result = instance._region
     instance_result = instance._instance
@@ -95,6 +99,10 @@ async def test_Instance_init(
         project_result == "test-project"
         and region_result == "test-region"
         and instance_result == "test-instance"
+    )
+    assert (
+        instance._user_agent_string
+        == f"cloud-sql-python-connector/{version}+pymysql custom/v1.0.0"
     )
     # cleanup instance
     await instance.close()

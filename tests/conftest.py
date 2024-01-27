@@ -20,15 +20,16 @@ from threading import Thread
 from typing import Any, AsyncGenerator, Generator, Tuple
 
 from aioresponses import aioresponses
+from google.auth.credentials import Credentials
+from google.auth.credentials import with_scopes_if_required
+from google.oauth2 import service_account
 from mock import patch
 import pytest  # noqa F401 Needed to run the tests
 from unit.mocks import FakeCSQLInstance  # type: ignore
 
-from google.auth.credentials import Credentials, with_scopes_if_required
 from google.cloud.sql.connector import Connector
 from google.cloud.sql.connector.instance import Instance
 from google.cloud.sql.connector.utils import generate_keys
-from google.oauth2 import service_account
 
 SCOPES = ["https://www.googleapis.com/auth/sqlservice.admin"]
 

@@ -14,7 +14,7 @@
 import io
 import os
 
-from setuptools import find_namespace_packages, setup
+import setuptools
 
 name = "cloud-sql-python-connector"
 description = (
@@ -45,11 +45,13 @@ version = version["__version__"]
 # Only include packages under the 'google' namespace. Do not include tests,
 # samples, etc.
 packages = [
-    package for package in find_namespace_packages() if package.startswith("google")
+    package
+    for package in setuptools.find_namespace_packages()
+    if package.startswith("google")
 ]
 
 
-setup(
+setuptools.setup(
     name=name,
     version=version,
     description=description,
@@ -75,7 +77,7 @@ setup(
     install_requires=dependencies,
     extras_require={
         "pymysql": ["PyMySQL>=1.1.0"],
-        "pg8000": ["pg8000>=1.30.3"],
+        "pg8000": ["pg8000>=1.30.4"],
         "pytds": ["python-tds>=1.15.0"],
         "asyncpg": ["asyncpg>=0.29.0"],
     },

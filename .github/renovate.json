@@ -15,6 +15,9 @@
   "pip_requirements": {
     "fileMatch": ["requirements-test.txt"]
   },
+  "pip_setup": {
+    "fileMatch": ["(^|/)setup\\.py$"]
+  },
   "packageRules": [
     {
       "matchManagers": ["github-actions"],
