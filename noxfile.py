@@ -42,8 +42,8 @@ def lint(session):
         "mypy",
         BLACK_VERSION,
         ISORT_VERSION,
-        "types-setuptools",
         "twine",
+        "build",
     )
     session.run(
         "isort",
@@ -67,8 +67,9 @@ def lint(session):
         "--non-interactive",
         "--show-traceback",
     )
-    session.run("python", "setup.py", "sdist")
-    session.run("twine", "check", "dist/*")
+    # verify that setup.py is valid
+    session.run("python", "-m", "build", "--sdist")
+    session.run("twine", "check", "--strict", "dist/*")
 
 
 @nox.session()
