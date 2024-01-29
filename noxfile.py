@@ -26,7 +26,7 @@ ISORT_VERSION = "isort==5.13.2"
 
 LINT_PATHS = ["google", "tests", "noxfile.py", "setup.py"]
 
-TEST_PYTHON_VERSIONS = ["3.8", "3.9", "3.10", "3.11"]
+TEST_PYTHON_VERSIONS = ["3.8", "3.9", "3.10", "3.11", "3.12"]
 
 
 @nox.session
@@ -42,8 +42,8 @@ def lint(session):
         "mypy",
         BLACK_VERSION,
         ISORT_VERSION,
-        "types-setuptools",
         "twine",
+        "build",
     )
     session.run(
         "isort",
@@ -67,8 +67,9 @@ def lint(session):
         "--non-interactive",
         "--show-traceback",
     )
-    session.run("python", "setup.py", "sdist")
-    session.run("twine", "check", "dist/*")
+    # verify that setup.py is valid
+    session.run("python", "-m", "build", "--sdist")
+    session.run("twine", "check", "--strict", "dist/*")
 
 
 @nox.session()

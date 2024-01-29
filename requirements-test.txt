@@ -8,5 +8,5 @@ sqlalchemy-stubs==0.4
 PyMySQL==1.1.0
 pg8000==1.30.4
 asyncpg==0.29.0
-python-tds==1.14.0
+python-tds==1.15.0
 aioresponses==0.7.6
