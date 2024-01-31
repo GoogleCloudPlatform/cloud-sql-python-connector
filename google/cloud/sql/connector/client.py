@@ -56,25 +56,20 @@ class CloudSQLClient:
         Establish the client to be used for Cloud SQL Admin API requests.
 
         Args:
-            alloydb_api_endpoint (str): Base URL to use when calling
-                the AlloyDB API endpoint.
+            sqladmin_api_endpoint (str): Base URL to use when calling
+                the Cloud SQL Admin API endpoints.
             quota_project (str): The Project ID for an existing Google Cloud
                 project. The project specified is used for quota and
                 billing purposes.
             credentials (google.auth.credentials.Credentials):
                 A credentials object created from the google-auth Python library.
-                Must have the AlloyDB Admin scopes. For more info check out
+                Must have the Cloud SQL Admin scopes. For more info check out
                 https://google-auth.readthedocs.io/en/latest/.
             client (aiohttp.ClientSession): Async client used to make requests to
-                AlloyDB Admin APIs.
+                Cloud SQL Admin APIs.
                 Optional, defaults to None and creates new client.
             driver (str): Database driver to be used by the client.
         """
-        if not isinstance(credentials, Credentials):
-            raise TypeError(
-                "credentials must be of type google.auth.credentials.Credentials,"
-                f" got {type(credentials)}"
-            )
         user_agent = _format_user_agent(driver, user_agent)
         headers = {
             "x-goog-api-client": user_agent,
@@ -113,16 +108,7 @@ class CloudSQLClient:
         :returns: Returns a dictionary containing a dictionary of all IP
             addresses and their type and a string representing the
             certificate authority.
-
-        :raises TypeError: If any of the arguments are not the specified type.
         """
-        if not isinstance(project, str):
-            raise TypeError(f"project must be of type str, got {type(project)}")
-        elif not isinstance(region, str):
-            raise TypeError(f"region must be of type str, got {type(region)}")
-        elif not isinstance(instance, str):
-            raise TypeError(f"instance must be of type str, got {type(instance)}")
-
         if not self._credentials.valid:
             request = google.auth.transport.requests.Request()
             self._credentials.refresh(request)
@@ -193,18 +179,9 @@ class CloudSQLClient:
         :rtype: str
         :returns: An ephemeral certificate from the Cloud SQL instance that allows
             authorized connections to the instance.
-
-        :raises TypeError: If one of the arguments passed in is None.
         """
 
         logger.debug(f"['{instance}']: Requesting ephemeral certificate")
-
-        if not isinstance(project, str):
-            raise TypeError(f"project must be of type str, got {type(project)}")
-        elif not isinstance(instance, str):
-            raise TypeError(f"instance must be of type str, got {type(instance)}")
-        elif not isinstance(pub_key, str):
-            raise TypeError(f"pub_key must be of type str, got {type(pub_key)}")
 
         if not self._credentials.valid:
             request = google.auth.transport.requests.Request()
@@ -245,5 +222,5 @@ class CloudSQLClient:
         return ephemeral_cert, expiration
 
     async def close(self) -> None:
-        """Close AlloyDBClient gracefully."""
+        """Close CloudSQLClient gracefully."""
         await self._client.close()

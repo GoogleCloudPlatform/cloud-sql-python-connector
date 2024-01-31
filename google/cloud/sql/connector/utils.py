@@ -104,23 +104,3 @@ def format_database_user(database_version: str, user: str) -> str:
         return user.split("@")[0]
 
     return user
-
-
-def _auth_init(credentials: Optional[Credentials]) -> Credentials:
-    """Creates google.auth credentials object with scopes required to make
-    calls to the Cloud SQL Admin APIs.
-
-    :type credentials: google.auth.credentials.Credentials
-    :param credentials
-        Credentials object used to authenticate connections to Cloud SQL server.
-        If not specified, Application Default Credentials are used.
-    """
-    scopes = ["https://www.googleapis.com/auth/sqlservice.admin"]
-    # if Credentials object is passed in, use for authentication
-    if isinstance(credentials, Credentials):
-        credentials = with_scopes_if_required(credentials, scopes=scopes)
-    # otherwise use application default credentials
-    else:
-        credentials, _ = default(scopes=scopes)
-
-    return credentials

@@ -154,11 +154,6 @@ class Instance:
         The user agent string to append to SQLAdmin API requests
     :type user_agent_string: str
 
-    :type credentials: google.auth.credentials.Credentials
-    :param credentials
-        Credentials object used to authenticate connections to Cloud SQL server.
-        If not specified, Application Default Credentials are used.
-
     :param enable_iam_auth
         Enables automatic IAM database authentication for Postgres or MySQL
         instances.
@@ -167,18 +162,6 @@ class Instance:
     :param loop:
         A new event loop for the refresh function to run in.
     :type loop: asyncio.AbstractEventLoop
-
-    :type quota_project: str
-    :param quota_project
-        The Project ID for an existing Google Cloud project. The project specified
-        is used for quota and billing purposes. If not specified, defaults to
-        project sourced from environment.
-
-    :type sqladmin_api_endpoint: str
-    :param sqladmin_api_endpoint:
-        Base URL to use when calling the Cloud SQL Admin API endpoint.
-        Defaults to "https://sqladmin.googleapis.com", this argument should
-        only be used in development.
     """
 
     # asyncio.AbstractEventLoop is used because the default loop,
@@ -190,22 +173,6 @@ class Instance:
     _loop: asyncio.AbstractEventLoop
 
     _enable_iam_auth: bool
-
-    __client_session: Optional[aiohttp.ClientSession] = None
-
-    @property
-    def _client_session(self) -> aiohttp.ClientSession:
-        if self.__client_session is None:
-            headers = {
-                "x-goog-api-client": self._user_agent_string,
-                "User-Agent": self._user_agent_string,
-                "Content-Type": "application/json",
-            }
-            if self._quota_project:
-                headers["x-goog-user-project"] = self._quota_project
-            self.__client_session = aiohttp.ClientSession(headers=headers)
-        return self.__client_session
-
     _credentials: Optional[Credentials] = None
     _keys: asyncio.Future
 
@@ -227,11 +194,7 @@ class Instance:
         driver_name: str,
         keys: asyncio.Future,
         loop: asyncio.AbstractEventLoop,
-        credentials: Optional[Credentials] = None,
         enable_iam_auth: bool = False,
-        quota_project: Optional[str] = None,
-        sqladmin_api_endpoint: str = "https://sqladmin.googleapis.com",
-        user_agent: Optional[str] = None,
     ) -> None:
         # validate and parse instance connection name
         self._project, self._region, self._instance = _parse_instance_connection_name(
@@ -240,23 +203,8 @@ class Instance:
         self._instance_connection_string = instance_connection_string
 
         self._enable_iam_auth = enable_iam_auth
-
-        self._user_agent_string = _format_user_agent(
-            version,
-            driver_name,
-            user_agent,
-        )
-        self._quota_project = quota_project
-        self._sqladmin_api_endpoint = sqladmin_api_endpoint
         self._loop = loop
         self._keys = keys
-        # validate credentials type
-        if not isinstance(credentials, Credentials) and credentials is not None:
-            raise CredentialsTypeError(
-                "Arg credentials must be type 'google.auth.credentials.Credentials' "
-                "or None (to use Application Default Credentials)"
-            )
-        self._credentials = _auth_init(credentials)
         self._refresh_rate_limiter = AsyncRateLimiter(
             max_capacity=2, rate=1 / 30, loop=self._loop
         )
@@ -298,7 +246,7 @@ class Instance:
 
             metadata_task = self._loop.create_task(
                 _get_metadata(
-                    self._client_session,
+                    self._client,
                     self._sqladmin_api_endpoint,
                     self._credentials,
                     self._project,

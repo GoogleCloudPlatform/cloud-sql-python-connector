@@ -23,7 +23,10 @@ from threading import Thread
 from types import TracebackType
 from typing import Any, Dict, Optional, Type, TYPE_CHECKING
 
+import google.auth
+from google.auth.credentials import with_scopes_if_required
 import google.cloud.sql.connector.asyncpg as asyncpg
+from google.cloud.sql.connector.client import CloudSQLClient
 from google.cloud.sql.connector.exceptions import ConnectorLoopError
 from google.cloud.sql.connector.exceptions import DnsNameResolutionError
 from google.cloud.sql.connector.instance import Instance
@@ -108,7 +111,20 @@ class Connector:
                 loop=self._loop,
             )
         self._instances: Dict[str, Instance] = {}
-
+        self._client: Optional[CloudSQLClient] = None
+        
+        # initialize credentials
+        scopes = ["https://www.googleapis.com/auth/sqlservice.admin"]
+        if credentials:
+            if not isinstance(credentials, Credentials):
+                raise TypeError(
+                    "credentials must be of type google.auth.credentials.Credentials,"
+                    f" got {type(credentials)}"
+                )
+            self._credentials = with_scopes_if_required(credentials, scopes=scopes)
+        # otherwise use application default credentials
+        else:
+            self._credentials, _ = google.auth.default(scopes=scopes)
         # set default params for connections
         self._timeout = timeout
         self._enable_iam_auth = enable_iam_auth
@@ -193,6 +209,15 @@ class Connector:
         # Use the Instance to establish an SSL Connection.
         #
         # Return a DBAPI connection
+        if self._client is None:
+            # lazy init client as it has to be initialized in async context
+            self._client = CloudSQLClient(
+                self._sqladmin_api_endpoint,
+                self._quota_project,
+                self._credentials,
+                user_agent=self._user_agent,
+                driver=driver,
+            )
         enable_iam_auth = kwargs.pop("enable_iam_auth", self._enable_iam_auth)
         if instance_connection_string in self._instances:
             instance = self._instances[instance_connection_string]
@@ -209,11 +234,7 @@ class Connector:
                 driver,
                 self._keys,
                 self._loop,
-                self._credentials,
                 enable_iam_auth,
-                self._quota_project,
-                self._sqladmin_api_endpoint,
-                user_agent=self._user_agent,
             )
             self._instances[instance_connection_string] = instance
 
