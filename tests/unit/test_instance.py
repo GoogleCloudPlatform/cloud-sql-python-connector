@@ -27,7 +27,6 @@ import pytest  # noqa F401 Needed to run the tests
 
 from google.cloud.sql.connector.exceptions import AutoIAMAuthNotSupported
 from google.cloud.sql.connector.exceptions import CloudSQLIPTypeError
-from google.cloud.sql.connector.exceptions import CredentialsTypeError
 from google.cloud.sql.connector.instance import _parse_instance_connection_name
 from google.cloud.sql.connector.instance import ConnectionInfo
 from google.cloud.sql.connector.instance import Instance
@@ -83,15 +82,14 @@ async def test_Instance_init(
     keys = asyncio.wrap_future(
         asyncio.run_coroutine_threadsafe(generate_keys(), event_loop), loop=event_loop
     )
-    with patch("google.cloud.sql.connector.utils.default") as mock_auth:
-        mock_auth.return_value = fake_credentials, None
-        instance = Instance(
-            connect_string,
-            "pymysql",
-            keys,
-            event_loop,
-            user_agent="custom/v1.0.0",
-        )
+    instance = Instance(
+        connect_string,
+        "pymysql",
+        keys,
+        event_loop,
+        credentials=fake_credentials,
+        user_agent="custom/v1.0.0",
+    )
     project_result = instance._project
     region_result = instance._region
     instance_result = instance._instance
@@ -106,22 +104,6 @@ async def test_Instance_init(
     )
     # cleanup instance
     await instance.close()
-
-
-@pytest.mark.asyncio
-async def test_Instance_init_bad_credentials() -> None:
-    """
-    Test to check whether the __init__ method of Instance
-    throws proper error for bad credentials arg type.
-    """
-    event_loop = asyncio.get_running_loop()
-    connect_string = "test-project:test-region:test-instance"
-    keys = asyncio.wrap_future(
-        asyncio.run_coroutine_threadsafe(generate_keys(), event_loop), loop=event_loop
-    )
-    with pytest.raises(CredentialsTypeError):
-        instance = Instance(connect_string, "pymysql", keys, event_loop, credentials=1)
-        await instance.close()
 
 
 @pytest.mark.asyncio

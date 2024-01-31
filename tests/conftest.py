@@ -23,7 +23,6 @@ from aioresponses import aioresponses
 from google.auth.credentials import Credentials
 from google.auth.credentials import with_scopes_if_required
 from google.oauth2 import service_account
-from mock import patch
 import pytest  # noqa F401 Needed to run the tests
 from unit.mocks import FakeCSQLInstance  # type: ignore
 
@@ -146,32 +145,31 @@ async def instance(
     keys = asyncio.create_task(generate_keys())
     _, client_key = await keys
 
-    with patch("google.cloud.sql.connector.utils.default") as mock_auth:
-        mock_auth.return_value = fake_credentials, None
-        # mock Cloud SQL Admin API calls
-        with aioresponses() as mocked:
-            mocked.get(
-                f"https://sqladmin.googleapis.com/sql/v1beta4/projects/{mock_instance.project}/instances/{mock_instance.name}/connectSettings",
-                status=200,
-                body=mock_instance.connect_settings(),
-                repeat=True,
-            )
-            mocked.post(
-                f"https://sqladmin.googleapis.com/sql/v1beta4/projects/{mock_instance.project}/instances/{mock_instance.name}:generateEphemeralCert",
-                status=200,
-                body=mock_instance.generate_ephemeral(client_key),
-                repeat=True,
-            )
+    # mock Cloud SQL Admin API calls
+    with aioresponses() as mocked:
+        mocked.get(
+            f"https://sqladmin.googleapis.com/sql/v1beta4/projects/{mock_instance.project}/instances/{mock_instance.name}/connectSettings",
+            status=200,
+            body=mock_instance.connect_settings(),
+            repeat=True,
+        )
+        mocked.post(
+            f"https://sqladmin.googleapis.com/sql/v1beta4/projects/{mock_instance.project}/instances/{mock_instance.name}:generateEphemeralCert",
+            status=200,
+            body=mock_instance.generate_ephemeral(client_key),
+            repeat=True,
+        )
 
-            instance = Instance(
-                f"{mock_instance.project}:{mock_instance.region}:{mock_instance.name}",
-                "pg8000",
-                keys,
-                loop,
-            )
+        instance = Instance(
+            f"{mock_instance.project}:{mock_instance.region}:{mock_instance.name}",
+            "pg8000",
+            keys,
+            loop,
+            fake_credentials,
+        )
 
-            yield instance
-            await instance.close()
+        yield instance
+        await instance.close()
 
 
 @pytest.fixture
@@ -179,45 +177,47 @@ async def connector(fake_credentials: Credentials) -> AsyncGenerator[Connector, 
     instance_connection_name = "my-project:my-region:my-instance"
     project, region, instance_name = instance_connection_name.split(":")
     # initialize connector
-    connector = Connector()
-    with patch("google.cloud.sql.connector.utils.default") as mock_auth:
-        mock_auth.return_value = fake_credentials, None
-        # mock Cloud SQL Admin API calls
-        mock_instance = FakeCSQLInstance(project, region, instance_name)
+    connector = Connector(credentials=fake_credentials)
+    # mock Cloud SQL Admin API calls
+    mock_instance = FakeCSQLInstance(project, region, instance_name)
 
-        async def wait_for_keys(future: asyncio.Future) -> Tuple[bytes, str]:
-            """
-            Helper method to await keys of Connector in tests prior to
-            initializing an Instance object.
-            """
-            return await future
+    async def wait_for_keys(future: asyncio.Future) -> Tuple[bytes, str]:
+        """
+        Helper method to await keys of Connector in tests prior to
+        initializing an Instance object.
+        """
+        return await future
 
-        # converting asyncio.Future into concurrent.Future
-        # await keys in background thread so that .result() is set
-        # required because keys are needed for mocks, but are not awaited
-        # in the code until Instance() is initialized
-        _, client_key = asyncio.run_coroutine_threadsafe(
-            wait_for_keys(connector._keys), connector._loop
-        ).result()
-        with aioresponses() as mocked:
-            mocked.get(
-                f"https://sqladmin.googleapis.com/sql/v1beta4/projects/{project}/instances/{instance_name}/connectSettings",
-                status=200,
-                body=mock_instance.connect_settings(),
-                repeat=True,
-            )
-            mocked.post(
-                f"https://sqladmin.googleapis.com/sql/v1beta4/projects/{project}/instances/{instance_name}:generateEphemeralCert",
-                status=200,
-                body=mock_instance.generate_ephemeral(client_key),
-                repeat=True,
-            )
-            # initialize Instance using mocked API calls
-            instance = Instance(
-                instance_connection_name, "pg8000", connector._keys, connector._loop
-            )
+    # converting asyncio.Future into concurrent.Future
+    # await keys in background thread so that .result() is set
+    # required because keys are needed for mocks, but are not awaited
+    # in the code until Instance() is initialized
+    _, client_key = asyncio.run_coroutine_threadsafe(
+        wait_for_keys(connector._keys), connector._loop
+    ).result()
+    with aioresponses() as mocked:
+        mocked.get(
+            f"https://sqladmin.googleapis.com/sql/v1beta4/projects/{project}/instances/{instance_name}/connectSettings",
+            status=200,
+            body=mock_instance.connect_settings(),
+            repeat=True,
+        )
+        mocked.post(
+            f"https://sqladmin.googleapis.com/sql/v1beta4/projects/{project}/instances/{instance_name}:generateEphemeralCert",
+            status=200,
+            body=mock_instance.generate_ephemeral(client_key),
+            repeat=True,
+        )
+        # initialize Instance using mocked API calls
+        instance = Instance(
+            instance_connection_name,
+            "pg8000",
+            connector._keys,
+            connector._loop,
+            fake_credentials,
+        )
 
-            connector._instances[instance_connection_name] = instance
+        connector._instances[instance_connection_name] = instance
 
-            yield connector
-            connector.close()
+        yield connector
+        connector.close()
