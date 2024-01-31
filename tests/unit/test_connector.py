@@ -61,11 +61,11 @@ def test_connect_with_unsupported_driver(connector: Connector) -> None:
 
 
 @pytest.mark.asyncio
-async def test_connect_ConnectorLoopError() -> None:
+async def test_connect_ConnectorLoopError(fake_credentials: Credentials) -> None:
     """Test that ConnectorLoopError is thrown when Connector.connect
     is called with event loop running in current thread."""
     current_loop = asyncio.get_running_loop()
-    connector = Connector(loop=current_loop)
+    connector = Connector(credentials=fake_credentials, loop=current_loop)
     # try to connect using current thread's loop, should raise error
     pytest.raises(
         ConnectorLoopError,
@@ -92,7 +92,7 @@ def test_Connector_Init_with_credentials(fake_credentials: Credentials) -> None:
     """Test that Connector uses custom credentials when given them."""
     with patch("google.auth.credentials.with_scopes_if_required") as mock_auth:
         mock_auth.return_value = fake_credentials
-        connector = Connector()
+        connector = Connector(credentials=fake_credentials)
         assert connector._credentials == fake_credentials
         mock_auth.assert_called_once()
         connector.close()
@@ -141,18 +141,18 @@ def test_Connector_connect(connector: Connector) -> None:
 
 
 @pytest.mark.asyncio
-async def test_create_async_connector() -> None:
+async def test_create_async_connector(fake_credentials: Credentials) -> None:
     """Test that create_async_connector properly initializes connector
     object using current thread's event loop"""
-    connector = await create_async_connector()
+    connector = await create_async_connector(credentials=fake_credentials)
     assert connector._loop == asyncio.get_running_loop()
     await connector.close_async()
 
 
-def test_Connector_close_kills_thread() -> None:
+def test_Connector_close_kills_thread(fake_credentials: Credentials) -> None:
     """Test that Connector.close kills background threads."""
     # open and close Connector object
-    connector = Connector()
+    connector = Connector(credentials=fake_credentials)
     # verify background thread exists
     assert connector._thread
     connector.close()
@@ -160,10 +160,10 @@ def test_Connector_close_kills_thread() -> None:
     assert connector._thread.is_alive() is False
 
 
-def test_Connector_close_called_multiple_times() -> None:
+def test_Connector_close_called_multiple_times(fake_credentials: Credentials) -> None:
     """Test that Connector.close can be called multiple times."""
     # open and close Connector object
-    connector = Connector()
+    connector = Connector(credentials=fake_credentials)
     # verify background thread exists
     assert connector._thread
     connector.close()
