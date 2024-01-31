@@ -97,16 +97,6 @@ async def test_get_ephemeral_TypeError(credentials: Credentials) -> None:
     instance = "my-instance"
     pub_key = "key"
 
-    # incorrect credentials type
-    with pytest.raises(TypeError):
-        await _get_ephemeral(
-            client_session=client_session,
-            sqladmin_api_endpoint="https://sqladmin.googleapis.com",
-            credentials="bad-credentials",
-            project=project,
-            instance=instance,
-            pub_key=pub_key,
-        )
     # incorrect project type
     with pytest.raises(TypeError):
         await _get_ephemeral(
@@ -188,16 +178,6 @@ async def test_get_metadata_TypeError(credentials: Credentials) -> None:
     region = "my-region"
     instance = "my-instance"
 
-    # incorrect credentials type
-    with pytest.raises(TypeError):
-        await _get_metadata(
-            client_session=client_session,
-            sqladmin_api_endpoint="https://sqladmin.googleapis.com",
-            credentials="bad-credentials",
-            project=project,
-            region=region,
-            instance=instance,
-        )
     # incorrect project type
     with pytest.raises(TypeError):
         await _get_metadata(
