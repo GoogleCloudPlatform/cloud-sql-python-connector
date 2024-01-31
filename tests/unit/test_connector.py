@@ -90,7 +90,9 @@ def test_Connector_Init(fake_credentials: Credentials) -> None:
 
 def test_Connector_Init_with_credentials(fake_credentials: Credentials) -> None:
     """Test that Connector uses custom credentials when given them."""
-    with patch("google.auth.credentials.with_scopes_if_required") as mock_auth:
+    with patch(
+        "google.cloud.sql.connector.connector.with_scopes_if_required"
+    ) as mock_auth:
         mock_auth.return_value = fake_credentials
         connector = Connector(credentials=fake_credentials)
         assert connector._credentials == fake_credentials
