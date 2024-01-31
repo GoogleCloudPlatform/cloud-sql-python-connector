@@ -113,6 +113,8 @@ class Connector:
         # initialize credentials
         scopes = ["https://www.googleapis.com/auth/sqlservice.admin"]
         if credentials:
+            # verfiy custom credentials are proper type
+            # and atleast base class of google.auth.credentials
             if not isinstance(credentials, Credentials):
                 raise TypeError(
                     "credentials must be of type google.auth.credentials.Credentials,"
