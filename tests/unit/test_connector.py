@@ -15,6 +15,7 @@ limitations under the License.
 """
 import asyncio
 
+from google.auth.credentials import Credentials
 from mock import patch
 from mocks import MockInstance
 import pytest  # noqa F401 Needed to run the tests
@@ -25,7 +26,7 @@ from google.cloud.sql.connector import IPTypes
 from google.cloud.sql.connector.exceptions import ConnectorLoopError
 
 
-def test_connect_enable_iam_auth_error() -> None:
+def test_connect_enable_iam_auth_error(fake_credentials: Credentials) -> None:
     """Test that calling connect() with different enable_iam_auth
     argument values throws error."""
     connect_string = "my-project:my-region:my-instance"
@@ -34,7 +35,7 @@ def test_connect_enable_iam_auth_error() -> None:
     mock_instances = {}
     mock_instances[connect_string] = instance
     # init Connector
-    connector = Connector()
+    connector = Connector(credentials=fake_credentials)
     with patch.dict(connector._instances, mock_instances):
         # try to connect using enable_iam_auth=True, should raise error
         pytest.raises(
@@ -74,35 +75,55 @@ async def test_connect_ConnectorLoopError() -> None:
     )
 
 
-def test_Connector_Init() -> None:
+def test_Connector_Init(fake_credentials: Credentials) -> None:
     """Test that Connector __init__ sets default properties properly."""
-    connector = Connector()
-    assert connector._ip_type == IPTypes.PUBLIC
-    assert connector._enable_iam_auth is False
-    assert connector._timeout == 30
-    assert connector._credentials is None
-    connector.close()
-
-
-def test_Connector_Init_context_manager() -> None:
-    """Test that Connector as context manager sets default properties properly."""
-    with Connector() as connector:
+    with patch("google.auth.default") as mock_auth:
+        mock_auth.return_value = fake_credentials, None
+        connector = Connector()
         assert connector._ip_type == IPTypes.PUBLIC
         assert connector._enable_iam_auth is False
         assert connector._timeout == 30
-        assert connector._credentials is None
+        assert connector._credentials == fake_credentials
+        mock_auth.assert_called_once()
+        connector.close()
+
+
+def test_Connector_Init_with_credentials(fake_credentials: Credentials) -> None:
+    """Test that Connector uses custom credentials when given them."""
+    with patch("google.auth.credentials.with_scopes_if_required") as mock_auth:
+        mock_auth.return_value = fake_credentials
+        connector = Connector()
+        assert connector._credentials == fake_credentials
+        mock_auth.assert_called_once()
+        connector.close()
+
+
+def test_Connector_Init_with_bad_credentials_type() -> None:
+    """Test that Connector with bad custom credentials type throws error."""
+    pytest.raises(TypeError, Connector, credentials="bad creds")
+
+
+def test_Connector_Init_context_manager(fake_credentials: Credentials) -> None:
+    """Test that Connector as context manager sets default properties properly."""
+    with Connector(credentials=fake_credentials) as connector:
+        assert connector._ip_type == IPTypes.PUBLIC
+        assert connector._enable_iam_auth is False
+        assert connector._timeout == 30
+        assert connector._credentials == fake_credentials
 
 
 @pytest.mark.asyncio
-async def test_Connector_Init_async_context_manager() -> None:
+async def test_Connector_Init_async_context_manager(
+    fake_credentials: Credentials,
+) -> None:
     """Test that Connector as async context manager sets default properties
     properly."""
     loop = asyncio.get_running_loop()
-    async with Connector(loop=loop) as connector:
+    async with Connector(credentials=fake_credentials, loop=loop) as connector:
         assert connector._ip_type == IPTypes.PUBLIC
         assert connector._enable_iam_auth is False
         assert connector._timeout == 30
-        assert connector._credentials is None
+        assert connector._credentials == fake_credentials
         assert connector._loop == loop
 
 

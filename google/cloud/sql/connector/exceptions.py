@@ -48,14 +48,6 @@ class PlatformNotSupportedError(Exception):
     pass
 
 
-class CredentialsTypeError(Exception):
-    """
-    Raised when credentials parameter is not proper type.
-    """
-
-    pass
-
-
 class AutoIAMAuthNotSupported(Exception):
     """
     Exception to be raised when Automatic IAM Authentication is not
