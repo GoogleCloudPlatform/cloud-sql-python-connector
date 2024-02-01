@@ -93,38 +93,14 @@ async def test_get_ephemeral_TypeError(credentials: Credentials) -> None:
     when given incorrect input arg types.
     """
     client_session = Mock(aiohttp.ClientSession)
-    project = "my-project"
-    instance = "my-instance"
-    pub_key = "key"
-
-    # incorrect project type
-    with pytest.raises(TypeError):
-        await _get_ephemeral(
-            client_session=client_session,
-            sqladmin_api_endpoint="https://sqladmin.googleapis.com",
-            credentials=credentials,
-            project=12345,
-            instance=instance,
-            pub_key=pub_key,
-        )
-    # incorrect instance type
-    with pytest.raises(TypeError):
-        await _get_ephemeral(
-            client_session=client_session,
-            sqladmin_api_endpoint="https://sqladmin.googleapis.com",
-            credentials=credentials,
-            project=project,
-            instance=12345,
-            pub_key=pub_key,
-        )
     # incorrect pub_key type
     with pytest.raises(TypeError):
         await _get_ephemeral(
             client_session=client_session,
             sqladmin_api_endpoint="https://sqladmin.googleapis.com",
             credentials=credentials,
-            project=project,
-            instance=instance,
+            project="my-project",
+            instance="my-instance",
             pub_key=12345,
         )
 
@@ -164,50 +140,6 @@ async def test_get_metadata(
         and result["database_version"] == "POSTGRES_14"
         and isinstance(result["server_ca_cert"], str)
     )
-
-
-@pytest.mark.asyncio
-@no_type_check
-async def test_get_metadata_TypeError(credentials: Credentials) -> None:
-    """
-    Test to check whether _get_metadata throws proper TypeError
-    when given incorrect input arg types.
-    """
-    client_session = Mock(aiohttp.ClientSession)
-    project = "my-project"
-    region = "my-region"
-    instance = "my-instance"
-
-    # incorrect project type
-    with pytest.raises(TypeError):
-        await _get_metadata(
-            client_session=client_session,
-            sqladmin_api_endpoint="https://sqladmin.googleapis.com",
-            credentials=credentials,
-            project=12345,
-            region=region,
-            instance=instance,
-        )
-    # incorrect region type
-    with pytest.raises(TypeError):
-        await _get_metadata(
-            client_session=client_session,
-            sqladmin_api_endpoint="https://sqladmin.googleapis.com",
-            credentials=credentials,
-            project=project,
-            region=1,
-            instance=instance,
-        )
-    # incorrect instance type
-    with pytest.raises(TypeError):
-        await _get_metadata(
-            client_session=client_session,
-            sqladmin_api_endpoint="https://sqladmin.googleapis.com",
-            credentials=credentials,
-            project=project,
-            region=region,
-            instance=12345,
-        )
 
 
 @pytest.mark.asyncio
