@@ -257,7 +257,9 @@ async def test_perform_refresh(
     assert isinstance(instance_metadata, ConnectionInfo)
     # verify instance metadata expiration
     assert (
-        mock_instance.cert._not_valid_after.replace(microsecond=0)  # type: ignore
+        mock_instance.cert._not_valid_after.replace(
+            tzinfo=datetime.timezone.utc, microsecond=0  # type: ignore
+        )
         == instance_metadata.expiration
     )
 
@@ -273,9 +275,9 @@ async def test_perform_refresh_expiration(
     credentials expiration should be used.
     """
     # set credentials expiration to 1 minute from now
-    expiration = datetime.datetime.now(datetime.timezone.utc).replace(
-        tzinfo=None
-    ) + datetime.timedelta(minutes=1)
+    expiration = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(
+        minutes=1
+    )
     credentials = mocks.FakeCredentials(token="my-token", expiry=expiration)
     setattr(instance, "_enable_iam_auth", True)
     # set downscoped credential to mock

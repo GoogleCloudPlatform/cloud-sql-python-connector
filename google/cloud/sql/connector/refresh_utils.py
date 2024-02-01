@@ -191,17 +191,13 @@ async def _get_ephemeral(
     # decode cert to read expiration
     x509 = load_pem_x509_certificate(ephemeral_cert.encode("UTF-8"), default_backend())
     expiration = x509.not_valid_after_utc
-    # TODO: re-add timezone info to datetime
-    # We used datetime.utcnow() before, since it's deprecated from python 3.12,
-    # we are now using datetime.now(timezone.utc). "utcnow()" is offset-naive
-    # (no timezone info), but "now()" is offset-aware (with timezone info).
-    # This will cause datetime comparison problems. For backward compatibility,
-    # we need to remove the timezone info.
-    expiration = expiration.replace(tzinfo=None)
     # for IAM authentication OAuth2 token is embedded in cert so it
     # must still be valid for successful connection
     if enable_iam_auth:
         token_expiration: datetime.datetime = login_creds.expiry
+        # google.auth library strips timezone info for backwards compatibality
+        # Ref: https://github.com/googleapis/google-auth-library-python/blob/main/google/auth/_helpers.py#L93-L99
+        token_expiration = token_expiration.replace(tzinfo=datetime.timezone.utc)
         if expiration > token_expiration:
             expiration = token_expiration
     return ephemeral_cert, expiration
@@ -221,10 +217,7 @@ def _seconds_until_refresh(
     """
 
     duration = int(
-        (
-            expiration
-            - datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
-        ).total_seconds()
+        (expiration - datetime.datetime.now(datetime.timezone.utc)).total_seconds()
     )
 
     # if certificate duration is less than 1 hour
@@ -242,10 +235,7 @@ async def _is_valid(task: asyncio.Task) -> bool:
     try:
         metadata = await task
         # only valid if now is before the cert expires
-        if (
-            datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
-            < metadata.expiration
-        ):
+        if datetime.datetime.now(datetime.timezone.utc) < metadata.expiration:
             return True
     except Exception:
         # supress any errors from task
