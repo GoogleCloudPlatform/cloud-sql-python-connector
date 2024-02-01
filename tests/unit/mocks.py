@@ -19,7 +19,7 @@ import datetime
 import json
 import ssl
 from tempfile import TemporaryDirectory
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Callable, Dict, Optional, Tuple
 
 from cryptography import x509
 from cryptography.hazmat.backends import default_backend
@@ -27,11 +27,51 @@ from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.x509.oid import NameOID
+from google.auth.credentials import Credentials
 
 from google.cloud.sql.connector import IPTypes
 from google.cloud.sql.connector.instance import ConnectionInfo
 from google.cloud.sql.connector.utils import generate_keys
 from google.cloud.sql.connector.utils import write_to_file
+
+
+class FakeCredentials:
+    def __init__(
+        self, token: Optional[str] = None, expiry: Optional[datetime.datetime] = None
+    ) -> None:
+        self.token = token
+        self.expiry = expiry
+
+    @property
+    def __class__(self) -> Credentials:
+        # set class type to google auth Credentials
+        return Credentials
+
+    def refresh(self, request: Callable) -> None:
+        """Refreshes the access token."""
+        self.token = "12345"
+        self.expiry = datetime.datetime.utcnow() + datetime.timedelta(minutes=60)
+
+    @property
+    def expired(self) -> bool:
+        """Checks if the credentials are expired.
+
+        Note that credentials can be invalid but not expired because
+        Credentials with expiry set to None are considered to never
+        expire.
+        """
+        if self.expiry is None:
+            return False
+        return False if self.expiry > datetime.datetime.utcnow() else True
+
+    @property
+    def valid(self) -> bool:
+        """Checks the validity of the credentials.
+
+        This is True if the credentials have a token and the token
+        is not expired.
+        """
+        return self.token is not None and not self.expired
 
 
 class MockInstance:
@@ -243,6 +283,10 @@ class FakeCSQLInstance:
             client_bytes.encode("UTF-8"), default_backend()
         )  # type: ignore
         ephemeral_cert = client_key_signed_cert(self.cert, self.key, client_key)
+        print(
+            "Test generate time: ",
+            datetime.datetime.utcnow() + datetime.timedelta(minutes=10),
+        )
         return json.dumps(
             {
                 "ephemeralCert": {

@@ -21,7 +21,11 @@ import logging
 import socket
 from threading import Thread
 from types import TracebackType
-from typing import Any, Dict, Optional, Type, TYPE_CHECKING
+from typing import Any, Dict, Optional, Type
+
+import google.auth
+from google.auth.credentials import Credentials
+from google.auth.credentials import with_scopes_if_required
 
 import google.cloud.sql.connector.asyncpg as asyncpg
 from google.cloud.sql.connector.exceptions import ConnectorLoopError
@@ -33,9 +37,6 @@ import google.cloud.sql.connector.pymysql as pymysql
 import google.cloud.sql.connector.pytds as pytds
 from google.cloud.sql.connector.utils import format_database_user
 from google.cloud.sql.connector.utils import generate_keys
-
-if TYPE_CHECKING:
-    from google.auth.credentials import Credentials
 
 logger = logging.getLogger(name=__name__)
 
@@ -91,6 +92,7 @@ class Connector:
         loop: Optional[asyncio.AbstractEventLoop] = None,
         quota_project: Optional[str] = None,
         sqladmin_api_endpoint: str = "https://sqladmin.googleapis.com",
+        user_agent: Optional[str] = None,
     ) -> None:
         # if event loop is given, use for background tasks
         if loop:
@@ -108,13 +110,27 @@ class Connector:
             )
         self._instances: Dict[str, Instance] = {}
 
+        # initialize credentials
+        scopes = ["https://www.googleapis.com/auth/sqlservice.admin"]
+        if credentials:
+            # verfiy custom credentials are proper type
+            # and atleast base class of google.auth.credentials
+            if not isinstance(credentials, Credentials):
+                raise TypeError(
+                    "credentials must be of type google.auth.credentials.Credentials,"
+                    f" got {type(credentials)}"
+                )
+            self._credentials = with_scopes_if_required(credentials, scopes=scopes)
+        # otherwise use application default credentials
+        else:
+            self._credentials, _ = google.auth.default(scopes=scopes)
         # set default params for connections
         self._timeout = timeout
         self._enable_iam_auth = enable_iam_auth
         self._ip_type = ip_type
         self._quota_project = quota_project
         self._sqladmin_api_endpoint = sqladmin_api_endpoint
-        self._credentials = credentials
+        self._user_agent = user_agent
 
     def connect(
         self, instance_connection_string: str, driver: str, **kwargs: Any
@@ -211,6 +227,7 @@ class Connector:
                 enable_iam_auth,
                 self._quota_project,
                 self._sqladmin_api_endpoint,
+                user_agent=self._user_agent,
             )
             self._instances[instance_connection_string] = instance
 
@@ -308,15 +325,17 @@ class Connector:
 
     def close(self) -> None:
         """Close Connector by stopping tasks and releasing resources."""
-        close_future = asyncio.run_coroutine_threadsafe(
-            self.close_async(), loop=self._loop
-        )
-        # Will attempt to safely shut down tasks for 5s
-        close_future.result(timeout=5)
+        if self._loop.is_running():
+            close_future = asyncio.run_coroutine_threadsafe(
+                self.close_async(), loop=self._loop
+            )
+            # Will attempt to safely shut down tasks for 5s
+            close_future.result(timeout=5)
         # if background thread exists for Connector, clean it up
         if self._thread:
-            # stop event loop running in background thread
-            self._loop.call_soon_threadsafe(self._loop.stop)
+            if self._loop.is_running():
+                # stop event loop running in background thread
+                self._loop.call_soon_threadsafe(self._loop.stop)
             # wait for thread to finish closing (i.e. loop to stop)
             self._thread.join()
 
@@ -326,6 +345,12 @@ class Connector:
         await asyncio.gather(
             *[instance.close() for instance in self._instances.values()]
         )
+
+    def __del__(self) -> None:
+        """Close Connector as part of garbage collection"""
+        # only want to call destructor when used for sync connections
+        if self._thread:
+            self.close()
 
 
 async def create_async_connector(

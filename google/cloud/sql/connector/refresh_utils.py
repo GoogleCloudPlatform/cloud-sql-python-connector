@@ -79,16 +79,11 @@ async def _get_metadata(
     :raises TypeError: If any of the arguments are not the specified type.
     """
 
-    if not isinstance(credentials, Credentials):
-        raise TypeError(
-            "credentials must be of type google.auth.credentials.Credentials,"
-            f" got {type(credentials)}"
-        )
-    elif not isinstance(project, str):
+    if not isinstance(project, str):
         raise TypeError(f"project must be of type str, got {type(project)}")
-    elif not isinstance(region, str):
+    if not isinstance(region, str):
         raise TypeError(f"region must be of type str, got {type(region)}")
-    elif not isinstance(instance, str):
+    if not isinstance(instance, str):
         raise TypeError(f"instance must be of type str, got {type(instance)}")
 
     if not credentials.valid:
@@ -172,16 +167,11 @@ async def _get_ephemeral(
 
     logger.debug(f"['{instance}']: Requesting ephemeral certificate")
 
-    if not isinstance(credentials, Credentials):
-        raise TypeError(
-            "credentials must be of type google.auth.credentials.Credentials,"
-            f" got {type(credentials)}"
-        )
-    elif not isinstance(project, str):
+    if not isinstance(project, str):
         raise TypeError(f"project must be of type str, got {type(project)}")
-    elif not isinstance(instance, str):
+    if not isinstance(instance, str):
         raise TypeError(f"instance must be of type str, got {type(instance)}")
-    elif not isinstance(pub_key, str):
+    if not isinstance(pub_key, str):
         raise TypeError(f"pub_key must be of type str, got {type(pub_key)}")
 
     if not credentials.valid:

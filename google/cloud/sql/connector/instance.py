@@ -28,14 +28,12 @@ from google.auth.credentials import Credentials
 
 from google.cloud.sql.connector.exceptions import AutoIAMAuthNotSupported
 from google.cloud.sql.connector.exceptions import CloudSQLIPTypeError
-from google.cloud.sql.connector.exceptions import CredentialsTypeError
 from google.cloud.sql.connector.exceptions import TLSVersionError
 from google.cloud.sql.connector.rate_limiter import AsyncRateLimiter
 from google.cloud.sql.connector.refresh_utils import _get_ephemeral
 from google.cloud.sql.connector.refresh_utils import _get_metadata
 from google.cloud.sql.connector.refresh_utils import _is_valid
 from google.cloud.sql.connector.refresh_utils import _seconds_until_refresh
-from google.cloud.sql.connector.utils import _auth_init
 from google.cloud.sql.connector.utils import write_to_file
 from google.cloud.sql.connector.version import __version__ as version
 
@@ -134,6 +132,13 @@ class ConnectionInfo:
         )
 
 
+def _format_user_agent(version: str, driver: str, custom: Optional[str]) -> str:
+    agent = f"{APPLICATION_NAME}/{version}+{driver}"
+    if custom:
+        agent = f"{agent} {custom}"
+    return agent
+
+
 class Instance:
     """A class to manage the details of the connection to a Cloud SQL
     instance, including refreshing the credentials.
@@ -150,7 +155,6 @@ class Instance:
     :type credentials: google.auth.credentials.Credentials
     :param credentials
         Credentials object used to authenticate connections to Cloud SQL server.
-        If not specified, Application Default Credentials are used.
 
     :param enable_iam_auth
         Enables automatic IAM database authentication for Postgres or MySQL
@@ -199,7 +203,7 @@ class Instance:
             self.__client_session = aiohttp.ClientSession(headers=headers)
         return self.__client_session
 
-    _credentials: Optional[Credentials] = None
+    _credentials: Credentials
     _keys: asyncio.Future
 
     _instance_connection_string: str
@@ -220,10 +224,11 @@ class Instance:
         driver_name: str,
         keys: asyncio.Future,
         loop: asyncio.AbstractEventLoop,
-        credentials: Optional[Credentials] = None,
+        credentials: Credentials,
         enable_iam_auth: bool = False,
         quota_project: Optional[str] = None,
         sqladmin_api_endpoint: str = "https://sqladmin.googleapis.com",
+        user_agent: Optional[str] = None,
     ) -> None:
         # validate and parse instance connection name
         self._project, self._region, self._instance = _parse_instance_connection_name(
@@ -233,18 +238,16 @@ class Instance:
 
         self._enable_iam_auth = enable_iam_auth
 
-        self._user_agent_string = f"{APPLICATION_NAME}/{version}+{driver_name}"
+        self._user_agent_string = _format_user_agent(
+            version,
+            driver_name,
+            user_agent,
+        )
         self._quota_project = quota_project
         self._sqladmin_api_endpoint = sqladmin_api_endpoint
         self._loop = loop
         self._keys = keys
-        # validate credentials type
-        if not isinstance(credentials, Credentials) and credentials is not None:
-            raise CredentialsTypeError(
-                "Arg credentials must be type 'google.auth.credentials.Credentials' "
-                "or None (to use Application Default Credentials)"
-            )
-        self._credentials = _auth_init(credentials)
+        self._credentials = credentials
         self._refresh_rate_limiter = AsyncRateLimiter(
             max_capacity=2, rate=1 / 30, loop=self._loop
         )

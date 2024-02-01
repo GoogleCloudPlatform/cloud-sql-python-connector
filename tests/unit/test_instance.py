@@ -27,13 +27,13 @@ import pytest  # noqa F401 Needed to run the tests
 
 from google.cloud.sql.connector.exceptions import AutoIAMAuthNotSupported
 from google.cloud.sql.connector.exceptions import CloudSQLIPTypeError
-from google.cloud.sql.connector.exceptions import CredentialsTypeError
 from google.cloud.sql.connector.instance import _parse_instance_connection_name
 from google.cloud.sql.connector.instance import ConnectionInfo
 from google.cloud.sql.connector.instance import Instance
 from google.cloud.sql.connector.instance import IPTypes
 from google.cloud.sql.connector.rate_limiter import AsyncRateLimiter
 from google.cloud.sql.connector.utils import generate_keys
+from google.cloud.sql.connector.version import __version__ as version
 
 
 @pytest.fixture
@@ -82,9 +82,14 @@ async def test_Instance_init(
     keys = asyncio.wrap_future(
         asyncio.run_coroutine_threadsafe(generate_keys(), event_loop), loop=event_loop
     )
-    with patch("google.cloud.sql.connector.utils.default") as mock_auth:
-        mock_auth.return_value = fake_credentials, None
-        instance = Instance(connect_string, "pymysql", keys, event_loop)
+    instance = Instance(
+        connect_string,
+        "pymysql",
+        keys,
+        event_loop,
+        credentials=fake_credentials,
+        user_agent="custom/v1.0.0",
+    )
     project_result = instance._project
     region_result = instance._region
     instance_result = instance._instance
@@ -93,24 +98,12 @@ async def test_Instance_init(
         and region_result == "test-region"
         and instance_result == "test-instance"
     )
+    assert (
+        instance._user_agent_string
+        == f"cloud-sql-python-connector/{version}+pymysql custom/v1.0.0"
+    )
     # cleanup instance
     await instance.close()
-
-
-@pytest.mark.asyncio
-async def test_Instance_init_bad_credentials() -> None:
-    """
-    Test to check whether the __init__ method of Instance
-    throws proper error for bad credentials arg type.
-    """
-    event_loop = asyncio.get_running_loop()
-    connect_string = "test-project:test-region:test-instance"
-    keys = asyncio.wrap_future(
-        asyncio.run_coroutine_threadsafe(generate_keys(), event_loop), loop=event_loop
-    )
-    with pytest.raises(CredentialsTypeError):
-        instance = Instance(connect_string, "pymysql", keys, event_loop, credentials=1)
-        await instance.close()
 
 
 @pytest.mark.asyncio
@@ -271,7 +264,7 @@ async def test_perform_refresh(
 
 @pytest.mark.asyncio
 async def test_perform_refresh_expiration(
-    instance: Instance, fake_credentials: Credentials
+    instance: Instance,
 ) -> None:
     """
     Test that _perform_refresh returns ConnectionInfo with proper expiration.
@@ -283,15 +276,14 @@ async def test_perform_refresh_expiration(
     expiration = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(
         minutes=1
     )
+    credentials = mocks.FakeCredentials(token="my-token", expiry=expiration)
     setattr(instance, "_enable_iam_auth", True)
     # set downscoped credential to mock
     with patch(
         "google.cloud.sql.connector.refresh_utils._downscope_credentials"
     ) as mock_auth:
-        setattr(fake_credentials, "expiry", expiration)
-        mock_auth.return_value = fake_credentials
+        mock_auth.return_value = credentials
         instance_metadata = await instance._perform_refresh()
-
     # verify instance metadata object is returned
     assert isinstance(instance_metadata, ConnectionInfo)
     # verify instance metadata uses credentials expiration

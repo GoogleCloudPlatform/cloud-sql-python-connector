@@ -70,6 +70,7 @@ setuptools.setup(
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12",
     ],
     platforms="Posix; MacOS X; Windows",
     packages=packages,
@@ -77,7 +78,7 @@ setuptools.setup(
     extras_require={
         "pymysql": ["PyMySQL>=1.1.0"],
         "pg8000": ["pg8000>=1.30.4"],
-        "pytds": ["python-tds>=1.13.0"],
+        "pytds": ["python-tds>=1.15.0"],
         "asyncpg": ["asyncpg>=0.29.0"],
     },
     python_requires=">=3.8",

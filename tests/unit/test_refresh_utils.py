@@ -96,16 +96,6 @@ async def test_get_ephemeral_TypeError(credentials: Credentials) -> None:
     instance = "my-instance"
     pub_key = "key"
 
-    # incorrect credentials type
-    with pytest.raises(TypeError):
-        await _get_ephemeral(
-            client_session=client_session,
-            sqladmin_api_endpoint="https://sqladmin.googleapis.com",
-            credentials="bad-credentials",
-            project=project,
-            instance=instance,
-            pub_key=pub_key,
-        )
     # incorrect project type
     with pytest.raises(TypeError):
         await _get_ephemeral(
@@ -187,16 +177,6 @@ async def test_get_metadata_TypeError(credentials: Credentials) -> None:
     region = "my-region"
     instance = "my-instance"
 
-    # incorrect credentials type
-    with pytest.raises(TypeError):
-        await _get_metadata(
-            client_session=client_session,
-            sqladmin_api_endpoint="https://sqladmin.googleapis.com",
-            credentials="bad-credentials",
-            project=project,
-            region=region,
-            instance=instance,
-        )
     # incorrect project type
     with pytest.raises(TypeError):
         await _get_metadata(
@@ -284,22 +264,6 @@ async def test_is_valid_with_expired_metadata() -> None:
     # task that returns class with expiration 10 mins in past
     task = asyncio.create_task(instance_metadata_expired())
     assert not await _is_valid(task)
-
-
-# TODO: https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/901
-# def test_downscope_credentials_service_account(fake_credentials: Credentials) -> None:
-#     """
-#     Test _downscope_credentials with google.oauth2.service_account.Credentials
-#     which mimics an authenticated service account.
-#     """
-#     # override actual refresh URI
-#     setattr(fake_credentials, "with_scopes", google.auth.credentials.Credentials(scopes=["https://www.googleapis.com/auth/sqlservice.login"]))
-#     credentials = _downscope_credentials(fake_credentials)
-#     # verify default credential scopes have not been altered
-#     assert fake_credentials.scopes == SCOPES
-#     # verify downscoped credentials have new scope
-#     assert credentials.scopes == ["https://www.googleapis.com/auth/sqlservice.login"]
-#     assert credentials != fake_credentials
 
 
 def test_downscope_credentials_user() -> None:
