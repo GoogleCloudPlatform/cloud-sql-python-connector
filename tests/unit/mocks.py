@@ -50,7 +50,9 @@ class FakeCredentials:
     def refresh(self, request: Callable) -> None:
         """Refreshes the access token."""
         self.token = "12345"
-        self.expiry = datetime.datetime.utcnow() + datetime.timedelta(minutes=60)
+        self.expiry = datetime.datetime.now(datetime.timezone.utc).replace(
+            tzinfo=None
+        ) + datetime.timedelta(minutes=60)
 
     @property
     def expired(self) -> bool:
@@ -62,7 +64,12 @@ class FakeCredentials:
         """
         if self.expiry is None:
             return False
-        return False if self.expiry > datetime.datetime.utcnow() else True
+        return (
+            False
+            if self.expiry
+            > datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
+            else True
+        )
 
     @property
     def valid(self) -> bool:

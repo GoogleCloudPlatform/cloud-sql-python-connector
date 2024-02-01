@@ -226,7 +226,7 @@ def test_seconds_until_refresh_over_1_hour() -> None:
     assert (
         pytest.approx(
             _seconds_until_refresh(
-                datetime.datetime.now(datetime.timezone.utc)
+                datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
                 + datetime.timedelta(minutes=62)
             ),
             1,
@@ -246,7 +246,7 @@ def test_seconds_until_refresh_under_1_hour_over_4_mins() -> None:
     assert (
         pytest.approx(
             _seconds_until_refresh(
-                datetime.datetime.now(datetime.timezone.utc)
+                datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
                 + datetime.timedelta(minutes=5)
             ),
             1,
@@ -263,7 +263,8 @@ def test_seconds_until_refresh_under_4_mins() -> None:
     """
     assert (
         _seconds_until_refresh(
-            datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(minutes=3)
+            datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
+            + datetime.timedelta(minutes=3)
         )
         == 0
     )
