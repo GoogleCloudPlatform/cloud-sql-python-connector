@@ -109,13 +109,15 @@ class MockMetadata(ConnectionInfo):
 
 async def instance_metadata_success(*args: Any, **kwargs: Any) -> MockMetadata:
     return MockMetadata(
-        datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(minutes=10)
+        datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
+        + datetime.timedelta(minutes=10)
     )
 
 
 async def instance_metadata_expired(*args: Any, **kwargs: Any) -> MockMetadata:
     return MockMetadata(
-        datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(minutes=10)
+        datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
+        - datetime.timedelta(minutes=10)
     )
 
 
@@ -283,10 +285,6 @@ class FakeCSQLInstance:
             client_bytes.encode("UTF-8"), default_backend()
         )  # type: ignore
         ephemeral_cert = client_key_signed_cert(self.cert, self.key, client_key)
-        print(
-            "Test generate time: ",
-            datetime.datetime.utcnow() + datetime.timedelta(minutes=10),
-        )
         return json.dumps(
             {
                 "ephemeralCert": {
