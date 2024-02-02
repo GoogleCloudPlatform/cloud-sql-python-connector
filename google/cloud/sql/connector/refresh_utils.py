@@ -196,7 +196,8 @@ async def _get_ephemeral(
     if enable_iam_auth:
         token_expiration: datetime.datetime = login_creds.expiry
         # google.auth library strips timezone info for backwards compatibality
-        # Ref: https://github.com/googleapis/google-auth-library-python/blob/main/google/auth/_helpers.py#L93-L99
+        # reasons with Python 2. Add it back to allow timezone aware datetimes.
+        # Ref: https://github.com/googleapis/google-auth-library-python/blob/49a5ff7411a2ae4d32a7d11700f9f961c55406a9/google/auth/_helpers.py#L93-L99
         token_expiration = token_expiration.replace(tzinfo=datetime.timezone.utc)
         if expiration > token_expiration:
             expiration = token_expiration
