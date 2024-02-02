@@ -64,11 +64,9 @@ class FakeCredentials:
         """
         if self.expiry is None:
             return False
-        return (
-            False
-            if self.expiry > datetime.datetime.now(datetime.timezone.utc)
-            else True
-        )
+        if self.expiry > datetime.datetime.now(datetime.timezone.utc):
+            return False
+        return True
 
     @property
     def valid(self) -> bool:
