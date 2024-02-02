@@ -26,7 +26,7 @@ description = (
 release_status = "Development Status :: 5 - Production/Stable"
 dependencies = [
     "aiohttp",
-    "cryptography>=38.0.3",
+    "cryptography>=42.0.0",
     "Requests",
     "google-auth",
 ]
