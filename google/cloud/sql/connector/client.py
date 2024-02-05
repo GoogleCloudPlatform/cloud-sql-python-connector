@@ -152,16 +152,6 @@ class CloudSQLClient:
     ) -> Tuple[str, datetime.datetime]:
         """Asynchronously requests an ephemeral certificate from the Cloud SQL Instance.
 
-        :type sqladmin_api_endpoint: str
-        :param sqladmin_api_endpoint:
-            Base URL to use when calling the Cloud SQL Admin API endpoint.
-
-        :type credentials: google.auth.credentials.Credentials
-        :param credentials: A credentials object
-            created from the google-auth library. Must be
-            using the SQL Admin API scopes. For more info, check out
-            https://google-auth.readthedocs.io/en/latest/.
-
         :type project: str
         :param project : A string representing the name of the project.
 

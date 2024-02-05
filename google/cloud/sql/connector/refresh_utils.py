@@ -45,7 +45,9 @@ def _seconds_until_refresh(
     :returns: Time in seconds to wait before performing next refresh.
     """
 
-    duration = int((expiration - datetime.datetime.utcnow()).total_seconds())
+    duration = int(
+        (expiration - datetime.datetime.now(datetime.timezone.utc)).total_seconds()
+    )
 
     # if certificate duration is less than 1 hour
     if duration < 3600:
@@ -62,7 +64,7 @@ async def _is_valid(task: asyncio.Task) -> bool:
     try:
         metadata = await task
         # only valid if now is before the cert expires
-        if datetime.datetime.utcnow() < metadata.expiration:
+        if datetime.datetime.now(datetime.timezone.utc) < metadata.expiration:
             return True
     except Exception:
         # supress any errors from task

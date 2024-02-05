@@ -14,8 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 import asyncio
-from datetime import datetime
-from datetime import timedelta
+import datetime
 from typing import Any, no_type_check
 
 import aiohttp
@@ -93,48 +92,14 @@ async def test_get_ephemeral_TypeError(credentials: Credentials) -> None:
     when given incorrect input arg types.
     """
     client_session = Mock(aiohttp.ClientSession)
-    project = "my-project"
-    instance = "my-instance"
-    pub_key = "key"
-
-    # incorrect credentials type
-    with pytest.raises(TypeError):
-        await _get_ephemeral(
-            client_session=client_session,
-            sqladmin_api_endpoint="https://sqladmin.googleapis.com",
-            credentials="bad-credentials",
-            project=project,
-            instance=instance,
-            pub_key=pub_key,
-        )
-    # incorrect project type
-    with pytest.raises(TypeError):
-        await _get_ephemeral(
-            client_session=client_session,
-            sqladmin_api_endpoint="https://sqladmin.googleapis.com",
-            credentials=credentials,
-            project=12345,
-            instance=instance,
-            pub_key=pub_key,
-        )
-    # incorrect instance type
-    with pytest.raises(TypeError):
-        await _get_ephemeral(
-            client_session=client_session,
-            sqladmin_api_endpoint="https://sqladmin.googleapis.com",
-            credentials=credentials,
-            project=project,
-            instance=12345,
-            pub_key=pub_key,
-        )
     # incorrect pub_key type
     with pytest.raises(TypeError):
         await _get_ephemeral(
             client_session=client_session,
             sqladmin_api_endpoint="https://sqladmin.googleapis.com",
             credentials=credentials,
-            project=project,
-            instance=instance,
+            project="my-project",
+            instance="my-instance",
             pub_key=12345,
         )
 
@@ -174,60 +139,6 @@ async def test_get_metadata(
         and result["database_version"] == "POSTGRES_14"
         and isinstance(result["server_ca_cert"], str)
     )
-
-
-@pytest.mark.asyncio
-@no_type_check
-async def test_get_metadata_TypeError(credentials: Credentials) -> None:
-    """
-    Test to check whether _get_metadata throws proper TypeError
-    when given incorrect input arg types.
-    """
-    client_session = Mock(aiohttp.ClientSession)
-    project = "my-project"
-    region = "my-region"
-    instance = "my-instance"
-
-    # incorrect credentials type
-    with pytest.raises(TypeError):
-        await _get_metadata(
-            client_session=client_session,
-            sqladmin_api_endpoint="https://sqladmin.googleapis.com",
-            credentials="bad-credentials",
-            project=project,
-            region=region,
-            instance=instance,
-        )
-    # incorrect project type
-    with pytest.raises(TypeError):
-        await _get_metadata(
-            client_session=client_session,
-            sqladmin_api_endpoint="https://sqladmin.googleapis.com",
-            credentials=credentials,
-            project=12345,
-            region=region,
-            instance=instance,
-        )
-    # incorrect region type
-    with pytest.raises(TypeError):
-        await _get_metadata(
-            client_session=client_session,
-            sqladmin_api_endpoint="https://sqladmin.googleapis.com",
-            credentials=credentials,
-            project=project,
-            region=1,
-            instance=instance,
-        )
-    # incorrect instance type
-    with pytest.raises(TypeError):
-        await _get_metadata(
-            client_session=client_session,
-            sqladmin_api_endpoint="https://sqladmin.googleapis.com",
-            credentials=credentials,
-            project=project,
-            region=region,
-            instance=12345,
-        )
 
 
 @pytest.mark.asyncio
@@ -287,22 +198,6 @@ async def test_is_valid_with_expired_metadata() -> None:
     assert not await _is_valid(task)
 
 
-# TODO: https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/901
-# def test_downscope_credentials_service_account(fake_credentials: Credentials) -> None:
-#     """
-#     Test _downscope_credentials with google.oauth2.service_account.Credentials
-#     which mimics an authenticated service account.
-#     """
-#     # override actual refresh URI
-#     setattr(fake_credentials, "with_scopes", google.auth.credentials.Credentials(scopes=["https://www.googleapis.com/auth/sqlservice.login"]))
-#     credentials = _downscope_credentials(fake_credentials)
-#     # verify default credential scopes have not been altered
-#     assert fake_credentials.scopes == SCOPES
-#     # verify downscoped credentials have new scope
-#     assert credentials.scopes == ["https://www.googleapis.com/auth/sqlservice.login"]
-#     assert credentials != fake_credentials
-
-
 def test_downscope_credentials_user() -> None:
     """
     Test _downscope_credentials with google.oauth2.credentials.Credentials
@@ -330,7 +225,11 @@ def test_seconds_until_refresh_over_1_hour() -> None:
     # using pytest.approx since sometimes can be off by a second
     assert (
         pytest.approx(
-            _seconds_until_refresh(datetime.utcnow() + timedelta(minutes=62)), 1
+            _seconds_until_refresh(
+                datetime.datetime.now(datetime.timezone.utc)
+                + datetime.timedelta(minutes=62)
+            ),
+            1,
         )
         == 31 * 60
     )
@@ -346,7 +245,11 @@ def test_seconds_until_refresh_under_1_hour_over_4_mins() -> None:
     # using pytest.approx since sometimes can be off by a second
     assert (
         pytest.approx(
-            _seconds_until_refresh(datetime.utcnow() + timedelta(minutes=5)), 1
+            _seconds_until_refresh(
+                datetime.datetime.now(datetime.timezone.utc)
+                + datetime.timedelta(minutes=5)
+            ),
+            1,
         )
         == 60
     )
@@ -358,4 +261,9 @@ def test_seconds_until_refresh_under_4_mins() -> None:
 
     If expiration is under 4 minutes, should return 0.
     """
-    assert _seconds_until_refresh(datetime.utcnow() + timedelta(minutes=3)) == 0
+    assert (
+        _seconds_until_refresh(
+            datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(minutes=3)
+        )
+        == 0
+    )

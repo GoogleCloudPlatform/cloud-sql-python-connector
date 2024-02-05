@@ -21,7 +21,11 @@ import logging
 import socket
 from threading import Thread
 from types import TracebackType
-from typing import Any, Dict, Optional, Type, TYPE_CHECKING
+from typing import Any, Dict, Optional, Type
+
+import google.auth
+from google.auth.credentials import Credentials
+from google.auth.credentials import with_scopes_if_required
 
 import google.auth
 from google.auth.credentials import with_scopes_if_required
@@ -36,9 +40,6 @@ import google.cloud.sql.connector.pymysql as pymysql
 import google.cloud.sql.connector.pytds as pytds
 from google.cloud.sql.connector.utils import format_database_user
 from google.cloud.sql.connector.utils import generate_keys
-
-if TYPE_CHECKING:
-    from google.auth.credentials import Credentials
 
 logger = logging.getLogger(name=__name__)
 
@@ -116,6 +117,8 @@ class Connector:
         # initialize credentials
         scopes = ["https://www.googleapis.com/auth/sqlservice.admin"]
         if credentials:
+            # verify custom credentials are proper type
+            # and atleast base class of google.auth.credentials
             if not isinstance(credentials, Credentials):
                 raise TypeError(
                     "credentials must be of type google.auth.credentials.Credentials,"
@@ -131,7 +134,6 @@ class Connector:
         self._ip_type = ip_type
         self._quota_project = quota_project
         self._sqladmin_api_endpoint = sqladmin_api_endpoint
-        self._credentials = credentials
         self._user_agent = user_agent
 
     def connect(

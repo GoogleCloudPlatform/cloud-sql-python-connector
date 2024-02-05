@@ -19,7 +19,7 @@ import datetime
 import json
 import ssl
 from tempfile import TemporaryDirectory
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Callable, Dict, Optional, Tuple
 
 from cryptography import x509
 from cryptography.hazmat.backends import default_backend
@@ -27,11 +27,55 @@ from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.x509.oid import NameOID
+from google.auth.credentials import Credentials
 
 from google.cloud.sql.connector import IPTypes
 from google.cloud.sql.connector.instance import ConnectionInfo
 from google.cloud.sql.connector.utils import generate_keys
 from google.cloud.sql.connector.utils import write_to_file
+
+
+class FakeCredentials:
+    def __init__(
+        self, token: Optional[str] = None, expiry: Optional[datetime.datetime] = None
+    ) -> None:
+        self.token = token
+        self.expiry = expiry
+
+    @property
+    def __class__(self) -> Credentials:
+        # set class type to google auth Credentials
+        return Credentials
+
+    def refresh(self, request: Callable) -> None:
+        """Refreshes the access token."""
+        self.token = "12345"
+        self.expiry = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(
+            minutes=60
+        )
+
+    @property
+    def expired(self) -> bool:
+        """Checks if the credentials are expired.
+
+        Note that credentials can be invalid but not expired because
+        Credentials with expiry set to None are considered to never
+        expire.
+        """
+        if self.expiry is None:
+            return False
+        if self.expiry > datetime.datetime.now(datetime.timezone.utc):
+            return False
+        return True
+
+    @property
+    def valid(self) -> bool:
+        """Checks the validity of the credentials.
+
+        This is True if the credentials have a token and the token
+        is not expired.
+        """
+        return self.token is not None and not self.expired
 
 
 class MockInstance:
@@ -68,11 +112,15 @@ class MockMetadata(ConnectionInfo):
 
 
 async def instance_metadata_success(*args: Any, **kwargs: Any) -> MockMetadata:
-    return MockMetadata(datetime.datetime.utcnow() + datetime.timedelta(minutes=10))
+    return MockMetadata(
+        datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(minutes=10)
+    )
 
 
 async def instance_metadata_expired(*args: Any, **kwargs: Any) -> MockMetadata:
-    return MockMetadata(datetime.datetime.utcnow() - datetime.timedelta(minutes=10))
+    return MockMetadata(
+        datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(minutes=10)
+    )
 
 
 async def instance_metadata_error(*args: Any, **kwargs: Any) -> None:
@@ -105,10 +153,10 @@ def generate_cert(
         .issuer_name(issuer)
         .public_key(key.public_key())
         .serial_number(x509.random_serial_number())
-        .not_valid_before(datetime.datetime.utcnow())
+        .not_valid_before(datetime.datetime.now(datetime.timezone.utc))
         .not_valid_after(
             # cert valid for 10 mins
-            datetime.datetime.utcnow()
+            datetime.datetime.now(datetime.timezone.utc)
             + datetime.timedelta(minutes=60)
         )
     )
@@ -149,7 +197,7 @@ def client_key_signed_cert(
         .issuer_name(issuer)
         .public_key(client_key)
         .serial_number(x509.random_serial_number())
-        .not_valid_before(datetime.datetime.utcnow())
+        .not_valid_before(datetime.datetime.now(datetime.timezone.utc))
         .not_valid_after(cert._not_valid_after)  # type: ignore
     )
     return (
@@ -218,7 +266,8 @@ class FakeCSQLInstance:
                     "cert": server_ca_cert,
                     "instance": self.name,
                     "expirationTime": str(
-                        datetime.datetime.utcnow() + datetime.timedelta(minutes=10)
+                        datetime.datetime.now(datetime.timezone.utc)
+                        + datetime.timedelta(minutes=10)
                     ),
                 },
                 "dnsName": "abcde.12345.us-central1.sql.goog",
@@ -244,7 +293,8 @@ class FakeCSQLInstance:
                     "kind": "sql#sslCert",
                     "cert": ephemeral_cert,
                     "expirationTime": str(
-                        datetime.datetime.utcnow() + datetime.timedelta(minutes=10)
+                        datetime.datetime.now(datetime.timezone.utc)
+                        + datetime.timedelta(minutes=10)
                     ),
                 }
             }
