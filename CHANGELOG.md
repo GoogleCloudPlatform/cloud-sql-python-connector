@@ -1,5 +1,26 @@
 # Changelog
 
+## [1.7.0](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v1.6.0...v1.7.0) (2024-02-13)
+
+
+### Features
+
+* add support for a custom user agent ([#986](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/986)) ([82da410](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/82da41050992de2eddfeae5a81a434192e88d134))
+* add support for Python 3.12 ([#905](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/905)) ([7501d17](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/7501d17ee05d41c1e009e4ca44ad7f8edaf18001))
+
+
+### Dependencies
+
+* Update dependency aiohttp to v3.9.2 ([#991](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/991)) ([9a699c3](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/9a699c309cb6dd771dc6416c49327105a83b9ed8))
+* Update dependency aiohttp to v3.9.3 ([#993](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/993)) ([168b1f4](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/168b1f43b2d0e4b376d8858aa32bc54e26d3e069))
+* Update dependency cryptography to v42 ([#978](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/978)) ([c38506b](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/c38506b8bcfdbd4b3dfd43850765cf7bbbc3ec69))
+* Update dependency cryptography to v42.0.2 ([#994](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/994)) ([6b762df](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/6b762df593ffbdc81a7ae98386230af9dc570147))
+* Update dependency google-auth to v2.27.0 ([#980](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/980)) ([def011a](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/def011a0f7eee9d6288b441de5df416f429d227f))
+* Update dependency pytest-asyncio to v0.23.4 ([#990](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/990)) ([811f661](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/811f66198038c1b82b828fc076ce22bfaaae6445))
+* Update dependency pytest-asyncio to v0.23.5 ([#1003](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/1003)) ([d81a0e8](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/d81a0e8e9f487042940191df95aba6fb7cadd5ae))
+* Update dependency SQLAlchemy to v2.0.26 ([#1004](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/1004)) ([98d2648](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/98d26480a446d3bc222ffaa51ea97e72f9c070fc))
+* Update dependency SQLAlchemy to v2.0.27 ([#1006](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/1006)) ([fb58373](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/fb58373293568336e66cdc96d84e0c00d1b7178a))
+
 ## [1.6.0](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v1.5.0...v1.6.0) (2024-01-17)
 
 
