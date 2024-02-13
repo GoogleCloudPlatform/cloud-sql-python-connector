@@ -355,12 +355,6 @@ class Connector:
         if self._client:
             await self._client.close()
 
-    def __del__(self) -> None:
-        """Close Connector as part of garbage collection"""
-        # only want to call destructor when used for sync connections
-        if self._thread:
-            self.close()
-
 
 async def create_async_connector(
     ip_type: IPTypes = IPTypes.PUBLIC,
