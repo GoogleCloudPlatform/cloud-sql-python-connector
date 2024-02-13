@@ -17,47 +17,48 @@ import asyncio
 
 from google.auth.credentials import Credentials
 from mock import patch
-from mocks import MockInstance
 import pytest  # noqa F401 Needed to run the tests
 
 from google.cloud.sql.connector import Connector
 from google.cloud.sql.connector import create_async_connector
 from google.cloud.sql.connector import IPTypes
+from google.cloud.sql.connector.client import CloudSQLClient
 from google.cloud.sql.connector.exceptions import ConnectorLoopError
+from google.cloud.sql.connector.instance import Instance
 
 
-def test_connect_enable_iam_auth_error(fake_credentials: Credentials) -> None:
+def test_connect_enable_iam_auth_error(
+    fake_credentials: Credentials, instance: Instance
+) -> None:
     """Test that calling connect() with different enable_iam_auth
     argument values throws error."""
-    connect_string = "my-project:my-region:my-instance"
-    # create mock instance with enable_iam_auth=False
-    instance = MockInstance(enable_iam_auth=False)
-    mock_instances = {}
-    mock_instances[connect_string] = instance
-    # init Connector
+    connect_string = "test-project:test-region:test-instance"
     connector = Connector(credentials=fake_credentials)
-    with patch.dict(connector._instances, mock_instances):
-        # try to connect using enable_iam_auth=True, should raise error
-        pytest.raises(
-            ValueError,
-            connector.connect,
-            connect_string,
-            "pg8000",
-            enable_iam_auth=True,
-        )
-    # remove mock_instance to avoid destructor warnings
+    # set instance
+    connector._instances[connect_string] = instance
+    # try to connect using enable_iam_auth=True, should raise error
+    with pytest.raises(ValueError) as exc_info:
+        connector.connect(connect_string, "pg8000", enable_iam_auth=True)
+    assert (
+        exc_info.value.args[0] == "connect() called with 'enable_iam_auth=True', "
+        "but previously used 'enable_iam_auth=False'. "
+        "If you require both for your use case, please use a new "
+        "connector.Connector object."
+    )
+    # remove instance to avoid destructor warnings
     connector._instances = {}
 
 
-def test_connect_with_unsupported_driver(connector: Connector) -> None:
-    # try to connect using unsupported driver, should raise KeyError
-    with pytest.raises(KeyError) as exc_info:
-        connector.connect(
-            "my-project:my-region:my-instance",
-            "bad_driver",
-        )
-    # assert custom error message for unsupported driver is present
-    assert exc_info.value.args[0] == "Driver 'bad_driver' is not supported."
+def test_connect_with_unsupported_driver(fake_credentials: Credentials) -> None:
+    with Connector(credentials=fake_credentials) as connector:
+        # try to connect using unsupported driver, should raise KeyError
+        with pytest.raises(KeyError) as exc_info:
+            connector.connect(
+                "my-project:my-region:my-instance",
+                "bad_driver",
+            )
+        # assert custom error message for unsupported driver is present
+        assert exc_info.value.args[0] == "Driver 'bad_driver' is not supported."
 
 
 @pytest.mark.asyncio
@@ -129,17 +130,27 @@ async def test_Connector_Init_async_context_manager(
         assert connector._loop == loop
 
 
-def test_Connector_connect(connector: Connector) -> None:
-    """Test that Connector.connect can properly return a DB API connection."""
-    connect_string = "my-project:my-region:my-instance"
-    # patch db connection creation
-    with patch("google.cloud.sql.connector.pg8000.connect") as mock_connect:
-        mock_connect.return_value = True
-        connection = connector.connect(
-            connect_string, "pg8000", user="my-user", password="my-pass", db="my-db"
-        )
-        # verify connector made connection call
-        assert connection is True
+@pytest.mark.asyncio
+async def test_Connector_connect_async(
+    fake_credentials: Credentials, fake_client: CloudSQLClient
+) -> None:
+    """Test that Connector.connect_async can properly return a DB API connection."""
+    async with Connector(
+        credentials=fake_credentials, loop=asyncio.get_running_loop()
+    ) as connector:
+        connector._client = fake_client
+        # patch db connection creation
+        with patch("google.cloud.sql.connector.asyncpg.connect") as mock_connect:
+            mock_connect.return_value = True
+            connection = await connector.connect_async(
+                "test-project:test-region:test-instance",
+                "asyncpg",
+                user="my-user",
+                password="my-pass",
+                db="my-db",
+            )
+            # verify connector made connection call
+            assert connection is True
 
 
 @pytest.mark.asyncio

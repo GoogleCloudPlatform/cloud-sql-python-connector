@@ -17,15 +17,14 @@ import asyncio
 import os
 import socket
 from threading import Thread
-from typing import Any, AsyncGenerator, Generator, Tuple
+from typing import Any, AsyncGenerator, Generator
 
-from aioresponses import aioresponses
-from google.auth.credentials import Credentials
+from aiohttp import web
 import pytest  # noqa F401 Needed to run the tests
 from unit.mocks import FakeCredentials  # type: ignore
 from unit.mocks import FakeCSQLInstance  # type: ignore
 
-from google.cloud.sql.connector import Connector
+from google.cloud.sql.connector.client import CloudSQLClient
 from google.cloud.sql.connector.instance import Instance
 from google.cloud.sql.connector.utils import generate_keys
 
@@ -106,98 +105,46 @@ def kwargs() -> Any:
     return kwargs
 
 
-@pytest.fixture(scope="module")
-def mock_instance() -> FakeCSQLInstance:
-    mock_instance = FakeCSQLInstance("my-project", "my-region", "my-instance")
-    return mock_instance
+@pytest.fixture(scope="session")
+def fake_instance() -> FakeCSQLInstance:
+    return FakeCSQLInstance()
 
 
 @pytest.fixture
-async def instance(
-    mock_instance: FakeCSQLInstance,
-    fake_credentials: Credentials,
-) -> AsyncGenerator[Instance, None]:
-    """
-    Instance with mocked API calls.
-    """
+async def fake_client(
+    fake_credentials: FakeCredentials,
+    fake_instance: FakeCSQLInstance,
+    aiohttp_client: Any,
+) -> CloudSQLClient:
+    app = web.Application()
+    # add SQL Server instance for additional tests
+    # TODO: remove when SQL Server supports IAM authN
+    sqlserver_instance = FakeCSQLInstance(
+        name="sqlserver-instance", db_version="SQLSERVER_2019_STANDARD"
+    )
+    metadata_uri = f"/sql/v1beta4/projects/{fake_instance.project}/instances/{fake_instance.name}/connectSettings"
+    app.router.add_get(metadata_uri, fake_instance.connect_settings)
+    sqlserver_metadata_uri = f"/sql/v1beta4/projects/{sqlserver_instance.project}/instances/{sqlserver_instance.name}/connectSettings"
+    app.router.add_get(sqlserver_metadata_uri, sqlserver_instance.connect_settings)
+    client_cert_uri = f"/sql/v1beta4/projects/{fake_instance.project}/instances/{fake_instance.name}:generateEphemeralCert"
+    app.router.add_post(client_cert_uri, fake_instance.generate_ephemeral)
+    sqlserver_client_cert_uri = f"/sql/v1beta4/projects/{sqlserver_instance.project}/instances/{sqlserver_instance.name}:generateEphemeralCert"
+    app.router.add_post(
+        sqlserver_client_cert_uri, sqlserver_instance.generate_ephemeral
+    )
+    client_session = await aiohttp_client(app)
+    return CloudSQLClient("", "", fake_credentials, client=client_session)
+
+
+@pytest.fixture
+async def instance(fake_client: CloudSQLClient) -> AsyncGenerator[Instance, None]:
     loop = asyncio.get_running_loop()
-    # generate client key pair
     keys = asyncio.create_task(generate_keys())
-    _, client_key = await keys
-
-    # mock Cloud SQL Admin API calls
-    with aioresponses() as mocked:
-        mocked.get(
-            f"https://sqladmin.googleapis.com/sql/v1beta4/projects/{mock_instance.project}/instances/{mock_instance.name}/connectSettings",
-            status=200,
-            body=mock_instance.connect_settings(),
-            repeat=True,
-        )
-        mocked.post(
-            f"https://sqladmin.googleapis.com/sql/v1beta4/projects/{mock_instance.project}/instances/{mock_instance.name}:generateEphemeralCert",
-            status=200,
-            body=mock_instance.generate_ephemeral(client_key),
-            repeat=True,
-        )
-
-        instance = Instance(
-            f"{mock_instance.project}:{mock_instance.region}:{mock_instance.name}",
-            "pg8000",
-            keys,
-            loop,
-            fake_credentials,
-        )
-
-        yield instance
-        await instance.close()
-
-
-@pytest.fixture
-async def connector(fake_credentials: Credentials) -> AsyncGenerator[Connector, None]:
-    instance_connection_name = "my-project:my-region:my-instance"
-    project, region, instance_name = instance_connection_name.split(":")
-    # initialize connector
-    connector = Connector(credentials=fake_credentials)
-    # mock Cloud SQL Admin API calls
-    mock_instance = FakeCSQLInstance(project, region, instance_name)
-
-    async def wait_for_keys(future: asyncio.Future) -> Tuple[bytes, str]:
-        """
-        Helper method to await keys of Connector in tests prior to
-        initializing an Instance object.
-        """
-        return await future
-
-    # converting asyncio.Future into concurrent.Future
-    # await keys in background thread so that .result() is set
-    # required because keys are needed for mocks, but are not awaited
-    # in the code until Instance() is initialized
-    _, client_key = asyncio.run_coroutine_threadsafe(
-        wait_for_keys(connector._keys), connector._loop
-    ).result()
-    with aioresponses() as mocked:
-        mocked.get(
-            f"https://sqladmin.googleapis.com/sql/v1beta4/projects/{project}/instances/{instance_name}/connectSettings",
-            status=200,
-            body=mock_instance.connect_settings(),
-            repeat=True,
-        )
-        mocked.post(
-            f"https://sqladmin.googleapis.com/sql/v1beta4/projects/{project}/instances/{instance_name}:generateEphemeralCert",
-            status=200,
-            body=mock_instance.generate_ephemeral(client_key),
-            repeat=True,
-        )
-        # initialize Instance using mocked API calls
-        instance = Instance(
-            instance_connection_name,
-            "pg8000",
-            connector._keys,
-            connector._loop,
-            fake_credentials,
-        )
-
-        connector._instances[instance_connection_name] = instance
-
-        yield connector
-        connector.close()
+    instance = Instance(
+        "test-project:test-region:test-instance",
+        client=fake_client,
+        keys=keys,
+        loop=loop,
+    )
+    yield instance
+    await instance.close()

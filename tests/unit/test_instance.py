@@ -25,6 +25,7 @@ from mock import patch
 import mocks
 import pytest  # noqa F401 Needed to run the tests
 
+from google.cloud.sql.connector.client import CloudSQLClient
 from google.cloud.sql.connector.exceptions import AutoIAMAuthNotSupported
 from google.cloud.sql.connector.exceptions import CloudSQLIPTypeError
 from google.cloud.sql.connector.instance import _parse_instance_connection_name
@@ -33,7 +34,6 @@ from google.cloud.sql.connector.instance import Instance
 from google.cloud.sql.connector.instance import IPTypes
 from google.cloud.sql.connector.rate_limiter import AsyncRateLimiter
 from google.cloud.sql.connector.utils import generate_keys
-from google.cloud.sql.connector.version import __version__ as version
 
 
 @pytest.fixture
@@ -71,39 +71,18 @@ def test_parse_instance_connection_name_bad_conn_name() -> None:
 
 @pytest.mark.asyncio
 async def test_Instance_init(
-    fake_credentials: Credentials,
+    instance: Instance,
 ) -> None:
     """
     Test to check whether the __init__ method of Instance
     can tell if the connection string that's passed in is formatted correctly.
     """
-    event_loop = asyncio.get_running_loop()
-    connect_string = "test-project:test-region:test-instance"
-    keys = asyncio.wrap_future(
-        asyncio.run_coroutine_threadsafe(generate_keys(), event_loop), loop=event_loop
-    )
-    instance = Instance(
-        connect_string,
-        "pymysql",
-        keys,
-        event_loop,
-        credentials=fake_credentials,
-        user_agent="custom/v1.0.0",
-    )
-    project_result = instance._project
-    region_result = instance._region
-    instance_result = instance._instance
     assert (
-        project_result == "test-project"
-        and region_result == "test-region"
-        and instance_result == "test-instance"
+        instance._project == "test-project"
+        and instance._region == "test-region"
+        and instance._instance == "test-instance"
     )
-    assert (
-        instance._user_agent_string
-        == f"cloud-sql-python-connector/{version}+pymysql custom/v1.0.0"
-    )
-    # cleanup instance
-    await instance.close()
+    assert instance._enable_iam_auth is False
 
 
 @pytest.mark.asyncio
@@ -193,7 +172,6 @@ async def test_schedule_refresh_replaces_invalid_result(
     # check that current is now valid MockMetadata
     assert instance._current.result() == refresh_metadata
     assert isinstance(instance._current.result(), mocks.MockMetadata)
-    await instance.close()
 
 
 @pytest.mark.asyncio
@@ -234,19 +212,17 @@ async def test_Instance_close(instance: Instance) -> None:
     await instance._current
     assert instance._current.cancelled() is False
     assert instance._next.cancelled() is False
-    assert instance._client_session.closed is False
     # run close() to cancel tasks and close ClientSession
     await instance.close()
     # verify tasks are cancelled and ClientSession is closed
     assert (instance._current.done() or instance._current.cancelled()) is True
     assert instance._next.cancelled() is True
-    assert instance._client_session.closed is True
 
 
 @pytest.mark.asyncio
 async def test_perform_refresh(
     instance: Instance,
-    mock_instance: mocks.FakeCSQLInstance,
+    fake_instance: mocks.FakeCSQLInstance,
 ) -> None:
     """
     Test that _perform_refresh returns valid ConnectionInfo object.
@@ -256,12 +232,7 @@ async def test_perform_refresh(
     # verify instance metadata object is returned
     assert isinstance(instance_metadata, ConnectionInfo)
     # verify instance metadata expiration
-    assert (
-        mock_instance.cert._not_valid_after.replace(
-            tzinfo=datetime.timezone.utc, microsecond=0  # type: ignore
-        )
-        == instance_metadata.expiration
-    )
+    assert fake_instance.server_cert.not_valid_after_utc == instance_metadata.expiration
 
 
 @pytest.mark.asyncio
@@ -281,11 +252,10 @@ async def test_perform_refresh_expiration(
     credentials = mocks.FakeCredentials(token="my-token", expiry=expiration)
     setattr(instance, "_enable_iam_auth", True)
     # set downscoped credential to mock
-    with patch(
-        "google.cloud.sql.connector.refresh_utils._downscope_credentials"
-    ) as mock_auth:
+    with patch("google.cloud.sql.connector.client._downscope_credentials") as mock_auth:
         mock_auth.return_value = credentials
         instance_metadata = await instance._perform_refresh()
+    mock_auth.assert_called_once()
     # verify instance metadata object is returned
     assert isinstance(instance_metadata, ConnectionInfo)
     # verify instance metadata uses credentials expiration
@@ -303,33 +273,7 @@ async def test_connect_info(
 
     # verify metadata and ip address
     assert isinstance(instance_metadata, ConnectionInfo)
-    assert ip_addr == "0.0.0.0"
-    # cleanup instance
-    await instance.close()
-
-
-@pytest.mark.asyncio
-async def test_get_preferred_ip(instance: Instance) -> None:
-    """
-    Test that get_preferred_ip returns proper IP address
-    for both Public and Private IP addresses.
-    """
-    instance_metadata: ConnectionInfo = await instance._current
-
-    # test public IP as preferred IP for connection
-    ip_addr = instance_metadata.get_preferred_ip(IPTypes.PUBLIC)
-    # verify public ip address is preferred
-    assert ip_addr == "0.0.0.0"
-
-    # test private IP as preferred IP for connection
-    ip_addr = instance_metadata.get_preferred_ip(IPTypes.PRIVATE)
-    # verify private ip address is preferred
-    assert ip_addr == "1.1.1.1"
-
-    # test PSC as preferred IP type for connection
-    ip_addr = instance_metadata.get_preferred_ip(IPTypes.PSC)
-    # verify PSC ip address is preferred
-    assert ip_addr == "abcde.12345.us-central1.sql.goog"
+    assert ip_addr == "127.0.0.1"
 
 
 @pytest.mark.asyncio
@@ -361,10 +305,13 @@ async def test_ClientResponseError(
     """
     Test that detailed error message is applied to ClientResponseError.
     """
-    event_loop = asyncio.get_running_loop()
+    loop = asyncio.get_running_loop()
     # mock Cloud SQL Admin API calls with exceptions
-    keys = asyncio.wrap_future(
-        asyncio.run_coroutine_threadsafe(generate_keys(), event_loop), loop=event_loop
+    keys = asyncio.create_task(generate_keys())
+    client = CloudSQLClient(
+        sqladmin_api_endpoint="https://sqladmin.googleapis.com",
+        quota_project=None,
+        credentials=fake_credentials,
     )
     get_url = "https://sqladmin.googleapis.com/sql/v1beta4/projects/my-project/instances/my-instance/connectSettings"
     post_url = "https://sqladmin.googleapis.com/sql/v1beta4/projects/my-project/instances/my-instance:generateEphemeralCert"
@@ -385,15 +332,13 @@ async def test_ClientResponseError(
             ),
             repeat=True,
         )
-        # verify that error is raised with detailed error message
+        instance = Instance(
+            "my-project:my-region:my-instance",
+            client,
+            keys,
+            loop,
+        )
         try:
-            instance = Instance(
-                "my-project:my-region:my-instance",
-                "pymysql",
-                keys,
-                event_loop,
-                credentials=fake_credentials,
-            )
             await instance._current
         except ClientResponseError as e:
             assert e.status == 403
@@ -405,20 +350,24 @@ async def test_ClientResponseError(
             )
         finally:
             await instance.close()
+            await client.close()
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize(
-    "mock_instance",
-    [
-        mocks.FakeCSQLInstance(db_version="SQLSERVER_2019_STANDARD"),
-    ],
-)
-async def test_AutoIAMAuthNotSupportedError(instance: Instance) -> None:
+async def test_AutoIAMAuthNotSupportedError(fake_client: CloudSQLClient) -> None:
     """
     Test that AutoIAMAuthNotSupported exception is raised
-    for SQL Server and MySQL instances.
+    for SQL Server instances.
     """
-    instance._enable_iam_auth = True
+    loop = asyncio.get_running_loop()
+    # generate client key pair
+    keys = asyncio.create_task(generate_keys())
+    instance = Instance(
+        "test-project:test-region:sqlserver-instance",
+        client=fake_client,
+        keys=keys,
+        loop=loop,
+        enable_iam_auth=True,
+    )
     with pytest.raises(AutoIAMAuthNotSupported):
         await instance._current

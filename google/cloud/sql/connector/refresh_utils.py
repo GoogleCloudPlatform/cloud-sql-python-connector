@@ -13,195 +13,24 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
+
 from __future__ import annotations
 
 import asyncio
 import copy
 import datetime
 import logging
-from typing import Any, Dict, List, Tuple, TYPE_CHECKING
+from typing import List
 
-from cryptography.hazmat.backends import default_backend
-from cryptography.x509 import load_pem_x509_certificate
 from google.auth.credentials import Credentials
 from google.auth.credentials import Scoped
 import google.auth.transport.requests
 
-if TYPE_CHECKING:
-    import aiohttp
-
 logger = logging.getLogger(name=__name__)
-
-_sql_api_version: str = "v1beta4"
 
 # _refresh_buffer is the amount of time before a refresh's result expires
 # that a new refresh operation begins.
 _refresh_buffer: int = 4 * 60  # 4 minutes
-
-
-async def _get_metadata(
-    client_session: aiohttp.ClientSession,
-    sqladmin_api_endpoint: str,
-    credentials: Credentials,
-    project: str,
-    region: str,
-    instance: str,
-) -> Dict[str, Any]:
-    """Requests metadata from the Cloud SQL Instance
-    and returns a dictionary containing the IP addresses and certificate
-    authority of the Cloud SQL Instance.
-
-    :type sqladmin_api_endpoint: str
-    :param sqladmin_api_endpoint:
-        Base URL to use when calling the Cloud SQL Admin API endpoint.
-
-    :type credentials: google.auth.credentials.Credentials
-    :param credentials:
-        A credentials object created from the google-auth Python library.
-        Must have the SQL Admin API scopes. For more info check out
-        https://google-auth.readthedocs.io/en/latest/.
-
-    :type project: str
-    :param project:
-        A string representing the name of the project.
-
-    :type region: str
-    :param region : A string representing the name of the region.
-
-    :type instance: str
-    :param instance: A string representing the name of the instance.
-
-    :rtype: Dict[str: Union[Dict, str]]
-    :returns: Returns a dictionary containing a dictionary of all IP
-          addresses and their type and a string representing the
-          certificate authority.
-
-    :raises TypeError: If any of the arguments are not the specified type.
-    """
-
-    if not credentials.valid:
-        request = google.auth.transport.requests.Request()
-        credentials.refresh(request)
-
-    headers = {
-        "Authorization": f"Bearer {credentials.token}",
-    }
-
-    url = f"{sqladmin_api_endpoint}/sql/{_sql_api_version}/projects/{project}/instances/{instance}/connectSettings"
-
-    logger.debug(f"['{instance}']: Requesting metadata")
-
-    resp = await client_session.get(url, headers=headers, raise_for_status=True)
-    ret_dict = await resp.json()
-
-    if ret_dict["region"] != region:
-        raise ValueError(
-            f'[{project}:{region}:{instance}]: Provided region was mismatched - got region {region}, expected {ret_dict["region"]}.'
-        )
-
-    ip_addresses = (
-        {ip["type"]: ip["ipAddress"] for ip in ret_dict["ipAddresses"]}
-        if "ipAddresses" in ret_dict
-        else {}
-    )
-    if "dnsName" in ret_dict:
-        ip_addresses["PSC"] = ret_dict["dnsName"]
-
-    metadata = {
-        "ip_addresses": ip_addresses,
-        "server_ca_cert": ret_dict["serverCaCert"]["cert"],
-        "database_version": ret_dict["databaseVersion"],
-    }
-
-    return metadata
-
-
-async def _get_ephemeral(
-    client_session: aiohttp.ClientSession,
-    sqladmin_api_endpoint: str,
-    credentials: Credentials,
-    project: str,
-    instance: str,
-    pub_key: str,
-    enable_iam_auth: bool = False,
-) -> Tuple[str, datetime.datetime]:
-    """Asynchronously requests an ephemeral certificate from the Cloud SQL Instance.
-
-    :type sqladmin_api_endpoint: str
-    :param sqladmin_api_endpoint:
-        Base URL to use when calling the Cloud SQL Admin API endpoint.
-
-    :type credentials: google.auth.credentials.Credentials
-    :param credentials: A credentials object
-        created from the google-auth library. Must be
-        using the SQL Admin API scopes. For more info, check out
-        https://google-auth.readthedocs.io/en/latest/.
-
-    :type project: str
-    :param project : A string representing the name of the project.
-
-    :type instance: str
-    :param instance: A string representing the name of the instance.
-
-    :type pub_key:
-    :param str: A string representing PEM-encoded RSA public key.
-
-    :type enable_iam_auth: bool
-    :param enable_iam_auth
-        Enables automatic IAM database authentication for Postgres or MySQL
-        instances.
-
-    :rtype: str
-    :returns: An ephemeral certificate from the Cloud SQL instance that allows
-          authorized connections to the instance.
-
-    :raises TypeError: If one of the arguments passed in is None.
-    """
-
-    logger.debug(f"['{instance}']: Requesting ephemeral certificate")
-
-    if not isinstance(pub_key, str):
-        raise TypeError(f"pub_key must be of type str, got {type(pub_key)}")
-
-    if not credentials.valid:
-        request = google.auth.transport.requests.Request()
-        credentials.refresh(request)
-
-    headers = {
-        "Authorization": f"Bearer {credentials.token}",
-    }
-
-    url = f"{sqladmin_api_endpoint}/sql/{_sql_api_version}/projects/{project}/instances/{instance}:generateEphemeralCert"
-
-    data = {"public_key": pub_key}
-
-    if enable_iam_auth:
-        # down-scope credentials with only IAM login scope (refreshes them too)
-        login_creds = _downscope_credentials(credentials)
-        data["access_token"] = login_creds.token
-
-    resp = await client_session.post(
-        url, headers=headers, json=data, raise_for_status=True
-    )
-
-    ret_dict = await resp.json()
-
-    ephemeral_cert: str = ret_dict["ephemeralCert"]["cert"]
-
-    # decode cert to read expiration
-    x509 = load_pem_x509_certificate(ephemeral_cert.encode("UTF-8"), default_backend())
-    expiration = x509.not_valid_after_utc
-    # for IAM authentication OAuth2 token is embedded in cert so it
-    # must still be valid for successful connection
-    if enable_iam_auth:
-        token_expiration: datetime.datetime = login_creds.expiry
-        # google.auth library strips timezone info for backwards compatibality
-        # reasons with Python 2. Add it back to allow timezone aware datetimes.
-        # Ref: https://github.com/googleapis/google-auth-library-python/blob/49a5ff7411a2ae4d32a7d11700f9f961c55406a9/google/auth/_helpers.py#L93-L99
-        token_expiration = token_expiration.replace(tzinfo=datetime.timezone.utc)
-        if expiration > token_expiration:
-            expiration = token_expiration
-    return ephemeral_cert, expiration
 
 
 def _seconds_until_refresh(
