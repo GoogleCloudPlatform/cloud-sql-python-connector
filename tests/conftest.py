@@ -138,13 +138,11 @@ async def fake_client(
 
 @pytest.fixture
 async def instance(fake_client: CloudSQLClient) -> AsyncGenerator[Instance, None]:
-    loop = asyncio.get_running_loop()
     keys = asyncio.create_task(generate_keys())
     instance = Instance(
         "test-project:test-region:test-instance",
         client=fake_client,
         keys=keys,
-        loop=loop,
     )
     yield instance
     await instance.close()
