@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.7.0](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v1.6.0...v1.7.0) (2024-02-13)
+
+
+### Features
+
+* add support for a custom user agent ([#986](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/986)) ([82da410](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/82da41050992de2eddfeae5a81a434192e88d134))
+* add support for Python 3.12 ([#905](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/905)) ([7501d17](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/7501d17ee05d41c1e009e4ca44ad7f8edaf18001))
+
+
+### Dependencies
+
+* Update dependency aiohttp to v3.9.3 ([#993](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/993)) ([168b1f4](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/168b1f43b2d0e4b376d8858aa32bc54e26d3e069))
+* Update dependency cryptography to v42.0.2 ([#994](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/994)) ([6b762df](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/6b762df593ffbdc81a7ae98386230af9dc570147))
+* Update dependency google-auth to v2.27.0 ([#980](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/980)) ([def011a](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/def011a0f7eee9d6288b441de5df416f429d227f))
+
 ## [1.6.0](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v1.5.0...v1.6.0) (2024-01-17)
 
 
