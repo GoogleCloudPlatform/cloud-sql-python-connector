@@ -305,7 +305,6 @@ async def test_ClientResponseError(
     """
     Test that detailed error message is applied to ClientResponseError.
     """
-    loop = asyncio.get_running_loop()
     # mock Cloud SQL Admin API calls with exceptions
     keys = asyncio.create_task(generate_keys())
     client = CloudSQLClient(
@@ -336,7 +335,6 @@ async def test_ClientResponseError(
             "my-project:my-region:my-instance",
             client,
             keys,
-            loop,
         )
         try:
             await instance._current
@@ -359,14 +357,12 @@ async def test_AutoIAMAuthNotSupportedError(fake_client: CloudSQLClient) -> None
     Test that AutoIAMAuthNotSupported exception is raised
     for SQL Server instances.
     """
-    loop = asyncio.get_running_loop()
     # generate client key pair
     keys = asyncio.create_task(generate_keys())
     instance = Instance(
         "test-project:test-region:sqlserver-instance",
         client=fake_client,
         keys=keys,
-        loop=loop,
         enable_iam_auth=True,
     )
     with pytest.raises(AutoIAMAuthNotSupported):

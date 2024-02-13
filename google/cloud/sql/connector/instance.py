@@ -143,19 +143,8 @@ class Instance:
         Enables automatic IAM database authentication for Postgres or MySQL
         instances.
     :type enable_iam_auth: bool
-
-    :param loop:
-        A new event loop for the refresh function to run in.
-    :type loop: asyncio.AbstractEventLoop
     """
 
-    # asyncio.AbstractEventLoop is used because the default loop,
-    # SelectorEventLoop, is usable on both Unix and Windows but has limited
-    # functionality on Windows. It is recommended to use ProactorEventLoop
-    # while developing on Windows.
-    # Link to Github issue:
-    # https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/22
-    _loop: asyncio.AbstractEventLoop
     _enable_iam_auth: bool
     _keys: asyncio.Future
     _instance_connection_string: str
@@ -173,7 +162,6 @@ class Instance:
         instance_connection_string: str,
         client: CloudSQLClient,
         keys: asyncio.Future,
-        loop: asyncio.AbstractEventLoop,
         enable_iam_auth: bool = False,
     ) -> None:
         # validate and parse instance connection name
@@ -183,11 +171,11 @@ class Instance:
         self._instance_connection_string = instance_connection_string
 
         self._enable_iam_auth = enable_iam_auth
-        self._loop = loop
         self._keys = keys
         self._client = client
         self._refresh_rate_limiter = AsyncRateLimiter(
-            max_capacity=2, rate=1 / 30, loop=self._loop
+            max_capacity=2,
+            rate=1 / 30,
         )
         self._refresh_in_progress = asyncio.locks.Event()
         self._current = self._schedule_refresh(0)
@@ -225,7 +213,7 @@ class Instance:
 
             logger.debug(f"['{self._instance_connection_string}']: Creating context")
 
-            metadata_task = self._loop.create_task(
+            metadata_task = asyncio.create_task(
                 self._client._get_metadata(
                     self._project,
                     self._region,
@@ -233,7 +221,7 @@ class Instance:
                 )
             )
 
-            ephemeral_task = self._loop.create_task(
+            ephemeral_task = asyncio.create_task(
                 self._client._get_ephemeral(
                     self._project,
                     self._instance,
@@ -306,7 +294,7 @@ class Instance:
                 logger.debug(f"['{self._instance_connection_string}']: Entering sleep")
                 if delay > 0:
                     await asyncio.sleep(delay)
-                refresh_task = self._loop.create_task(self._perform_refresh())
+                refresh_task = asyncio.create_task(self._perform_refresh())
                 refresh_data = await refresh_task
             except asyncio.CancelledError:
                 logger.debug(
@@ -337,7 +325,7 @@ class Instance:
             return refresh_data
 
         # schedule refresh task and return it
-        scheduled_task = self._loop.create_task(_refresh_task(self, delay))
+        scheduled_task = asyncio.create_task(_refresh_task(self, delay))
         return scheduled_task
 
     async def connect_info(
