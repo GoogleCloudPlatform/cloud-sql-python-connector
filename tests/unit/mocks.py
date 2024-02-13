@@ -21,6 +21,7 @@ import ssl
 from tempfile import TemporaryDirectory
 from typing import Any, Callable, Dict, Optional, Tuple
 
+from aiohttp import web
 from cryptography import x509
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
@@ -29,7 +30,6 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.x509.oid import NameOID
 from google.auth.credentials import Credentials
 
-from google.cloud.sql.connector import IPTypes
 from google.cloud.sql.connector.instance import ConnectionInfo
 from google.cloud.sql.connector.utils import generate_keys
 from google.cloud.sql.connector.utils import write_to_file
@@ -78,25 +78,6 @@ class FakeCredentials:
         return self.token is not None and not self.expired
 
 
-class MockInstance:
-    _enable_iam_auth: bool
-
-    def __init__(
-        self,
-        enable_iam_auth: bool = False,
-    ) -> None:
-        self._enable_iam_auth = enable_iam_auth
-
-    # mock connect_info
-    async def connect_info(
-        self,
-        driver: str,
-        ip_type: IPTypes,
-        **kwargs: Any,
-    ) -> Any:
-        return True
-
-
 class BadRefresh(Exception):
     pass
 
@@ -128,7 +109,11 @@ async def instance_metadata_error(*args: Any, **kwargs: Any) -> None:
 
 
 def generate_cert(
-    project: str, name: str
+    project: str,
+    name: str,
+    cert_before: datetime.datetime = datetime.datetime.now(datetime.timezone.utc),
+    cert_after: datetime.datetime = datetime.datetime.now(datetime.timezone.utc)
+    + datetime.timedelta(hours=1),
 ) -> Tuple[x509.CertificateBuilder, rsa.RSAPrivateKey]:
     """
     Generate a private key and cert object to be used in testing.
@@ -153,12 +138,8 @@ def generate_cert(
         .issuer_name(issuer)
         .public_key(key.public_key())
         .serial_number(x509.random_serial_number())
-        .not_valid_before(datetime.datetime.now(datetime.timezone.utc))
-        .not_valid_after(
-            # cert valid for 10 mins
-            datetime.datetime.now(datetime.timezone.utc)
-            + datetime.timedelta(minutes=60)
-        )
+        .not_valid_before(cert_before)
+        .not_valid_after(cert_after)
     )
     return cert, key
 
@@ -197,7 +178,7 @@ def client_key_signed_cert(
         .issuer_name(issuer)
         .public_key(client_key)
         .serial_number(x509.random_serial_number())
-        .not_valid_before(datetime.datetime.now(datetime.timezone.utc))
+        .not_valid_before(cert._not_valid_before)
         .not_valid_after(cert._not_valid_after)  # type: ignore
     )
     return (
@@ -230,72 +211,68 @@ async def create_ssl_context() -> ssl.SSLContext:
 
 
 class FakeCSQLInstance:
+    """Fake Cloud SQL instance to use for testing"""
+
     def __init__(
         self,
-        project: str = "my-project",
-        region: str = "my-region",
-        name: str = "my-instance",
-        db_version: str = "POSTGRES_14",
+        project: str = "test-project",
+        region: str = "test-region",
+        name: str = "test-instance",
+        db_version: str = "POSTGRES_15",
+        ip_addrs: Dict = {
+            "PRIMARY": "127.0.0.1",
+            "PRIVATE": "10.0.0.1",
+        },
+        cert_before: datetime = datetime.datetime.now(datetime.timezone.utc),
+        cert_expiry: datetime = datetime.datetime.now(datetime.timezone.utc)
+        + datetime.timedelta(hours=1),
     ) -> None:
         self.project = project
         self.region = region
         self.name = name
         self.db_version = db_version
-        self.ip_addrs = {"PRIMARY": "0.0.0.0", "PRIVATE": "1.1.1.1"}
-        self.backend_type = "SECOND_GEN"
-
-        # generate server private key and cert
-        cert, key = generate_cert(project, name)
-        self.key = key
-        self.cert = cert
-
-    def connect_settings(self, ip_addrs: Optional[Dict] = None) -> str:
-        """
-        Mock data for the following API:
-        https://sqladmin.googleapis.com/sql/v1beta4/projects/{project}/instances/{instance}/connectSettings
-        """
-        server_ca_cert = self_signed_cert(self.cert, self.key)
-        ip_addrs = ip_addrs if ip_addrs else self.ip_addrs
-        ip_addresses = [
-            {"type": key, "ipAddress": value} for key, value in ip_addrs.items()
-        ]
-        return json.dumps(
-            {
-                "kind": "sql#connectSettings",
-                "serverCaCert": {
-                    "cert": server_ca_cert,
-                    "instance": self.name,
-                    "expirationTime": str(
-                        datetime.datetime.now(datetime.timezone.utc)
-                        + datetime.timedelta(minutes=10)
-                    ),
-                },
-                "dnsName": "abcde.12345.us-central1.sql.goog",
-                "ipAddresses": ip_addresses,
-                "region": self.region,
-                "databaseVersion": self.db_version,
-                "backendType": self.backend_type,
-            }
+        self.ip_addrs = ip_addrs
+        self.cert_before = cert_before
+        self.cert_expiry = cert_expiry
+        # create self signed CA cert
+        self.server_ca, self.server_key = generate_cert(
+            self.project, self.name, cert_before, cert_expiry
         )
+        self.server_cert = self.server_ca.sign(self.server_key, hashes.SHA256())
+        self.server_cert_pem = self.server_cert.public_bytes(
+            encoding=serialization.Encoding.PEM
+        ).decode("UTF-8")
 
-    def generate_ephemeral(self, client_bytes: str) -> str:
-        """
-        Mock data for the following API:
-        https://sqladmin.googleapis.com/sql/v1beta4/projects/{project}/instances/{instance}:generateEphemeralCert
-        """
+    async def connect_settings(self, request: Any) -> web.Response:
+        ip_addrs = [{"type": k, "ipAddress": v} for k, v in self.ip_addrs.items()]
+        response = {
+            "kind": "sql#connectSettings",
+            "serverCaCert": {
+                "cert": self.server_cert_pem,
+                "instance": self.name,
+                "expirationTime": str(self.server_cert.not_valid_after_utc),
+            },
+            "dnsName": "abcde.12345.us-central1.sql.goog",
+            "ipAddresses": ip_addrs,
+            "region": self.region,
+            "databaseVersion": self.db_version,
+        }
+        return web.Response(content_type="application/json", body=json.dumps(response))
+
+    async def generate_ephemeral(self, request: Any) -> web.Response:
+        body = await request.json()
+        pub_key = body["public_key"]
         client_key: rsa.RSAPublicKey = serialization.load_pem_public_key(
-            client_bytes.encode("UTF-8"), default_backend()
+            pub_key.encode("UTF-8"), default_backend()
         )  # type: ignore
-        ephemeral_cert = client_key_signed_cert(self.cert, self.key, client_key)
-        return json.dumps(
-            {
-                "ephemeralCert": {
-                    "kind": "sql#sslCert",
-                    "cert": ephemeral_cert,
-                    "expirationTime": str(
-                        datetime.datetime.now(datetime.timezone.utc)
-                        + datetime.timedelta(minutes=10)
-                    ),
-                }
-            }
+        ephemeral_cert = client_key_signed_cert(
+            self.server_ca, self.server_key, client_key
         )
+        response = {
+            "ephemeralCert": {
+                "kind": "sql#sslCert",
+                "cert": ephemeral_cert,
+                "expirationTime": str(self.server_cert.not_valid_after_utc),
+            }
+        }
+        return web.Response(content_type="application/json", body=json.dumps(response))

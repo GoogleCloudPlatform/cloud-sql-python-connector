@@ -13,6 +13,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -27,8 +28,6 @@ import google.auth
 from google.auth.credentials import Credentials
 from google.auth.credentials import with_scopes_if_required
 
-import google.auth
-from google.auth.credentials import with_scopes_if_required
 import google.cloud.sql.connector.asyncpg as asyncpg
 from google.cloud.sql.connector.client import CloudSQLClient
 from google.cloud.sql.connector.exceptions import ConnectorLoopError
@@ -113,7 +112,7 @@ class Connector:
             )
         self._instances: Dict[str, Instance] = {}
         self._client: Optional[CloudSQLClient] = None
-        
+
         # initialize credentials
         scopes = ["https://www.googleapis.com/auth/sqlservice.admin"]
         if credentials:
@@ -225,15 +224,15 @@ class Connector:
             instance = self._instances[instance_connection_string]
             if enable_iam_auth != instance._enable_iam_auth:
                 raise ValueError(
-                    f"connect() called with `enable_iam_auth={enable_iam_auth}`, "
-                    f"but previously used enable_iam_auth={instance._enable_iam_auth}`. "
+                    f"connect() called with 'enable_iam_auth={enable_iam_auth}', "
+                    f"but previously used 'enable_iam_auth={instance._enable_iam_auth}'. "
                     "If you require both for your use case, please use a new "
                     "connector.Connector object."
                 )
         else:
             instance = Instance(
                 instance_connection_string,
-                driver,
+                self._client,
                 self._keys,
                 self._loop,
                 enable_iam_auth,
@@ -338,8 +337,8 @@ class Connector:
             close_future = asyncio.run_coroutine_threadsafe(
                 self.close_async(), loop=self._loop
             )
-            # Will attempt to safely shut down tasks for 5s
-            close_future.result(timeout=5)
+            # Will attempt to safely shut down tasks for 3s
+            close_future.result(timeout=3)
         # if background thread exists for Connector, clean it up
         if self._thread:
             if self._loop.is_running():
@@ -354,6 +353,8 @@ class Connector:
         await asyncio.gather(
             *[instance.close() for instance in self._instances.values()]
         )
+        if self._client:
+            await self._client.close()
 
     def __del__(self) -> None:
         """Close Connector as part of garbage collection"""

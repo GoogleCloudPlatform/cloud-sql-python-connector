@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import datetime
 import logging
-from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING
+from typing import Any, Dict, Optional, Tuple, TYPE_CHECKING
 
 import aiohttp
 from cryptography.hazmat.backends import default_backend
@@ -35,8 +35,8 @@ API_VERSION: str = "v1beta4"
 logger = logging.getLogger(name=__name__)
 
 
-def _format_user_agent(driver: str, custom: Optional[str]) -> str:
-    agent = f"{USER_AGENT}+{driver}"
+def _format_user_agent(driver: Optional[str], custom: Optional[str]) -> str:
+    agent = f"{USER_AGENT}+{driver}" if driver else USER_AGENT
     if custom:
         agent = f"{agent} {custom}"
     return agent
@@ -202,11 +202,16 @@ class CloudSQLClient:
         x509 = load_pem_x509_certificate(
             ephemeral_cert.encode("UTF-8"), default_backend()
         )
-        expiration = x509.not_valid_after
+        expiration = x509.not_valid_after_utc
         # for IAM authentication OAuth2 token is embedded in cert so it
         # must still be valid for successful connection
         if enable_iam_auth:
             token_expiration: datetime.datetime = login_creds.expiry
+            # google.auth library strips timezone info for backwards compatibality
+            # reasons with Python 2. Add it back to allow timezone aware datetimes.
+            # Ref: https://github.com/googleapis/google-auth-library-python/blob/49a5ff7411a2ae4d32a7d11700f9f961c55406a9/google/auth/_helpers.py#L93-L99
+            token_expiration = token_expiration.replace(tzinfo=datetime.timezone.utc)
+
             if expiration > token_expiration:
                 expiration = token_expiration
         return ephemeral_cert, expiration

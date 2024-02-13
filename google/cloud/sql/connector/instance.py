@@ -13,6 +13,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -21,21 +22,18 @@ import logging
 import re
 import ssl
 from tempfile import TemporaryDirectory
-from typing import Any, Dict, Optional, Tuple, TYPE_CHECKING
+from typing import Any, Dict, Tuple, TYPE_CHECKING
 
 import aiohttp
-from google.auth.credentials import Credentials
 
+from google.cloud.sql.connector.client import CloudSQLClient
 from google.cloud.sql.connector.exceptions import AutoIAMAuthNotSupported
 from google.cloud.sql.connector.exceptions import CloudSQLIPTypeError
 from google.cloud.sql.connector.exceptions import TLSVersionError
 from google.cloud.sql.connector.rate_limiter import AsyncRateLimiter
-from google.cloud.sql.connector.refresh_utils import _get_ephemeral
-from google.cloud.sql.connector.refresh_utils import _get_metadata
 from google.cloud.sql.connector.refresh_utils import _is_valid
 from google.cloud.sql.connector.refresh_utils import _seconds_until_refresh
 from google.cloud.sql.connector.utils import write_to_file
-from google.cloud.sql.connector.version import __version__ as version
 
 if TYPE_CHECKING:
     import datetime
@@ -132,13 +130,6 @@ class ConnectionInfo:
         )
 
 
-def _format_user_agent(version: str, driver: str, custom: Optional[str]) -> str:
-    agent = f"{APPLICATION_NAME}/{version}+{driver}"
-    if custom:
-        agent = f"{agent} {custom}"
-    return agent
-
-
 class Instance:
     """A class to manage the details of the connection to a Cloud SQL
     instance, including refreshing the credentials.
@@ -147,14 +138,6 @@ class Instance:
         The Google Cloud SQL Instance's connection
         string.
     :type instance_connection_string: str
-
-    :param user_agent_string:
-        The user agent string to append to SQLAdmin API requests
-    :type user_agent_string: str
-
-    :type credentials: google.auth.credentials.Credentials
-    :param credentials
-        Credentials object used to authenticate connections to Cloud SQL server.
 
     :param enable_iam_auth
         Enables automatic IAM database authentication for Postgres or MySQL
@@ -174,7 +157,6 @@ class Instance:
     # https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/22
     _loop: asyncio.AbstractEventLoop
     _enable_iam_auth: bool
-    _credentials: Credentials
     _keys: asyncio.Future
     _instance_connection_string: str
     _instance: str
@@ -189,10 +171,9 @@ class Instance:
     def __init__(
         self,
         instance_connection_string: str,
-        driver_name: str,
+        client: CloudSQLClient,
         keys: asyncio.Future,
         loop: asyncio.AbstractEventLoop,
-        credentials: Credentials,
         enable_iam_auth: bool = False,
     ) -> None:
         # validate and parse instance connection name
@@ -204,7 +185,7 @@ class Instance:
         self._enable_iam_auth = enable_iam_auth
         self._loop = loop
         self._keys = keys
-        self._credentials = credentials
+        self._client = client
         self._refresh_rate_limiter = AsyncRateLimiter(
             max_capacity=2, rate=1 / 30, loop=self._loop
         )
@@ -245,9 +226,7 @@ class Instance:
             logger.debug(f"['{self._instance_connection_string}']: Creating context")
 
             metadata_task = self._loop.create_task(
-                _get_metadata(
-                    self._client,
-                    self._credentials,
+                self._client._get_metadata(
                     self._project,
                     self._region,
                     self._instance,
@@ -255,9 +234,7 @@ class Instance:
             )
 
             ephemeral_task = self._loop.create_task(
-                _get_ephemeral(
-                    self._client_session,
-                    self._credentials,
+                self._client._get_ephemeral(
                     self._project,
                     self._instance,
                     pub_key,
@@ -406,4 +383,6 @@ class Instance:
         logger.debug(
             f"['{self._instance_connection_string}']: Waiting for _client_session to close"
         )
-        await self._client_session.close()
+        # gracefully wait for tasks to cancel
+        tasks = asyncio.gather(self._current, self._next, return_exceptions=True)
+        await asyncio.wait_for(tasks, timeout=2.0)
