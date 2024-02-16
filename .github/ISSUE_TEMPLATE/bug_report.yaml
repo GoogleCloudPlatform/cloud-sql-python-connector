@@ -20,14 +20,12 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thanks for stopping by to let us know something could be better!<br/>
-        ### PLEASE READ PRIOR TO CREATING BUG
-        If you have a support contract with Google, please create an issue in the [support console](https://cloud.google.com/support/) instead of filing it here on GitHub. This will ensure a timely response.
-        
+        Thanks for stopping by to let us know something could be better!
+
         Please run down the following list and make sure you've tried the usual "quick fixes":
         - Search the [current open issues](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues)
         - Check for answers on [StackOverflow](https://stackoverflow.com/questions/tagged/google-cloud-sql) (under the 'google-cloud-sql' tag)
-        
+
         If you are still having issues, please include as much information as possible below! :smile:
   - type: textarea
     id: bug-description
@@ -68,7 +66,7 @@ body:
       value: |
         1. OS type and version:
         2. Python version:
-        3. Cloud SQL Python Connector version: 
+        3. Cloud SQL Python Connector version:
     validations:
       required: true
   - type: textarea
