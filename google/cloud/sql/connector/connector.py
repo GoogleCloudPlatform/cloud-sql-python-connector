@@ -362,12 +362,15 @@ async def create_async_connector(
     timeout: int = 30,
     credentials: Optional[Credentials] = None,
     loop: Optional[asyncio.AbstractEventLoop] = None,
+    quota_project: Optional[str] = None,
+    sqladmin_api_endpoint: str = "https://sqladmin.googleapis.com",
+    user_agent: Optional[str] = None,
 ) -> Connector:
     """
     Create Connector object for asyncio connections that can auto-detect
     and use current thread's running event loop.
 
-    :type ip_type: IPTypes
+   :type ip_type: IPTypes
     :param ip_type
         The IP type (public or private)  used to connect. IP types
         can be either IPTypes.PUBLIC or IPTypes.PRIVATE.
@@ -386,12 +389,33 @@ async def create_async_connector(
         Credentials object used to authenticate connections to Cloud SQL server.
         If not specified, Application Default Credentials are used.
 
+    :type quota_project: str
+    :param quota_project
+        The Project ID for an existing Google Cloud project. The project specified
+        is used for quota and billing purposes. If not specified, defaults to
+        project sourced from environment.
+
     :type loop: asyncio.AbstractEventLoop
     :param loop
-        Event loop to run asyncio tasks, if not specified, defaults
-        to current thread's running event loop.
+        Event loop to run asyncio tasks, if not specified, defaults to
+        creating new event loop on background thread.
+
+    :type sqladmin_api_endpoint: str
+    :param sqladmin_api_endpoint:
+        Base URL to use when calling the Cloud SQL Admin API endpoint.
+        Defaults to "https://sqladmin.googleapis.com", this argument should
+        only be used in development.
     """
     # if no loop given, automatically detect running event loop
     if loop is None:
         loop = asyncio.get_running_loop()
-    return Connector(ip_type, enable_iam_auth, timeout, credentials, loop)
+    return Connector(
+        ip_type=ip_type,
+        enable_iam_auth=enable_iam_auth,
+        timeout=timeout,
+        credentials=credentials,
+        loop=loop,
+        quota_project=quota_project,
+        sqladmin_api_endpoint=sqladmin_api_endpoint,
+        user_agent=user_agent,
+    )
