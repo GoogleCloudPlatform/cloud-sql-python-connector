@@ -77,7 +77,7 @@ setuptools.setup(
     install_requires=dependencies,
     extras_require={
         "pymysql": ["PyMySQL>=1.1.0"],
-        "pg8000": ["pg8000>=1.30.4"],
+        "pg8000": ["pg8000>=1.30.5"],
         "pytds": ["python-tds>=1.15.0"],
         "asyncpg": ["asyncpg>=0.29.0"],
     },
