@@ -42,6 +42,7 @@ def init_connection_engine() -> sqlalchemy.engine.Engine:
                 user=os.environ["MYSQL_USER"],
                 password=os.environ["MYSQL_PASS"],
                 db=os.environ["MYSQL_DB"],
+                ip_type="public",  # can also be "private" or "psc"
             )
             return conn
 
