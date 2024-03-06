@@ -133,18 +133,9 @@ class Connector:
         self._quota_project = quota_project
         self._sqladmin_api_endpoint = sqladmin_api_endpoint
         self._user_agent = user_agent
-        # if ip_type is str, convert to enum
+        # if ip_type is str, convert to IPTypes enum
         if isinstance(ip_type, str):
-            if ip_type.lower() == "public":
-                ip_type = IPTypes.PUBLIC
-            elif ip_type.lower() == "private":
-                ip_type = IPTypes.PRIVATE
-            elif ip_type.lower() == "psc":
-                ip_type = IPTypes.PSC
-            else:
-                raise ValueError(
-                    f"Incorrect value for ip_type, got '{ip_type}'. Want one of: 'public', 'private' or 'psc'."
-                )
+            ip_type = IPTypes._get_ip_type_from_str(ip_type)
         self._ip_type = ip_type
 
     def connect(
@@ -266,16 +257,7 @@ class Connector:
         ip_type = kwargs.pop("ip_type", self._ip_type)
         # if ip_type is str, convert to IPTypes enum
         if isinstance(ip_type, str):
-            if ip_type.lower() == "public":
-                ip_type = IPTypes.PUBLIC
-            elif ip_type.lower() == "private":
-                ip_type = IPTypes.PRIVATE
-            elif ip_type.lower() == "psc":
-                ip_type = IPTypes.PSC
-            else:
-                raise ValueError(
-                    f"Incorrect value for ip_type, got '{ip_type}'. Want one of: 'public', 'private' or 'psc'."
-                )
+            ip_type = IPTypes._get_ip_type_from_str(ip_type)
         kwargs["timeout"] = kwargs.get("timeout", self._timeout)
 
         # Host and ssl options come from the certificates and metadata, so we don't
