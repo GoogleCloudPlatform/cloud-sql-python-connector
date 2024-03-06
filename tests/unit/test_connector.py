@@ -130,6 +130,56 @@ async def test_Connector_Init_async_context_manager(
         assert connector._loop == loop
 
 
+@pytest.mark.parametrize(
+    "ip_type",
+    ["public", "private", "psc", "PUBLIC", "PRIVATE", "PSC"],
+)
+def test_Connector_Init_ip_type_str(
+    ip_type: str, fake_credentials: Credentials
+) -> None:
+    """Test that Connector properly sets ip_type when given str."""
+    with Connector(ip_type=ip_type, credentials=fake_credentials) as connector:
+        if ip_type.lower() == "public":
+            assert connector._ip_type == IPTypes.PUBLIC
+        if ip_type.lower() == "private":
+            assert connector._ip_type == IPTypes.PRIVATE
+        if ip_type.lower() == "psc":
+            assert connector._ip_type == IPTypes.PSC
+
+
+def test_Connector_Init_bad_ip_type(fake_credentials: Credentials) -> None:
+    """Test that Connector errors due to bad ip_type str."""
+    bad_ip_type = "bad-ip-type"
+    with pytest.raises(ValueError) as exc_info:
+        Connector(ip_type=bad_ip_type, credentials=fake_credentials)
+    assert (
+        exc_info.value.args[0]
+        == f"Incorrect value for ip_type, got '{bad_ip_type}'. Want one of: 'public', 'private' or 'psc'."
+    )
+
+
+def test_Connector_connect_bad_ip_type(
+    fake_credentials: Credentials, fake_client: CloudSQLClient
+) -> None:
+    """Test that Connector.connect errors due to bad ip_type str."""
+    with Connector(credentials=fake_credentials) as connector:
+        connector._client = fake_client
+        bad_ip_type = "bad-ip-type"
+        with pytest.raises(ValueError) as exc_info:
+            connector.connect(
+                "test-project:test-region:test-instance",
+                "pg8000",
+                user="my-user",
+                password="my-pass",
+                db="my-db",
+                ip_type=bad_ip_type,
+            )
+        assert (
+            exc_info.value.args[0]
+            == f"Incorrect value for ip_type, got '{bad_ip_type}'. Want one of: 'public', 'private' or 'psc'."
+        )
+
+
 @pytest.mark.asyncio
 async def test_Connector_connect_async(
     fake_credentials: Credentials, fake_client: CloudSQLClient

@@ -188,7 +188,7 @@ from google.cloud.sql.connector import Connector, IPTypes
 
 # Note: all parameters below are optional
 connector = Connector(
-    ip_type=IPTypes.PUBLIC,
+    ip_type="public",  # can also be "private" or "psc"
     enable_iam_auth=False,
     timeout=30,
     credentials=custom_creds # google.auth.credentials.Credentials
@@ -261,18 +261,16 @@ using both public and private IP addresses, as well as
 with, set the `ip_type` keyword argument when initializing a `Connector()` or when
 calling `connector.connect()`.
 
-Possible values for `ip_type` are `IPTypes.PUBLIC` (default value),
-`IPTypes.PRIVATE`, and `IPTypes.PSC`.
+Possible values for `ip_type` are `"public"` (default value),
+`"private"`, and `"psc"`.
 
 Example:
 
 ```python
-from google.cloud.sql.connector import IPTypes
-
 conn = connector.connect(
     "project:region:instance",
     "pymysql",
-    ip_type=IPTypes.PRIVATE # use private IP
+    ip_type="private"  # use private IP
 ... insert other kwargs ...
 )
 ```
@@ -333,7 +331,7 @@ conn = connector.connect(
     db="my-db-name",
     active_directory_auth=True,
     server_name="private.[instance].[location].[project].cloudsql.[domain]",
-    ip_type=IPTypes.PRIVATE
+    ip_type="private"
 )
 ```
 
@@ -358,7 +356,7 @@ your web application through the following:
 ```python
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
-from google.cloud.sql.connector import Connector, IPTypes
+from google.cloud.sql.connector import Connector
 
 
 # initialize Python Connector object
@@ -372,7 +370,7 @@ def getconn():
         user="my-user",
         password="my-password",
         db="my-database",
-        ip_type= IPTypes.PUBLIC  # IPTypes.PRIVATE for private IP
+        ip_type="public"  # "private" for private IP
     )
     return conn
 
@@ -407,7 +405,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
-from google.cloud.sql.connector import Connector, IPTypes
+from google.cloud.sql.connector import Connector
 
 # helper function to return SQLAlchemy connection pool
 def init_connection_pool(connector: Connector) -> Engine:
@@ -419,7 +417,7 @@ def init_connection_pool(connector: Connector) -> Engine:
             user="my-user",
             password="my-password",
             db="my-database",
-            ip_type= IPTypes.PUBLIC  # IPTypes.PRIVATE for private IP
+            ip_type="public"  # "private" for private IP
         )
         return conn
 

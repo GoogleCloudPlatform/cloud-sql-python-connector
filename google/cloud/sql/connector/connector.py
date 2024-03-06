@@ -87,7 +87,7 @@ class Connector:
 
     def __init__(
         self,
-        ip_type: IPTypes = IPTypes.PUBLIC,
+        ip_type: str | IPTypes = IPTypes.PUBLIC,
         enable_iam_auth: bool = False,
         timeout: int = 30,
         credentials: Optional[Credentials] = None,
@@ -130,10 +130,13 @@ class Connector:
         # set default params for connections
         self._timeout = timeout
         self._enable_iam_auth = enable_iam_auth
-        self._ip_type = ip_type
         self._quota_project = quota_project
         self._sqladmin_api_endpoint = sqladmin_api_endpoint
         self._user_agent = user_agent
+        # if ip_type is str, convert to IPTypes enum
+        if isinstance(ip_type, str):
+            ip_type = IPTypes._get_ip_type_from_str(ip_type)
+        self._ip_type = ip_type
 
     def connect(
         self, instance_connection_string: str, driver: str, **kwargs: Any
@@ -252,6 +255,9 @@ class Connector:
             raise KeyError(f"Driver '{driver}' is not supported.")
 
         ip_type = kwargs.pop("ip_type", self._ip_type)
+        # if ip_type is str, convert to IPTypes enum
+        if isinstance(ip_type, str):
+            ip_type = IPTypes._get_ip_type_from_str(ip_type)
         kwargs["timeout"] = kwargs.get("timeout", self._timeout)
 
         # Host and ssl options come from the certificates and metadata, so we don't

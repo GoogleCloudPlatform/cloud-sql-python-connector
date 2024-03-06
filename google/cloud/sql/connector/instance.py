@@ -64,6 +64,21 @@ class IPTypes(Enum):
     PRIVATE: str = "PRIVATE"
     PSC: str = "PSC"
 
+    @staticmethod
+    def _get_ip_type_from_str(ip_type_str: str) -> IPTypes:
+        """Utility method to convert IP type from a str into IPTypes."""
+        if ip_type_str.lower() == "public":
+            ip_type = IPTypes.PUBLIC
+        elif ip_type_str.lower() == "private":
+            ip_type = IPTypes.PRIVATE
+        elif ip_type_str.lower() == "psc":
+            ip_type = IPTypes.PSC
+        else:
+            raise ValueError(
+                f"Incorrect value for ip_type, got '{ip_type_str}'. Want one of: 'public', 'private' or 'psc'."
+            )
+        return ip_type
+
 
 class ConnectionInfo:
     ip_addrs: Dict[str, Any]

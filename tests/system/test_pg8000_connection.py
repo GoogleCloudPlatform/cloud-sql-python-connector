@@ -42,6 +42,7 @@ def init_connection_engine() -> sqlalchemy.engine.Engine:
                 user=os.environ["POSTGRES_USER"],
                 password=os.environ["POSTGRES_PASS"],
                 db=os.environ["POSTGRES_DB"],
+                ip_type="public",  # can also be "private" or "psc"
             )
             return conn
 

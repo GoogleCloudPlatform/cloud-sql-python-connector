@@ -43,6 +43,7 @@ def init_connection_engine() -> sqlalchemy.engine.Engine:
                 user=os.environ["SQLSERVER_USER"],
                 password=os.environ["SQLSERVER_PASS"],
                 db=os.environ["SQLSERVER_DB"],
+                ip_type="public",  # can also be "private" or "psc"
             )
             return conn
 
