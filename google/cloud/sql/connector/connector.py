@@ -48,10 +48,11 @@ ASYNC_DRIVERS = ["asyncpg"]
 class Connector:
     """A class to configure and create connections to Cloud SQL instances.
 
-    :type ip_type: IPTypes
+    :type ip_type: str | IPTypes
     :param ip_type
         The IP type (public or private)  used to connect. IP types
-        can be either IPTypes.PUBLIC or IPTypes.PRIVATE.
+        can be either IPTypes.PUBLIC ("PUBLIC"), IPTypes.PRIVATE ("PRIVATE"),
+        or IPTypes.PSC ("PSC").
 
     :type enable_iam_auth: bool
     :param enable_iam_auth
@@ -135,7 +136,7 @@ class Connector:
         self._user_agent = user_agent
         # if ip_type is str, convert to IPTypes enum
         if isinstance(ip_type, str):
-            ip_type = IPTypes._get_ip_type_from_str(ip_type)
+            ip_type = IPTypes._from_str(ip_type)
         self._ip_type = ip_type
 
     def connect(
@@ -257,7 +258,7 @@ class Connector:
         ip_type = kwargs.pop("ip_type", self._ip_type)
         # if ip_type is str, convert to IPTypes enum
         if isinstance(ip_type, str):
-            ip_type = IPTypes._get_ip_type_from_str(ip_type)
+            ip_type = IPTypes._from_str(ip_type)
         kwargs["timeout"] = kwargs.get("timeout", self._timeout)
 
         # Host and ssl options come from the certificates and metadata, so we don't

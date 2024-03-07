@@ -14,6 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 import asyncio
+from typing import Union
 
 from google.auth.credentials import Credentials
 from mock import patch
@@ -131,20 +132,56 @@ async def test_Connector_Init_async_context_manager(
 
 
 @pytest.mark.parametrize(
-    "ip_type",
-    ["public", "private", "psc", "PUBLIC", "PRIVATE", "PSC"],
+    "ip_type, expected",
+    [
+        (
+            "private",
+            IPTypes.PRIVATE,
+        ),
+        (
+            "PRIVATE",
+            IPTypes.PRIVATE,
+        ),
+        (
+            IPTypes.PRIVATE,
+            IPTypes.PRIVATE,
+        ),
+        (
+            "public",
+            IPTypes.PUBLIC,
+        ),
+        (
+            "PUBLIC",
+            IPTypes.PUBLIC,
+        ),
+        (
+            IPTypes.PUBLIC,
+            IPTypes.PUBLIC,
+        ),
+        (
+            "psc",
+            IPTypes.PSC,
+        ),
+        (
+            "PSC",
+            IPTypes.PSC,
+        ),
+        (
+            IPTypes.PSC,
+            IPTypes.PSC,
+        ),
+    ],
 )
-def test_Connector_Init_ip_type_str(
-    ip_type: str, fake_credentials: Credentials
+def test_Connector_init_ip_type(
+    ip_type: Union[str, IPTypes], expected: IPTypes, fake_credentials: Credentials
 ) -> None:
-    """Test that Connector properly sets ip_type when given str."""
-    with Connector(ip_type=ip_type, credentials=fake_credentials) as connector:
-        if ip_type.lower() == "public":
-            assert connector._ip_type == IPTypes.PUBLIC
-        if ip_type.lower() == "private":
-            assert connector._ip_type == IPTypes.PRIVATE
-        if ip_type.lower() == "psc":
-            assert connector._ip_type == IPTypes.PSC
+    """
+    Test to check whether the __init__ method of Connector
+    properly sets ip_type.
+    """
+    connector = Connector(credentials=fake_credentials, ip_type=ip_type)
+    assert connector._ip_type == expected
+    connector.close()
 
 
 def test_Connector_Init_bad_ip_type(fake_credentials: Credentials) -> None:
@@ -154,7 +191,8 @@ def test_Connector_Init_bad_ip_type(fake_credentials: Credentials) -> None:
         Connector(ip_type=bad_ip_type, credentials=fake_credentials)
     assert (
         exc_info.value.args[0]
-        == f"Incorrect value for ip_type, got '{bad_ip_type}'. Want one of: 'public', 'private' or 'psc'."
+        == f"Incorrect value for ip_type, got '{bad_ip_type.upper()}'. "
+        "Want one of: 'PRIMARY', 'PRIVATE', 'PSC', 'PUBLIC'."
     )
 
 
@@ -176,7 +214,8 @@ def test_Connector_connect_bad_ip_type(
             )
         assert (
             exc_info.value.args[0]
-            == f"Incorrect value for ip_type, got '{bad_ip_type}'. Want one of: 'public', 'private' or 'psc'."
+            == f"Incorrect value for ip_type, got '{bad_ip_type.upper()}'. "
+            "Want one of: 'PRIMARY', 'PRIVATE', 'PSC', 'PUBLIC'."
         )
 
 
