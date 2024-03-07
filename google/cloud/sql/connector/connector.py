@@ -50,9 +50,8 @@ class Connector:
 
     :type ip_type: str | IPTypes
     :param ip_type
-        The IP type (public or private)  used to connect. IP types
-        can be either IPTypes.PUBLIC ("PUBLIC"), IPTypes.PRIVATE ("PRIVATE"),
-        or IPTypes.PSC ("PSC").
+        The IP type used to connect. IP types can be either IPTypes.PUBLIC
+        ("PUBLIC"), IPTypes.PRIVATE ("PRIVATE"), or IPTypes.PSC ("PSC").
 
     :type enable_iam_auth: bool
     :param enable_iam_auth
