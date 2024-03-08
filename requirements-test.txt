@@ -2,7 +2,7 @@ pytest==7.4.4
 mock==5.1.0
 pytest-cov==4.1.0
 pytest-asyncio==0.23.5
-SQLAlchemy==2.0.27
+SQLAlchemy==2.0.28
 sqlalchemy-pytds==1.0.0
 sqlalchemy-stubs==0.4
 PyMySQL==1.1.0
