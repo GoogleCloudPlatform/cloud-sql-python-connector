@@ -64,20 +64,19 @@ class IPTypes(Enum):
     PRIVATE: str = "PRIVATE"
     PSC: str = "PSC"
 
-    @staticmethod
-    def _get_ip_type_from_str(ip_type_str: str) -> IPTypes:
-        """Utility method to convert IP type from a str into IPTypes."""
-        if ip_type_str.lower() == "public":
-            ip_type = IPTypes.PUBLIC
-        elif ip_type_str.lower() == "private":
-            ip_type = IPTypes.PRIVATE
-        elif ip_type_str.lower() == "psc":
-            ip_type = IPTypes.PSC
-        else:
-            raise ValueError(
-                f"Incorrect value for ip_type, got '{ip_type_str}'. Want one of: 'public', 'private' or 'psc'."
-            )
-        return ip_type
+    @classmethod
+    def _missing_(cls, value: object) -> None:
+        raise ValueError(
+            f"Incorrect value for ip_type, got '{value}'. Want one of: "
+            f"{', '.join([repr(m.value) for m in cls])}, 'PUBLIC'."
+        )
+
+    @classmethod
+    def _from_str(cls, ip_type_str: str) -> IPTypes:
+        """Convert IP type from a str into IPTypes."""
+        if ip_type_str.upper() == "PUBLIC":
+            ip_type_str = "PRIMARY"
+        return cls(ip_type_str.upper())
 
 
 class ConnectionInfo:
