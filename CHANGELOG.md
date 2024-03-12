@@ -1,5 +1,26 @@
 # Changelog
 
+## [1.8.0](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v1.7.0...v1.8.0) (2024-03-12)
+
+
+### Features
+
+* support `ip_type` as str ([#1029](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/1029)) ([e087704](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/e08770422f05c96b1349d1505aab511b15ed1885))
+
+
+### Bug Fixes
+
+* update create_async_connector args ([#1016](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/1016)) ([c3f51a2](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/c3f51a24f0fa055fc3459c9170557c6ff15424f5))
+
+
+### Dependencies
+
+* Update dependency cryptography to v42.0.4 [SECURITY] ([#1024](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/1024)) ([51fc168](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/51fc168a2ab689464d3ca8ba0e9674d5e38217df))
+* Update dependency cryptography to v42.0.5 ([#1015](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/1015)) ([b47dfef](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/b47dfef36e11edd17def5a3b61714256d534ac62))
+* Update dependency google-auth to v2.28.1 ([#1014](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/1014)) ([884fbbc](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/884fbbc3cc33a1cee24e1eb9eed37beba447a5ff))
+* Update dependency google-auth to v2.28.2 ([#1034](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/1034)) ([bf20bbc](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/bf20bbc3694066e6905b77771ca044421fc3c92f))
+* Update dependency pg8000 to v1.30.5 ([#1026](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/1026)) ([e66f4e3](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/e66f4e36235bf09d2a7de20f1a4c1e7158f97a40))
+
 ## [1.7.0](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v1.6.0...v1.7.0) (2024-02-13)
 
 
