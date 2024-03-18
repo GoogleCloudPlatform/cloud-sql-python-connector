@@ -31,6 +31,7 @@ if TYPE_CHECKING:
 
 USER_AGENT: str = f"cloud-sql-python-connector/{version}"
 API_VERSION: str = "v1beta4"
+DEFAULT_SERVICE_ENDPOINT: str = "https://sqladmin.googleapis.com"
 
 logger = logging.getLogger(name=__name__)
 
@@ -45,7 +46,7 @@ def _format_user_agent(driver: Optional[str], custom: Optional[str]) -> str:
 class CloudSQLClient:
     def __init__(
         self,
-        sqladmin_api_endpoint: str,
+        sqladmin_api_endpoint: Optional[str],
         quota_project: Optional[str],
         credentials: Credentials,
         client: Optional[aiohttp.ClientSession] = None,
@@ -81,7 +82,10 @@ class CloudSQLClient:
 
         self._client = client if client else aiohttp.ClientSession(headers=headers)
         self._credentials = credentials
-        self._sqladmin_api_endpoint = sqladmin_api_endpoint
+        if sqladmin_api_endpoint is None:
+            self._sqladmin_api_endpoint = DEFAULT_SERVICE_ENDPOINT
+        else:
+            self._sqladmin_api_endpoint = sqladmin_api_endpoint
         self._user_agent = user_agent
 
     async def _get_metadata(
