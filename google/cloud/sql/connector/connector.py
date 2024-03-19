@@ -56,7 +56,7 @@ class Connector:
         credentials: Optional[Credentials] = None,
         loop: Optional[asyncio.AbstractEventLoop] = None,
         quota_project: Optional[str] = None,
-        sqladmin_api_endpoint: str = "https://sqladmin.googleapis.com",
+        sqladmin_api_endpoint: Optional[str] = None,
         user_agent: Optional[str] = None,
     ) -> None:
         """Initializes a Connector instance.
@@ -364,7 +364,7 @@ async def create_async_connector(
     credentials: Optional[Credentials] = None,
     loop: Optional[asyncio.AbstractEventLoop] = None,
     quota_project: Optional[str] = None,
-    sqladmin_api_endpoint: str = "https://sqladmin.googleapis.com",
+    sqladmin_api_endpoint: Optional[str] = None,
     user_agent: Optional[str] = None,
 ) -> Connector:
     """
