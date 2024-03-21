@@ -77,21 +77,6 @@ async def test_CloudSQLClient_init_(fake_credentials: FakeCredentials) -> None:
     await client.close()
 
 
-async def test_CloudSQLClient_init_default_service_endpoint(
-    fake_credentials: FakeCredentials,
-) -> None:
-    """
-    Test to check whether the __init__ method of CloudSQLClient
-    can correctly initialize the default service endpoint.
-    """
-    driver = "pg8000"
-    client = CloudSQLClient(None, "my-quota-project", fake_credentials, driver=driver)
-    # verify base endpoint is set to proper default
-    assert client._sqladmin_api_endpoint == "https://sqladmin.googleapis.com"
-    # close client
-    await client.close()
-
-
 @pytest.mark.asyncio
 async def test_CloudSQLClient_init_custom_user_agent(
     fake_credentials: FakeCredentials,

@@ -43,6 +43,9 @@ from google.cloud.sql.connector.utils import generate_keys
 logger = logging.getLogger(name=__name__)
 
 ASYNC_DRIVERS = ["asyncpg"]
+_DEFAULT_SCHEME = "https://"
+_DEFAULT_UNIVERSE_DOMAIN = "googleapis.com"
+_SQLADMIN_HOST_TEMPLATE = "sqladmin.{universe_domain}"
 
 
 class Connector:
@@ -82,7 +85,10 @@ class Connector:
     :param sqladmin_api_endpoint:
         Base URL to use when calling the Cloud SQL Admin API endpoint.
         Defaults to "https://sqladmin.googleapis.com", this argument should
-        only be used in development.
+        only be used in development. Most use cases should use `universe_domain`
+        argument instead.
+
+        universe_domain (str): The universe domain. Defaults to "googleapis.com".
     """
 
     def __init__(
@@ -95,6 +101,7 @@ class Connector:
         quota_project: Optional[str] = None,
         sqladmin_api_endpoint: Optional[str] = None,
         user_agent: Optional[str] = None,
+        universe_domain: Optional[str] = None,
     ) -> None:
         # if event loop is given, use for background tasks
         if loop:
@@ -131,12 +138,36 @@ class Connector:
         self._timeout = timeout
         self._enable_iam_auth = enable_iam_auth
         self._quota_project = quota_project
-        self._sqladmin_api_endpoint = sqladmin_api_endpoint
         self._user_agent = user_agent
         # if ip_type is str, convert to IPTypes enum
         if isinstance(ip_type, str):
             ip_type = IPTypes._from_str(ip_type)
         self._ip_type = ip_type
+        self._universe_domain = universe_domain
+        # construct service endpoint for Cloud SQL Admin API calls
+        if not sqladmin_api_endpoint:
+            self._sqladmin_api_endpoint = (
+                _DEFAULT_SCHEME
+                + _SQLADMIN_HOST_TEMPLATE.format(universe_domain=self.universe_domain)
+            )
+        # otherwise if endpoint override is passed in use it
+        else:
+            self._sqladmin_api_endpoint = sqladmin_api_endpoint
+
+        # validate that the universe domain of the credentials matches the
+        # universe domain of the service endpoint
+        if self._credentials.universe_domain != self.universe_domain:
+            raise ValueError(
+                f"The configured universe domain ({self.universe_domain}) does "
+                "not match the universe domain found in the credentials "
+                f"({self._credentials.universe_domain}). If you haven't "
+                "configured the universe domain explicitly, `googleapis.com` "
+                "is the default."
+            )
+
+    @property
+    def universe_domain(self) -> str:
+        return self._universe_domain or _DEFAULT_UNIVERSE_DOMAIN
 
     def connect(
         self, instance_connection_string: str, driver: str, **kwargs: Any
@@ -371,6 +402,7 @@ async def create_async_connector(
     quota_project: Optional[str] = None,
     sqladmin_api_endpoint: Optional[str] = None,
     user_agent: Optional[str] = None,
+    universe_domain: Optional[str] = None,
 ) -> Connector:
     """
      Create Connector object for asyncio connections that can auto-detect
