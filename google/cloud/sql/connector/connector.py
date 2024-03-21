@@ -46,44 +46,7 @@ ASYNC_DRIVERS = ["asyncpg"]
 
 
 class Connector:
-    """A class to configure and create connections to Cloud SQL instances.
-
-    :type ip_type: str | IPTypes
-    :param ip_type
-        The IP type used to connect. IP types can be either IPTypes.PUBLIC
-        ("PUBLIC"), IPTypes.PRIVATE ("PRIVATE"), or IPTypes.PSC ("PSC").
-
-    :type enable_iam_auth: bool
-    :param enable_iam_auth
-        Enables automatic IAM database authentication for Postgres or MySQL
-        instances.
-
-    :type timeout: int
-    :param timeout
-        The time limit for a connection before raising a TimeoutError.
-
-    :type credentials: google.auth.credentials.Credentials
-    :param credentials
-        Credentials object used to authenticate connections to Cloud SQL server.
-        If not specified, Application Default Credentials are used.
-
-    :type quota_project: str
-    :param quota_project
-        The Project ID for an existing Google Cloud project. The project specified
-        is used for quota and billing purposes. If not specified, defaults to
-        project sourced from environment.
-
-    :type loop: asyncio.AbstractEventLoop
-    :param loop
-        Event loop to run asyncio tasks, if not specified, defaults to
-        creating new event loop on background thread.
-
-    :type sqladmin_api_endpoint: str
-    :param sqladmin_api_endpoint:
-        Base URL to use when calling the Cloud SQL Admin API endpoint.
-        Defaults to "https://sqladmin.googleapis.com", this argument should
-        only be used in development.
-    """
+    """Configure and create secure connections to Cloud SQL."""
 
     def __init__(
         self,
@@ -96,6 +59,38 @@ class Connector:
         sqladmin_api_endpoint: Optional[str] = None,
         user_agent: Optional[str] = None,
     ) -> None:
+        """Initializes a Connector instance.
+
+        Args:
+            ip_type (str | IPTypes): The default IP address type used to connect to
+                Cloud SQL instances. Can be one of the following:
+                IPTypes.PUBLIC ("PUBLIC"), IPTypes.PRIVATE ("PRIVATE"), or
+                IPTypes.PSC ("PSC"). Default: IPTypes.PUBLIC
+
+            enable_iam_auth (bool): Enables automatic IAM database authentication
+                (Postgres and MySQL) as the default authentication method for all
+                connections.
+
+            timeout (int): The default time limit in seconds for a connection before
+                raising a TimeoutError.
+
+            credentials (google.auth.credentials.Credentials): A credentials object
+                created from the google-auth Python library to be used.
+                If not specified, Application Default Credentials (ADC) are used.
+
+            quota_project (str): The Project ID for an existing Google Cloud
+                project. The project specified is used for quota and billing
+                purposes. If not specified, defaults to project sourced from
+                environment.
+
+            loop (asyncio.AbstractEventLoop): Event loop to run asyncio tasks, if
+                not specified, defaults to creating new event loop on background
+                thread.
+
+            sqladmin_api_endpoint (str): Base URL to use when calling the Cloud SQL
+                Admin API endpoint. Defaults to "https://sqladmin.googleapis.com",
+                this argument should only be used in development.
+        """
         # if event loop is given, use for background tasks
         if loop:
             self._loop: asyncio.AbstractEventLoop = loop
@@ -141,28 +136,31 @@ class Connector:
     def connect(
         self, instance_connection_string: str, driver: str, **kwargs: Any
     ) -> Any:
-        """Prepares and returns a database connection object and starts a
-        background task to refresh the certificates and metadata.
+        """Connect to a Cloud SQL instance.
 
-        :type instance_connection_string: str
-        :param instance_connection_string:
-            A string containing the GCP project name, region name, and instance
-            name separated by colons.
+        Prepares and returns a database connection object connected to a Cloud
+        SQL instance using SSL/TLS. Starts a background refresh to periodically
+        retrieve up-to-date ephemeral certificate and instance metadata.
 
-            Example: example-proj:example-region-us6:example-instance
+        Args:
+            instance_connection_string (str): The instance connection name of the
+                Cloud SQL instance to connect to. Takes the form of
+                "project-id:region:instance-name"
 
-        :type driver: str
-        :param: driver:
-            A string representing the driver to connect with. Supported drivers are
-            pymysql, pg8000, and pytds.
+                Example: "my-project:us-central1:my-instance"
 
-        :param kwargs:
-            Pass in any driver-specific arguments needed to connect to the Cloud
-            SQL instance.
+            driver (str): A string representing the database driver to connect
+                with. Supported drivers are pymysql, pg8000, and pytds.
 
-        :rtype: Connection
-        :returns:
+            **kwargs: Any driver-specific arguments to pass to the underlying
+                driver .connect call.
+
+        Returns:
             A DB-API connection to the specified Cloud SQL instance.
+
+        Raises:
+            ConnectorLoopError: Event loop for background refresh is running in
+                current thread. Error instead of hanging indefinitely.
         """
         try:
             # check if event loop is running in current thread
@@ -184,35 +182,37 @@ class Connector:
     async def connect_async(
         self, instance_connection_string: str, driver: str, **kwargs: Any
     ) -> Any:
-        """Prepares and returns a database connection object and starts a
-        background task to refresh the certificates and metadata.
+        """Connect asynchronously to a Cloud SQL instance.
 
-        :type instance_connection_string: str
-        :param instance_connection_string:
-            A string containing the GCP project name, region name, and instance
-            name separated by colons.
+        Prepares and returns a database connection object connected to a Cloud
+        SQL instance using SSL/TLS. Schedules a refresh to periodically
+        retrieve up-to-date ephemeral certificate and instance metadata. Async
+        version of Connector.connect.
 
-            Example: example-proj:example-region-us6:example-instance
+        Args:
+            instance_connection_string (str): The instance connection name of the
+                Cloud SQL instance to connect to. Takes the form of
+                "project-id:region:instance-name"
 
-        :type driver: str
-        :param: driver:
-            A string representing the driver to connect with. Supported drivers are
-            pymysql, pg8000, asyncpg, and pytds.
+                Example: "my-project:us-central1:my-instance"
 
-        :param kwargs:
-            Pass in any driver-specific arguments needed to connect to the Cloud
-            SQL instance.
+            driver (str): A string representing the database driver to connect
+                with. Supported drivers are pymysql, asyncpg, pg8000, and pytds.
 
-        :rtype: Connection
-        :returns:
+            **kwargs: Any driver-specific arguments to pass to the underlying
+                driver .connect call.
+
+        Returns:
             A DB-API connection to the specified Cloud SQL instance.
+
+        Raises:
+            ValueError: Connection attempt with built-in database authentication
+                and then subsequent attempt with IAM database authentication.
+            KeyError: Unsupported database driver Must be one of pymysql, asyncpg,
+                pg8000, and pytds.
+            DnsNameResolutionError: Could not resolve PSC IP address from DNS
+                host name.
         """
-        # Create an Instance object from the connection string.
-        # The Instance should verify arguments.
-        #
-        # Use the Instance to establish an SSL Connection.
-        #
-        # Return a DBAPI connection
         if self._client is None:
             # lazy init client as it has to be initialized in async context
             self._client = CloudSQLClient(
@@ -363,7 +363,7 @@ class Connector:
 
 
 async def create_async_connector(
-    ip_type: IPTypes = IPTypes.PUBLIC,
+    ip_type: str | IPTypes = IPTypes.PUBLIC,
     enable_iam_auth: bool = False,
     timeout: int = 30,
     credentials: Optional[Credentials] = None,
@@ -372,45 +372,43 @@ async def create_async_connector(
     sqladmin_api_endpoint: Optional[str] = None,
     user_agent: Optional[str] = None,
 ) -> Connector:
-    """
-     Create Connector object for asyncio connections that can auto-detect
-     and use current thread's running event loop.
+    """Helper function to create Connector object for asyncio connections.
 
-    :type ip_type: IPTypes
-     :param ip_type
-         The IP type (public or private)  used to connect. IP types
-         can be either IPTypes.PUBLIC or IPTypes.PRIVATE.
+    Force use of Connector in an asyncio context. Auto-detect and use current
+    thread's running event loop.
 
-     :type enable_iam_auth: bool
-     :param enable_iam_auth
-         Enables automatic IAM database authentication for Postgres or MySQL
-         instances.
+    Args:
+        ip_type (str | IPTypes): The default IP address type used to connect to
+            Cloud SQL instances. Can be one of the following:
+            IPTypes.PUBLIC ("PUBLIC"), IPTypes.PRIVATE ("PRIVATE"), or
+            IPTypes.PSC ("PSC"). Default: IPTypes.PUBLIC
 
-     :type timeout: int
-     :param timeout
-         The time limit for a connection before raising a TimeoutError.
+        enable_iam_auth (bool): Enables automatic IAM database authentication
+            (Postgres and MySQL) as the default authentication method for all
+            connections.
 
-     :type credentials: google.auth.credentials.Credentials
-     :param credentials
-         Credentials object used to authenticate connections to Cloud SQL server.
-         If not specified, Application Default Credentials are used.
+        timeout (int): The default time limit in seconds for a connection before
+            raising a TimeoutError.
 
-     :type quota_project: str
-     :param quota_project
-         The Project ID for an existing Google Cloud project. The project specified
-         is used for quota and billing purposes. If not specified, defaults to
-         project sourced from environment.
+        credentials (google.auth.credentials.Credentials): A credentials object
+            created from the google-auth Python library to be used.
+            If not specified, Application Default Credentials (ADC) are used.
 
-     :type loop: asyncio.AbstractEventLoop
-     :param loop
-         Event loop to run asyncio tasks, if not specified, defaults to
-         creating new event loop on background thread.
+        quota_project (str): The Project ID for an existing Google Cloud
+            project. The project specified is used for quota and billing
+            purposes. If not specified, defaults to project sourced from
+            environment.
 
-     :type sqladmin_api_endpoint: str
-     :param sqladmin_api_endpoint:
-         Base URL to use when calling the Cloud SQL Admin API endpoint.
-         Defaults to "https://sqladmin.googleapis.com", this argument should
-         only be used in development.
+        loop (asyncio.AbstractEventLoop): Event loop to run asyncio tasks, if
+            not specified, defaults to creating new event loop on background
+            thread.
+
+        sqladmin_api_endpoint (str): Base URL to use when calling the Cloud SQL
+            Admin API endpoint. Defaults to "https://sqladmin.googleapis.com",
+            this argument should only be used in development.
+
+    Returns:
+        A Connector instance configured with running event loop.
     """
     # if no loop given, automatically detect running event loop
     if loop is None:
