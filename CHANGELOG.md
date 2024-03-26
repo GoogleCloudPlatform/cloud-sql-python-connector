@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.8.1](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v1.8.0...v1.8.1) (2024-03-26)
+
+
+### Dependencies
+
+* Update dependency google-auth to v2.29.0 ([#1043](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/1043)) ([2ac2fd1](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/2ac2fd1ab99ee1c0d3a12cd9da7f6820eb0237cc))
+* Update dependency pytest-asyncio to v0.23.6 ([#1041](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/1041)) ([088b128](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/088b1288f5779deab70aa3b7315e3a03d0a875cb))
+* Update dependency SQLAlchemy to v2.0.29 ([#1047](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/1047)) ([27ca146](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/27ca146ad8b7a5404dc4f7b9729a21f5257055d7))
+
 ## [1.8.0](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v1.7.0...v1.8.0) (2024-03-12)
 
 
