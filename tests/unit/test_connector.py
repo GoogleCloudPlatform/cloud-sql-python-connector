@@ -273,3 +273,67 @@ def test_Connector_close_called_multiple_times(fake_credentials: Credentials) ->
     assert connector._thread.is_alive() is False
     # call connector.close a second time
     connector.close()
+
+
+def test_default_universe_domain(fake_credentials: Credentials) -> None:
+    """Test that default universe domain and constructed service endpoint are
+    formatted correctly.
+    """
+    with Connector(credentials=fake_credentials) as connector:
+        # test universe domain was not configured
+        assert connector._universe_domain is None
+        # test property and service endpoint construction
+        assert connector.universe_domain == "googleapis.com"
+        assert connector._sqladmin_api_endpoint == "https://sqladmin.googleapis.com"
+
+
+def test_configured_universe_domain_matches_GDU(fake_credentials: Credentials) -> None:
+    """Test that configured universe domain succeeds with matched GDU credentials."""
+    universe_domain = "googleapis.com"
+    with Connector(
+        credentials=fake_credentials, universe_domain=universe_domain
+    ) as connector:
+        # test universe domain was configured
+        assert connector._universe_domain == universe_domain
+        # test property and service endpoint construction
+        assert connector.universe_domain == universe_domain
+        assert connector._sqladmin_api_endpoint == f"https://sqladmin.{universe_domain}"
+
+
+def test_configured_universe_domain_matches_credentials(
+    fake_credentials: Credentials,
+) -> None:
+    """Test that configured universe domain succeeds with matching universe
+    domain credentials.
+    """
+    universe_domain = "test-universe.test"
+    # set fake credentials to be configured for the universe domain
+    fake_credentials._universe_domain = universe_domain
+    with Connector(
+        credentials=fake_credentials, universe_domain=universe_domain
+    ) as connector:
+        # test universe domain was configured
+        assert connector._universe_domain == universe_domain
+        # test property and service endpoint construction
+        assert connector.universe_domain == universe_domain
+        assert connector._sqladmin_api_endpoint == f"https://sqladmin.{universe_domain}"
+
+
+def test_configured_universe_domain_mismatched_credentials(
+    fake_credentials: Credentials,
+) -> None:
+    """Test that configured universe domain errors with mismatched universe
+    domain credentials.
+    """
+    universe_domain = "test-universe.test"
+    # credentials have GDU domain ("googleapis.com")
+    with pytest.raises(ValueError) as exc_info:
+        Connector(credentials=fake_credentials, universe_domain=universe_domain)
+    err_msg = (
+        f"The configured universe domain ({universe_domain}) does "
+        "not match the universe domain found in the credentials "
+        f"({fake_credentials.universe_domain}). If you haven't "
+        "configured the universe domain explicitly, `googleapis.com` "
+        "is the default."
+    )
+    assert exc_info.value.args[0] == err_msg
