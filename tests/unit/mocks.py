@@ -30,6 +30,7 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.x509.oid import NameOID
 from google.auth.credentials import Credentials
 
+from google.cloud.sql.connector.connector import _DEFAULT_UNIVERSE_DOMAIN
 from google.cloud.sql.connector.instance import ConnectionInfo
 from google.cloud.sql.connector.utils import generate_keys
 from google.cloud.sql.connector.utils import write_to_file
@@ -41,6 +42,7 @@ class FakeCredentials:
     ) -> None:
         self.token = token
         self.expiry = expiry
+        self._universe_domain = _DEFAULT_UNIVERSE_DOMAIN
 
     @property
     def __class__(self) -> Credentials:
@@ -67,6 +69,11 @@ class FakeCredentials:
         if self.expiry > datetime.datetime.now(datetime.timezone.utc):
             return False
         return True
+
+    @property
+    def universe_domain(self) -> str:
+        """The universe domain value."""
+        return self._universe_domain
 
     @property
     def valid(self) -> bool:
