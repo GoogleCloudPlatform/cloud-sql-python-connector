@@ -22,7 +22,7 @@
       "matchManagers": ["github-actions"],
       "groupName": "dependencies for github",
       "commitMessagePrefix": "chore(deps):",
-      'pinDigest": true,
+      "pinDigest": true,
     },
     {
       "groupName": "python-nonmajor",
