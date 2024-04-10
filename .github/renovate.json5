@@ -1,0 +1,33 @@
+{
+  "extends": [
+    "config:base", // https://docs.renovatebot.com/presets-config/#configbase
+    ":semanticCommits", // https://docs.renovatebot.com/presets-default/#semanticcommits
+    ":ignoreUnstable", // https://docs.renovatebot.com/presets-default/#ignoreunstable
+    "group:allNonMajor", // https://docs.renovatebot.com/presets-group/#groupallnonmajor
+    ":separateMajorReleases", // https://docs.renovatebot.com/presets-default/#separatemajorreleases
+    ":prConcurrentLimitNone", // View complete backlog as PRs. https://docs.renovatebot.com/presets-default/#prconcurrentlimitnone
+  ],
+  "ignorePaths": [".kokoro/requirements.txt"],
+  "rebaseWhen": "behind-base-branch",
+  "dependencyDashboard": true,
+  "dependencyDashboardLabels": ["type: process"],
+  "pip_requirements": {
+    "fileMatch": ["requirements-test.txt"]
+  },
+  "pip_setup": {
+    "fileMatch": ["(^|/)setup\\.py$"]
+  },
+  "packageRules": [
+    {
+      "matchManagers": ["github-actions"],
+      "groupName": "dependencies for github",
+      "commitMessagePrefix": "chore(deps):",
+      "pinDigest": true,
+    },
+    {
+      "groupName": "python-nonmajor",
+      "matchCategories": ["python"],
+      "matchUpdateTypes": ["minor", "patch"],
+    },
+  ],
+}

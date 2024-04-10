@@ -38,7 +38,7 @@ logger = logging.getLogger(name=__name__)
 
 def _format_user_agent(driver: Optional[str], custom: Optional[str]) -> str:
     agent = f"{USER_AGENT}+{driver}" if driver else USER_AGENT
-    if custom:
+    if custom and isinstance(custom, str):
         agent = f"{agent} {custom}"
     return agent
 
