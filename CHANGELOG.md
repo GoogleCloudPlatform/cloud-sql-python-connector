@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.9.0](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v1.8.0...v1.9.0) (2024-04-16)
+
+
+### Features
+
+* add universe domain support to Connector (TPC) ([#1045](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/1045)) ([b1e9dee](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/b1e9deee216c57e6831162f6aded79511c5e38e3))
+
+
+### Dependencies
+
+* update dependency aiohttp to v3.9.4 ([#1060](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/1060)) ([78b3671](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/78b36715bd2d3a1ca4c4f72295c36b95e360abf1))
+* Update dependency google-auth to v2.29.0 ([#1043](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/1043)) ([2ac2fd1](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/2ac2fd1ab99ee1c0d3a12cd9da7f6820eb0237cc))
+* Update dependency pg8000 to v1.31.1 ([#1053](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/1053)) ([eaa371d](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/eaa371d95509f97b8951d80046a5a273bece489a))
+
 ## [1.8.0](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v1.7.0...v1.8.0) (2024-03-12)
 
 
