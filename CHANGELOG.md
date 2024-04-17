@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.9.1](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v1.9.0...v1.9.1) (2024-04-17)
+
+
+### Bug Fixes
+
+* add minimum version for google-auth dep ([#1065](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/1065)) ([b13d172](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/b13d1723f721a4a19751d4c2550f92656fff0ce4))
+
+
+### Dependencies
+
+* update dependency aiohttp to v3.9.5 ([#1063](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/1063)) ([bd6c323](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/bd6c3239dad0c95ab5e5648a1950b241c4e1ed5b))
+
 ## [1.9.0](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v1.8.0...v1.9.0) (2024-04-16)
 
 
