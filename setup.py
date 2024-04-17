@@ -28,7 +28,7 @@ dependencies = [
     "aiohttp",
     "cryptography>=42.0.0",
     "Requests",
-    "google-auth",
+    "google-auth>=2.28.0",
 ]
 
 package_root = os.path.abspath(os.path.dirname(__file__))
