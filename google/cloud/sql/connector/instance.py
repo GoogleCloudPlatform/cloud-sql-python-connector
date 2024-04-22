@@ -170,15 +170,6 @@ class RefreshAheadCache:
             enable_iam_auth (bool): Enables automatic IAM database authentication
                 (Postgres and MySQL) as the default authentication method for all
                 connections.
-        :param instance_connection_string:
-            The Google Cloud SQL Instance's connection
-            string.
-        :type instance_connection_string: str
-
-        :param enable_iam_auth
-            Enables automatic IAM database authentication for Postgres or MySQL
-            instances.
-        :type enable_iam_auth: bool
         """
         # validate and parse instance connection name
         self._project, self._region, self._instance = _parse_instance_connection_name(
