@@ -144,32 +144,13 @@ class ConnectionInfo:
         )
 
 
-class Instance:
-    """A class to manage the details of the connection to a Cloud SQL
-    instance, including refreshing the credentials.
+class RefreshAheadCache:
+    """Cache that refreshes connection info in the background prior to expiration.
 
-    :param instance_connection_string:
-        The Google Cloud SQL Instance's connection
-        string.
-    :type instance_connection_string: str
-
-    :param enable_iam_auth
-        Enables automatic IAM database authentication for Postgres or MySQL
-        instances.
-    :type enable_iam_auth: bool
+    Background tasks are used to schedule refresh attempts to get a new
+    ephemeral certificate and Cloud SQL metadata (IP addresses, etc.) ahead of
+    expiration.
     """
-
-    _enable_iam_auth: bool
-    _keys: asyncio.Future
-    _instance_connection_string: str
-    _instance: str
-    _project: str
-    _region: str
-
-    _refresh_rate_limiter: AsyncRateLimiter
-    _refresh_in_progress: asyncio.locks.Event
-    _current: asyncio.Task  # task wraps coroutine that returns ConnectionInfo
-    _next: asyncio.Task  # task wraps coroutine that returns another task
 
     def __init__(
         self,
@@ -178,6 +159,27 @@ class Instance:
         keys: asyncio.Future,
         enable_iam_auth: bool = False,
     ) -> None:
+        """Initializes a RefreshAheadCache instance.
+
+        Args:
+            instance_connection_string (str): The Cloud SQL Instance's
+                connection string (also known as an instance connection name).
+            client (CloudSQLClient): The Cloud SQL Client instance.
+            keys (asyncio.Future): A future to the client's public-private key
+                pair.
+            enable_iam_auth (bool): Enables automatic IAM database authentication
+                (Postgres and MySQL) as the default authentication method for all
+                connections.
+        :param instance_connection_string:
+            The Google Cloud SQL Instance's connection
+            string.
+        :type instance_connection_string: str
+
+        :param enable_iam_auth
+            Enables automatic IAM database authentication for Postgres or MySQL
+            instances.
+        :type enable_iam_auth: bool
+        """
         # validate and parse instance connection name
         self._project, self._region, self._instance = _parse_instance_connection_name(
             instance_connection_string
@@ -192,8 +194,8 @@ class Instance:
             rate=1 / 30,
         )
         self._refresh_in_progress = asyncio.locks.Event()
-        self._current = self._schedule_refresh(0)
-        self._next = self._current
+        self._current: asyncio.Task = self._schedule_refresh(0)
+        self._next: asyncio.Task = self._current
 
     async def force_refresh(self) -> None:
         """
@@ -211,10 +213,11 @@ class Instance:
         """Retrieves instance metadata and ephemeral certificate from the
         Cloud SQL Instance.
 
-        :rtype: ConnectionInfo
-        :returns: A dataclass containing a string representing the ephemeral certificate, a dict
-            containing the instances IP adresses, a string representing a PEM-encoded private key
-            and a string representing a PEM-encoded certificate authority.
+        Returns:
+            A ConnectionInfo instance containing a string representing the
+            ephemeral certificate, a dict containing the instances IP adresses,
+            a string representing a PEM-encoded private key and a string
+            representing a PEM-encoded certificate authority.
         """
         self._refresh_in_progress.set()
         logger.debug(
@@ -290,15 +293,14 @@ class Instance:
         """
         Schedule task to sleep and then perform refresh to get ConnectionInfo.
 
-        :type delay: int
-        :param delay
-            Time in seconds to sleep before running _perform_refresh.
+        Args:
+            delay (int): Time in seconds to sleep before performing a refresh.
 
-        :rtype: asyncio.Task
-        :returns: A Task representing the scheduled _perform_refresh.
+        Returns:
+            An asyncio.Task representing the scheduled refresh.
         """
 
-        async def _refresh_task(self: Instance, delay: int) -> ConnectionInfo:
+        async def _refresh_task(self: RefreshAheadCache, delay: int) -> ConnectionInfo:
             """
             A coroutine that sleeps for the specified amount of time before
             running _perform_refresh.
@@ -349,16 +351,14 @@ class Instance:
         """Retrieve instance metadata and ip address required
         for making connection to Cloud SQL instance.
 
-        :type ip_type: IPTypes
-        :param ip_type: Enum specifying whether to look for public
-            or private IP address.
+        Args:
+            ip_type (IPTypes): Enum specifying type of IP address to lookup and
+                use for connection.
 
-        :rtype instance_data: ConnectionInfo
-        :returns: Instance metadata for Cloud SQL instance.
-
-        :rtype ip_address: str
-        :returns: A string representing the IP address of
-            the given Cloud SQL instance.
+        Returns:
+            A tuple with the first item being the ConnectionInfo instance for
+            establishing the connection, and the second item being the IP
+            address of the Cloud SQL instance matching the specified IP type.
         """
         logger.debug(
             f"['{self._instance_connection_string}']: Entered connect_info method"

@@ -25,7 +25,7 @@ from unit.mocks import FakeCredentials  # type: ignore
 from unit.mocks import FakeCSQLInstance  # type: ignore
 
 from google.cloud.sql.connector.client import CloudSQLClient
-from google.cloud.sql.connector.instance import Instance
+from google.cloud.sql.connector.instance import RefreshAheadCache
 from google.cloud.sql.connector.utils import generate_keys
 
 SCOPES = ["https://www.googleapis.com/auth/sqlservice.admin"]
@@ -137,12 +137,12 @@ async def fake_client(
 
 
 @pytest.fixture
-async def instance(fake_client: CloudSQLClient) -> AsyncGenerator[Instance, None]:
+async def cache(fake_client: CloudSQLClient) -> AsyncGenerator[RefreshAheadCache, None]:
     keys = asyncio.create_task(generate_keys())
-    instance = Instance(
+    cache = RefreshAheadCache(
         "test-project:test-region:test-instance",
         client=fake_client,
         keys=keys,
     )
-    yield instance
-    await instance.close()
+    yield cache
+    await cache.close()

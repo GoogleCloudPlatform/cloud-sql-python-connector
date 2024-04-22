@@ -25,18 +25,18 @@ from google.cloud.sql.connector import create_async_connector
 from google.cloud.sql.connector import IPTypes
 from google.cloud.sql.connector.client import CloudSQLClient
 from google.cloud.sql.connector.exceptions import ConnectorLoopError
-from google.cloud.sql.connector.instance import Instance
+from google.cloud.sql.connector.instance import RefreshAheadCache
 
 
 def test_connect_enable_iam_auth_error(
-    fake_credentials: Credentials, instance: Instance
+    fake_credentials: Credentials, cache: RefreshAheadCache
 ) -> None:
     """Test that calling connect() with different enable_iam_auth
     argument values throws error."""
     connect_string = "test-project:test-region:test-instance"
     connector = Connector(credentials=fake_credentials)
-    # set instance
-    connector._instances[connect_string] = instance
+    # set cache
+    connector._cache[connect_string] = cache
     # try to connect using enable_iam_auth=True, should raise error
     with pytest.raises(ValueError) as exc_info:
         connector.connect(connect_string, "pg8000", enable_iam_auth=True)
@@ -46,8 +46,8 @@ def test_connect_enable_iam_auth_error(
         "If you require both for your use case, please use a new "
         "connector.Connector object."
     )
-    # remove instance to avoid destructor warnings
-    connector._instances = {}
+    # remove cache entrry to avoid destructor warnings
+    connector._cache = {}
 
 
 def test_connect_with_unsupported_driver(fake_credentials: Credentials) -> None:
