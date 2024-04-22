@@ -32,8 +32,8 @@ import google.cloud.sql.connector.asyncpg as asyncpg
 from google.cloud.sql.connector.client import CloudSQLClient
 from google.cloud.sql.connector.exceptions import ConnectorLoopError
 from google.cloud.sql.connector.exceptions import DnsNameResolutionError
-from google.cloud.sql.connector.instance import Instance
 from google.cloud.sql.connector.instance import IPTypes
+from google.cloud.sql.connector.instance import RefreshAheadCache
 import google.cloud.sql.connector.pg8000 as pg8000
 import google.cloud.sql.connector.pymysql as pymysql
 import google.cloud.sql.connector.pytds as pytds
@@ -113,7 +113,7 @@ class Connector:
                 asyncio.run_coroutine_threadsafe(generate_keys(), self._loop),
                 loop=self._loop,
             )
-        self._instances: Dict[str, Instance] = {}
+        self._cache: Dict[str, RefreshAheadCache] = {}
         self._client: Optional[CloudSQLClient] = None
 
         # initialize credentials
@@ -255,23 +255,23 @@ class Connector:
                 driver=driver,
             )
         enable_iam_auth = kwargs.pop("enable_iam_auth", self._enable_iam_auth)
-        if instance_connection_string in self._instances:
-            instance = self._instances[instance_connection_string]
-            if enable_iam_auth != instance._enable_iam_auth:
+        if instance_connection_string in self._cache:
+            cache = self._cache[instance_connection_string]
+            if enable_iam_auth != cache._enable_iam_auth:
                 raise ValueError(
                     f"connect() called with 'enable_iam_auth={enable_iam_auth}', "
-                    f"but previously used 'enable_iam_auth={instance._enable_iam_auth}'. "
+                    f"but previously used 'enable_iam_auth={cache._enable_iam_auth}'. "
                     "If you require both for your use case, please use a new "
                     "connector.Connector object."
                 )
         else:
-            instance = Instance(
+            cache = RefreshAheadCache(
                 instance_connection_string,
                 self._client,
                 self._keys,
                 enable_iam_auth,
             )
-            self._instances[instance_connection_string] = instance
+            self._cache[instance_connection_string] = cache
 
         connect_func = {
             "pymysql": pymysql.connect,
@@ -300,7 +300,7 @@ class Connector:
 
         # attempt to make connection to Cloud SQL instance
         try:
-            instance_data, ip_address = await instance.connect_info(ip_type)
+            instance_data, ip_address = await cache.connect_info(ip_type)
             # resolve DNS name into IP address for PSC
             if ip_type.value == "PSC":
                 addr_info = await self._loop.getaddrinfo(
@@ -339,7 +339,7 @@ class Connector:
 
         except Exception:
             # with any exception, we attempt a force refresh, then throw the error
-            await instance.force_refresh()
+            await cache.force_refresh()
             raise
 
     def __enter__(self) -> Any:
@@ -385,11 +385,9 @@ class Connector:
             self._thread.join()
 
     async def close_async(self) -> None:
-        """Helper function to cancel Instances' tasks
+        """Helper function to cancel the cache's tasks
         and close aiohttp.ClientSession."""
-        await asyncio.gather(
-            *[instance.close() for instance in self._instances.values()]
-        )
+        await asyncio.gather(*[cache.close() for cache in self._cache.values()])
         if self._client:
             await self._client.close()
 
