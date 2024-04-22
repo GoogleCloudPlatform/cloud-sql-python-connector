@@ -83,11 +83,11 @@ def test_multiple_connectors() -> None:
             conn.execute(sqlalchemy.text("SELECT 1"))
 
         instance_connection_string = os.environ["MYSQL_CONNECTION_NAME"]
-        assert instance_connection_string in first_connector._instances
-        assert instance_connection_string in second_connector._instances
+        assert instance_connection_string in first_connector._cache
+        assert instance_connection_string in second_connector._cache
         assert (
-            first_connector._instances[instance_connection_string]
-            != second_connector._instances[instance_connection_string]
+            first_connector._cache[instance_connection_string]
+            != second_connector._cache[instance_connection_string]
         )
     except Exception as e:
         logging.exception("Failed to connect with multiple Connector objects!", e)
