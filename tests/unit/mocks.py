@@ -31,7 +31,6 @@ from cryptography.x509.oid import NameOID
 from google.auth.credentials import Credentials
 
 from google.cloud.sql.connector.connector import _DEFAULT_UNIVERSE_DOMAIN
-from google.cloud.sql.connector.instance import ConnectionInfo
 from google.cloud.sql.connector.utils import generate_keys
 from google.cloud.sql.connector.utils import write_to_file
 
@@ -85,36 +84,6 @@ class FakeCredentials:
         return self.token is not None and not self.expired
 
 
-class BadRefresh(Exception):
-    pass
-
-
-class MockMetadata(ConnectionInfo):
-    """Mock class for ConnectionInfo"""
-
-    def __init__(
-        self, expiration: datetime.datetime, ip_addrs: Dict = {"PRIMARY": "0.0.0.0"}
-    ) -> None:
-        self.expiration = expiration
-        self.ip_addrs = ip_addrs
-
-
-async def instance_metadata_success(*args: Any, **kwargs: Any) -> MockMetadata:
-    return MockMetadata(
-        datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(minutes=10)
-    )
-
-
-async def instance_metadata_expired(*args: Any, **kwargs: Any) -> MockMetadata:
-    return MockMetadata(
-        datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(minutes=10)
-    )
-
-
-async def instance_metadata_error(*args: Any, **kwargs: Any) -> None:
-    raise BadRefresh("something went wrong...")
-
-
 def generate_cert(
     project: str,
     name: str,
@@ -166,6 +135,9 @@ def client_key_signed_cert(
     cert: x509.CertificateBuilder,
     priv_key: rsa.RSAPrivateKey,
     client_key: rsa.RSAPublicKey,
+    cert_before: datetime.datetime = datetime.datetime.now(datetime.timezone.utc),
+    cert_expiration: datetime.datetime = datetime.datetime.now(datetime.timezone.utc)
+    + datetime.timedelta(hours=1),
 ) -> str:
     """
     Create a PEM encoded certificate that is signed by given public key.
@@ -185,8 +157,8 @@ def client_key_signed_cert(
         .issuer_name(issuer)
         .public_key(client_key)
         .serial_number(x509.random_serial_number())
-        .not_valid_before(cert._not_valid_before)
-        .not_valid_after(cert._not_valid_after)  # type: ignore
+        .not_valid_before(cert_before)
+        .not_valid_after(cert_expiration)  # type: ignore
     )
     return (
         cert.sign(priv_key, hashes.SHA256(), default_backend())
@@ -231,7 +203,7 @@ class FakeCSQLInstance:
             "PRIVATE": "10.0.0.1",
         },
         cert_before: datetime = datetime.datetime.now(datetime.timezone.utc),
-        cert_expiry: datetime = datetime.datetime.now(datetime.timezone.utc)
+        cert_expiration: datetime = datetime.datetime.now(datetime.timezone.utc)
         + datetime.timedelta(hours=1),
     ) -> None:
         self.project = project
@@ -240,10 +212,10 @@ class FakeCSQLInstance:
         self.db_version = db_version
         self.ip_addrs = ip_addrs
         self.cert_before = cert_before
-        self.cert_expiry = cert_expiry
+        self.cert_expiration = cert_expiration
         # create self signed CA cert
         self.server_ca, self.server_key = generate_cert(
-            self.project, self.name, cert_before, cert_expiry
+            self.project, self.name, cert_before, cert_expiration
         )
         self.server_cert = self.server_ca.sign(self.server_key, hashes.SHA256())
         self.server_cert_pem = self.server_cert.public_bytes(
@@ -257,7 +229,7 @@ class FakeCSQLInstance:
             "serverCaCert": {
                 "cert": self.server_cert_pem,
                 "instance": self.name,
-                "expirationTime": str(self.server_cert.not_valid_after_utc),
+                "expirationTime": str(self.cert_expiration),
             },
             "dnsName": "abcde.12345.us-central1.sql.goog",
             "ipAddresses": ip_addrs,
@@ -273,13 +245,17 @@ class FakeCSQLInstance:
             pub_key.encode("UTF-8"), default_backend()
         )  # type: ignore
         ephemeral_cert = client_key_signed_cert(
-            self.server_ca, self.server_key, client_key
+            self.server_ca,
+            self.server_key,
+            client_key,
+            self.cert_before,
+            self.cert_expiration,
         )
         response = {
             "ephemeralCert": {
                 "kind": "sql#sslCert",
                 "cert": ephemeral_cert,
-                "expirationTime": str(self.server_cert.not_valid_after_utc),
+                "expirationTime": str(self.cert_expiration),
             }
         }
         return web.Response(content_type="application/json", body=json.dumps(response))

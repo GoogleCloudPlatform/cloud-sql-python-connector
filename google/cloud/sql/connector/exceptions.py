@@ -62,3 +62,11 @@ class DnsNameResolutionError(Exception):
     Exception to be raised when the DnsName of a PSC connection to a
     Cloud SQL instance can not be resolved to a proper IP address.
     """
+
+
+class RefreshNotValidError(Exception):
+    """
+    Exception to be raised when the task returned from refresh is not valid.
+    """
+
+    pass

@@ -269,7 +269,6 @@ class Connector:
                 instance_connection_string,
                 self._client,
                 self._keys,
-                enable_iam_auth,
             )
             self._cache[instance_connection_string] = cache
 
@@ -330,10 +329,17 @@ class Connector:
 
             # async drivers are unblocking and can be awaited directly
             if driver in ASYNC_DRIVERS:
-                return await connector(ip_address, instance_data.context, **kwargs)
+                return await connector(
+                    ip_address,
+                    instance_data.create_ssl_context(enable_iam_auth),
+                    **kwargs,
+                )
             # synchronous drivers are blocking and run using executor
             connect_partial = partial(
-                connector, ip_address, instance_data.context, **kwargs
+                connector,
+                ip_address,
+                instance_data.create_ssl_context(enable_iam_auth),
+                **kwargs,
             )
             return await self._loop.run_in_executor(None, connect_partial)
 

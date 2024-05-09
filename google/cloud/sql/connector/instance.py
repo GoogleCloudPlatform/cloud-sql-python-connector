@@ -17,6 +17,7 @@ limitations under the License.
 from __future__ import annotations
 
 import asyncio
+from dataclasses import dataclass
 from enum import Enum
 import logging
 import re
@@ -29,6 +30,7 @@ import aiohttp
 from google.cloud.sql.connector.client import CloudSQLClient
 from google.cloud.sql.connector.exceptions import AutoIAMAuthNotSupported
 from google.cloud.sql.connector.exceptions import CloudSQLIPTypeError
+from google.cloud.sql.connector.exceptions import RefreshNotValidError
 from google.cloud.sql.connector.exceptions import TLSVersionError
 from google.cloud.sql.connector.rate_limiter import AsyncRateLimiter
 from google.cloud.sql.connector.refresh_utils import _is_valid
@@ -79,33 +81,31 @@ class IPTypes(Enum):
         return cls(ip_type_str.upper())
 
 
+@dataclass
 class ConnectionInfo:
+    """Contains all necessary information to connect securely to the
+    server-side Proxy running on a Cloud SQL instance."""
+
+    client_cert: str
+    server_ca_cert: str
+    private_key: bytes
     ip_addrs: Dict[str, Any]
-    context: ssl.SSLContext
     database_version: str
     expiration: datetime.datetime
 
-    def __init__(
-        self,
-        ephemeral_cert: str,
-        database_version: str,
-        ip_addrs: Dict[str, Any],
-        private_key: bytes,
-        server_ca_cert: str,
-        expiration: datetime.datetime,
-        enable_iam_auth: bool,
-    ) -> None:
-        self.ip_addrs = ip_addrs
-        self.database_version = database_version
-        self.context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+    def create_ssl_context(self, enable_iam_auth: bool = False) -> ssl.SSLContext:
+        """Constructs a SSL/TLS context for the given connection info."""
+        context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
 
         # update ssl.PROTOCOL_TLS_CLIENT default
-        self.context.check_hostname = False
+        context.check_hostname = False
 
+        # TODO: remove if/else when Python 3.10 is min version. PEP 644 has been
+        # implemented. The ssl module requires OpenSSL 1.1.1 or newer.
         # verify OpenSSL version supports TLSv1.3
         if ssl.HAS_TLSv1_3:
             # force TLSv1.3 if supported by client
-            self.context.minimum_version = ssl.TLSVersion.TLSv1_3
+            context.minimum_version = ssl.TLSVersion.TLSv1_3
         # fallback to TLSv1.2 for older versions of OpenSSL
         else:
             if enable_iam_auth:
@@ -119,18 +119,18 @@ class ConnectionInfo:
                 f"({ssl.OPENSSL_VERSION}), falling back to TLSv1.2\n"
                 "Upgrade your OpenSSL version to 1.1.1 for TLSv1.3 support."
             )
-            self.context.minimum_version = ssl.TLSVersion.TLSv1_2
-        self.expiration = expiration
+            context.minimum_version = ssl.TLSVersion.TLSv1_2
 
         # tmpdir and its contents are automatically deleted after the CA cert
         # and ephemeral cert are loaded into the SSLcontext. The values
         # need to be written to files in order to be loaded by the SSLContext
         with TemporaryDirectory() as tmpdir:
             ca_filename, cert_filename, key_filename = write_to_file(
-                tmpdir, server_ca_cert, ephemeral_cert, private_key
+                tmpdir, self.server_ca_cert, self.client_cert, self.private_key
             )
-            self.context.load_cert_chain(cert_filename, keyfile=key_filename)
-            self.context.load_verify_locations(cafile=ca_filename)
+            context.load_cert_chain(cert_filename, keyfile=key_filename)
+            context.load_verify_locations(cafile=ca_filename)
+        return context
 
     def get_preferred_ip(self, ip_type: IPTypes) -> str:
         """Returns the first IP address for the instance, according to the preference
@@ -272,12 +272,11 @@ class RefreshAheadCache:
 
         return ConnectionInfo(
             ephemeral_cert,
-            metadata["database_version"],
-            metadata["ip_addresses"],
-            priv_key,
             metadata["server_ca_cert"],
+            priv_key,
+            metadata["ip_addresses"],
+            metadata["database_version"],
             expiration,
-            self._enable_iam_auth,
         )
 
     def _schedule_refresh(self, delay: int) -> asyncio.Task:
@@ -303,6 +302,11 @@ class RefreshAheadCache:
                     await asyncio.sleep(delay)
                 refresh_task = asyncio.create_task(self._perform_refresh())
                 refresh_data = await refresh_task
+                # check that refresh is valid
+                if not await _is_valid(refresh_task):
+                    raise RefreshNotValidError(
+                        f"['{self._instance_connection_string}']: Invalid refresh operation. Certficate appears to be expired."
+                    )
             except asyncio.CancelledError:
                 logger.debug(
                     f"['{self._instance_connection_string}']: Schedule refresh task cancelled."

@@ -15,7 +15,6 @@ limitations under the License.
 """
 import asyncio
 import datetime
-from typing import no_type_check
 
 from conftest import SCOPES  # type: ignore
 import google.auth
@@ -23,8 +22,6 @@ from google.auth.credentials import Credentials
 import google.oauth2.credentials
 from mock import Mock
 from mock import patch
-from mocks import instance_metadata_expired
-from mocks import instance_metadata_success
 import pytest  # noqa F401 Needed to run the tests
 
 from google.cloud.sql.connector.refresh_utils import _downscope_credentials
@@ -40,25 +37,43 @@ def credentials() -> Credentials:
     return credentials
 
 
+class FakeConnectionInfo:
+    def __init__(self, expiration: datetime.datetime) -> None:
+        self.expiration = expiration
+
+
+async def set_expiration(expiration: datetime.datetime) -> FakeConnectionInfo:
+    return FakeConnectionInfo(expiration)
+
+
 @pytest.mark.asyncio
-@no_type_check
 async def test_is_valid_with_valid_metadata() -> None:
     """
     Test to check that valid metadata with expiration in future returns True.
     """
+
     # task that returns class with expiration 10 mins in future
-    task = asyncio.create_task(instance_metadata_success())
+    task = asyncio.create_task(
+        set_expiration(
+            datetime.datetime.now(datetime.timezone.utc)
+            + datetime.timedelta(minutes=10)
+        )
+    )
     assert await _is_valid(task)
 
 
 @pytest.mark.asyncio
-@no_type_check
 async def test_is_valid_with_expired_metadata() -> None:
     """
     Test to check that invalid metadata with expiration in past returns False.
     """
     # task that returns class with expiration 10 mins in past
-    task = asyncio.create_task(instance_metadata_expired())
+    task = asyncio.create_task(
+        set_expiration(
+            datetime.datetime.now(datetime.timezone.utc)
+            - datetime.timedelta(minutes=10)
+        )
+    )
     assert not await _is_valid(task)
 
 
