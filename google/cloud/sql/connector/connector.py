@@ -269,6 +269,7 @@ class Connector:
                 instance_connection_string,
                 self._client,
                 self._keys,
+                enable_iam_auth
             )
             self._cache[instance_connection_string] = cache
 
