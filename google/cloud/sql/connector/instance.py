@@ -92,9 +92,12 @@ class ConnectionInfo:
     ip_addrs: Dict[str, Any]
     database_version: str
     expiration: datetime.datetime
+    context: ssl.SSLContext | None = None
 
     def create_ssl_context(self, enable_iam_auth: bool = False) -> ssl.SSLContext:
         """Constructs a SSL/TLS context for the given connection info."""
+        if self.context is not None:
+            return self.context
         context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
 
         # update ssl.PROTOCOL_TLS_CLIENT default
@@ -130,6 +133,8 @@ class ConnectionInfo:
             )
             context.load_cert_chain(cert_filename, keyfile=key_filename)
             context.load_verify_locations(cafile=ca_filename)
+        # set class attribute to cache context for subsequent calls
+        self.context = context
         return context
 
     def get_preferred_ip(self, ip_type: IPTypes) -> str:
