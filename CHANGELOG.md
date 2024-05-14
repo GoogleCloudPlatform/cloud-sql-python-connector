@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.9.2](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v1.9.1...v1.9.2) (2024-05-14)
+
+
+### Dependencies
+
+* update dependency cryptography to v42.0.7 ([#1076](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/1076)) ([a4aec7e](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/a4aec7ee406cd3e4480833479d394d67c80e9352))
+
 ## [1.9.1](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v1.9.0...v1.9.1) (2024-04-17)
 
 
