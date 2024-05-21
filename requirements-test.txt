@@ -5,7 +5,7 @@ pytest-asyncio==0.23.6
 SQLAlchemy[asyncio]==2.0.30
 sqlalchemy-pytds==1.0.0
 sqlalchemy-stubs==0.4
-PyMySQL==1.1.0
+PyMySQL==1.1.1
 pg8000==1.31.2
 asyncpg==0.29.0
 python-tds==1.15.0
