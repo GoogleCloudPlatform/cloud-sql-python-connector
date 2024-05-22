@@ -105,7 +105,7 @@ def kwargs() -> Any:
     return kwargs
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture
 def fake_instance() -> FakeCSQLInstance:
     return FakeCSQLInstance()
 
@@ -133,7 +133,10 @@ async def fake_client(
         sqlserver_client_cert_uri, sqlserver_instance.generate_ephemeral
     )
     client_session = await aiohttp_client(app)
-    return CloudSQLClient("", "", fake_credentials, client=client_session)
+    client = CloudSQLClient("", "", fake_credentials, client=client_session)
+    # add instance to client to control cert expiration etc.
+    client.instance = fake_instance
+    return client
 
 
 @pytest.fixture

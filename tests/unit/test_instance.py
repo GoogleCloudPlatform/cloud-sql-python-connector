@@ -13,6 +13,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
+
 import asyncio
 import datetime
 from typing import Tuple
@@ -33,6 +34,7 @@ from google.cloud.sql.connector.instance import ConnectionInfo
 from google.cloud.sql.connector.instance import IPTypes
 from google.cloud.sql.connector.instance import RefreshAheadCache
 from google.cloud.sql.connector.rate_limiter import AsyncRateLimiter
+from google.cloud.sql.connector.refresh_utils import _is_valid
 from google.cloud.sql.connector.utils import generate_keys
 
 
@@ -86,64 +88,54 @@ async def test_Instance_init(
 
 
 @pytest.mark.asyncio
-async def test_schedule_refresh_replaces_result(
-    cache: RefreshAheadCache, test_rate_limiter: AsyncRateLimiter
-) -> None:
+async def test_schedule_refresh_replaces_result(cache: RefreshAheadCache) -> None:
     """
     Test to check whether _schedule_refresh replaces a valid result with another valid result
     """
-    # allow more frequent refreshes for tests
-    setattr(cache, "_refresh_rate_limiter", test_rate_limiter)
 
-    # stub _perform_refresh to return a "valid" MockMetadata object
-    setattr(cache, "_perform_refresh", mocks.instance_metadata_success)
-
-    old_metadata = await cache._current
-
-    # schedule refresh immediately and await it
-    refresh_task = cache._schedule_refresh(0)
-    refresh_metadata = await refresh_task
-
-    # check that current metadata has been replaced with refresh metadata
-    assert cache._current.result() == refresh_metadata
-    assert old_metadata != cache._current.result()
-    assert isinstance(cache._current.result(), mocks.MockMetadata)
-    # cleanup cache
-    await cache.close()
+    # check current refresh is valid
+    assert await _is_valid(cache._current) is True
+    current_refresh = cache._current
+    # schedule new refresh
+    await cache._schedule_refresh(0)
+    new_refresh = cache._current
+    # verify current has been replaced with new refresh
+    assert current_refresh != new_refresh
+    # check new refresh is valid
+    assert await _is_valid(new_refresh) is True
 
 
 @pytest.mark.asyncio
 async def test_schedule_refresh_wont_replace_valid_result_with_invalid(
-    cache: RefreshAheadCache, test_rate_limiter: AsyncRateLimiter
+    cache: RefreshAheadCache,
 ) -> None:
     """
     Test to check whether _perform_refresh won't replace a valid _current
     value with an invalid one
     """
-    # allow more frequent refreshes for tests
-    setattr(cache, "_refresh_rate_limiter", test_rate_limiter)
-
-    await cache._current
-    old_task = cache._current
-
-    # stub _perform_refresh to throw an error
-    setattr(cache, "_perform_refresh", mocks.instance_metadata_error)
-
-    # schedule refresh immediately
-    refresh_task = cache._schedule_refresh(0)
-
-    # wait for invalid refresh to finish
-    with pytest.raises(mocks.BadRefresh):
-        assert await refresh_task
-
-    # check that invalid refresh did not replace valid current metadata
-    assert cache._current == old_task
-    assert isinstance(await cache._current, ConnectionInfo)
+    # check current refresh is valid
+    assert await _is_valid(cache._current) is True
+    current_refresh = cache._current
+    # set certificate to be expired
+    cache._client.instance.cert_expiration = datetime.datetime.now(
+        datetime.timezone.utc
+    ) - datetime.timedelta(minutes=10)
+    # cert not_valid_before has to be before expiry
+    cache._client.instance.cert_before = datetime.datetime.now(
+        datetime.timezone.utc
+    ) - datetime.timedelta(minutes=20)
+    # schedule new refresh
+    new_refresh = cache._schedule_refresh(0)
+    # check new refresh is invalid
+    assert await _is_valid(new_refresh) is False
+    # check current was not replaced
+    assert await current_refresh == await cache._current
 
 
 @pytest.mark.asyncio
 async def test_schedule_refresh_replaces_invalid_result(
-    cache: RefreshAheadCache, test_rate_limiter: AsyncRateLimiter
+    cache: RefreshAheadCache,
+    test_rate_limiter: AsyncRateLimiter,
 ) -> None:
     """
     Test to check whether _perform_refresh will replace an invalid refresh result with
@@ -151,27 +143,32 @@ async def test_schedule_refresh_replaces_invalid_result(
     """
     # allow more frequent refreshes for tests
     setattr(cache, "_refresh_rate_limiter", test_rate_limiter)
-
-    # stub _perform_refresh to throw an error
-    setattr(cache, "_perform_refresh", mocks.instance_metadata_error)
-
-    # set current to invalid data (error)
+    # set certificate to be expired
+    cache._client.instance.cert_expiration = datetime.datetime.now(
+        datetime.timezone.utc
+    ) - datetime.timedelta(minutes=10)
+    # cert not_valid_before has to be before expiry
+    cache._client.instance.cert_before = datetime.datetime.now(
+        datetime.timezone.utc
+    ) - datetime.timedelta(minutes=20)
+    # set current to invalid (expired)
     cache._current = cache._schedule_refresh(0)
 
-    # check that current is now invalid (error)
-    with pytest.raises(mocks.BadRefresh):
-        assert await cache._current
+    # check current is invalid
+    assert await _is_valid(cache._current) is False
 
-    # stub _perform_refresh to return a valid MockMetadata instance
-    setattr(cache, "_perform_refresh", mocks.instance_metadata_success)
+    # set certificate to valid
+    cache._client.instance.cert_before = datetime.datetime.now(datetime.timezone.utc)
+    cache._client.instance.cert_expiration = datetime.datetime.now(
+        datetime.timezone.utc
+    ) + datetime.timedelta(hours=1)
 
     # schedule refresh immediately and await it
     refresh_task = cache._schedule_refresh(0)
-    refresh_metadata = await refresh_task
+    await refresh_task
 
-    # check that current is now valid MockMetadata
-    assert cache._current.result() == refresh_metadata
-    assert isinstance(cache._current.result(), mocks.MockMetadata)
+    # check that current is now valid
+    assert await _is_valid(cache._current) is True
 
 
 @pytest.mark.asyncio
@@ -367,3 +364,16 @@ async def test_AutoIAMAuthNotSupportedError(fake_client: CloudSQLClient) -> None
     )
     with pytest.raises(AutoIAMAuthNotSupported):
         await cache._current
+
+
+def test_ConnectionInfo_caches_sslcontext() -> None:
+    info = ConnectionInfo(
+        "cert", "cert", "key".encode(), {}, "POSTGRES", datetime.datetime.now()
+    )
+    # context should default to None
+    assert info.context is None
+    # cache a 'context'
+    info.context = "context"
+    # caling create_ssl_context should no-op with an existing 'context'
+    info.create_ssl_context()
+    assert info.context == "context"
