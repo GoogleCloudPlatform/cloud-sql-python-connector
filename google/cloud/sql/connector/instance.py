@@ -95,7 +95,12 @@ class ConnectionInfo:
     context: ssl.SSLContext | None = None
 
     def create_ssl_context(self, enable_iam_auth: bool = False) -> ssl.SSLContext:
-        """Constructs a SSL/TLS context for the given connection info."""
+        """Constructs a SSL/TLS context for the given connection info.
+
+        Cache the SSL context to ensure we don't read from disk repeatedly when
+        configuring a secure connection.
+        """
+        # if SSL context is cached, use it
         if self.context is not None:
             return self.context
         context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)

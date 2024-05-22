@@ -13,6 +13,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
+
 import asyncio
 import datetime
 from typing import Tuple
@@ -363,3 +364,16 @@ async def test_AutoIAMAuthNotSupportedError(fake_client: CloudSQLClient) -> None
     )
     with pytest.raises(AutoIAMAuthNotSupported):
         await cache._current
+
+
+def test_ConnectionInfo_caches_sslcontext() -> None:
+    info = ConnectionInfo(
+        "cert", "cert", "key".encode(), {}, "POSTGRES", datetime.datetime.now()
+    )
+    # context should default to None
+    assert info.context is None
+    # cache a 'context'
+    info.context = "context"
+    # caling create_ssl_context should no-op with an existing 'context'
+    info.create_ssl_context()
+    assert info.context == "context"
