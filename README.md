@@ -173,9 +173,10 @@ To close the `Connector` object's background resources, call its `close()` metho
 connector.close()
 ```
 
-**Note**: For more examples of using SQLAlchemy to manage connection pooling with the connector, please see [Cloud SQL SQLAlchemy Samples](https://cloud.google.com/sql/docs/postgres/connect-connectors#python_1).
-
-**Note for SQL Server users**: If your SQL Server instance requires SSL, you need to download the CA certificate for your instance and include `cafile={path to downloaded certificate}` and `validate_host=False`. This is a workaround for a [known issue](https://issuetracker.google.com/184867147).
+> [!NOTE]
+>
+> For more examples of using SQLAlchemy to manage connection pooling with the connector,
+> please see [Cloud SQL SQLAlchemy Samples](https://cloud.google.com/sql/docs/postgres/connect-connectors#python_1).
 
 ### Configuring the Connector
 
@@ -275,9 +276,11 @@ conn = connector.connect(
 )
 ```
 
-Note: If specifying Private IP or Private Service Connect, your application must be
-attached to the proper VPC network to connect to your Cloud SQL instance. For most
-applications this will require the use of a [VPC Connector][vpc-connector].
+> [!IMPORTANT]
+> 
+> If specifying Private IP or Private Service Connect (PSC), your application must be
+> attached to the proper VPC network to connect to your Cloud SQL instance. For most
+> applications this will require the use of a [VPC Connector][vpc-connector].
 
 [psc]: https://cloud.google.com/vpc/docs/private-service-connect
 [vpc-connector]: https://cloud.google.com/vpc/docs/configure-serverless-vpc-access#create-connector
@@ -306,9 +309,20 @@ conn = connector.connect(
  )
 ```
 
-### SQL Server Active Directory Authentication
+### SQL Server (MSSQL)
 
-Active Directory authentication for SQL Server instances is currently only supported on Windows. First, make sure to follow [these steps](https://cloud.google.com/blog/topics/developers-practitioners/creating-sql-server-instance-integrated-active-directory-using-google-cloud-sql) to set up a Managed AD domain and join your Cloud SQL instance to the domain. [See here for more info on Cloud SQL Active Directory integration](https://cloud.google.com/sql/docs/sqlserver/ad).
+> [!IMPORTANT]
+>
+> If your SQL Server instance is set to [enforce SSL connections](https://cloud.google.com/sql/docs/sqlserver/configure-ssl-instance#enforcing-ssl),
+> you need to download the CA certificate for your instance and include `cafile={path to downloaded certificate}`
+> and `validate_host=False`. This is a workaround for a [known issue](https://issuetracker.google.com/184867147).
+
+#### Active Directory Authentication
+
+Active Directory authentication for SQL Server instances is currently only supported on Windows.
+First, make sure to follow [these steps](https://cloud.google.com/blog/topics/developers-practitioners/creating-sql-server-instance-integrated-active-directory-using-google-cloud-sql)
+to set up a Managed AD domain and join your Cloud SQL instance to the domain.
+[See here for more info on Cloud SQL Active Directory integration](https://cloud.google.com/sql/docs/sqlserver/ad).
 
 Once you have followed the steps linked above, you can run the following code to return a connection object:
 
@@ -521,8 +535,10 @@ An alternative to using the `create_async_connector` function is initializing
 a `Connector` as an async context manager, removing the need for explicit
 calls to `connector.close_async()` to cleanup resources.
 
-**Note:** This alternative requires that the running event loop be
-passed in as the `loop` argument to `Connector()`.
+> [!NOTE]
+> 
+> This alternative requires that the running event loop be
+> passed in as the `loop` argument to `Connector()`.
 
 ```python
 import asyncio
