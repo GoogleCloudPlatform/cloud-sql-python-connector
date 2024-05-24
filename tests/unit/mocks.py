@@ -78,7 +78,9 @@ class FakeCredentials:
         return self._universe_domain
 
     @property
-    def token_state(self) -> Literal[TokenState]:
+    def token_state(
+        self,
+    ) -> Literal[TokenState.FRESH, TokenState.STALE, TokenState.INVALID]:
         """
         Tracks the state of a token.
         FRESH: The token is valid. It is not expired or close to expired, or the token has no expiry.
