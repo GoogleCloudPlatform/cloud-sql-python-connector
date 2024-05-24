@@ -21,8 +21,6 @@ from typing import Any, Dict, Optional, Tuple, TYPE_CHECKING
 import aiohttp
 from cryptography.hazmat.backends import default_backend
 from cryptography.x509 import load_pem_x509_certificate
-from google.auth.credentials import TokenState
-from google.auth.transport import requests
 
 from google.cloud.sql.connector.refresh_utils import _downscope_credentials
 from google.cloud.sql.connector.version import __version__ as version
