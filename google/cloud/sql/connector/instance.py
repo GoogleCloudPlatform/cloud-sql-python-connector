@@ -26,6 +26,8 @@ from tempfile import TemporaryDirectory
 from typing import Any, Dict, Tuple, TYPE_CHECKING
 
 import aiohttp
+from google.auth.credentials import TokenState
+from google.auth.transport import requests
 
 from google.cloud.sql.connector.client import CloudSQLClient
 from google.cloud.sql.connector.exceptions import AutoIAMAuthNotSupported
@@ -230,6 +232,10 @@ class RefreshAheadCache:
             priv_key, pub_key = await self._keys
 
             logger.debug(f"['{self._instance_connection_string}']: Creating context")
+
+            # before making Cloud SQL Admin API calls, refresh creds
+            if not self._client._credentials.token_state == TokenState.FRESH:
+                self._client._credentials.refresh(requests.Request())
 
             metadata_task = asyncio.create_task(
                 self._client._get_metadata(

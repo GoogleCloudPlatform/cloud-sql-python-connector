@@ -21,7 +21,6 @@ from typing import Any, Dict, Optional, Tuple, TYPE_CHECKING
 import aiohttp
 from cryptography.hazmat.backends import default_backend
 from cryptography.x509 import load_pem_x509_certificate
-import google.auth.transport.requests
 
 from google.cloud.sql.connector.refresh_utils import _downscope_credentials
 from google.cloud.sql.connector.version import __version__ as version
@@ -113,9 +112,6 @@ class CloudSQLClient:
             addresses and their type and a string representing the
             certificate authority.
         """
-        if not self._credentials.valid:
-            request = google.auth.transport.requests.Request()
-            self._credentials.refresh(request)
 
         headers = {
             "Authorization": f"Bearer {self._credentials.token}",
@@ -176,10 +172,6 @@ class CloudSQLClient:
         """
 
         logger.debug(f"['{instance}']: Requesting ephemeral certificate")
-
-        if not self._credentials.valid:
-            request = google.auth.transport.requests.Request()
-            self._credentials.refresh(request)
 
         headers = {
             "Authorization": f"Bearer {self._credentials.token}",

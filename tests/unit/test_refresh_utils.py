@@ -13,12 +13,14 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
+
 import asyncio
 import datetime
 
 from conftest import SCOPES  # type: ignore
 import google.auth
 from google.auth.credentials import Credentials
+from google.auth.credentials import TokenState
 import google.oauth2.credentials
 from mock import Mock
 from mock import patch
@@ -32,7 +34,7 @@ from google.cloud.sql.connector.refresh_utils import _seconds_until_refresh
 @pytest.fixture
 def credentials() -> Credentials:
     credentials = Mock(spec=Credentials)
-    credentials.valid = True
+    credentials.token_state = TokenState.FRESH
     credentials.token = "12345"
     return credentials
 

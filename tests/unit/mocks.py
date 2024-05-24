@@ -13,13 +13,14 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
+
 # file containing all mocks used for Cloud SQL Python Connector unit tests
 
 import datetime
 import json
 import ssl
 from tempfile import TemporaryDirectory
-from typing import Any, Callable, Dict, Optional, Tuple
+from typing import Any, Callable, Dict, Literal, Optional, Tuple
 
 from aiohttp import web
 from cryptography import x509
@@ -28,7 +29,9 @@ from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.x509.oid import NameOID
+from google.auth import _helpers
 from google.auth.credentials import Credentials
+from google.auth.credentials import TokenState
 
 from google.cloud.sql.connector.connector import _DEFAULT_UNIVERSE_DOMAIN
 from google.cloud.sql.connector.utils import generate_keys
@@ -48,7 +51,7 @@ class FakeCredentials:
         # set class type to google auth Credentials
         return Credentials
 
-    def refresh(self, request: Callable) -> None:
+    def refresh(self, _: Callable) -> None:
         """Refreshes the access token."""
         self.token = "12345"
         self.expiry = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(
@@ -75,13 +78,33 @@ class FakeCredentials:
         return self._universe_domain
 
     @property
-    def valid(self) -> bool:
-        """Checks the validity of the credentials.
-
-        This is True if the credentials have a token and the token
-        is not expired.
+    def token_state(
+        self,
+    ) -> Literal[TokenState.FRESH, TokenState.STALE, TokenState.INVALID]:
         """
-        return self.token is not None and not self.expired
+        Tracks the state of a token.
+        FRESH: The token is valid. It is not expired or close to expired, or the token has no expiry.
+        STALE: The token is close to expired, and should be refreshed. The token can be used normally.
+        INVALID: The token is expired or invalid. The token cannot be used for a normal operation.
+        """
+        if self.token is None:
+            return TokenState.INVALID
+
+        # Credentials that can't expire are always treated as fresh.
+        if self.expiry is None:
+            return TokenState.FRESH
+
+        expired = datetime.datetime.now(datetime.timezone.utc) >= self.expiry
+        if expired:
+            return TokenState.INVALID
+
+        is_stale = datetime.datetime.now(datetime.timezone.utc) >= (
+            self.expiry - _helpers.REFRESH_THRESHOLD
+        )
+        if is_stale:
+            return TokenState.STALE
+
+        return TokenState.FRESH
 
 
 def generate_cert(
