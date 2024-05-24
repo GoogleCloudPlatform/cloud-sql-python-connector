@@ -20,7 +20,7 @@ import datetime
 import json
 import ssl
 from tempfile import TemporaryDirectory
-from typing import Any, Callable, Dict, Optional, Tuple
+from typing import Any, Callable, Dict, Literal, Optional, Tuple
 
 from aiohttp import web
 from cryptography import x509
@@ -78,7 +78,7 @@ class FakeCredentials:
         return self._universe_domain
 
     @property
-    def token_state(self):
+    def token_state(self) -> Literal[TokenState]:
         """
         Tracks the state of a token.
         FRESH: The token is valid. It is not expired or close to expired, or the token has no expiry.
