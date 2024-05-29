@@ -231,31 +231,14 @@ class RefreshAheadCache:
         scheduled_task = asyncio.create_task(_refresh_task(self, delay))
         return scheduled_task
 
-    async def connect_info(
-        self,
-        ip_type: IPTypes,
-    ) -> Tuple[ConnectionInfo, str]:
-        """Retrieve instance metadata and ip address required
-        for making connection to Cloud SQL instance.
-
-        Args:
-            ip_type (IPTypes): Enum specifying type of IP address to lookup and
-                use for connection.
-
-        Returns:
-            A tuple with the first item being the ConnectionInfo instance for
-            establishing the connection, and the second item being the IP
-            address of the Cloud SQL instance matching the specified IP type.
+    async def connect_info(self) -> ConnectionInfo:
+        """Retrieves ConnectionInfo instance for establishing a secure
+        connection to the Cloud SQL instance.
         """
         logger.debug(
             f"['{self._instance_connection_string}']: Entered connect_info method"
         )
-
-        instance_data: ConnectionInfo
-
-        instance_data = await self._current
-        ip_address: str = instance_data.get_preferred_ip(ip_type)
-        return instance_data, ip_address
+        return await self._current
 
     async def close(self) -> None:
         """Cleanup function to make sure ClientSession is closed and tasks have
