@@ -235,9 +235,8 @@ class CloudSQLClient:
             instance (str): Name of the Cloud SQL instance.
             keys (asyncio.Future): A future to the client's public-private key
                 pair.
-            enable_iam_auth (bool): Enables automatic IAM database authentication
-                (Postgres and MySQL) as the default authentication method for all
-                connections.
+            enable_iam_auth (bool): Whether an automatic IAM database
+                authentication connection is being requested (Postgres and MySQL).
 
         Returns:
             ConnectionInfo: All the information required to connect securely to
