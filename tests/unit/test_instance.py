@@ -266,10 +266,11 @@ async def test_connect_info(
     """
     Test that connect_info returns current metadata and preferred IP.
     """
-    instance_metadata, ip_addr = await cache.connect_info(IPTypes.PUBLIC)
+    conn_info = await cache.connect_info()
+    ip_addr = conn_info.get_preferred_ip(IPTypes.PUBLIC)
 
-    # verify metadata and ip address
-    assert isinstance(instance_metadata, ConnectionInfo)
+    # verify connection info and ip address
+    assert isinstance(conn_info, ConnectionInfo)
     assert ip_addr == "127.0.0.1"
 
 
