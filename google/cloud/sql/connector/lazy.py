@@ -13,11 +13,11 @@
 # limitations under the License.
 
 import asyncio
-from typing import Tuple
+from typing import Optional, Tuple
 
 from google.cloud.sql.connector.client import CloudSQLClient
+from google.cloud.sql.connector.connection_info import ConnectionInfo
 from google.cloud.sql.connector.instance import _parse_instance_connection_name
-from google.cloud.sql.connector.instance import ConnectionInfo
 from google.cloud.sql.connector.instance import IPTypes
 
 
@@ -57,6 +57,7 @@ class LazyRefreshCache:
         self._keys = keys
         self._client = client
         self._refresh_in_progress = asyncio.locks.Event()
+        self._cached: Optional[ConnectionInfo] = None
 
     async def force_refresh(self) -> None:
         pass
