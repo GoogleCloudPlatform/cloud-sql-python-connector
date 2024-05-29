@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import datetime
 import logging
 from typing import Any, Dict, Optional, Tuple, TYPE_CHECKING
@@ -21,7 +22,11 @@ from typing import Any, Dict, Optional, Tuple, TYPE_CHECKING
 import aiohttp
 from cryptography.hazmat.backends import default_backend
 from cryptography.x509 import load_pem_x509_certificate
+from google.auth.credentials import TokenState
+from google.auth.transport import requests
 
+from google.cloud.sql.connector.connection_info import ConnectionInfo
+from google.cloud.sql.connector.exceptions import AutoIAMAuthNotSupported
 from google.cloud.sql.connector.refresh_utils import _downscope_credentials
 from google.cloud.sql.connector.version import __version__ as version
 
@@ -211,6 +216,82 @@ class CloudSQLClient:
             if expiration > token_expiration:
                 expiration = token_expiration
         return ephemeral_cert, expiration
+
+    async def get_connection_info(
+        self,
+        project: str,
+        region: str,
+        instance: str,
+        keys: asyncio.Future,
+        enable_iam_auth: bool,
+    ) -> ConnectionInfo:
+        """Immediately performs a full refresh operation using the Cloud SQL
+        Admin API.
+
+        Args:
+            project (str): The name of the project the Cloud SQL instance is
+                located in.
+            region (str): The region the Cloud SQL instance is located in.
+            instance (str): Name of the Cloud SQL instance.
+            keys (asyncio.Future): A future to the client's public-private key
+                pair.
+            enable_iam_auth (bool): Whether an automatic IAM database
+                authentication connection is being requested (Postgres and MySQL).
+
+        Returns:
+            ConnectionInfo: All the information required to connect securely to
+                the Cloud SQL instance.
+        Raises:
+            AutoIAMAuthNotSupported: Database engine does not support automatic
+                IAM authentication.
+        """
+        priv_key, pub_key = await keys
+        # before making Cloud SQL Admin API calls, refresh creds if required
+        if not self._credentials.token_state == TokenState.FRESH:
+            self._credentials.refresh(requests.Request())
+
+        metadata_task = asyncio.create_task(
+            self._get_metadata(
+                project,
+                region,
+                instance,
+            )
+        )
+
+        ephemeral_task = asyncio.create_task(
+            self._get_ephemeral(
+                project,
+                instance,
+                pub_key,
+                enable_iam_auth,
+            )
+        )
+        try:
+            metadata = await metadata_task
+            # check if automatic IAM database authn is supported for database engine
+            if enable_iam_auth and not metadata["database_version"].startswith(
+                ("POSTGRES", "MYSQL")
+            ):
+                raise AutoIAMAuthNotSupported(
+                    f"'{metadata['database_version']}' does not support "
+                    "automatic IAM authentication. It is only supported with "
+                    "Cloud SQL Postgres or MySQL instances."
+                )
+        except Exception:
+            # cancel ephemeral cert task if exception occurs before it is awaited
+            ephemeral_task.cancel()
+            raise
+
+        ephemeral_cert, expiration = await ephemeral_task
+
+        return ConnectionInfo(
+            ephemeral_cert,
+            metadata["server_ca_cert"],
+            priv_key,
+            metadata["ip_addresses"],
+            metadata["database_version"],
+            expiration,
+        )
 
     async def close(self) -> None:
         """Close CloudSQLClient gracefully."""
