@@ -300,7 +300,8 @@ class Connector:
 
         # attempt to make connection to Cloud SQL instance
         try:
-            instance_data, ip_address = await cache.connect_info(ip_type)
+            conn_info = await cache.connect_info()
+            ip_address = conn_info.get_preferred_ip(ip_type)
             # resolve DNS name into IP address for PSC
             if ip_type.value == "PSC":
                 addr_info = await self._loop.getaddrinfo(
@@ -320,7 +321,7 @@ class Connector:
             # format `user` param for automatic IAM database authn
             if enable_iam_auth:
                 formatted_user = format_database_user(
-                    instance_data.database_version, kwargs["user"]
+                    conn_info.database_version, kwargs["user"]
                 )
                 if formatted_user != kwargs["user"]:
                     logger.debug(
@@ -332,14 +333,14 @@ class Connector:
             if driver in ASYNC_DRIVERS:
                 return await connector(
                     ip_address,
-                    instance_data.create_ssl_context(enable_iam_auth),
+                    conn_info.create_ssl_context(enable_iam_auth),
                     **kwargs,
                 )
             # synchronous drivers are blocking and run using executor
             connect_partial = partial(
                 connector,
                 ip_address,
-                instance_data.create_ssl_context(enable_iam_auth),
+                conn_info.create_ssl_context(enable_iam_auth),
                 **kwargs,
             )
             return await self._loop.run_in_executor(None, connect_partial)
