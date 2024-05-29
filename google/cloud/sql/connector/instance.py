@@ -145,7 +145,7 @@ class RefreshAheadCache:
 
         try:
             await self._refresh_rate_limiter.acquire()
-            connection_info = await self._client._get_connection_info(
+            connection_info = await self._client.get_connection_info(
                 self._project,
                 self._region,
                 self._instance,

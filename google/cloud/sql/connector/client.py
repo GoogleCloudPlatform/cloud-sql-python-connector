@@ -217,7 +217,7 @@ class CloudSQLClient:
                 expiration = token_expiration
         return ephemeral_cert, expiration
 
-    async def _get_connection_info(
+    async def get_connection_info(
         self,
         project: str,
         region: str,
@@ -227,6 +227,24 @@ class CloudSQLClient:
     ) -> ConnectionInfo:
         """Immediately performs a full refresh operation using the Cloud SQL
         Admin API.
+
+        Args:
+            project (str): The name of the project the Cloud SQL instance is
+                located in.
+            region (str): The region the Cloud SQL instance is located in.
+            instance (str): Name of the Cloud SQL instance.
+            keys (asyncio.Future): A future to the client's public-private key
+                pair.
+            enable_iam_auth (bool): Enables automatic IAM database authentication
+                (Postgres and MySQL) as the default authentication method for all
+                connections.
+
+        Returns:
+            ConnectionInfo: All the information required to connect securely to
+                the Cloud SQL instance.
+        Raises:
+            AutoIAMAuthNotSupported: Database engine does not support automatic
+                IAM authentication.
         """
         priv_key, pub_key = await keys
         # before making Cloud SQL Admin API calls, refresh creds if required
