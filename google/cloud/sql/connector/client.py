@@ -273,7 +273,9 @@ class CloudSQLClient:
                 ("POSTGRES", "MYSQL")
             ):
                 raise AutoIAMAuthNotSupported(
-                    f"'{metadata['database_version']}' does not support automatic IAM authentication. It is only supported with Cloud SQL Postgres or MySQL instances."
+                    f"'{metadata['database_version']}' does not support "
+                    "automatic IAM authentication. It is only supported with "
+                    "Cloud SQL Postgres or MySQL instances."
                 )
         except Exception:
             # cancel ephemeral cert task if exception occurs before it is awaited
