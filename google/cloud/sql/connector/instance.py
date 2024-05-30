@@ -52,6 +52,23 @@ def _parse_instance_connection_name(connection_name: str) -> Tuple[str, str, str
     return connection_name_split[1], connection_name_split[3], connection_name_split[4]
 
 
+class RefreshStrategy(Enum):
+    LAZY: str = "LAZY"
+    BACKGROUND: str = "BACKGROUND"
+
+    @classmethod
+    def _missing_(cls, value: object) -> None:
+        raise ValueError(
+            f"Incorrect value for refresh_strategy, got '{value}'. Want one of: "
+            f"{', '.join([repr(m.value) for m in cls])}."
+        )
+
+    @classmethod
+    def _from_str(cls, refresh_strategy: str) -> RefreshStrategy:
+        """Convert refresh strategy from a str into RefreshStrategy."""
+        return cls(refresh_strategy.upper())
+
+
 class IPTypes(Enum):
     PUBLIC: str = "PRIMARY"
     PRIVATE: str = "PRIVATE"
