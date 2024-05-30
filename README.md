@@ -377,7 +377,7 @@ web applications.
 > beneficial to initialize the `Connector` with the lazy refresh strategy.
 > i.e. `Connector(refresh_strategy="lazy")`
 >
-> See []()
+> See [Configuring a Lazy Refresh](#configuring-a-lazy-refresh-cloud-run-cloud-functions-etc)
 
 #### Flask-SQLAlchemy
 
