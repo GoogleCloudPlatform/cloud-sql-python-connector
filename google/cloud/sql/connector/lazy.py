@@ -32,6 +32,8 @@ class LazyRefreshCache:
 
     Only refreshes the cache when a new connection is requested and the current
     certificate is close to or already expired.
+
+    This is the recommended option for serverless environments.
     """
 
     def __init__(

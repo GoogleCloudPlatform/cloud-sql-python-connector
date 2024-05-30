@@ -185,14 +185,15 @@ defaults for each connection to make, you can initialize a
 `Connector` object as follows:
 
 ```python
-from google.cloud.sql.connector import Connector, IPTypes
+from google.cloud.sql.connector import Connector
 
 # Note: all parameters below are optional
 connector = Connector(
     ip_type="public",  # can also be "private" or "psc"
     enable_iam_auth=False,
     timeout=30,
-    credentials=custom_creds # google.auth.credentials.Credentials
+    credentials=custom_creds, # google.auth.credentials.Credentials
+    refresh_strategy="lazy",  # can be "lazy" or "background"
 )
 ```
 
@@ -254,6 +255,21 @@ with Connector() as connector:
             print(row)
 ```
 
+### Configuring a Lazy Refresh (Cloud Run, Cloud Functions etc.)
+
+The Connector's `refresh_strategy` argument can be set to `"lazy"` to configure
+the Python Connector to retrieve connection info lazily and as-needed.
+Otherwise, a background refresh cycle runs to retrive the connection info
+periodically. This setting is useful in environments where the CPU may be
+throttled outside of a request context, e.g., Cloud Run, Cloud Functions, etc.
+
+To set the refresh strategy, set the `refresh_strategy` keyword argument when
+initializing a `Connector`:
+
+```python
+connector = Connector(refresh_strategy="lazy")
+```
+
 ### Specifying IP Address Type
 
 The Cloud SQL Python Connector can be used to connect to Cloud SQL instances
@@ -277,7 +293,7 @@ conn = connector.connect(
 ```
 
 > [!IMPORTANT]
-> 
+>
 > If specifying Private IP or Private Service Connect (PSC), your application must be
 > attached to the proper VPC network to connect to your Cloud SQL instance. For most
 > applications this will require the use of a [VPC Connector][vpc-connector].
@@ -354,6 +370,14 @@ conn = connector.connect(
 The Python Connector can be used alongside popular Python web frameworks such
 as Flask, FastAPI, etc, to integrate Cloud SQL databases within your
 web applications.
+
+> [!NOTE]
+>
+> For serverless environments such as Cloud Functions, Cloud Run, etc, it may be
+> beneficial to initialize the `Connector` with the lazy refresh strategy.
+> i.e. `Connector(refresh_strategy="lazy")`
+>
+> See []()
 
 #### Flask-SQLAlchemy
 
