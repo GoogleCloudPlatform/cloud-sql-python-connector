@@ -16,7 +16,6 @@ limitations under the License.
 
 import os
 from typing import Generator
-import uuid
 
 import pg8000
 import pytest
