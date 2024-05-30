@@ -129,7 +129,7 @@ class RefreshAheadCache:
             max_capacity=2,
             rate=1 / 30,
         )
-        self._refresh_in_progress = asyncio.locks.Event()
+        self._lock = asyncio.Lock()
         self._current: asyncio.Task = self._schedule_refresh(0)
         self._next: asyncio.Task = self._current
 
@@ -138,7 +138,7 @@ class RefreshAheadCache:
         Forces a new refresh attempt immediately to be used for future connection attempts.
         """
         # if next refresh is not already in progress, cancel it and schedule new one immediately
-        if not self._refresh_in_progress.is_set():
+        if not self._lock.locked():
             self._next.cancel()
             self._next = self._schedule_refresh(0)
         # block all sequential connection attempts on the next refresh result if current is invalid
@@ -155,37 +155,34 @@ class RefreshAheadCache:
             a string representing a PEM-encoded private key and a string
             representing a PEM-encoded certificate authority.
         """
-        self._refresh_in_progress.set()
-        logger.debug(
-            f"['{self._instance_connection_string}']: Entered _perform_refresh"
-        )
-
-        try:
-            await self._refresh_rate_limiter.acquire()
-            connection_info = await self._client.get_connection_info(
-                self._project,
-                self._region,
-                self._instance,
-                self._keys,
-                self._enable_iam_auth,
-            )
-
-        except aiohttp.ClientResponseError as e:
+        async with self._lock:
             logger.debug(
-                f"['{self._instance_connection_string}']: Error occurred during _perform_refresh."
+                f"['{self._instance_connection_string}']: Entered _perform_refresh"
             )
-            if e.status == 403:
-                e.message = "Forbidden: Authenticated IAM principal does not seeem authorized to make API request. Verify 'Cloud SQL Admin API' is enabled within your GCP project and 'Cloud SQL Client' role has been granted to IAM principal."
-            raise
 
-        except Exception:
-            logger.debug(
-                f"['{self._instance_connection_string}']: Error occurred during _perform_refresh."
-            )
-            raise
+            try:
+                await self._refresh_rate_limiter.acquire()
+                connection_info = await self._client.get_connection_info(
+                    self._project,
+                    self._region,
+                    self._instance,
+                    self._keys,
+                    self._enable_iam_auth,
+                )
 
-        finally:
-            self._refresh_in_progress.clear()
+            except aiohttp.ClientResponseError as e:
+                logger.debug(
+                    f"['{self._instance_connection_string}']: Error occurred during _perform_refresh."
+                )
+                if e.status == 403:
+                    e.message = "Forbidden: Authenticated IAM principal does not seeem authorized to make API request. Verify 'Cloud SQL Admin API' is enabled within your GCP project and 'Cloud SQL Client' role has been granted to IAM principal."
+                raise
+
+            except Exception:
+                logger.debug(
+                    f"['{self._instance_connection_string}']: Error occurred during _perform_refresh."
+                )
+                raise
         return connection_info
 
     def _schedule_refresh(self, delay: int) -> asyncio.Task:
