@@ -22,7 +22,7 @@ import logging
 import socket
 from threading import Thread
 from types import TracebackType
-from typing import Any, Dict, Optional, Type
+from typing import Any, Dict, Optional, Type, Union
 
 import google.auth
 from google.auth.credentials import Credentials
@@ -34,6 +34,8 @@ from google.cloud.sql.connector.exceptions import ConnectorLoopError
 from google.cloud.sql.connector.exceptions import DnsNameResolutionError
 from google.cloud.sql.connector.instance import IPTypes
 from google.cloud.sql.connector.instance import RefreshAheadCache
+from google.cloud.sql.connector.instance import RefreshStrategy
+from google.cloud.sql.connector.lazy import LazyRefreshCache
 import google.cloud.sql.connector.pg8000 as pg8000
 import google.cloud.sql.connector.pymysql as pymysql
 import google.cloud.sql.connector.pytds as pytds
@@ -62,6 +64,7 @@ class Connector:
         sqladmin_api_endpoint: Optional[str] = None,
         user_agent: Optional[str] = None,
         universe_domain: Optional[str] = None,
+        refresh_strategy: str | RefreshStrategy = RefreshStrategy.BACKGROUND,
     ) -> None:
         """Initializes a Connector instance.
 
@@ -98,6 +101,11 @@ class Connector:
             universe_domain (str): The universe domain for Cloud SQL API calls.
                 Default: "googleapis.com".
 
+            refresh_strategy (str | RefreshStrategy): The default refresh strategy
+                used to refresh SSL/TLS cert and instance metadata. Can be one
+                of the following: RefreshStrategy.LAZY ("LAZY") or
+                RefreshStrategy.BACKGROUND ("BACKGROUND").
+                Default: RefreshStrategy.BACKGROUND
         """
         # if event loop is given, use for background tasks
         if loop:
@@ -113,7 +121,7 @@ class Connector:
                 asyncio.run_coroutine_threadsafe(generate_keys(), self._loop),
                 loop=self._loop,
             )
-        self._cache: Dict[str, RefreshAheadCache] = {}
+        self._cache: Dict[str, Union[RefreshAheadCache, LazyRefreshCache]] = {}
         self._client: Optional[CloudSQLClient] = None
 
         # initialize credentials
@@ -139,6 +147,10 @@ class Connector:
         if isinstance(ip_type, str):
             ip_type = IPTypes._from_str(ip_type)
         self._ip_type = ip_type
+        # if refresh_strategy is str, convert to RefreshStrategy enum
+        if isinstance(refresh_strategy, str):
+            refresh_strategy = RefreshStrategy._from_str(refresh_strategy)
+        self._refresh_strategy = refresh_strategy
         self._universe_domain = universe_domain
         # construct service endpoint for Cloud SQL Admin API calls
         if not sqladmin_api_endpoint:
@@ -265,12 +277,20 @@ class Connector:
                     "connector.Connector object."
                 )
         else:
-            cache = RefreshAheadCache(
-                instance_connection_string,
-                self._client,
-                self._keys,
-                enable_iam_auth,
-            )
+            if self._refresh_strategy == RefreshStrategy.LAZY:
+                cache = LazyRefreshCache(
+                    instance_connection_string,
+                    self._client,
+                    self._keys,
+                    enable_iam_auth,
+                )
+            else:
+                cache = RefreshAheadCache(
+                    instance_connection_string,
+                    self._client,
+                    self._keys,
+                    enable_iam_auth,
+                )
             self._cache[instance_connection_string] = cache
 
         connect_func = {
