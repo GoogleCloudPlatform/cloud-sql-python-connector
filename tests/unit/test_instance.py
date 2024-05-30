@@ -177,16 +177,16 @@ async def test_force_refresh_cancels_pending_refresh(
     test_rate_limiter: AsyncRateLimiter,
 ) -> None:
     """
-    Test that force_refresh cancels pending task if refresh_in_progress event is not set.
+    Test that force_refresh cancels pending task if lock is not acquired.
     """
     # allow more frequent refreshes for tests
     setattr(cache, "_refresh_rate_limiter", test_rate_limiter)
     # make sure initial refresh is finished
     await cache._current
-    # since the pending refresh isn't for another 55 min, the refresh_in_progress event
-    # shouldn't be set
+    # since the pending refresh isn't for another 55 min, the lock should not
+    # be acquired
     pending_refresh = cache._next
-    assert cache._refresh_in_progress.is_set() is False
+    assert cache._lock.locked() is False
 
     await cache.force_refresh()
 
