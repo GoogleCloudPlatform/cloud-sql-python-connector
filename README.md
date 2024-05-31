@@ -625,7 +625,7 @@ logger = logging.getLogger(name="google.cloud.sql.connector")
 logger.setLevel(logging.DEBUG)
 ```
 
-For more details on configuring logging, please refer to
+For more details on configuring logging, please refer to the
 [Python logging docs][configure-logging].
 
 [python-logging]: https://docs.python.org/3/library/logging.html
