@@ -124,8 +124,6 @@ class CloudSQLClient:
 
         url = f"{self._sqladmin_api_endpoint}/sql/{API_VERSION}/projects/{project}/instances/{instance}/connectSettings"
 
-        logger.debug(f"['{instance}']: Requesting metadata")
-
         resp = await self._client.get(url, headers=headers, raise_for_status=True)
         ret_dict = await resp.json()
 
@@ -175,9 +173,6 @@ class CloudSQLClient:
         :returns: An ephemeral certificate from the Cloud SQL instance that allows
             authorized connections to the instance.
         """
-
-        logger.debug(f"['{instance}']: Requesting ephemeral certificate")
-
         headers = {
             "Authorization": f"Bearer {self._credentials.token}",
         }

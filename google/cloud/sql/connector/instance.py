@@ -17,6 +17,9 @@ limitations under the License.
 from __future__ import annotations
 
 import asyncio
+from datetime import datetime
+from datetime import timedelta
+from datetime import timezone
 from enum import Enum
 import logging
 import re
@@ -157,7 +160,8 @@ class RefreshAheadCache:
         """
         self._refresh_in_progress.set()
         logger.debug(
-            f"['{self._instance_connection_string}']: Entered _perform_refresh"
+            f"['{self._instance_connection_string}']: Connection info refresh "
+            "operation started"
         )
 
         try:
@@ -169,18 +173,28 @@ class RefreshAheadCache:
                 self._keys,
                 self._enable_iam_auth,
             )
+            logger.debug(
+                f"['{self._instance_connection_string}']: Connection info "
+                "refresh operation complete"
+            )
+            logger.debug(
+                f"['{self._instance_connection_string}']: Current certificate "
+                f"expiration = {connection_info.expiration.isoformat()}"
+            )
 
         except aiohttp.ClientResponseError as e:
             logger.debug(
-                f"['{self._instance_connection_string}']: Error occurred during _perform_refresh."
+                f"['{self._instance_connection_string}']: Connection info "
+                f"refresh operation failed: {str(e)}"
             )
             if e.status == 403:
                 e.message = "Forbidden: Authenticated IAM principal does not seeem authorized to make API request. Verify 'Cloud SQL Admin API' is enabled within your GCP project and 'Cloud SQL Client' role has been granted to IAM principal."
             raise
 
-        except Exception:
+        except Exception as e:
             logger.debug(
-                f"['{self._instance_connection_string}']: Error occurred during _perform_refresh."
+                f"['{self._instance_connection_string}']: Connection info "
+                f"refresh operation failed: {str(e)}"
             )
             raise
 
@@ -206,8 +220,10 @@ class RefreshAheadCache:
             """
             refresh_task: asyncio.Task
             try:
-                logger.debug(f"['{self._instance_connection_string}']: Entering sleep")
                 if delay > 0:
+                    logger.debug(
+                        f"['{self._instance_connection_string}']: Entering sleep"
+                    )
                     await asyncio.sleep(delay)
                 refresh_task = asyncio.create_task(self._perform_refresh())
                 refresh_data = await refresh_task
@@ -240,6 +256,12 @@ class RefreshAheadCache:
             self._current = refresh_task
             # calculate refresh delay based on certificate expiration
             delay = _seconds_until_refresh(refresh_data.expiration)
+            logger.debug(
+                f"['{self._instance_connection_string}']: Connection info refresh"
+                " operation scheduled at "
+                f"{(datetime.now(timezone.utc)+timedelta(seconds=delay)).isoformat(timespec='seconds')} "
+                f"(now + {timedelta(seconds=delay)})"
+            )
             self._next = self._schedule_refresh(delay)
 
             return refresh_data
@@ -252,9 +274,6 @@ class RefreshAheadCache:
         """Retrieves ConnectionInfo instance for establishing a secure
         connection to the Cloud SQL instance.
         """
-        logger.debug(
-            f"['{self._instance_connection_string}']: Entered connect_info method"
-        )
         return await self._current
 
     async def close(self) -> None:

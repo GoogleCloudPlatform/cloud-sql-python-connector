@@ -278,6 +278,10 @@ class Connector:
                 )
         else:
             if self._refresh_strategy == RefreshStrategy.LAZY:
+                logger.debug(
+                    f"['{instance_connection_string}']: Refresh strategy is set"
+                    " to lazy refresh"
+                )
                 cache = LazyRefreshCache(
                     instance_connection_string,
                     self._client,
@@ -285,12 +289,19 @@ class Connector:
                     enable_iam_auth,
                 )
             else:
+                logger.debug(
+                    f"['{instance_connection_string}']: Refresh strategy is set"
+                    " to backgound refresh"
+                )
                 cache = RefreshAheadCache(
                     instance_connection_string,
                     self._client,
                     self._keys,
                     enable_iam_auth,
                 )
+            logger.debug(
+                f"['{instance_connection_string}']: Connection info added to cache"
+            )
             self._cache[instance_connection_string] = cache
 
         connect_func = {
@@ -337,7 +348,9 @@ class Connector:
                     raise DnsNameResolutionError(
                         f"['{instance_connection_string}']: DNS name could not be resolved into IP address"
                     ) from e
-
+            logger.debug(
+                f"['{instance_connection_string}']: Connecting to {ip_address}:3307"
+            )
             # format `user` param for automatic IAM database authn
             if enable_iam_auth:
                 formatted_user = format_database_user(
