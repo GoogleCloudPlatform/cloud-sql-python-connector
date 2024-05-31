@@ -277,20 +277,15 @@ class RefreshAheadCache:
         return await self._current
 
     async def close(self) -> None:
-        """Cleanup function to make sure ClientSession is closed and tasks have
-        finished to have a graceful exit.
+        """Cleanup function to make sure tasks have finished to have a
+        graceful exit.
         """
         logger.debug(
-            f"['{self._instance_connection_string}']: Waiting for _current to be cancelled"
+            f"['{self._instance_connection_string}']: Canceling connection info "
+            "refresh operation tasks"
         )
         self._current.cancel()
-        logger.debug(
-            f"['{self._instance_connection_string}']: Waiting for _next to be cancelled"
-        )
         self._next.cancel()
-        logger.debug(
-            f"['{self._instance_connection_string}']: Waiting for _client_session to close"
-        )
         # gracefully wait for tasks to cancel
         tasks = asyncio.gather(self._current, self._next, return_exceptions=True)
         await asyncio.wait_for(tasks, timeout=2.0)

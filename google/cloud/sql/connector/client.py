@@ -290,4 +290,6 @@ class CloudSQLClient:
 
     async def close(self) -> None:
         """Close CloudSQLClient gracefully."""
+        logger.debug(f"Waiting for Connector's http client to close")
         await self._client.close()
+        logger.debug(f"Closed Connector's http client")
