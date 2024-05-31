@@ -234,7 +234,8 @@ class RefreshAheadCache:
                     )
             except asyncio.CancelledError:
                 logger.debug(
-                    f"['{self._instance_connection_string}']: Schedule refresh task cancelled."
+                    f"['{self._instance_connection_string}']: Scheduled refresh"
+                    " operation cancelled"
                 )
                 raise
             # bad refresh attempt
