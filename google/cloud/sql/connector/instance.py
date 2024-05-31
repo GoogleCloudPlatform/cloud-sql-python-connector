@@ -258,7 +258,7 @@ class RefreshAheadCache:
             delay = _seconds_until_refresh(refresh_data.expiration)
             logger.debug(
                 f"['{self._instance_connection_string}']: Connection info refresh"
-                " operation scheduled at "
+                " operation scheduled for "
                 f"{(datetime.now(timezone.utc)+timedelta(seconds=delay)).isoformat(timespec='seconds')} "
                 f"(now + {timedelta(seconds=delay)})"
             )
