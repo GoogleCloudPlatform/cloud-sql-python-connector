@@ -260,7 +260,7 @@ class RefreshAheadCache:
             logger.debug(
                 f"['{self._instance_connection_string}']: Connection info refresh"
                 " operation scheduled for "
-                f"{(datetime.now(timezone.utc)+timedelta(seconds=delay)).isoformat(timespec='seconds')} "
+                f"{(datetime.now(timezone.utc) + timedelta(seconds=delay)).isoformat(timespec='seconds')} "
                 f"(now + {timedelta(seconds=delay)})"
             )
             self._next = self._schedule_refresh(delay)
