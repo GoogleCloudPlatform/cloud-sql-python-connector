@@ -12,9 +12,48 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import annotations
+
 from enum import Enum
 
 from google.cloud.sql.connector.exceptions import IncompatibleDriverError
+
+
+class RefreshStrategy(Enum):
+    LAZY: str = "LAZY"
+    BACKGROUND: str = "BACKGROUND"
+
+    @classmethod
+    def _missing_(cls, value: object) -> None:
+        raise ValueError(
+            f"Incorrect value for refresh_strategy, got '{value}'. Want one of: "
+            f"{', '.join([repr(m.value) for m in cls])}."
+        )
+
+    @classmethod
+    def _from_str(cls, refresh_strategy: str) -> RefreshStrategy:
+        """Convert refresh strategy from a str into RefreshStrategy."""
+        return cls(refresh_strategy.upper())
+
+
+class IPTypes(Enum):
+    PUBLIC: str = "PRIMARY"
+    PRIVATE: str = "PRIVATE"
+    PSC: str = "PSC"
+
+    @classmethod
+    def _missing_(cls, value: object) -> None:
+        raise ValueError(
+            f"Incorrect value for ip_type, got '{value}'. Want one of: "
+            f"{', '.join([repr(m.value) for m in cls])}, 'PUBLIC'."
+        )
+
+    @classmethod
+    def _from_str(cls, ip_type_str: str) -> IPTypes:
+        """Convert IP type from a str into IPTypes."""
+        if ip_type_str.upper() == "PUBLIC":
+            ip_type_str = "PRIMARY"
+        return cls(ip_type_str.upper())
 
 
 class DriverMapping(Enum):

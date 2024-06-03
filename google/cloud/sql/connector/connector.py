@@ -31,11 +31,11 @@ from google.auth.credentials import with_scopes_if_required
 import google.cloud.sql.connector.asyncpg as asyncpg
 from google.cloud.sql.connector.client import CloudSQLClient
 from google.cloud.sql.connector.enums import DriverMapping
+from google.cloud.sql.connector.enums import IPTypes
+from google.cloud.sql.connector.enums import RefreshStrategy
 from google.cloud.sql.connector.exceptions import ConnectorLoopError
 from google.cloud.sql.connector.exceptions import DnsNameResolutionError
-from google.cloud.sql.connector.instance import IPTypes
 from google.cloud.sql.connector.instance import RefreshAheadCache
-from google.cloud.sql.connector.instance import RefreshStrategy
 from google.cloud.sql.connector.lazy import LazyRefreshCache
 import google.cloud.sql.connector.pg8000 as pg8000
 import google.cloud.sql.connector.pymysql as pymysql

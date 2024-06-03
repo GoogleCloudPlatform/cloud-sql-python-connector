@@ -20,7 +20,6 @@ import asyncio
 from datetime import datetime
 from datetime import timedelta
 from datetime import timezone
-from enum import Enum
 import logging
 import re
 from typing import Tuple
@@ -53,43 +52,6 @@ def _parse_instance_connection_name(connection_name: str) -> Tuple[str, str, str
         )
     connection_name_split = CONN_NAME_REGEX.split(connection_name)
     return connection_name_split[1], connection_name_split[3], connection_name_split[4]
-
-
-class RefreshStrategy(Enum):
-    LAZY: str = "LAZY"
-    BACKGROUND: str = "BACKGROUND"
-
-    @classmethod
-    def _missing_(cls, value: object) -> None:
-        raise ValueError(
-            f"Incorrect value for refresh_strategy, got '{value}'. Want one of: "
-            f"{', '.join([repr(m.value) for m in cls])}."
-        )
-
-    @classmethod
-    def _from_str(cls, refresh_strategy: str) -> RefreshStrategy:
-        """Convert refresh strategy from a str into RefreshStrategy."""
-        return cls(refresh_strategy.upper())
-
-
-class IPTypes(Enum):
-    PUBLIC: str = "PRIMARY"
-    PRIVATE: str = "PRIVATE"
-    PSC: str = "PSC"
-
-    @classmethod
-    def _missing_(cls, value: object) -> None:
-        raise ValueError(
-            f"Incorrect value for ip_type, got '{value}'. Want one of: "
-            f"{', '.join([repr(m.value) for m in cls])}, 'PUBLIC'."
-        )
-
-    @classmethod
-    def _from_str(cls, ip_type_str: str) -> IPTypes:
-        """Convert IP type from a str into IPTypes."""
-        if ip_type_str.upper() == "PUBLIC":
-            ip_type_str = "PRIMARY"
-        return cls(ip_type_str.upper())
 
 
 class RefreshAheadCache:
