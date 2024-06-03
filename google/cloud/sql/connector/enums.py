@@ -14,6 +14,8 @@
 
 from enum import Enum
 
+from google.cloud.sql.connector.exceptions import IncompatibleDriverError
+
 
 class DriverMapping(Enum):
     """Maps a given database driver to it's corresponding database engine."""
@@ -22,3 +24,23 @@ class DriverMapping(Enum):
     PG8000 = "POSTGRES"
     PYMYSQL = "MYSQL"
     PYTDS = "SQLSERVER"
+
+    @staticmethod
+    def validate_engine(driver: str, engine_version: str) -> None:
+        """Validate that the given driver is compatible with the given engine.
+
+        Args:
+            driver (str): Database driver being used. (i.e. "pg8000")
+            engine_version (str): Database engine version. (i.e. "POSTGRES_16")
+
+        Raises:
+            IncompatibleDriverError: If the given driver is not compatible with
+                the given engine.
+        """
+        mapping = DriverMapping[driver.upper()]
+        if not engine_version.startswith(mapping.value):
+            raise IncompatibleDriverError(
+                f"Database driver '{driver}' is incompatible with database "
+                f"version '{engine_version}'. Given driver can "
+                f"only be used with Cloud SQL {mapping.value} databases."
+            )

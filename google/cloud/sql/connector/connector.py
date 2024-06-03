@@ -33,7 +33,6 @@ from google.cloud.sql.connector.client import CloudSQLClient
 from google.cloud.sql.connector.enums import DriverMapping
 from google.cloud.sql.connector.exceptions import ConnectorLoopError
 from google.cloud.sql.connector.exceptions import DnsNameResolutionError
-from google.cloud.sql.connector.exceptions import IncompatibleDriverError
 from google.cloud.sql.connector.instance import IPTypes
 from google.cloud.sql.connector.instance import RefreshAheadCache
 from google.cloud.sql.connector.instance import RefreshStrategy
@@ -335,13 +334,7 @@ class Connector:
         try:
             conn_info = await cache.connect_info()
             # validate driver matches intended database engine
-            mapping = DriverMapping[driver.upper()]
-            if not conn_info.database_version.startswith(mapping.value):
-                raise IncompatibleDriverError(
-                    f"Database driver '{driver}' is incompatible with database "
-                    f"version '{conn_info.database_version}'. Given driver can "
-                    f"only be used with Cloud SQL {mapping.value} databases."
-                )
+            DriverMapping.validate_engine(driver, conn_info.database_version)
             ip_address = conn_info.get_preferred_ip(ip_type)
             # resolve DNS name into IP address for PSC
             if ip_type.value == "PSC":
