@@ -30,6 +30,7 @@ from google.auth.credentials import with_scopes_if_required
 
 import google.cloud.sql.connector.asyncpg as asyncpg
 from google.cloud.sql.connector.client import CloudSQLClient
+from google.cloud.sql.connector.enums import DriverMapping
 from google.cloud.sql.connector.exceptions import ConnectorLoopError
 from google.cloud.sql.connector.exceptions import DnsNameResolutionError
 from google.cloud.sql.connector.instance import IPTypes
@@ -332,6 +333,8 @@ class Connector:
         # attempt to make connection to Cloud SQL instance
         try:
             conn_info = await cache.connect_info()
+            # validate driver matches intended database engine
+            DriverMapping.validate_engine(driver, conn_info.database_version)
             ip_address = conn_info.get_preferred_ip(ip_type)
             # resolve DNS name into IP address for PSC
             if ip_type.value == "PSC":
