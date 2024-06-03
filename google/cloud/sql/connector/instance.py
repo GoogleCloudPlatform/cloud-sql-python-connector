@@ -221,9 +221,6 @@ class RefreshAheadCache:
             refresh_task: asyncio.Task
             try:
                 if delay > 0:
-                    logger.debug(
-                        f"['{self._instance_connection_string}']: Entering sleep"
-                    )
                     await asyncio.sleep(delay)
                 refresh_task = asyncio.create_task(self._perform_refresh())
                 refresh_data = await refresh_task
