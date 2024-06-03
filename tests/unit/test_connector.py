@@ -114,6 +114,12 @@ def test_Connector_Init(fake_credentials: Credentials) -> None:
         connector.close()
 
 
+def test_Connector_Init_with_lazy_refresh(fake_credentials: Credentials) -> None:
+    """Test that Connector with lazy refresh sets keys to None."""
+    with Connector(credentials=fake_credentials, refresh_strategy="lazy") as connector:
+        assert connector._keys is None
+
+
 def test_Connector_Init_with_credentials(fake_credentials: Credentials) -> None:
     """Test that Connector uses custom credentials when given them."""
     with patch(
