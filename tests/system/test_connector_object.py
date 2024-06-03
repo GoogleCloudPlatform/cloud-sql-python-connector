@@ -13,10 +13,10 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
+
 import asyncio
 import concurrent.futures
 import datetime
-import logging
 import os
 from threading import Thread
 
@@ -55,17 +55,13 @@ def test_connector_with_credentials() -> None:
     credentials, _ = google.auth.load_credentials_from_file(
         os.environ["GOOGLE_APPLICATION_CREDENTIALS"]
     )
-    custom_connector = Connector(credentials=credentials)
-    try:
-        pool = init_connection_engine(custom_connector)
+    with Connector(credentials=credentials) as connector:
+        pool = init_connection_engine(connector)
 
         with pool.connect() as conn:
-            conn.execute(sqlalchemy.text("SELECT 1"))
-
-    except Exception as e:
-        logging.exception("Failed to connect with credentials from file!", e)
-    # close connector
-    custom_connector.close()
+            result = conn.execute(sqlalchemy.text("SELECT 1")).fetchone()
+            assert isinstance(result[0], int)
+            assert result[0] == 1
 
 
 def test_multiple_connectors() -> None:
@@ -89,12 +85,12 @@ def test_multiple_connectors() -> None:
             first_connector._cache[instance_connection_string]
             != second_connector._cache[instance_connection_string]
         )
-    except Exception as e:
-        logging.exception("Failed to connect with multiple Connector objects!", e)
-
-    # close connectors
-    first_connector.close()
-    second_connector.close()
+    except Exception:
+        raise
+    finally:
+        # close connectors
+        first_connector.close()
+        second_connector.close()
 
 
 def test_connector_in_ThreadPoolExecutor() -> None:
@@ -120,15 +116,6 @@ def test_connector_in_ThreadPoolExecutor() -> None:
         future = executor.submit(get_time)
         return_value = future.result()
         assert isinstance(return_value, datetime.datetime)
-
-
-def test_connector_as_context_manager() -> None:
-    """Test that Connector can be used as a context manager."""
-    with Connector() as connector:
-        pool = init_connection_engine(connector)
-
-        with pool.connect() as conn:
-            conn.execute(sqlalchemy.text("SELECT 1"))
 
 
 def test_connector_with_custom_loop() -> None:
