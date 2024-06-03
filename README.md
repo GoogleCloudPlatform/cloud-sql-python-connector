@@ -560,7 +560,7 @@ a `Connector` as an async context manager, removing the need for explicit
 calls to `connector.close_async()` to cleanup resources.
 
 > [!NOTE]
-> 
+>
 > This alternative requires that the running event loop be
 > passed in as the `loop` argument to `Connector()`.
 
@@ -608,6 +608,28 @@ async def main():
         # dispose of connection pool
         await pool.dispose()
 ```
+
+### Debug Logging
+
+The Cloud SQL Python Connector uses the standard [Python logging module][python-logging]
+for debug logging support.
+
+Add the below code to your application to enable debug logging with the Cloud SQL
+Python Connector:
+
+```python
+import logging
+
+logging.basicConfig(format="%(asctime)s [%(levelname)s]: %(message)s")
+logger = logging.getLogger(name="google.cloud.sql.connector")
+logger.setLevel(logging.DEBUG)
+```
+
+For more details on configuring logging, please refer to the
+[Python logging docs][configure-logging].
+
+[python-logging]: https://docs.python.org/3/library/logging.html
+[configure-logging]: https://docs.python.org/3/howto/logging.html#configuring-logging
 
 ## Support policy
 
