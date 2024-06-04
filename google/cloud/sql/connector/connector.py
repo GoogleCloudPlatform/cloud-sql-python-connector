@@ -281,6 +281,15 @@ class Connector:
             KeyError: Unsupported database driver Must be one of pymysql, asyncpg,
                 pg8000, and pytds.
         """
+        # check if event loop is running in current thread
+        if self._loop != asyncio.get_running_loop():
+            raise ConnectorLoopError(
+                "Running event loop does not match 'connector._loop'. "
+                "Connector.connect_async() must be called from the event loop "
+                "the Connector was initialized with. If you need to connect "
+                "across event loops/threads please use a new Connector object."
+            )
+
         if self._keys is None:
             self._keys = asyncio.create_task(generate_keys())
         if self._client is None:
