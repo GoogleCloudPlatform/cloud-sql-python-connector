@@ -70,3 +70,10 @@ class RefreshNotValidError(Exception):
     """
 
     pass
+
+
+class IncompatibleDriverError(Exception):
+    """
+    Exception to be raised when the database driver given is for the wrong
+    database engine. (i.e. asyncpg for a MySQL database)
+    """

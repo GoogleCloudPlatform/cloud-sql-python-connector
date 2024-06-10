@@ -30,11 +30,12 @@ from google.auth.credentials import with_scopes_if_required
 
 import google.cloud.sql.connector.asyncpg as asyncpg
 from google.cloud.sql.connector.client import CloudSQLClient
+from google.cloud.sql.connector.enums import DriverMapping
+from google.cloud.sql.connector.enums import IPTypes
+from google.cloud.sql.connector.enums import RefreshStrategy
 from google.cloud.sql.connector.exceptions import ConnectorLoopError
 from google.cloud.sql.connector.exceptions import DnsNameResolutionError
-from google.cloud.sql.connector.instance import IPTypes
 from google.cloud.sql.connector.instance import RefreshAheadCache
-from google.cloud.sql.connector.instance import RefreshStrategy
 from google.cloud.sql.connector.lazy import LazyRefreshCache
 import google.cloud.sql.connector.pg8000 as pg8000
 import google.cloud.sql.connector.pymysql as pymysql
@@ -107,20 +108,32 @@ class Connector:
                 RefreshStrategy.BACKGROUND ("BACKGROUND").
                 Default: RefreshStrategy.BACKGROUND
         """
+        # if refresh_strategy is str, convert to RefreshStrategy enum
+        if isinstance(refresh_strategy, str):
+            refresh_strategy = RefreshStrategy._from_str(refresh_strategy)
+        self._refresh_strategy = refresh_strategy
         # if event loop is given, use for background tasks
         if loop:
             self._loop: asyncio.AbstractEventLoop = loop
             self._thread: Optional[Thread] = None
-            self._keys: asyncio.Future = loop.create_task(generate_keys())
+            # if lazy refresh is specified we should lazy init keys
+            if self._refresh_strategy == RefreshStrategy.LAZY:
+                self._keys: Optional[asyncio.Future] = None
+            else:
+                self._keys = loop.create_task(generate_keys())
         # if no event loop is given, spin up new loop in background thread
         else:
             self._loop = asyncio.new_event_loop()
             self._thread = Thread(target=self._loop.run_forever, daemon=True)
             self._thread.start()
-            self._keys = asyncio.wrap_future(
-                asyncio.run_coroutine_threadsafe(generate_keys(), self._loop),
-                loop=self._loop,
-            )
+            # if lazy refresh is specified we should lazy init keys
+            if self._refresh_strategy == RefreshStrategy.LAZY:
+                self._keys = None
+            else:
+                self._keys = asyncio.wrap_future(
+                    asyncio.run_coroutine_threadsafe(generate_keys(), self._loop),
+                    loop=self._loop,
+                )
         self._cache: Dict[str, Union[RefreshAheadCache, LazyRefreshCache]] = {}
         self._client: Optional[CloudSQLClient] = None
 
@@ -147,10 +160,6 @@ class Connector:
         if isinstance(ip_type, str):
             ip_type = IPTypes._from_str(ip_type)
         self._ip_type = ip_type
-        # if refresh_strategy is str, convert to RefreshStrategy enum
-        if isinstance(refresh_strategy, str):
-            refresh_strategy = RefreshStrategy._from_str(refresh_strategy)
-        self._refresh_strategy = refresh_strategy
         self._universe_domain = universe_domain
         # construct service endpoint for Cloud SQL Admin API calls
         if not sqladmin_api_endpoint:
@@ -257,6 +266,8 @@ class Connector:
             DnsNameResolutionError: Could not resolve PSC IP address from DNS
                 host name.
         """
+        if self._keys is None:
+            self._keys = asyncio.create_task(generate_keys())
         if self._client is None:
             # lazy init client as it has to be initialized in async context
             self._client = CloudSQLClient(
@@ -278,6 +289,10 @@ class Connector:
                 )
         else:
             if self._refresh_strategy == RefreshStrategy.LAZY:
+                logger.debug(
+                    f"['{instance_connection_string}']: Refresh strategy is set"
+                    " to lazy refresh"
+                )
                 cache = LazyRefreshCache(
                     instance_connection_string,
                     self._client,
@@ -285,12 +300,19 @@ class Connector:
                     enable_iam_auth,
                 )
             else:
+                logger.debug(
+                    f"['{instance_connection_string}']: Refresh strategy is set"
+                    " to backgound refresh"
+                )
                 cache = RefreshAheadCache(
                     instance_connection_string,
                     self._client,
                     self._keys,
                     enable_iam_auth,
                 )
+            logger.debug(
+                f"['{instance_connection_string}']: Connection info added to cache"
+            )
             self._cache[instance_connection_string] = cache
 
         connect_func = {
@@ -321,6 +343,8 @@ class Connector:
         # attempt to make connection to Cloud SQL instance
         try:
             conn_info = await cache.connect_info()
+            # validate driver matches intended database engine
+            DriverMapping.validate_engine(driver, conn_info.database_version)
             ip_address = conn_info.get_preferred_ip(ip_type)
             # resolve DNS name into IP address for PSC
             if ip_type.value == "PSC":
@@ -337,7 +361,9 @@ class Connector:
                     raise DnsNameResolutionError(
                         f"['{instance_connection_string}']: DNS name could not be resolved into IP address"
                     ) from e
-
+            logger.debug(
+                f"['{instance_connection_string}']: Connecting to {ip_address}:3307"
+            )
             # format `user` param for automatic IAM database authn
             if enable_iam_auth:
                 formatted_user = format_database_user(

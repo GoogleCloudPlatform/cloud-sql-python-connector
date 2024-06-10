@@ -17,7 +17,9 @@ limitations under the License.
 from __future__ import annotations
 
 import asyncio
-from enum import Enum
+from datetime import datetime
+from datetime import timedelta
+from datetime import timezone
 import logging
 import re
 from typing import Tuple
@@ -50,43 +52,6 @@ def _parse_instance_connection_name(connection_name: str) -> Tuple[str, str, str
         )
     connection_name_split = CONN_NAME_REGEX.split(connection_name)
     return connection_name_split[1], connection_name_split[3], connection_name_split[4]
-
-
-class RefreshStrategy(Enum):
-    LAZY: str = "LAZY"
-    BACKGROUND: str = "BACKGROUND"
-
-    @classmethod
-    def _missing_(cls, value: object) -> None:
-        raise ValueError(
-            f"Incorrect value for refresh_strategy, got '{value}'. Want one of: "
-            f"{', '.join([repr(m.value) for m in cls])}."
-        )
-
-    @classmethod
-    def _from_str(cls, refresh_strategy: str) -> RefreshStrategy:
-        """Convert refresh strategy from a str into RefreshStrategy."""
-        return cls(refresh_strategy.upper())
-
-
-class IPTypes(Enum):
-    PUBLIC: str = "PRIMARY"
-    PRIVATE: str = "PRIVATE"
-    PSC: str = "PSC"
-
-    @classmethod
-    def _missing_(cls, value: object) -> None:
-        raise ValueError(
-            f"Incorrect value for ip_type, got '{value}'. Want one of: "
-            f"{', '.join([repr(m.value) for m in cls])}, 'PUBLIC'."
-        )
-
-    @classmethod
-    def _from_str(cls, ip_type_str: str) -> IPTypes:
-        """Convert IP type from a str into IPTypes."""
-        if ip_type_str.upper() == "PUBLIC":
-            ip_type_str = "PRIMARY"
-        return cls(ip_type_str.upper())
 
 
 class RefreshAheadCache:
@@ -155,11 +120,43 @@ class RefreshAheadCache:
             a string representing a PEM-encoded private key and a string
             representing a PEM-encoded certificate authority.
         """
+<<<<<<< HEAD
         async with self._lock:
             logger.debug(
                 f"['{self._instance_connection_string}']: Entered _perform_refresh"
+=======
+        self._refresh_in_progress.set()
+        logger.debug(
+            f"['{self._instance_connection_string}']: Connection info refresh "
+            "operation started"
+        )
+
+        try:
+            await self._refresh_rate_limiter.acquire()
+            connection_info = await self._client.get_connection_info(
+                self._project,
+                self._region,
+                self._instance,
+                self._keys,
+                self._enable_iam_auth,
+            )
+            logger.debug(
+                f"['{self._instance_connection_string}']: Connection info "
+                "refresh operation complete"
+            )
+            logger.debug(
+                f"['{self._instance_connection_string}']: Current certificate "
+                f"expiration = {connection_info.expiration.isoformat()}"
             )
 
+        except aiohttp.ClientResponseError as e:
+            logger.debug(
+                f"['{self._instance_connection_string}']: Connection info "
+                f"refresh operation failed: {str(e)}"
+>>>>>>> main
+            )
+
+<<<<<<< HEAD
             try:
                 await self._refresh_rate_limiter.acquire()
                 connection_info = await self._client.get_connection_info(
@@ -169,6 +166,14 @@ class RefreshAheadCache:
                     self._keys,
                     self._enable_iam_auth,
                 )
+=======
+        except Exception as e:
+            logger.debug(
+                f"['{self._instance_connection_string}']: Connection info "
+                f"refresh operation failed: {str(e)}"
+            )
+            raise
+>>>>>>> main
 
             except aiohttp.ClientResponseError as e:
                 logger.debug(
@@ -203,7 +208,6 @@ class RefreshAheadCache:
             """
             refresh_task: asyncio.Task
             try:
-                logger.debug(f"['{self._instance_connection_string}']: Entering sleep")
                 if delay > 0:
                     await asyncio.sleep(delay)
                 refresh_task = asyncio.create_task(self._perform_refresh())
@@ -215,7 +219,8 @@ class RefreshAheadCache:
                     )
             except asyncio.CancelledError:
                 logger.debug(
-                    f"['{self._instance_connection_string}']: Schedule refresh task cancelled."
+                    f"['{self._instance_connection_string}']: Scheduled refresh"
+                    " operation cancelled"
                 )
                 raise
             # bad refresh attempt
@@ -237,6 +242,12 @@ class RefreshAheadCache:
             self._current = refresh_task
             # calculate refresh delay based on certificate expiration
             delay = _seconds_until_refresh(refresh_data.expiration)
+            logger.debug(
+                f"['{self._instance_connection_string}']: Connection info refresh"
+                " operation scheduled for "
+                f"{(datetime.now(timezone.utc) + timedelta(seconds=delay)).isoformat(timespec='seconds')} "
+                f"(now + {timedelta(seconds=delay)})"
+            )
             self._next = self._schedule_refresh(delay)
 
             return refresh_data
@@ -249,26 +260,18 @@ class RefreshAheadCache:
         """Retrieves ConnectionInfo instance for establishing a secure
         connection to the Cloud SQL instance.
         """
-        logger.debug(
-            f"['{self._instance_connection_string}']: Entered connect_info method"
-        )
         return await self._current
 
     async def close(self) -> None:
-        """Cleanup function to make sure ClientSession is closed and tasks have
-        finished to have a graceful exit.
+        """Cleanup function to make sure tasks have finished to have a
+        graceful exit.
         """
         logger.debug(
-            f"['{self._instance_connection_string}']: Waiting for _current to be cancelled"
+            f"['{self._instance_connection_string}']: Canceling connection info "
+            "refresh operation tasks"
         )
         self._current.cancel()
-        logger.debug(
-            f"['{self._instance_connection_string}']: Waiting for _next to be cancelled"
-        )
         self._next.cancel()
-        logger.debug(
-            f"['{self._instance_connection_string}']: Waiting for _client_session to close"
-        )
         # gracefully wait for tasks to cancel
         tasks = asyncio.gather(self._current, self._next, return_exceptions=True)
         await asyncio.wait_for(tasks, timeout=2.0)

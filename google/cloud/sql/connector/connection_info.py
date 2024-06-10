@@ -27,7 +27,7 @@ from google.cloud.sql.connector.utils import write_to_file
 if TYPE_CHECKING:
     import datetime
 
-    from google.cloud.sql.connector.instance import IPTypes
+    from google.cloud.sql.connector.enums import IPTypes
 
 logger = logging.getLogger(name=__name__)
 

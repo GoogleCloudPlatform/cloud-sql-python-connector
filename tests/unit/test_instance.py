@@ -26,12 +26,12 @@ from mock import patch
 import mocks
 import pytest  # noqa F401 Needed to run the tests
 
+from google.cloud.sql.connector import IPTypes
 from google.cloud.sql.connector.client import CloudSQLClient
 from google.cloud.sql.connector.connection_info import ConnectionInfo
 from google.cloud.sql.connector.exceptions import AutoIAMAuthNotSupported
 from google.cloud.sql.connector.exceptions import CloudSQLIPTypeError
 from google.cloud.sql.connector.instance import _parse_instance_connection_name
-from google.cloud.sql.connector.instance import IPTypes
 from google.cloud.sql.connector.instance import RefreshAheadCache
 from google.cloud.sql.connector.rate_limiter import AsyncRateLimiter
 from google.cloud.sql.connector.refresh_utils import _is_valid

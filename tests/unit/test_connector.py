@@ -13,6 +13,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
+
 import asyncio
 from typing import Union
 
@@ -25,6 +26,7 @@ from google.cloud.sql.connector import create_async_connector
 from google.cloud.sql.connector import IPTypes
 from google.cloud.sql.connector.client import CloudSQLClient
 from google.cloud.sql.connector.exceptions import ConnectorLoopError
+from google.cloud.sql.connector.exceptions import IncompatibleDriverError
 from google.cloud.sql.connector.instance import RefreshAheadCache
 
 
@@ -46,8 +48,30 @@ def test_connect_enable_iam_auth_error(
         "If you require both for your use case, please use a new "
         "connector.Connector object."
     )
-    # remove cache entrry to avoid destructor warnings
+    # remove cache entry to avoid destructor warnings
     connector._cache = {}
+
+
+async def test_connect_incompatible_driver_error(
+    fake_credentials: Credentials,
+    fake_client: CloudSQLClient,
+) -> None:
+    """Test that calling connect() with driver that is incompatible with
+    database version throws error."""
+    connect_string = "test-project:test-region:test-instance"
+    async with Connector(
+        credentials=fake_credentials, loop=asyncio.get_running_loop()
+    ) as connector:
+        connector._client = fake_client
+        # try to connect using pymysql driver to a Postgres database
+        with pytest.raises(IncompatibleDriverError) as exc_info:
+            await connector.connect_async(connect_string, "pymysql")
+        assert (
+            exc_info.value.args[0]
+            == "Database driver 'pymysql' is incompatible with database version"
+            " 'POSTGRES_15'. Given driver can only be used with Cloud SQL MYSQL"
+            " databases."
+        )
 
 
 def test_connect_with_unsupported_driver(fake_credentials: Credentials) -> None:
@@ -88,6 +112,12 @@ def test_Connector_Init(fake_credentials: Credentials) -> None:
         assert connector._credentials == fake_credentials
         mock_auth.assert_called_once()
         connector.close()
+
+
+def test_Connector_Init_with_lazy_refresh(fake_credentials: Credentials) -> None:
+    """Test that Connector with lazy refresh sets keys to None."""
+    with Connector(credentials=fake_credentials, refresh_strategy="lazy") as connector:
+        assert connector._keys is None
 
 
 def test_Connector_Init_with_credentials(fake_credentials: Credentials) -> None:
