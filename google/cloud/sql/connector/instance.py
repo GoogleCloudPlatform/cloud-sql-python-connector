@@ -120,43 +120,12 @@ class RefreshAheadCache:
             a string representing a PEM-encoded private key and a string
             representing a PEM-encoded certificate authority.
         """
-<<<<<<< HEAD
         async with self._lock:
             logger.debug(
-                f"['{self._instance_connection_string}']: Entered _perform_refresh"
-=======
-        self._refresh_in_progress.set()
-        logger.debug(
-            f"['{self._instance_connection_string}']: Connection info refresh "
-            "operation started"
-        )
-
-        try:
-            await self._refresh_rate_limiter.acquire()
-            connection_info = await self._client.get_connection_info(
-                self._project,
-                self._region,
-                self._instance,
-                self._keys,
-                self._enable_iam_auth,
-            )
-            logger.debug(
-                f"['{self._instance_connection_string}']: Connection info "
-                "refresh operation complete"
-            )
-            logger.debug(
-                f"['{self._instance_connection_string}']: Current certificate "
-                f"expiration = {connection_info.expiration.isoformat()}"
+                f"['{self._instance_connection_string}']: Connection info refresh "
+                "operation started"
             )
 
-        except aiohttp.ClientResponseError as e:
-            logger.debug(
-                f"['{self._instance_connection_string}']: Connection info "
-                f"refresh operation failed: {str(e)}"
->>>>>>> main
-            )
-
-<<<<<<< HEAD
             try:
                 await self._refresh_rate_limiter.acquire()
                 connection_info = await self._client.get_connection_info(
@@ -166,26 +135,28 @@ class RefreshAheadCache:
                     self._keys,
                     self._enable_iam_auth,
                 )
-=======
-        except Exception as e:
-            logger.debug(
-                f"['{self._instance_connection_string}']: Connection info "
-                f"refresh operation failed: {str(e)}"
-            )
-            raise
->>>>>>> main
+                logger.debug(
+                    f"['{self._instance_connection_string}']: Connection info "
+                    "refresh operation complete"
+                )
+                logger.debug(
+                    f"['{self._instance_connection_string}']: Current certificate "
+                    f"expiration = {connection_info.expiration.isoformat()}"
+                )
 
             except aiohttp.ClientResponseError as e:
                 logger.debug(
-                    f"['{self._instance_connection_string}']: Error occurred during _perform_refresh."
+                    f"['{self._instance_connection_string}']: Connection info "
+                    f"refresh operation failed: {str(e)}"
                 )
                 if e.status == 403:
                     e.message = "Forbidden: Authenticated IAM principal does not seeem authorized to make API request. Verify 'Cloud SQL Admin API' is enabled within your GCP project and 'Cloud SQL Client' role has been granted to IAM principal."
                 raise
 
-            except Exception:
+            except Exception as e:
                 logger.debug(
-                    f"['{self._instance_connection_string}']: Error occurred during _perform_refresh."
+                    f"['{self._instance_connection_string}']: Connection info "
+                    f"refresh operation failed: {str(e)}"
                 )
                 raise
         return connection_info
