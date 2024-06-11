@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.10.0](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v1.9.2...v1.10.0) (2024-06-11)
+
+
+### Features
+
+* add support for lazy refresh strategy ([#1093](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/1093)) ([b9526bb](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/b9526bbd31304754c9099be17b5178f9ba43b92c))
+* validate driver with database engine ([#1108](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/1108)) ([a7c7861](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/a7c7861884fd95b28ec52d22cd6824f4d86db392))
+
 ## [1.9.2](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v1.9.1...v1.9.2) (2024-05-14)
 
 
