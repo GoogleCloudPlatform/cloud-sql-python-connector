@@ -340,7 +340,7 @@ async def test_ClientResponseError(
             assert e.status == 403
             assert (
                 e.message == "Forbidden: Authenticated IAM principal does not "
-                "seeem authorized to make API request. Verify "
+                "seem authorized to make API request. Verify "
                 "'Cloud SQL Admin API' is enabled within your GCP project and "
                 "'Cloud SQL Client' role has been granted to IAM principal."
             )
