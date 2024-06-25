@@ -308,8 +308,7 @@ def test_Connector_close_called_multiple_times(fake_credentials: Credentials) ->
 
 
 async def test_Connector_remove_cached_bad_instance(
-    fake_credentials: Credentials,
-    fake_client: CloudSQLClient,
+    fake_credentials: Credentials, fake_client: CloudSQLClient
 ) -> None:
     """When a Connector attempts to retrieve connection info for a
     non-existent instance, it should delete the instance from
@@ -334,9 +333,7 @@ async def test_Connector_remove_cached_bad_instance(
 
 
 async def test_Connector_remove_cached_no_ip_type(
-    fake_credentials: Credentials,
-    fake_client: CloudSQLClient,
-    cache: RefreshAheadCache,
+    fake_credentials: Credentials, fake_client: CloudSQLClient
 ) -> None:
     """When a Connector attempts to connect and preferred IP type is not present,
     it should delete the instance from the cache and ensure no background refresh
