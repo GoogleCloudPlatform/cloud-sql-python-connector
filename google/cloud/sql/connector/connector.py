@@ -34,7 +34,6 @@ from google.cloud.sql.connector.enums import DriverMapping
 from google.cloud.sql.connector.enums import IPTypes
 from google.cloud.sql.connector.enums import RefreshStrategy
 from google.cloud.sql.connector.exceptions import ConnectorLoopError
-from google.cloud.sql.connector.exceptions import DnsNameResolutionError
 from google.cloud.sql.connector.instance import RefreshAheadCache
 from google.cloud.sql.connector.lazy import LazyRefreshCache
 import google.cloud.sql.connector.pg8000 as pg8000
@@ -263,8 +262,6 @@ class Connector:
                 and then subsequent attempt with IAM database authentication.
             KeyError: Unsupported database driver Must be one of pymysql, asyncpg,
                 pg8000, and pytds.
-            DnsNameResolutionError: Could not resolve PSC IP address from DNS
-                host name.
         """
         if self._keys is None:
             self._keys = asyncio.create_task(generate_keys())
