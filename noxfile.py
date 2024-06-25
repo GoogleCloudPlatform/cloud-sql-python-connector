@@ -44,6 +44,7 @@ def lint(session):
         ISORT_VERSION,
         "twine",
         "build",
+        "importlib_metadata==7.2.1",
     )
     session.run(
         "isort",
