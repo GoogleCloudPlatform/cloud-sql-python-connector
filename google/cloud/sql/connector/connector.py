@@ -19,7 +19,6 @@ from __future__ import annotations
 import asyncio
 from functools import partial
 import logging
-import socket
 from threading import Thread
 from types import TracebackType
 from typing import Any, Dict, Optional, Type, Union
