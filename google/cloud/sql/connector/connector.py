@@ -340,41 +340,46 @@ class Connector:
         kwargs.pop("ssl", None)
         kwargs.pop("port", None)
 
-        # attempt to make connection to Cloud SQL instance
+        # attempt to get connection info for Cloud SQL instance
         try:
             conn_info = await cache.connect_info()
             # validate driver matches intended database engine
             DriverMapping.validate_engine(driver, conn_info.database_version)
             ip_address = conn_info.get_preferred_ip(ip_type)
-            # resolve DNS name into IP address for PSC
-            if ip_type.value == "PSC":
-                addr_info = await self._loop.getaddrinfo(
-                    ip_address, None, family=socket.AF_INET, type=socket.SOCK_STREAM
-                )
-                # getaddrinfo returns a list of 5-tuples that contain socket
-                # connection info in the form
-                # (family, type, proto, canonname, sockaddr), where sockaddr is a
-                # 2-tuple in the form (ip_address, port)
-                try:
-                    ip_address = addr_info[0][4][0]
-                except IndexError as e:
-                    raise DnsNameResolutionError(
-                        f"['{instance_connection_string}']: DNS name could not be resolved into IP address"
-                    ) from e
-            logger.debug(
-                f"['{instance_connection_string}']: Connecting to {ip_address}:3307"
+        except Exception:
+            # with an error from Cloud SQL Admin API call or IP type, invalidate
+            # the cache and re-raise the error
+            await self._remove_cached(instance_connection_string)
+            raise
+        # resolve DNS name into IP address for PSC
+        if ip_type.value == "PSC":
+            addr_info = await self._loop.getaddrinfo(
+                ip_address, None, family=socket.AF_INET, type=socket.SOCK_STREAM
             )
-            # format `user` param for automatic IAM database authn
-            if enable_iam_auth:
-                formatted_user = format_database_user(
-                    conn_info.database_version, kwargs["user"]
+            # getaddrinfo returns a list of 5-tuples that contain socket
+            # connection info in the form
+            # (family, type, proto, canonname, sockaddr), where sockaddr is a
+            # 2-tuple in the form (ip_address, port)
+            try:
+                ip_address = addr_info[0][4][0]
+            except IndexError as e:
+                raise DnsNameResolutionError(
+                    f"['{instance_connection_string}']: DNS name could not be resolved into IP address"
+                ) from e
+        logger.debug(
+            f"['{instance_connection_string}']: Connecting to {ip_address}:3307"
+        )
+        # format `user` param for automatic IAM database authn
+        if enable_iam_auth:
+            formatted_user = format_database_user(
+                conn_info.database_version, kwargs["user"]
+            )
+            if formatted_user != kwargs["user"]:
+                logger.debug(
+                    f"['{instance_connection_string}']: Truncated IAM database username from {kwargs['user']} to {formatted_user}"
                 )
-                if formatted_user != kwargs["user"]:
-                    logger.debug(
-                        f"['{instance_connection_string}']: Truncated IAM database username from {kwargs['user']} to {formatted_user}"
-                    )
-                    kwargs["user"] = formatted_user
-
+                kwargs["user"] = formatted_user
+        try:
             # async drivers are unblocking and can be awaited directly
             if driver in ASYNC_DRIVERS:
                 return await connector(
@@ -395,6 +400,17 @@ class Connector:
             # with any exception, we attempt a force refresh, then throw the error
             await cache.force_refresh()
             raise
+
+    async def _remove_cached(self, instance_connection_string: str) -> None:
+        """Stops all background refreshes and deletes the connection
+        info cache from the map of caches.
+        """
+        logger.debug(
+            f"['{instance_connection_string}']: Removing connection info from cache"
+        )
+        # remove cache from stored caches and close it
+        cache = self._cache.pop(instance_connection_string)
+        await cache.close()
 
     def __enter__(self) -> Any:
         """Enter context manager by returning Connector object"""
