@@ -140,8 +140,7 @@ class CloudSQLClient:
         # Remove trailing period from PSC DNS name.
         psc_dns = ret_dict.get("dnsName")
         if psc_dns:
-            psc_dns = psc_dns.rstrip(".")
-            ip_addresses["PSC"] = psc_dns
+            ip_addresses["PSC"] = psc_dns.rstrip(".")
 
         return {
             "ip_addresses": ip_addresses,
