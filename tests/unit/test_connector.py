@@ -17,6 +17,7 @@ limitations under the License.
 import asyncio
 from typing import Union
 
+from aiohttp import ClientResponseError
 from google.auth.credentials import Credentials
 from mock import patch
 import pytest  # noqa F401 Needed to run the tests
@@ -25,6 +26,7 @@ from google.cloud.sql.connector import Connector
 from google.cloud.sql.connector import create_async_connector
 from google.cloud.sql.connector import IPTypes
 from google.cloud.sql.connector.client import CloudSQLClient
+from google.cloud.sql.connector.exceptions import CloudSQLIPTypeError
 from google.cloud.sql.connector.exceptions import ConnectorLoopError
 from google.cloud.sql.connector.exceptions import IncompatibleDriverError
 from google.cloud.sql.connector.instance import RefreshAheadCache
@@ -303,6 +305,60 @@ def test_Connector_close_called_multiple_times(fake_credentials: Credentials) ->
     assert connector._thread.is_alive() is False
     # call connector.close a second time
     connector.close()
+
+
+async def test_Connector_remove_cached_bad_instance(
+    fake_credentials: Credentials, fake_client: CloudSQLClient
+) -> None:
+    """When a Connector attempts to retrieve connection info for a
+    non-existent instance, it should delete the instance from
+    the cache and ensure no background refresh happens (which would be
+    wasted cycles).
+    """
+    async with Connector(
+        credentials=fake_credentials, loop=asyncio.get_running_loop()
+    ) as connector:
+        conn_name = "bad-project:bad-region:bad-inst"
+        # populate cache
+        cache = RefreshAheadCache(conn_name, fake_client, connector._keys)
+        connector._cache[conn_name] = cache
+        # aiohttp client should throw a 404 ClientResponseError
+        with pytest.raises(ClientResponseError):
+            await connector.connect_async(
+                conn_name,
+                "pg8000",
+            )
+        # check that cache has been removed from dict
+        assert conn_name not in connector._cache
+
+
+async def test_Connector_remove_cached_no_ip_type(
+    fake_credentials: Credentials, fake_client: CloudSQLClient
+) -> None:
+    """When a Connector attempts to connect and preferred IP type is not present,
+    it should delete the instance from the cache and ensure no background refresh
+    happens (which would be wasted cycles).
+    """
+    # set instance to only have public IP
+    fake_client.instance.ip_addrs = {"PRIMARY": "127.0.0.1"}
+    async with Connector(
+        credentials=fake_credentials, loop=asyncio.get_running_loop()
+    ) as connector:
+        conn_name = "test-project:test-region:test-instance"
+        # populate cache
+        cache = RefreshAheadCache(conn_name, fake_client, connector._keys)
+        connector._cache[conn_name] = cache
+        # test instance does not have Private IP, thus should invalidate cache
+        with pytest.raises(CloudSQLIPTypeError):
+            await connector.connect_async(
+                conn_name,
+                "pg8000",
+                user="my-user",
+                password="my-pass",
+                ip_type="private",
+            )
+        # check that cache has been removed from dict
+        assert conn_name not in connector._cache
 
 
 def test_default_universe_domain(fake_credentials: Credentials) -> None:

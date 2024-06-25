@@ -101,5 +101,5 @@ class ConnectionInfo:
             return self.ip_addrs[ip_type.value]
         raise CloudSQLIPTypeError(
             "Cloud SQL instance does not have any IP addresses matching "
-            f"preference: {ip_type.value})"
+            f"preference: {ip_type.value}"
         )
