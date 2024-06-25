@@ -137,8 +137,11 @@ class CloudSQLClient:
             if "ipAddresses" in ret_dict
             else {}
         )
-        if "dnsName" in ret_dict:
-            ip_addresses["PSC"] = ret_dict["dnsName"]
+        # Remove trailing period from PSC DNS name.
+        psc_dns = ret_dict.get("dnsName")
+        if psc_dns:
+            psc_dns = psc_dns.rstrip(".")
+            ip_addresses["PSC"] = psc_dns
 
         return {
             "ip_addresses": ip_addresses,
