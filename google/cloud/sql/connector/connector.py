@@ -19,7 +19,6 @@ from __future__ import annotations
 import asyncio
 from functools import partial
 import logging
-import socket
 from threading import Thread
 from types import TracebackType
 from typing import Any, Dict, Optional, Type, Union
@@ -34,7 +33,6 @@ from google.cloud.sql.connector.enums import DriverMapping
 from google.cloud.sql.connector.enums import IPTypes
 from google.cloud.sql.connector.enums import RefreshStrategy
 from google.cloud.sql.connector.exceptions import ConnectorLoopError
-from google.cloud.sql.connector.exceptions import DnsNameResolutionError
 from google.cloud.sql.connector.instance import RefreshAheadCache
 from google.cloud.sql.connector.lazy import LazyRefreshCache
 import google.cloud.sql.connector.pg8000 as pg8000
@@ -263,8 +261,6 @@ class Connector:
                 and then subsequent attempt with IAM database authentication.
             KeyError: Unsupported database driver Must be one of pymysql, asyncpg,
                 pg8000, and pytds.
-            DnsNameResolutionError: Could not resolve PSC IP address from DNS
-                host name.
         """
         if self._keys is None:
             self._keys = asyncio.create_task(generate_keys())
@@ -351,21 +347,6 @@ class Connector:
             # the cache and re-raise the error
             await self._remove_cached(instance_connection_string)
             raise
-        # resolve DNS name into IP address for PSC
-        if ip_type.value == "PSC":
-            addr_info = await self._loop.getaddrinfo(
-                ip_address, None, family=socket.AF_INET, type=socket.SOCK_STREAM
-            )
-            # getaddrinfo returns a list of 5-tuples that contain socket
-            # connection info in the form
-            # (family, type, proto, canonname, sockaddr), where sockaddr is a
-            # 2-tuple in the form (ip_address, port)
-            try:
-                ip_address = addr_info[0][4][0]
-            except IndexError as e:
-                raise DnsNameResolutionError(
-                    f"['{instance_connection_string}']: DNS name could not be resolved into IP address"
-                ) from e
         logger.debug(
             f"['{instance_connection_string}']: Connecting to {ip_address}:3307"
         )
