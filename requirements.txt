@@ -1,4 +1,4 @@
 aiohttp==3.9.5
 cryptography==42.0.8
 Requests==2.32.3
-google-auth==2.30.0
+google-auth==2.31.0
