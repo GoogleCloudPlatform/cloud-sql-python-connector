@@ -20,7 +20,8 @@ import asyncio
 import copy
 import datetime
 import logging
-from typing import List
+import random
+from typing import Callable, Coroutine, List
 
 from google.auth.credentials import Credentials
 from google.auth.credentials import Scoped
@@ -105,3 +106,48 @@ def _downscope_credentials(
     request = google.auth.transport.requests.Request()
     scoped_creds.refresh(request)
     return scoped_creds
+
+
+def _exponential_backoff(attempt: int) -> float:
+    """Calculates a duration to backoff in milliseconds based on the attempt i.
+
+    The formula is:
+
+    base * multi^(attempt + 1 + random)
+
+    With base = 200ms and multi = 1.1618, and random = [0.0, 1.0),
+    the backoff values would fall between the following low and high ends:
+
+    Attempt  Low (ms)  High (ms)
+
+    0         324	     524
+    1         524	     847
+    2         847	    1371
+    3        1371	    2218
+    4        2218	    3588
+
+    The theoretical worst case scenario would have a client wait 8.5s in total
+    for an API request to complete (with the first four attempts failing, and
+    the fifth succeeding).
+    """
+    base = 200
+    multi = 1.1618
+    exp = attempt + 1 + random.random()
+    return base * pow(multi, exp)
+
+
+async def retry_50x(request_coro: Coroutine, *args, **kwargs):
+    """Retry any 50x HTTP response up to X number of times."""
+    max_retries = 5
+    for i in range(max_retries):
+        resp = await request_coro(*args, **kwargs)
+        # backoff for any 50X errors
+        if resp.status >= 500:
+            # if max_retries has been exhausted,raise error
+            if i == max_retries:
+                return resp
+            backoff = _exponential_backoff(i)
+            await asyncio.sleep(backoff / 1000)
+        else:
+            break
+    return resp

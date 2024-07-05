@@ -28,6 +28,7 @@ from google.auth.transport import requests
 from google.cloud.sql.connector.connection_info import ConnectionInfo
 from google.cloud.sql.connector.exceptions import AutoIAMAuthNotSupported
 from google.cloud.sql.connector.refresh_utils import _downscope_credentials
+from google.cloud.sql.connector.refresh_utils import retry_50x
 from google.cloud.sql.connector.version import __version__ as version
 
 if TYPE_CHECKING:
@@ -124,7 +125,9 @@ class CloudSQLClient:
 
         url = f"{self._sqladmin_api_endpoint}/sql/{API_VERSION}/projects/{project}/instances/{instance}/connectSettings"
 
-        resp = await self._client.get(url, headers=headers, raise_for_status=True)
+        resp = await retry_50x(self._client.get, url, headers=headers)
+        if resp.status >= 400:
+            resp.raise_for_status()
         ret_dict = await resp.json()
 
         if ret_dict["region"] != region:
@@ -188,10 +191,9 @@ class CloudSQLClient:
             login_creds = _downscope_credentials(self._credentials)
             data["access_token"] = login_creds.token
 
-        resp = await self._client.post(
-            url, headers=headers, json=data, raise_for_status=True
-        )
-
+        resp = await retry_50x(self._client.post, url, headers=headers, json=data)
+        if resp.status >= 400:
+            resp.raise_for_status()
         ret_dict = await resp.json()
 
         ephemeral_cert: str = ret_dict["ephemeralCert"]["cert"]
