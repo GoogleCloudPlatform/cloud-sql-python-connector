@@ -21,8 +21,9 @@ import copy
 import datetime
 import logging
 import random
-from typing import Callable, Coroutine, List
+from typing import Any, Callable, List
 
+import aiohttp
 from google.auth.credentials import Credentials
 from google.auth.credentials import Scoped
 import google.auth.transport.requests
@@ -136,7 +137,9 @@ def _exponential_backoff(attempt: int) -> float:
     return base * pow(multi, exp)
 
 
-async def retry_50x(request_coro: Coroutine, *args, **kwargs):
+async def retry_50x(
+    request_coro: Callable, *args: Any, **kwargs: Any
+) -> aiohttp.ClientResponse:
     """Retry any 50x HTTP response up to X number of times."""
     max_retries = 5
     for i in range(max_retries):
