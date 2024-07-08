@@ -27,6 +27,7 @@ from mock import patch
 import pytest  # noqa F401 Needed to run the tests
 
 from google.cloud.sql.connector.refresh_utils import _downscope_credentials
+from google.cloud.sql.connector.refresh_utils import _exponential_backoff
 from google.cloud.sql.connector.refresh_utils import _is_valid
 from google.cloud.sql.connector.refresh_utils import _seconds_until_refresh
 
@@ -148,3 +149,22 @@ def test_seconds_until_refresh_under_4_mins() -> None:
         )
         == 0
     )
+
+
+@pytest.mark.parametrize(
+    "attempt, low, high",
+    [
+        (0, 324, 524),
+        (1, 524, 847),
+        (2, 847, 1371),
+        (3, 1371, 2218),
+        (4, 2218, 3588),
+    ],
+)
+def test_exponential_backoff(attempt: int, low: int, high: int) -> None:
+    """
+    Test _exponential_backoff produces times (in ms) in the proper range.
+    """
+    backoff = _exponential_backoff(attempt)
+    assert backoff >= low
+    assert backoff <= high
