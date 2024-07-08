@@ -30,6 +30,7 @@ from google.cloud.sql.connector.refresh_utils import _downscope_credentials
 from google.cloud.sql.connector.refresh_utils import _exponential_backoff
 from google.cloud.sql.connector.refresh_utils import _is_valid
 from google.cloud.sql.connector.refresh_utils import _seconds_until_refresh
+from google.cloud.sql.connector.refresh_utils import retry_50x
 
 
 @pytest.fixture
@@ -168,3 +169,31 @@ def test_exponential_backoff(attempt: int, low: int, high: int) -> None:
     backoff = _exponential_backoff(attempt)
     assert backoff >= low
     assert backoff <= high
+
+
+class RetryClass:
+    def __init__(self):
+        self.attempts = 0
+
+    async def fake_request(self, status: int):
+        self.status = status
+        self.attempts += 1
+        return self
+
+
+async def test_retry_50x_with_503():
+    fake_client = RetryClass()
+    resp = await retry_50x(fake_client.fake_request, 503)
+    assert resp.attempts == 5
+
+
+async def test_retry_50x_with_200():
+    fake_client = RetryClass()
+    resp = await retry_50x(fake_client.fake_request, 200)
+    assert resp.attempts == 1
+
+
+async def test_retry_50x_with_400():
+    fake_client = RetryClass()
+    resp = await retry_50x(fake_client.fake_request, 400)
+    assert resp.attempts == 1
