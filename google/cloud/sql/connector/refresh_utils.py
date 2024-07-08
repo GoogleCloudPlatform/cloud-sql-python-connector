@@ -115,7 +115,7 @@ def _exponential_backoff(attempt: int) -> float:
 
     base * multi^(attempt + 1 + random)
 
-    With base = 200ms and multi = 1.1618, and random = [0.0, 1.0),
+    With base = 200ms and multi = 1.618, and random = [0.0, 1.0),
     the backoff values would fall between the following low and high ends:
 
     Attempt  Low (ms)  High (ms)
@@ -131,7 +131,7 @@ def _exponential_backoff(attempt: int) -> float:
     the fifth succeeding).
     """
     base = 200
-    multi = 1.1618
+    multi = 1.618
     exp = attempt + 1 + random.random()
     return base * pow(multi, exp)
 
