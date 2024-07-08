@@ -142,10 +142,7 @@ async def retry_50x(request_coro: Coroutine, *args, **kwargs):
     for i in range(max_retries):
         resp = await request_coro(*args, **kwargs)
         # backoff for any 50X errors
-        if resp.status >= 500:
-            # if max_retries has been exhausted,raise error
-            if i == max_retries:
-                return resp
+        if resp.status >= 500 and i < max_retries:
             # calculate backoff time
             backoff = _exponential_backoff(i)
             await asyncio.sleep(backoff / 1000)

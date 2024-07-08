@@ -125,7 +125,9 @@ class CloudSQLClient:
 
         url = f"{self._sqladmin_api_endpoint}/sql/{API_VERSION}/projects/{project}/instances/{instance}/connectSettings"
 
-        resp = await retry_50x(self._client.get, url, headers=headers)
+        resp = await self._client.get(url, headers=headers)
+        if resp.status >= 500:
+            resp = await retry_50x(self._client.get, url, headers=headers)
         if resp.status >= 400:
             resp.raise_for_status()
         ret_dict = await resp.json()
@@ -191,7 +193,9 @@ class CloudSQLClient:
             login_creds = _downscope_credentials(self._credentials)
             data["access_token"] = login_creds.token
 
-        resp = await retry_50x(self._client.post, url, headers=headers, json=data)
+        resp = await self._client.post(url, headers=headers, json=data)
+        if resp.status >= 500:
+            resp = await retry_50x(self._client.post, url, headers=headers, json=data)
         if resp.status >= 400:
             resp.raise_for_status()
         ret_dict = await resp.json()
