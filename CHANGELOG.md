@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.11.0](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v1.10.0...v1.11.0) (2024-07-10)
+
+
+### Features
+
+* invalidate cache on bad connection info and IP lookup ([#1118](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/1118)) ([672dc4e](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/672dc4e8b853e5b2ac1b44da889466b6693381da))
+
+
+### Bug Fixes
+
+* let DNS resolve outside connector ([#1120](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/1120)) ([d321f79](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/d321f79dffebb7c630ba4f4c14dd36aa1a532798))
+* retry 50x errors with exponential backoff ([#1125](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/1125)) ([2da9128](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/2da9128cb1e46e713fe79094f1903f79e5a4cb64))
+
 ## [1.10.0](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v1.9.2...v1.10.0) (2024-06-11)
 
 
