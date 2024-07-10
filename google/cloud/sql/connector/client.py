@@ -128,8 +128,7 @@ class CloudSQLClient:
         resp = await self._client.get(url, headers=headers)
         if resp.status >= 500:
             resp = await retry_50x(self._client.get, url, headers=headers)
-        if resp.status >= 400:
-            resp.raise_for_status()
+        resp.raise_for_status()
         ret_dict = await resp.json()
 
         if ret_dict["region"] != region:
@@ -196,8 +195,7 @@ class CloudSQLClient:
         resp = await self._client.post(url, headers=headers, json=data)
         if resp.status >= 500:
             resp = await retry_50x(self._client.post, url, headers=headers, json=data)
-        if resp.status >= 400:
-            resp.raise_for_status()
+        resp.raise_for_status()
         ret_dict = await resp.json()
 
         ephemeral_cert: str = ret_dict["ephemeralCert"]["cert"]
