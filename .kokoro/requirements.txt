@@ -500,7 +500,7 @@ zipp==3.19.1 \
     # via importlib-metadata
 
 # The following packages are considered to be unsafe in a requirements file:
-setuptools==65.5.1 \
-    --hash=sha256:d0b9a8433464d5800cbe05094acf5c6d52a91bfac9b52bcfc4d41382be5d5d31 \
-    --hash=sha256:e197a19aa8ec9722928f2206f8de752def0e4c9fc6953527360d1c36d94ddb2f
+setuptools==70.0.0 \
+    --hash=sha256:54faa7f2e8d2d11bcd2c07bed282eef1046b5c080d1c32add737d7b5817b1ad4 \
+    --hash=sha256:f211a66637b8fa059bb28183da127d4e86396c991a942b028c6650d4319c3fd0
     # via -r requirements.in
