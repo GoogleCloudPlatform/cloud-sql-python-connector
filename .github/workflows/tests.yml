@@ -122,8 +122,6 @@ jobs:
           ./flakybot --repo ${{github.repository}} --commit_hash ${{github.sha}} --build_url https://github.com/${{github.repository}}/actions/runs/${{github.run_id}}
 
   unit:
-    # run job on proper workflow event triggers (skip job for pull_request event from forks and only run pull_request_target for "tests: run" label)
-    if: "${{ (github.event.action != 'labeled' && github.event.pull_request.head.repo.full_name == github.event.pull_request.base.repo.full_name) || github.event.label.name == 'tests: run' }}"
     name: unit tests
     runs-on: ubuntu-latest
     strategy:
@@ -147,8 +145,8 @@ jobs:
       - name: Install nox
         run: pip install nox
 
-      - id: "auth"
-        name: "Authenticate to Google Cloud"
+      - id: auth
+        name: Authenticate to Google Cloud
         # only needed for Flakybot on periodic (schedule) and continuous (push) events
         if: ${{ github.event_name == 'schedule' || github.event_name == 'push' }}
         uses: google-github-actions/auth@71fee32a0bb7e97b4d33d548e7d957010649d8fa # v2.1.3
