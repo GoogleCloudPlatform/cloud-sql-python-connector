@@ -18,9 +18,9 @@ on:
   branch_protection_rule:
   schedule:
     # weekly on Sunday
-    - cron: '0 20 * * 0'
+    - cron: "0 20 * * 0"
   push:
-    branches: [ "main" ]
+    branches: ["main"]
 
 # Declare default permissions as read only.
 permissions: read-all
@@ -44,7 +44,7 @@ jobs:
         with:
           results_file: results.sarif
           results_format: sarif
-      
+
       - name: Filter SARIF to skip false positives
         # filter out DangerousWorkflow alerts as they do not account for safe use of labels to trigger actions
         env:
@@ -53,7 +53,7 @@ jobs:
           SCORECARD_SKIPPED_RULE_IDS_JSON=$(echo $SCORECARD_SKIPPED_RULE_IDS | jq -cR 'split(",")')
           # Trim the SARIF file to remove false positive detections
           cat results.sarif | jq '.runs[].results |= map(select(.ruleId as $id | '$SCORECARD_SKIPPED_RULE_IDS_JSON' | all($id != .)))' > resultsFiltered.sarif
-      
+
       # Upload the results as artifacts (optional). Commenting out will disable uploads of run results in SARIF
       # format to the repository Actions tab.
       - name: "Upload artifact"

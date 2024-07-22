@@ -15,37 +15,14 @@
 name: Code Coverage
 on:
   pull_request:
-  pull_request_target:
-    types: [labeled]
 
 # Declare default permissions as read only.
 permissions: read-all
 
 jobs:
   coverage:
-    if: "${{ github.event.action != 'labeled' || github.event.label.name == 'tests: run' }}"
     runs-on: ubuntu-latest
-    permissions:
-      issues: write
-      pull-requests: write
     steps:
-      - name: Remove PR Label
-        if: "${{ github.event.action == 'labeled' && github.event.label.name == 'tests: run' }}"
-        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            try {
-              await github.rest.issues.removeLabel({
-                name: 'tests: run',
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: context.payload.pull_request.number
-              });
-            } catch (e) {
-              console.log('Failed to remove label. Another job may have already removed it!');
-            }
-
       - name: Setup Python
         uses: actions/setup-python@39cd14951b08e74b54015e9e001cdefcf80e669f # v5.1.1
         with:
