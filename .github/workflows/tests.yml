@@ -54,8 +54,8 @@ jobs:
         name: Authenticate to Google Cloud
         uses: google-github-actions/auth@71fee32a0bb7e97b4d33d548e7d957010649d8fa # v2.1.3
         with:
-          workload_identity_provider: ${{ vars.PROVIDER_NAME }}
-          service_account: ${{ vars.SERVICE_ACCOUNT }}
+          workload_identity_provider: projects/1021588826382/locations/global/workloadIdentityPools/gh-13a715-cloud-sql-pyt-dd1c5f/providers/gh-13a715-cloud-sql-pyt-dd1c5f
+          service_account: cloud-sql-python-connector@gh-13a715-cloud-sql-pyt-dd1c5f.iam.gserviceaccount.com
           access_token_lifetime: 600s
 
       - id: secrets
@@ -63,22 +63,22 @@ jobs:
         uses: google-github-actions/get-secretmanager-secrets@dc4a1392bad0fd60aee00bb2097e30ef07a1caae # v2.1.3
         with:
           secrets: |-
-            MYSQL_CONNECTION_NAME:${{ vars.GOOGLE_CLOUD_PROJECT }}/MYSQL_CONNECTION_NAME
-            MYSQL_IAM_CONNECTION_NAME:${{ vars.GOOGLE_CLOUD_PROJECT }}/MYSQL_IAM_CONNECTION_NAME
-            MYSQL_USER:${{ vars.GOOGLE_CLOUD_PROJECT }}/MYSQL_USER
-            MYSQL_IAM_USER:${{ vars.GOOGLE_CLOUD_PROJECT }}/MYSQL_USER_IAM_PYTHON
-            MYSQL_PASS:${{ vars.GOOGLE_CLOUD_PROJECT }}/MYSQL_PASS
-            MYSQL_DB:${{ vars.GOOGLE_CLOUD_PROJECT }}/MYSQL_DB
-            POSTGRES_CONNECTION_NAME:${{ vars.GOOGLE_CLOUD_PROJECT }}/POSTGRES_CONNECTION_NAME
-            POSTGRES_IAM_CONNECTION_NAME:${{ vars.GOOGLE_CLOUD_PROJECT }}/POSTGRES_IAM_CONNECTION_NAME
-            POSTGRES_USER:${{ vars.GOOGLE_CLOUD_PROJECT }}/POSTGRES_USER
-            POSTGRES_IAM_USER:${{ vars.GOOGLE_CLOUD_PROJECT }}/POSTGRES_USER_IAM_PYTHON
-            POSTGRES_PASS:${{ vars.GOOGLE_CLOUD_PROJECT }}/POSTGRES_PASS
-            POSTGRES_DB:${{ vars.GOOGLE_CLOUD_PROJECT }}/POSTGRES_DB
-            SQLSERVER_CONNECTION_NAME:${{ vars.GOOGLE_CLOUD_PROJECT }}/SQLSERVER_CONNECTION_NAME
-            SQLSERVER_USER:${{ vars.GOOGLE_CLOUD_PROJECT }}/SQLSERVER_USER
-            SQLSERVER_PASS:${{ vars.GOOGLE_CLOUD_PROJECT }}/SQLSERVER_PASS
-            SQLSERVER_DB:${{ vars.GOOGLE_CLOUD_PROJECT }}/SQLSERVER_DB
+            MYSQL_CONNECTION_NAME:cloud-sql-connector-testing/MYSQL_CONNECTION_NAME
+            MYSQL_IAM_CONNECTION_NAME:cloud-sql-connector-testing/MYSQL_IAM_CONNECTION_NAME
+            MYSQL_USER:cloud-sql-connector-testing/MYSQL_USER
+            MYSQL_IAM_USER:cloud-sql-connector-testing/MYSQL_USER_IAM_PYTHON
+            MYSQL_PASS:cloud-sql-connector-testing/MYSQL_PASS
+            MYSQL_DB:cloud-sql-connector-testing/MYSQL_DB
+            POSTGRES_CONNECTION_NAME:cloud-sql-connector-testing/POSTGRES_CONNECTION_NAME
+            POSTGRES_IAM_CONNECTION_NAME:cloud-sql-connector-testing/POSTGRES_IAM_CONNECTION_NAME
+            POSTGRES_USER:cloud-sql-connector-testing/POSTGRES_USER
+            POSTGRES_IAM_USER:cloud-sql-connector-testing/POSTGRES_USER_IAM_PYTHON
+            POSTGRES_PASS:cloud-sql-connector-testing/POSTGRES_PASS
+            POSTGRES_DB:cloud-sql-connector-testing/POSTGRES_DB
+            SQLSERVER_CONNECTION_NAME:cloud-sql-connector-testing/SQLSERVER_CONNECTION_NAME
+            SQLSERVER_USER:cloud-sql-connector-testing/SQLSERVER_USER
+            SQLSERVER_PASS:cloud-sql-connector-testing/SQLSERVER_PASS
+            SQLSERVER_DB:cloud-sql-connector-testing/SQLSERVER_DB
 
       - name: Run tests
         env:
@@ -151,8 +151,8 @@ jobs:
         if: ${{ github.event_name == 'schedule' || github.event_name == 'push' }}
         uses: google-github-actions/auth@71fee32a0bb7e97b4d33d548e7d957010649d8fa # v2.1.3
         with:
-          workload_identity_provider: ${{ vars.PROVIDER_NAME }}
-          service_account: ${{ vars.SERVICE_ACCOUNT }}
+          workload_identity_provider: projects/1021588826382/locations/global/workloadIdentityPools/gh-13a715-cloud-sql-pyt-dd1c5f/providers/gh-13a715-cloud-sql-pyt-dd1c5f
+          service_account: cloud-sql-python-connector@gh-13a715-cloud-sql-pyt-dd1c5f.iam.gserviceaccount.com
           access_token_lifetime: 600s
 
       - name: Run tests
