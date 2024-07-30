@@ -27,7 +27,10 @@ permissions: read-all
 jobs:
   integration:
     name: integration tests
-    if: github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]'
+    # run integration tests on all builds except pull requests from forks or dependabot
+    if: |
+      github.event_name != 'pull_request' || 
+      (github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]')
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
