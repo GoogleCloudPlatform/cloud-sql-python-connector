@@ -13,8 +13,10 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
+
 from typing import Tuple
 
+import aiofiles
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
@@ -57,7 +59,7 @@ async def generate_keys() -> Tuple[bytes, str]:
     return priv_key, pub_key
 
 
-def write_to_file(
+async def write_to_file(
     dir_path: str, serverCaCert: str, ephemeralCert: str, priv_key: bytes
 ) -> Tuple[str, str, str]:
     """
@@ -68,12 +70,12 @@ def write_to_file(
     cert_filename = f"{dir_path}/cert.pem"
     key_filename = f"{dir_path}/priv.pem"
 
-    with open(ca_filename, "w+") as ca_out:
-        ca_out.write(serverCaCert)
-    with open(cert_filename, "w+") as ephemeral_out:
-        ephemeral_out.write(ephemeralCert)
-    with open(key_filename, "wb") as priv_out:
-        priv_out.write(priv_key)
+    async with aiofiles.open(ca_filename, "w+") as ca_out:
+        await ca_out.write(serverCaCert)
+    async with aiofiles.open(cert_filename, "w+") as ephemeral_out:
+        await ephemeral_out.write(ephemeralCert)
+    async with aiofiles.open(key_filename, "wb") as priv_out:
+        await priv_out.write(priv_key)
 
     return (ca_filename, cert_filename, key_filename)
 

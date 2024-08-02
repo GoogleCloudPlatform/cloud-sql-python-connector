@@ -367,7 +367,7 @@ async def test_AutoIAMAuthNotSupportedError(fake_client: CloudSQLClient) -> None
         await cache._current
 
 
-def test_ConnectionInfo_caches_sslcontext() -> None:
+async def test_ConnectionInfo_caches_sslcontext() -> None:
     info = ConnectionInfo(
         "cert", "cert", "key".encode(), {}, "POSTGRES", datetime.datetime.now()
     )
@@ -375,6 +375,6 @@ def test_ConnectionInfo_caches_sslcontext() -> None:
     assert info.context is None
     # cache a 'context'
     info.context = "context"
-    # caling create_ssl_context should no-op with an existing 'context'
-    info.create_ssl_context()
+    # calling create_ssl_context should no-op with an existing 'context'
+    await info.create_ssl_context()
     assert info.context == "context"
