@@ -25,6 +25,7 @@ description = (
 )
 release_status = "Development Status :: 5 - Production/Stable"
 dependencies = [
+    "aiofiles",
     "aiohttp",
     "cryptography>=42.0.0",
     "Requests",

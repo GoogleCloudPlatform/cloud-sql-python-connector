@@ -17,8 +17,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 import logging
 import ssl
-from tempfile import TemporaryDirectory
 from typing import Any, Dict, Optional, TYPE_CHECKING
+
+from aiofiles.tempfile import TemporaryDirectory
 
 from google.cloud.sql.connector.exceptions import CloudSQLIPTypeError
 from google.cloud.sql.connector.exceptions import TLSVersionError
@@ -45,7 +46,7 @@ class ConnectionInfo:
     expiration: datetime.datetime
     context: Optional[ssl.SSLContext] = None
 
-    def create_ssl_context(self, enable_iam_auth: bool = False) -> ssl.SSLContext:
+    async def create_ssl_context(self, enable_iam_auth: bool = False) -> ssl.SSLContext:
         """Constructs a SSL/TLS context for the given connection info.
 
         Cache the SSL context to ensure we don't read from disk repeatedly when
@@ -83,8 +84,8 @@ class ConnectionInfo:
         # tmpdir and its contents are automatically deleted after the CA cert
         # and ephemeral cert are loaded into the SSLcontext. The values
         # need to be written to files in order to be loaded by the SSLContext
-        with TemporaryDirectory() as tmpdir:
-            ca_filename, cert_filename, key_filename = write_to_file(
+        async with TemporaryDirectory() as tmpdir:
+            ca_filename, cert_filename, key_filename = await write_to_file(
                 tmpdir, self.server_ca_cert, self.client_cert, self.private_key
             )
             context.load_cert_chain(cert_filename, keyfile=key_filename)
