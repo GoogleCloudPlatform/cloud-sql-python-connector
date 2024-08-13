@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.12.0](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v1.11.0...v1.12.0) (2024-08-13)
+
+
+### Features
+
+* use non-blocking disk read/writes ([#1142](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/1142)) ([d2fd465](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/d2fd46523fae041ec8b4e907e4d0eeb204f0aa8f))
+
+
+### Dependencies
+
+* update python non-major dependencies ([#1149](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/1149)) ([2e27c05](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/2e27c05acb2d579127b892a7ed5860a9404c9f53))
+
 ## [1.11.0](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v1.10.0...v1.11.0) (2024-07-10)
 
 
