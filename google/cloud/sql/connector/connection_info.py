@@ -17,7 +17,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import logging
 import ssl
-from typing import Any, Dict, Optional, TYPE_CHECKING
+from typing import Any, Dict, List, Optional, TYPE_CHECKING
 
 from aiofiles.tempfile import TemporaryDirectory
 
@@ -39,10 +39,14 @@ class ConnectionInfo:
     server-side Proxy running on a Cloud SQL instance."""
 
     client_cert: str
-    server_ca_cert: str
+    server_ca_cert: List[str]
+    server_ca_mode: str
     private_key: bytes
     ip_addrs: Dict[str, Any]
     database_version: str
+    # The DNSName is from the ConnectSettings API.
+    # It is used to validate the server identity for CAS instances.
+    dns_name: str
     expiration: datetime.datetime
     context: Optional[ssl.SSLContext] = None
 

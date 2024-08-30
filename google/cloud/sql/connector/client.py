@@ -141,15 +141,20 @@ class CloudSQLClient:
             if "ipAddresses" in ret_dict
             else {}
         )
-        # Remove trailing period from PSC DNS name.
-        psc_dns = ret_dict.get("dnsName")
-        if psc_dns:
-            ip_addresses["PSC"] = psc_dns.rstrip(".")
+        # resolve dnsName into IP address for PSC
+        # Note that we have to check for PSC enablement also because CAS
+        # instances also set the dnsName field.
+        dns_name = ret_dict.get("dnsName", "")
+        if dns_name and ret_dict.get("pscEnabled"):
+            # Remove trailing period from PSC DNS name. Required for SSL in Python
+            ip_addresses["PSC"] = dns_name.rstrip(".")
 
         return {
             "ip_addresses": ip_addresses,
             "server_ca_cert": ret_dict["serverCaCert"]["cert"],
+            "server_ca_mode": ret_dict.get("serverCaMode", ""),
             "database_version": ret_dict["databaseVersion"],
+            "dns_name": dns_name,
         }
 
     async def _get_ephemeral(
@@ -288,9 +293,11 @@ class CloudSQLClient:
         return ConnectionInfo(
             ephemeral_cert,
             metadata["server_ca_cert"],
+            metadata["server_ca_mode"],
             priv_key,
             metadata["ip_addresses"],
             metadata["database_version"],
+            metadata["dns_name"],
             expiration,
         )
 
