@@ -366,6 +366,7 @@ class Connector:
                 return await connector(
                     ip_address,
                     await conn_info.create_ssl_context(enable_iam_auth),
+                    conn_info.dns_name,
                     **kwargs,
                 )
             # synchronous drivers are blocking and run using executor
@@ -373,6 +374,7 @@ class Connector:
                 connector,
                 ip_address,
                 await conn_info.create_ssl_context(enable_iam_auth),
+                conn_info.dns_name,
                 **kwargs,
             )
             return await self._loop.run_in_executor(None, connect_partial)

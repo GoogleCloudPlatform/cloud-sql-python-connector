@@ -13,6 +13,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
+
 import platform
 import socket
 import ssl
@@ -26,20 +27,23 @@ if TYPE_CHECKING:
     import pytds
 
 
-def connect(ip_address: str, ctx: ssl.SSLContext, **kwargs: Any) -> "pytds.Connection":
+def connect(
+    ip_address: str, ctx: ssl.SSLContext, server_name: str, **kwargs: Any
+) -> "pytds.Connection":
     """Helper function to create a pytds DB-API connection object.
 
-    :type ip_address: str
-    :param ip_address: A string containing an IP address for the Cloud SQL
-        instance.
+    Args:
+        ip_address (str): The IP address for the Cloud SQL instance.
 
-    :type ctx: ssl.SSLContext
-    :param ctx: An SSLContext object created from the Cloud SQL server CA
-        cert and ephemeral cert.
+        ctx (ssl.SSLContext): An SSL/TLS object created from the Cloud SQL
+            server CA cert and ephemeral cert.
 
+        server_name (str): The server name of the Cloud SQL instance. Used to
+            verify the server identity for CAS instances.
 
-    :rtype: pytds.Connection
-    :returns: A pytds Connection object for the Cloud SQL instance.
+    Returns:
+        (pytds.Connection) A pytds connection object to the Cloud SQL
+            instance.
     """
     try:
         import pytds
@@ -49,11 +53,15 @@ def connect(ip_address: str, ctx: ssl.SSLContext, **kwargs: Any) -> "pytds.Conne
         )
 
     db = kwargs.pop("db", None)
-
+    # if CAS instance, check server name
+    if ctx.check_hostname:
+        server_name = server_name
+    else:
+        server_name = None
     # Create socket and wrap with context.
     sock = ctx.wrap_socket(
         socket.create_connection((ip_address, SERVER_PROXY_PORT)),
-        server_hostname=ip_address,
+        server_hostname=server_name,
     )
     if kwargs.pop("active_directory_auth", False):
         if platform.system() == "Windows":

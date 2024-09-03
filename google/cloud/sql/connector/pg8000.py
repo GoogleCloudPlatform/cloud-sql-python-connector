@@ -13,6 +13,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
+
 import socket
 import ssl
 from typing import Any, TYPE_CHECKING
@@ -24,21 +25,22 @@ if TYPE_CHECKING:
 
 
 def connect(
-    ip_address: str, ctx: ssl.SSLContext, **kwargs: Any
+    ip_address: str, ctx: ssl.SSLContext, server_name: str, **kwargs: Any
 ) -> "pg8000.dbapi.Connection":
     """Helper function to create a pg8000 DB-API connection object.
 
-    :type ip_address: str
-    :param ip_address: A string containing an IP address for the Cloud SQL
-        instance.
+    Args:
+        ip_address (str): The IP address for the Cloud SQL instance.
 
-    :type ctx: ssl.SSLContext
-    :param ctx: An SSLContext object created from the Cloud SQL server CA
-        cert and ephemeral cert.
+        ctx (ssl.SSLContext): An SSL/TLS object created from the Cloud SQL
+            server CA cert and ephemeral cert.
 
+        server_name (str): The server name of the Cloud SQL instance. Used to
+            verify the server identity for CAS instances.
 
-    :rtype: pg8000.dbapi.Connection
-    :returns: A pg8000 Connection object for the Cloud SQL instance.
+    Returns:
+        (pg8000.dbapi.Connection) A pg8000 connection object to the Cloud SQL
+            instance.
     """
     try:
         import pg8000
@@ -46,11 +48,15 @@ def connect(
         raise ImportError(
             'Unable to import module "pg8000." Please install and try again.'
         )
-
+    # if CAS instance, check server name
+    if ctx.check_hostname:
+        server_name = server_name
+    else:
+        server_name = None
     # Create socket and wrap with context.
     sock = ctx.wrap_socket(
         socket.create_connection((ip_address, SERVER_PROXY_PORT)),
-        server_hostname=ip_address,
+        server_hostname=server_name,
     )
 
     user = kwargs.pop("user")
