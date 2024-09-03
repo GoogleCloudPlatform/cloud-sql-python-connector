@@ -13,6 +13,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
+
 import ssl
 from typing import Any, TYPE_CHECKING
 
@@ -27,20 +28,18 @@ async def connect(
 ) -> "asyncpg.Connection":
     """Helper function to create an asyncpg DB-API connection object.
 
-    :type ip_address: str
-    :param ip_address: A string containing an IP address for the Cloud SQL
-        instance.
+    Args:
+        ip_address (str): The IP address for the Cloud SQL instance.
 
-    :type ctx: ssl.SSLContext
-    :param ctx: An SSLContext object created from the Cloud SQL server CA
-        cert and ephemeral cert.
+        ctx (ssl.SSLContext): An SSL/TLS object created from the Cloud SQL
+            server CA cert and ephemeral cert.
 
-    :type kwargs: Any
-    :param kwargs: Keyword arguments for establishing asyncpg connection
-        object to Cloud SQL instance.
+        server_name (str): The server name of the Cloud SQL instance. Used to
+            verify the server identity for CAS instances.
 
-    :rtype: asyncpg.Connection
-    :returns: An asyncpg.Connection object to a Cloud SQL instance.
+    Returns:
+        (asyncpg.Connection) An asyncpg connection object to the Cloud SQL
+            instance.
     """
     try:
         import asyncpg
