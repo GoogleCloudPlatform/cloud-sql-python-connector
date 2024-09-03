@@ -24,7 +24,7 @@ if TYPE_CHECKING:
 
 
 async def connect(
-    ip_address: str, ctx: ssl.SSLContext, **kwargs: Any
+    ip_address: str, ctx: ssl.SSLContext, server_name: str, **kwargs: Any
 ) -> "asyncpg.Connection":
     """Helper function to create an asyncpg DB-API connection object.
 
