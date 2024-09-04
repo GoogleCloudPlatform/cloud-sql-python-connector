@@ -26,7 +26,7 @@ from google.cloud.sql.connector import Connector
 
 
 def create_sqlalchemy_engine(
-    inst_uri: str,
+    instance_connection_name: str,
     user: str,
     password: str,
     db: str,
@@ -70,7 +70,7 @@ def create_sqlalchemy_engine(
 
     def getconn() -> pg8000.dbapi.Connection:
         conn: pg8000.dbapi.Connection = connector.connect(
-            inst_uri,
+            instance_connection_name,
             "pg8000",
             user=user,
             password=password,
