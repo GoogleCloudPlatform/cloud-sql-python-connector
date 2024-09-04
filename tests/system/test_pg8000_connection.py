@@ -39,7 +39,7 @@ def create_sqlalchemy_engine(
     A sample invocation looks like:
 
         engine, connector = create_sqlalchemy_engine(
-            inst_uri,
+            inst_conn_name,
             user,
             password,
             db,
