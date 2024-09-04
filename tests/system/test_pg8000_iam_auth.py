@@ -1,19 +1,3 @@
-""""
-Copyright 2021 Google LLC
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-  https://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-"""
-
 """
 Copyright 2021 Google LLC
 
@@ -69,9 +53,8 @@ def create_sqlalchemy_engine(
             The instance connection name specifies the instance relative to the
             project and region. For example: "my-project:my-region:my-instance"
         user (str):
-            The database user name, e.g., postgres
-        password (str):
-            The database user's password, e.g., secret-password
+            The formatted IAM database username.
+            e.g., my-email@test.com, service-account@project-id.iam
         db (str):
             The name of the database, e.g., mydb
         refresh_strategy (Optional[str]):
