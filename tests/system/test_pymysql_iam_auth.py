@@ -13,78 +13,100 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
+
+from datetime import datetime
 import os
-from typing import Generator
-import uuid
+from typing import Tuple
 
 import pymysql
-import pytest
 import sqlalchemy
 
 from google.cloud.sql.connector import Connector
 
-table_name = f"books_{uuid.uuid4().hex}"
 
+def create_sqlalchemy_engine(
+    instance_connection_name: str,
+    user: str,
+    db: str,
+    refresh_strategy: str = "background",
+) -> Tuple[sqlalchemy.engine.Engine, Connector]:
+    """Creates a connection pool for a Cloud SQL instance and returns the pool
+    and the connector. Callers are responsible for closing the pool and the
+    connector.
 
-# [START cloud_sql_connector_mysql_pymysql_iam_auth]
-# The Cloud SQL Python Connector can be used along with SQLAlchemy using the
-# 'creator' argument to 'create_engine'
-def init_connection_engine() -> sqlalchemy.engine.Engine:
-    def getconn() -> pymysql.connections.Connection:
-        # initialize Connector object for connections to Cloud SQL
-        with Connector() as connector:
-            conn: pymysql.connections.Connection = connector.connect(
-                os.environ["MYSQL_IAM_CONNECTION_NAME"],
-                "pymysql",
-                user=os.environ["MYSQL_IAM_USER"],
-                db=os.environ["MYSQL_DB"],
-                enable_iam_auth=True,
-            )
-            return conn
+    A sample invocation looks like:
+
+        engine, connector = create_sqlalchemy_engine(
+            inst_conn_name,
+            user,
+            db,
+        )
+        with engine.connect() as conn:
+            time = conn.execute(sqlalchemy.text("SELECT NOW()")).fetchone()
+            conn.commit()
+            curr_time = time[0]
+            # do something with query result
+            connector.close()
+
+    Args:
+        instance_connection_name (str):
+            The instance connection name specifies the instance relative to the
+            project and region. For example: "my-project:my-region:my-instance"
+        user (str):
+            The formatted IAM database username. (truncate everything after '@')
+            e.g., my-email@test.com -> my-email
+        db (str):
+            The name of the database, e.g., mydb
+        refresh_strategy (Optional[str]):
+            Refresh strategy for the Cloud SQL Connector. Can be one of "lazy"
+            or "background". For serverless environments use "lazy" to avoid
+            errors resulting from CPU being throttled.
+    """
+    connector = Connector(refresh_strategy=refresh_strategy)
+
+    def getconn() -> pymysql.Connection:
+        conn: pymysql.Connection = connector.connect(
+            instance_connection_name,
+            "pymysql",
+            user=user,
+            db=db,
+            ip_type="public",  # can also be "private" or "psc"
+        )
+        return conn
 
     # create SQLAlchemy connection pool
-    pool = sqlalchemy.create_engine(
+    engine = sqlalchemy.create_engine(
         "mysql+pymysql://",
         creator=getconn,
-        execution_options={"isolation_level": "AUTOCOMMIT"},
     )
-    return pool
+    return engine, connector
 
 
-# [END cloud_sql_connector_mysql_pymysql_iam_auth]
+def test_pymysql_iam_authn_connection() -> None:
+    """Basic test to get time from database."""
+    inst_conn_name = os.environ["MYSQL_IAM_CONNECTION_NAME"]
+    user = os.environ["MYSQL_IAM_USER"]
+    db = os.environ["MYSQL_DB"]
+
+    engine, connector = create_sqlalchemy_engine(inst_conn_name, user, db)
+    with engine.connect() as conn:
+        time = conn.execute(sqlalchemy.text("SELECT NOW()")).fetchone()
+        conn.commit()
+        curr_time = time[0]
+        assert type(curr_time) is datetime
+    connector.close()
 
 
-@pytest.fixture(name="pool")
-def setup() -> Generator:
-    pool = init_connection_engine()
+def test_lazy_pymysql_iam_authn_connection() -> None:
+    """Basic test to get time from database."""
+    inst_conn_name = os.environ["MYSQL_IAM_CONNECTION_NAME"]
+    user = os.environ["MYSQL_IAM_USER"]
+    db = os.environ["MYSQL_DB"]
 
-    with pool.connect() as conn:
-        conn.execute(
-            sqlalchemy.text(
-                f"CREATE TABLE IF NOT EXISTS {table_name}"
-                " ( id CHAR(20) NOT NULL, title TEXT NOT NULL );"
-            )
-        )
-
-    yield pool
-
-    with pool.connect() as conn:
-        conn.execute(sqlalchemy.text(f"DROP TABLE IF EXISTS {table_name}"))
-
-
-def test_pooled_connection_with_pymysql_iam_auth(
-    pool: sqlalchemy.engine.Engine,
-) -> None:
-    insert_stmt = sqlalchemy.text(
-        f"INSERT INTO {table_name} (id, title) VALUES (:id, :title)",
-    )
-    with pool.connect() as conn:
-        conn.execute(insert_stmt, parameters={"id": "book1", "title": "Book One"})
-        conn.execute(insert_stmt, parameters={"id": "book2", "title": "Book Two"})
-
-    select_stmt = sqlalchemy.text(f"SELECT title FROM {table_name} ORDER BY ID;")
-    with pool.connect() as conn:
-        rows = conn.execute(select_stmt).fetchall()
-        titles = [row[0] for row in rows]
-
-    assert titles == ["Book One", "Book Two"]
+    engine, connector = create_sqlalchemy_engine(inst_conn_name, user, db, "lazy")
+    with engine.connect() as conn:
+        time = conn.execute(sqlalchemy.text("SELECT NOW()")).fetchone()
+        conn.commit()
+        curr_time = time[0]
+        assert type(curr_time) is datetime
+    connector.close()
