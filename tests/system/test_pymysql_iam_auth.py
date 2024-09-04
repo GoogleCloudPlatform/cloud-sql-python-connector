@@ -71,6 +71,7 @@ def create_sqlalchemy_engine(
             user=user,
             db=db,
             ip_type="public",  # can also be "private" or "psc"
+            enable_iam_auth=True,
         )
         return conn
 
