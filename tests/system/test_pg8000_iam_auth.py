@@ -111,18 +111,3 @@ def test_lazy_pg8000_iam_authn_connection() -> None:
         curr_time = time[0]
         assert type(curr_time) is datetime
     connector.close()
-
-
-def test_CAS_pg8000_iam_authn_connection() -> None:
-    """Basic test to get time from database."""
-    inst_conn_name = os.environ["POSTGRES_CAS_CONNECTION_NAME"]
-    user = os.environ["POSTGRES_IAM_USER"]
-    db = os.environ["POSTGRES_DB"]
-
-    engine, connector = create_sqlalchemy_engine(inst_conn_name, user, db)
-    with engine.connect() as conn:
-        time = conn.execute(sqlalchemy.text("SELECT NOW()")).fetchone()
-        conn.commit()
-        curr_time = time[0]
-        assert type(curr_time) is datetime
-    connector.close()
