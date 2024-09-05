@@ -144,10 +144,10 @@ class CloudSQLClient:
         # resolve dnsName into IP address for PSC
         # Note that we have to check for PSC enablement also because CAS
         # instances also set the dnsName field.
-        dns_name = ret_dict.get("dnsName", "")
+        # Remove trailing period from DNS name. Required for SSL in Python
+        dns_name = ret_dict.get("dnsName", "").rstrip(".")
         if dns_name and ret_dict.get("pscEnabled"):
-            # Remove trailing period from PSC DNS name. Required for SSL in Python
-            ip_addresses["PSC"] = dns_name.rstrip(".")
+            ip_addresses["PSC"] = dns_name
 
         return {
             "ip_addresses": ip_addresses,
