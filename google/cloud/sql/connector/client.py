@@ -141,10 +141,13 @@ class CloudSQLClient:
             if "ipAddresses" in ret_dict
             else {}
         )
-        # Remove trailing period from PSC DNS name.
-        psc_dns = ret_dict.get("dnsName")
-        if psc_dns:
-            ip_addresses["PSC"] = psc_dns.rstrip(".")
+        # resolve dnsName into IP address for PSC
+        # Note that we have to check for PSC enablement also because CAS
+        # instances also set the dnsName field.
+        # Remove trailing period from DNS name. Required for SSL in Python
+        dns_name = ret_dict.get("dnsName", "").rstrip(".")
+        if dns_name and ret_dict.get("pscEnabled"):
+            ip_addresses["PSC"] = dns_name
 
         return {
             "ip_addresses": ip_addresses,

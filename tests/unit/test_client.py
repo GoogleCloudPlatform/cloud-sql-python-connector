@@ -24,10 +24,30 @@ from google.cloud.sql.connector.version import __version__ as version
 
 
 @pytest.mark.asyncio
-async def test_get_metadata(fake_client: CloudSQLClient) -> None:
+async def test_get_metadata_no_psc(fake_client: CloudSQLClient) -> None:
     """
-    Test _get_metadata returns successfully.
+    Test _get_metadata returns successfully and does not include PSC IP type.
     """
+    resp = await fake_client._get_metadata(
+        "test-project",
+        "test-region",
+        "test-instance",
+    )
+    assert resp["database_version"] == "POSTGRES_15"
+    assert resp["ip_addresses"] == {
+        "PRIMARY": "127.0.0.1",
+        "PRIVATE": "10.0.0.1",
+    }
+    assert isinstance(resp["server_ca_cert"], str)
+
+
+@pytest.mark.asyncio
+async def test_get_metadata_with_psc(fake_client: CloudSQLClient) -> None:
+    """
+    Test _get_metadata returns successfully with PSC IP type.
+    """
+    # set PSC to enabled on test instance
+    fake_client.instance.psc_enabled = True
     resp = await fake_client._get_metadata(
         "test-project",
         "test-region",
