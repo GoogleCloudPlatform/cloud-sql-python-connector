@@ -234,6 +234,7 @@ class FakeCSQLInstance:
         self.name = name
         self.db_version = db_version
         self.ip_addrs = ip_addrs
+        self.psc_enabled = False
         self.cert_before = cert_before
         self.cert_expiration = cert_expiration
         # create self signed CA cert
@@ -255,6 +256,7 @@ class FakeCSQLInstance:
                 "expirationTime": str(self.cert_expiration),
             },
             "dnsName": "abcde.12345.us-central1.sql.goog",
+            "pscEnabled": self.psc_enabled,
             "ipAddresses": ip_addrs,
             "region": self.region,
             "databaseVersion": self.db_version,
