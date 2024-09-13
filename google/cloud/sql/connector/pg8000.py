@@ -14,9 +14,12 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
+import logging
 import socket
 import ssl
 from typing import Any, TYPE_CHECKING
+
+logger = logging.getLogger(name=__name__)
 
 SERVER_PROXY_PORT = 3307
 
@@ -49,11 +52,11 @@ def connect(
             'Unable to import module "pg8000." Please install and try again.'
         )
     ctx.check_hostname = False
-    print(ip_address.rstrip("."))
+    logger.info("IP Address: ", ip_address.rstrip("."))
     # Create socket and wrap with context.
     sock = ctx.wrap_socket(
         socket.create_connection((ip_address.rstrip("."), SERVER_PROXY_PORT)),
-        server_hostname=server_name,
+        server_hostname=None,
     )
 
     user = kwargs.pop("user")
