@@ -48,14 +48,9 @@ def connect(
         raise ImportError(
             'Unable to import module "pg8000." Please install and try again.'
         )
-    # if CAS instance, check server name
-    if ctx.check_hostname:
-        server_name = server_name
-    else:
-        server_name = None
     # Create socket and wrap with context.
     sock = ctx.wrap_socket(
-        socket.create_connection((ip_address, SERVER_PROXY_PORT)),
+        socket.create_connection((ip_address.rstrip("."), SERVER_PROXY_PORT)),
         server_hostname=server_name,
     )
 
