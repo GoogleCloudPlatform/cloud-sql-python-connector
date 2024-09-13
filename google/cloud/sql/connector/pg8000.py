@@ -48,6 +48,7 @@ def connect(
         raise ImportError(
             'Unable to import module "pg8000." Please install and try again.'
         )
+    ctx.check_hostname = False
     print(ip_address.rstrip("."))
     # Create socket and wrap with context.
     sock = ctx.wrap_socket(
