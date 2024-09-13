@@ -13,6 +13,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
+
 import socket
 import ssl
 from typing import Any, TYPE_CHECKING
@@ -49,7 +50,7 @@ def connect(
 
     # Create socket and wrap with context.
     sock = ctx.wrap_socket(
-        socket.create_connection((ip_address, SERVER_PROXY_PORT)),
+        socket.create_connection((ip_address.rstrip("."), SERVER_PROXY_PORT)),
         server_hostname=ip_address,
     )
 
