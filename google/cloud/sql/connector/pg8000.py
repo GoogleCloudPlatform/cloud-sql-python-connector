@@ -56,7 +56,7 @@ def connect(
     # Create socket and wrap with context.
     sock = ctx.wrap_socket(
         socket.create_connection((ip_address.rstrip("."), SERVER_PROXY_PORT)),
-        server_hostname=None,
+        server_hostname=ip_address,
     )
 
     user = kwargs.pop("user")
