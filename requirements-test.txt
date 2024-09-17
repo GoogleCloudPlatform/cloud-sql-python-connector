@@ -2,8 +2,8 @@ pytest==8.3.3
 mock==5.1.0
 pytest-cov==5.0.0
 pytest-asyncio==0.24.0
-SQLAlchemy[asyncio]==2.0.34
-sqlalchemy-pytds==1.0.1
+SQLAlchemy[asyncio]==2.0.35
+sqlalchemy-pytds==1.0.2
 sqlalchemy-stubs==0.4
 PyMySQL==1.1.1
 pg8000==1.31.2
