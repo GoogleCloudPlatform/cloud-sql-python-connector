@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-from typing import Tuple
+from typing import List, Tuple
 
 import aiofiles
 from cryptography.hazmat.backends import default_backend
@@ -60,7 +60,7 @@ async def generate_keys() -> Tuple[bytes, str]:
 
 
 async def write_to_file(
-    dir_path: str, serverCaCert: str, ephemeralCert: str, priv_key: bytes
+    dir_path: str, serverCaCert: List[str], ephemeralCert: str, priv_key: bytes
 ) -> Tuple[str, str, str]:
     """
     Helper function to write the serverCaCert, ephemeral certificate and
@@ -71,7 +71,7 @@ async def write_to_file(
     key_filename = f"{dir_path}/priv.pem"
 
     async with aiofiles.open(ca_filename, "w+") as ca_out:
-        await ca_out.write(serverCaCert)
+        await ca_out.write("".join(serverCaCert))
     async with aiofiles.open(cert_filename, "w+") as ephemeral_out:
         await ephemeral_out.write(ephemeralCert)
     async with aiofiles.open(key_filename, "wb") as priv_out:
