@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.12.1](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v1.12.0...v1.12.1) (2024-09-17)
+
+
+### Bug Fixes
+
+* set PSC ip type based on `pscEnabled` ([#1158](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/1158)) ([53e40c7](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/53e40c7dbec8f27e2e3e6e344bf87e08cf15c3e9))
+
 ## [1.12.0](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v1.11.0...v1.12.0) (2024-08-13)
 
 
