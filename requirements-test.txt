@@ -11,3 +11,4 @@ asyncpg==0.29.0
 python-tds==1.15.0
 aioresponses==0.7.6
 pytest-aiohttp==1.0.5
+gevent==24.2.1
