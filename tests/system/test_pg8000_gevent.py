@@ -20,10 +20,10 @@ from gevent import monkey
 
 monkey.patch_all()
 
-import pg8000
-import sqlalchemy
+import pg8000  # noqa: E402
+import sqlalchemy  # noqa: E402
 
-from google.cloud.sql.connector import Connector
+from google.cloud.sql.connector import Connector  # noqa: E402
 
 
 def create_sqlalchemy_engine(
