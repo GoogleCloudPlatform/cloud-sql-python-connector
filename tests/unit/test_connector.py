@@ -27,7 +27,6 @@ from google.cloud.sql.connector import create_async_connector
 from google.cloud.sql.connector import IPTypes
 from google.cloud.sql.connector.client import CloudSQLClient
 from google.cloud.sql.connector.exceptions import CloudSQLIPTypeError
-from google.cloud.sql.connector.exceptions import ConnectorLoopError
 from google.cloud.sql.connector.exceptions import IncompatibleDriverError
 from google.cloud.sql.connector.instance import RefreshAheadCache
 
@@ -86,21 +85,6 @@ def test_connect_with_unsupported_driver(fake_credentials: Credentials) -> None:
             )
         # assert custom error message for unsupported driver is present
         assert exc_info.value.args[0] == "Driver 'bad_driver' is not supported."
-
-
-@pytest.mark.asyncio
-async def test_connect_ConnectorLoopError(fake_credentials: Credentials) -> None:
-    """Test that ConnectorLoopError is thrown when Connector.connect
-    is called with event loop running in current thread."""
-    current_loop = asyncio.get_running_loop()
-    connector = Connector(credentials=fake_credentials, loop=current_loop)
-    # try to connect using current thread's loop, should raise error
-    pytest.raises(
-        ConnectorLoopError,
-        connector.connect,
-        "my-project:my-region:my-instance",
-        "pg8000",
-    )
 
 
 def test_Connector_Init(fake_credentials: Credentials) -> None:

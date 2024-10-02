@@ -32,7 +32,6 @@ from google.cloud.sql.connector.client import CloudSQLClient
 from google.cloud.sql.connector.enums import DriverMapping
 from google.cloud.sql.connector.enums import IPTypes
 from google.cloud.sql.connector.enums import RefreshStrategy
-from google.cloud.sql.connector.exceptions import ConnectorLoopError
 from google.cloud.sql.connector.instance import RefreshAheadCache
 from google.cloud.sql.connector.lazy import LazyRefreshCache
 import google.cloud.sql.connector.pg8000 as pg8000
@@ -208,27 +207,16 @@ class Connector:
 
         Returns:
             A DB-API connection to the specified Cloud SQL instance.
-
-        Raises:
-            ConnectorLoopError: Event loop for background refresh is running in
-                current thread. Error instead of hanging indefinitely.
         """
-        try:
-            # check if event loop is running in current thread
-            if self._loop == asyncio.get_running_loop():
-                raise ConnectorLoopError(
-                    "Connector event loop is running in current thread!"
-                    "Event loop must be attached to a different thread to prevent blocking code!"
-                )
-        # asyncio.get_running_loop will throw RunTimeError if no running loop is present
-        except RuntimeError:
-            pass
 
-        # if event loop is not in current thread, proceed with connection
-        connect_task = asyncio.run_coroutine_threadsafe(
-            self.connect_async(instance_connection_string, driver, **kwargs), self._loop
+        # connect runs sync database connections on background thread.
+        # Async database connections should call 'connect_async' directly to
+        # avoid hanging indefinitely.
+        connect_future = asyncio.run_coroutine_threadsafe(
+            self.connect_async(instance_connection_string, driver, **kwargs),
+            self._loop,
         )
-        return connect_task.result()
+        return connect_future.result()
 
     async def connect_async(
         self, instance_connection_string: str, driver: str, **kwargs: Any
