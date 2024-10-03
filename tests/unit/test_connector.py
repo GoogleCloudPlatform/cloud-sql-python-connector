@@ -31,26 +31,46 @@ from google.cloud.sql.connector.exceptions import IncompatibleDriverError
 from google.cloud.sql.connector.instance import RefreshAheadCache
 
 
-def test_connect_enable_iam_auth_error(
-    fake_credentials: Credentials, cache: RefreshAheadCache
+@pytest.mark.asyncio
+async def test_connect_enable_iam_auth_error(
+    fake_credentials: Credentials, fake_client: CloudSQLClient
 ) -> None:
     """Test that calling connect() with different enable_iam_auth
-    argument values throws error."""
+    argument values creates two cache entries."""
     connect_string = "test-project:test-region:test-instance"
-    connector = Connector(credentials=fake_credentials)
-    # set cache
-    connector._cache[connect_string] = cache
-    # try to connect using enable_iam_auth=True, should raise error
-    with pytest.raises(ValueError) as exc_info:
-        connector.connect(connect_string, "pg8000", enable_iam_auth=True)
-    assert (
-        exc_info.value.args[0] == "connect() called with 'enable_iam_auth=True', "
-        "but previously used 'enable_iam_auth=False'. "
-        "If you require both for your use case, please use a new "
-        "connector.Connector object."
-    )
-    # remove cache entry to avoid destructor warnings
-    connector._cache = {}
+    async with Connector(
+        credentials=fake_credentials, loop=asyncio.get_running_loop()
+    ) as connector:
+        connector._client = fake_client
+        # patch db connection creation
+        with patch("google.cloud.sql.connector.asyncpg.connect") as mock_connect:
+            mock_connect.return_value = True
+            # connect with enable_iam_auth False
+            connection = await connector.connect_async(
+                connect_string,
+                "asyncpg",
+                user="my-user",
+                password="my-pass",
+                db="my-db",
+                enable_iam_auth=False,
+            )
+            # verify connector made connection call
+            assert connection is True
+            # connect with enable_iam_auth True
+            connection = await connector.connect_async(
+                connect_string,
+                "asyncpg",
+                user="my-user",
+                password="my-pass",
+                db="my-db",
+                enable_iam_auth=True,
+            )
+            # verify connector made connection call
+            assert connection is True
+            # verify both cache entries for same instance exist
+            assert len(connector._cache) == 2
+            assert (connect_string, True) in connector._cache
+            assert (connect_string, False) in connector._cache
 
 
 async def test_connect_incompatible_driver_error(
@@ -305,7 +325,7 @@ async def test_Connector_remove_cached_bad_instance(
         conn_name = "bad-project:bad-region:bad-inst"
         # populate cache
         cache = RefreshAheadCache(conn_name, fake_client, connector._keys)
-        connector._cache[conn_name] = cache
+        connector._cache[(conn_name, False)] = cache
         # aiohttp client should throw a 404 ClientResponseError
         with pytest.raises(ClientResponseError):
             await connector.connect_async(
@@ -313,7 +333,7 @@ async def test_Connector_remove_cached_bad_instance(
                 "pg8000",
             )
         # check that cache has been removed from dict
-        assert conn_name not in connector._cache
+        assert (conn_name, False) not in connector._cache
 
 
 async def test_Connector_remove_cached_no_ip_type(
@@ -331,7 +351,7 @@ async def test_Connector_remove_cached_no_ip_type(
         conn_name = "test-project:test-region:test-instance"
         # populate cache
         cache = RefreshAheadCache(conn_name, fake_client, connector._keys)
-        connector._cache[conn_name] = cache
+        connector._cache[(conn_name, False)] = cache
         # test instance does not have Private IP, thus should invalidate cache
         with pytest.raises(CloudSQLIPTypeError):
             await connector.connect_async(
@@ -342,7 +362,7 @@ async def test_Connector_remove_cached_no_ip_type(
                 ip_type="private",
             )
         # check that cache has been removed from dict
-        assert conn_name not in connector._cache
+        assert (conn_name, False) not in connector._cache
 
 
 def test_default_universe_domain(fake_credentials: Credentials) -> None:
