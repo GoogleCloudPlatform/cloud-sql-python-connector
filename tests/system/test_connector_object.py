@@ -79,11 +79,21 @@ def test_multiple_connectors() -> None:
             conn.execute(sqlalchemy.text("SELECT 1"))
 
         instance_connection_string = os.environ["MYSQL_CONNECTION_NAME"]
-        assert instance_connection_string in first_connector._cache
-        assert instance_connection_string in second_connector._cache
         assert (
-            first_connector._cache[instance_connection_string]
-            != second_connector._cache[instance_connection_string]
+            instance_connection_string,
+            first_connector._enable_iam_auth,
+        ) in first_connector._cache
+        assert (
+            instance_connection_string,
+            second_connector._enable_iam_auth,
+        ) in second_connector._cache
+        assert (
+            first_connector._cache[
+                (instance_connection_string, first_connector._enable_iam_auth)
+            ]
+            != second_connector._cache[
+                (instance_connection_string, second_connector._enable_iam_auth)
+            ]
         )
     except Exception:
         raise
