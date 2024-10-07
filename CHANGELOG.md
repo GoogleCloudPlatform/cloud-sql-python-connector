@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.13.0](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v1.12.1...v1.13.0) (2024-10-07)
+
+
+### Features
+
+* improve key for connector cache ([#1172](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/1172)) ([066c14e](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/066c14efb92af292cd795fb920d7fe5f736a9b0d))
+
+
+### Bug Fixes
+
+* remove `ConnectorLoopError` from connector.connect ([#1170](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/1170)) ([a348659](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/a3486591d6f4f911b964fd2254ccf9a5ff80da20))
+
 ## [1.12.1](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v1.12.0...v1.12.1) (2024-09-17)
 
 
