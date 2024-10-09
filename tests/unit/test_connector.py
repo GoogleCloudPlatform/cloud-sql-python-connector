@@ -15,6 +15,7 @@ limitations under the License.
 """
 
 import asyncio
+from threading import Thread
 from typing import Union
 
 from aiohttp import ClientResponseError
@@ -276,6 +277,38 @@ async def test_Connector_connect_async(
             )
             # verify connector made connection call
             assert connection is True
+
+
+@pytest.mark.asyncio
+async def test_Connector_connect_async_multiple_event_loops(
+    fake_credentials: Credentials, fake_client: CloudSQLClient
+) -> None:
+    """Test that Connector.connect_async errors when run on wrong event loop."""
+
+    new_loop = asyncio.new_event_loop()
+    thread = Thread(target=new_loop.run_forever, daemon=True)
+    thread.start()
+
+    async with Connector(
+        credentials=fake_credentials, loop=asyncio.get_running_loop()
+    ) as connector:
+        connector._client = fake_client
+        with pytest.raises(ConnectorLoopError) as exc_info:
+            future = asyncio.run_coroutine_threadsafe(
+                connector.connect_async(
+                    "test-project:test-region:test-instance", "asyncpg"
+                ),
+                loop=new_loop,
+            )
+            future.result()
+        assert (
+            exc_info.value.args[0] == "Running event loop does not match "
+            "'connector._loop'. Connector.connect_async() must be called from "
+            "the event loop the Connector was initialized with. If you need to "
+            "connect across event loops, please use a new Connector object."
+        )
+    new_loop.call_soon_threadsafe(new_loop.stop)
+    thread.join()
 
 
 @pytest.mark.asyncio
