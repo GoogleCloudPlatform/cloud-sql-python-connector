@@ -25,7 +25,7 @@ ISORT_VERSION = "isort==5.13.2"
 
 LINT_PATHS = ["google", "tests", "noxfile.py", "setup.py"]
 
-TEST_PYTHON_VERSIONS = ["3.9", "3.10", "3.11", "3.12"]
+TEST_PYTHON_VERSIONS = ["3.9", "3.10", "3.11", "3.12", "3.13"]
 
 
 @nox.session
