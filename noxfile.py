@@ -14,7 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-
 from __future__ import absolute_import
 
 import os
@@ -26,7 +25,7 @@ ISORT_VERSION = "isort==5.13.2"
 
 LINT_PATHS = ["google", "tests", "noxfile.py", "setup.py"]
 
-TEST_PYTHON_VERSIONS = ["3.8", "3.9", "3.10", "3.11", "3.12"]
+TEST_PYTHON_VERSIONS = ["3.9", "3.10", "3.11", "3.12"]
 
 
 @nox.session
