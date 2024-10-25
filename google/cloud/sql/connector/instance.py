@@ -22,7 +22,6 @@ from datetime import timedelta
 from datetime import timezone
 import logging
 import re
-from typing import Tuple
 
 import aiohttp
 
@@ -43,7 +42,7 @@ APPLICATION_NAME = "cloud-sql-python-connector"
 CONN_NAME_REGEX = re.compile(("([^:]+(:[^:]+)?):([^:]+):([^:]+)"))
 
 
-def _parse_instance_connection_name(connection_name: str) -> Tuple[str, str, str]:
+def _parse_instance_connection_name(connection_name: str) -> tuple[str, str, str]:
     if CONN_NAME_REGEX.fullmatch(connection_name) is None:
         raise ValueError(
             "Arg `instance_connection_string` must have "

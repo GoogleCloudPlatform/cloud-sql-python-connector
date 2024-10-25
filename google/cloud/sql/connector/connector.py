@@ -21,7 +21,7 @@ from functools import partial
 import logging
 from threading import Thread
 from types import TracebackType
-from typing import Any, Dict, Optional, Tuple, Type, Union
+from typing import Any, Optional, Type, Union
 
 import google.auth
 from google.auth.credentials import Credentials
@@ -133,8 +133,8 @@ class Connector:
                 )
         # initialize dict to store caches, key is a tuple consisting of instance
         # connection name string and enable_iam_auth boolean flag
-        self._cache: Dict[
-            Tuple[str, bool], Union[RefreshAheadCache, LazyRefreshCache]
+        self._cache: dict[
+            tuple[str, bool], Union[RefreshAheadCache, LazyRefreshCache]
         ] = {}
         self._client: Optional[CloudSQLClient] = None
 

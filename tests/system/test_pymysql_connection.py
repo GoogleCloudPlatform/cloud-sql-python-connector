@@ -16,7 +16,6 @@ limitations under the License.
 
 from datetime import datetime
 import os
-from typing import Tuple
 
 # [START cloud_sql_connector_mysql_pymysql]
 import pymysql
@@ -31,7 +30,7 @@ def create_sqlalchemy_engine(
     password: str,
     db: str,
     refresh_strategy: str = "background",
-) -> Tuple[sqlalchemy.engine.Engine, Connector]:
+) -> tuple[sqlalchemy.engine.Engine, Connector]:
     """Creates a connection pool for a Cloud SQL instance and returns the pool
     and the connector. Callers are responsible for closing the pool and the
     connector.

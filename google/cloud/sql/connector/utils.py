@@ -14,15 +14,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-from typing import Tuple
-
 import aiofiles
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 
 
-async def generate_keys() -> Tuple[bytes, str]:
+async def generate_keys() -> tuple[bytes, str]:
     """A helper function to generate the private and public keys.
 
     backend - The value specified is default_backend(). This is because the
@@ -61,7 +59,7 @@ async def generate_keys() -> Tuple[bytes, str]:
 
 async def write_to_file(
     dir_path: str, serverCaCert: str, ephemeralCert: str, priv_key: bytes
-) -> Tuple[str, str, str]:
+) -> tuple[str, str, str]:
     """
     Helper function to write the serverCaCert, ephemeral certificate and
     private key to .pem files in a given directory
