@@ -16,6 +16,7 @@ limitations under the License.
 
 import asyncio
 import os
+from typing import Any
 
 import asyncpg
 import sqlalchemy
@@ -87,7 +88,68 @@ async def create_sqlalchemy_engine(
     return engine, connector
 
 
-async def test_connection_with_asyncpg() -> None:
+async def create_asyncpg_pool(
+    instance_connection_name: str,
+    user: str,
+    password: str,
+    db: str,
+    refresh_strategy: str = "background",
+) -> tuple[asyncpg.Pool, Connector]:
+    """Creates a native asyncpg connection pool for a Cloud SQL instance and
+    returns the pool and the connector. Callers are responsible for closing the
+    pool and the connector.
+
+    A sample invocation looks like:
+
+        pool, connector = await create_asyncpg_pool(
+            inst_conn_name,
+            user,
+            password,
+            db,
+        )
+        async with pool.acquire() as conn:
+            hello = await conn.fetch("SELECT 'Hello World!'")
+            # do something with query result
+            await connector.close_async()
+
+    Args:
+        instance_connection_name (str):
+            The instance connection name specifies the instance relative to the
+            project and region. For example: "my-project:my-region:my-instance"
+        user (str):
+            The database user name, e.g., postgres
+        password (str):
+            The database user's password, e.g., secret-password
+        db (str):
+            The name of the database, e.g., mydb
+        refresh_strategy (Optional[str]):
+            Refresh strategy for the Cloud SQL Connector. Can be one of "lazy"
+            or "background". For serverless environments use "lazy" to avoid
+            errors resulting from CPU being throttled.
+    """
+    loop = asyncio.get_running_loop()
+    connector = Connector(loop=loop, refresh_strategy=refresh_strategy)
+
+    async def getconn(
+        instance_connection_name: str, **kwargs: Any
+    ) -> asyncpg.Connection:
+        conn: asyncpg.Connection = await connector.connect_async(
+            instance_connection_name,
+            "asyncpg",
+            user=user,
+            password=password,
+            db=db,
+            ip_type="public",  # can also be "private" or "psc",
+            **kwargs
+        )
+        return conn
+
+    # create native asyncpg pool (requires asyncpg version >=0.30.0)
+    pool = await asyncpg.create_pool(instance_connection_name, connect=getconn)
+    return pool, connector
+
+
+async def test_sqlalchemy_connection_with_asyncpg() -> None:
     """Basic test to get time from database."""
     inst_conn_name = os.environ["POSTGRES_CONNECTION_NAME"]
     user = os.environ["POSTGRES_USER"]
@@ -103,7 +165,7 @@ async def test_connection_with_asyncpg() -> None:
     await connector.close_async()
 
 
-async def test_lazy_connection_with_asyncpg() -> None:
+async def test_lazy_sqlalchemy_connection_with_asyncpg() -> None:
     """Basic test to get time from database."""
     inst_conn_name = os.environ["POSTGRES_CONNECTION_NAME"]
     user = os.environ["POSTGRES_USER"]
@@ -117,5 +179,39 @@ async def test_lazy_connection_with_asyncpg() -> None:
     async with pool.connect() as conn:
         res = (await conn.execute(sqlalchemy.text("SELECT 1"))).fetchone()
         assert res[0] == 1
+
+    await connector.close_async()
+
+
+async def test_connection_with_asyncpg() -> None:
+    """Basic test to get time from database."""
+    inst_conn_name = os.environ["POSTGRES_CONNECTION_NAME"]
+    user = os.environ["POSTGRES_USER"]
+    password = os.environ["POSTGRES_PASS"]
+    db = os.environ["POSTGRES_DB"]
+
+    pool, connector = await create_asyncpg_pool(inst_conn_name, user, password, db)
+
+    async with pool.acquire() as conn:
+        res = await conn.fetch("SELECT 1")
+        assert res[0][0] == 1
+
+    await connector.close_async()
+
+
+async def test_lazy_connection_with_asyncpg() -> None:
+    """Basic test to get time from database."""
+    inst_conn_name = os.environ["POSTGRES_CONNECTION_NAME"]
+    user = os.environ["POSTGRES_USER"]
+    password = os.environ["POSTGRES_PASS"]
+    db = os.environ["POSTGRES_DB"]
+
+    pool, connector = await create_asyncpg_pool(
+        inst_conn_name, user, password, db, "lazy"
+    )
+
+    async with pool.acquire() as conn:
+        res = await conn.fetch("SELECT 1")
+        assert res[0][0] == 1
 
     await connector.close_async()
