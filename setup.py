@@ -80,7 +80,7 @@ setuptools.setup(
         "pymysql": ["PyMySQL>=1.1.0"],
         "pg8000": ["pg8000>=1.31.1"],
         "pytds": ["python-tds>=1.15.0"],
-        "asyncpg": ["asyncpg>=0.29.0"],
+        "asyncpg": ["asyncpg>=0.30.0"],
     },
     python_requires=">=3.9",
     include_package_data=True,
