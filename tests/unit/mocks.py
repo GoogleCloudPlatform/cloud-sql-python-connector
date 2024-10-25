@@ -19,7 +19,7 @@ limitations under the License.
 import datetime
 import json
 import ssl
-from typing import Any, Callable, Dict, Literal, Optional, Tuple
+from typing import Any, Callable, Literal, Optional
 
 from aiofiles.tempfile import TemporaryDirectory
 from aiohttp import web
@@ -113,7 +113,7 @@ def generate_cert(
     cert_before: datetime.datetime = datetime.datetime.now(datetime.timezone.utc),
     cert_after: datetime.datetime = datetime.datetime.now(datetime.timezone.utc)
     + datetime.timedelta(hours=1),
-) -> Tuple[x509.CertificateBuilder, rsa.RSAPrivateKey]:
+) -> tuple[x509.CertificateBuilder, rsa.RSAPrivateKey]:
     """
     Generate a private key and cert object to be used in testing.
     """
@@ -221,7 +221,7 @@ class FakeCSQLInstance:
         region: str = "test-region",
         name: str = "test-instance",
         db_version: str = "POSTGRES_15",
-        ip_addrs: Dict = {
+        ip_addrs: dict = {
             "PRIMARY": "127.0.0.1",
             "PRIVATE": "10.0.0.1",
         },

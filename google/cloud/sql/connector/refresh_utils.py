@@ -21,7 +21,7 @@ import copy
 import datetime
 import logging
 import random
-from typing import Any, Callable, List
+from typing import Any, Callable
 
 import aiohttp
 from google.auth.credentials import Credentials
@@ -77,7 +77,7 @@ async def _is_valid(task: asyncio.Task) -> bool:
 
 def _downscope_credentials(
     credentials: Credentials,
-    scopes: List[str] = ["https://www.googleapis.com/auth/sqlservice.login"],
+    scopes: list[str] = ["https://www.googleapis.com/auth/sqlservice.login"],
 ) -> Credentials:
     """Generate a down-scoped credential.
 
@@ -85,7 +85,7 @@ def _downscope_credentials(
     :param credentials
         Credentials object used to generate down-scoped credentials.
 
-    :type scopes: List[str]
+    :type scopes: list[str]
     :param scopes
         List of Google scopes to include in down-scoped credentials object.
 
