@@ -21,7 +21,7 @@ from typing import Optional
 
 from google.cloud.sql.connector.client import CloudSQLClient
 from google.cloud.sql.connector.connection_info import ConnectionInfo
-from google.cloud.sql.connector.instance import _parse_instance_connection_name
+from google.cloud.sql.connector.connection_name import _parse_instance_connection_name
 from google.cloud.sql.connector.refresh_utils import _refresh_buffer
 
 logger = logging.getLogger(name=__name__)
@@ -56,10 +56,13 @@ class LazyRefreshCache:
                 connections.
         """
         # validate and parse instance connection name
-        self._project, self._region, self._instance = _parse_instance_connection_name(
-            instance_connection_string
+        conn_name = _parse_instance_connection_name(instance_connection_string)
+        self._project, self._region, self._instance = (
+            conn_name.project,
+            conn_name.region,
+            conn_name.instance_name,
         )
-        self._instance_connection_string = instance_connection_string
+        self._conn_name = conn_name
 
         self._enable_iam_auth = enable_iam_auth
         self._keys = keys
@@ -91,13 +94,12 @@ class LazyRefreshCache:
                 < (self._cached.expiration - timedelta(seconds=_refresh_buffer))
             ):
                 logger.debug(
-                    f"['{self._instance_connection_string}']: Connection info "
+                    f"['{self._conn_name}']: Connection info "
                     "is still valid, using cached info"
                 )
                 return self._cached
             logger.debug(
-                f"['{self._instance_connection_string}']: Connection info "
-                "refresh operation started"
+                f"['{self._conn_name}']: Connection info " "refresh operation started"
             )
             try:
                 conn_info = await self._client.get_connection_info(
@@ -109,16 +111,16 @@ class LazyRefreshCache:
                 )
             except Exception as e:
                 logger.debug(
-                    f"['{self._instance_connection_string}']: Connection info "
+                    f"['{self._conn_name}']: Connection info "
                     f"refresh operation failed: {str(e)}"
                 )
                 raise
             logger.debug(
-                f"['{self._instance_connection_string}']: Connection info "
+                f"['{self._conn_name}']: Connection info "
                 "refresh operation completed successfully"
             )
             logger.debug(
-                f"['{self._instance_connection_string}']: Current certificate "
+                f"['{self._conn_name}']: Current certificate "
                 f"expiration = {str(conn_info.expiration)}"
             )
             self._cached = conn_info

@@ -51,6 +51,7 @@ def lint(session):
         "--check-only",
         "--diff",
         "--profile=google",
+        "-w=88",
         *LINT_PATHS,
     )
     session.run("black", "--check", "--diff", *LINT_PATHS)
@@ -85,6 +86,7 @@ def format(session):
         "isort",
         "--fss",
         "--profile=google",
+        "-w=88",
         *LINT_PATHS,
     )
     session.run(
