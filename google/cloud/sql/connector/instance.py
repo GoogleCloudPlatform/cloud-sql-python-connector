@@ -21,12 +21,12 @@ from datetime import datetime
 from datetime import timedelta
 from datetime import timezone
 import logging
-import re
 
 import aiohttp
 
 from google.cloud.sql.connector.client import CloudSQLClient
 from google.cloud.sql.connector.connection_info import ConnectionInfo
+from google.cloud.sql.connector.connection_name import _parse_instance_connection_name
 from google.cloud.sql.connector.exceptions import RefreshNotValidError
 from google.cloud.sql.connector.rate_limiter import AsyncRateLimiter
 from google.cloud.sql.connector.refresh_utils import _is_valid
@@ -35,22 +35,6 @@ from google.cloud.sql.connector.refresh_utils import _seconds_until_refresh
 logger = logging.getLogger(name=__name__)
 
 APPLICATION_NAME = "cloud-sql-python-connector"
-
-# Instance connection name is the format <PROJECT>:<REGION>:<INSTANCE>
-# Additionally, we have to support legacy "domain-scoped" projects
-# (e.g. "google.com:PROJECT")
-CONN_NAME_REGEX = re.compile(("([^:]+(:[^:]+)?):([^:]+):([^:]+)"))
-
-
-def _parse_instance_connection_name(connection_name: str) -> tuple[str, str, str]:
-    if CONN_NAME_REGEX.fullmatch(connection_name) is None:
-        raise ValueError(
-            "Arg `instance_connection_string` must have "
-            "format: PROJECT:REGION:INSTANCE, "
-            f"got {connection_name}."
-        )
-    connection_name_split = CONN_NAME_REGEX.split(connection_name)
-    return connection_name_split[1], connection_name_split[3], connection_name_split[4]
 
 
 class RefreshAheadCache:
@@ -81,10 +65,13 @@ class RefreshAheadCache:
                 connections.
         """
         # validate and parse instance connection name
-        self._project, self._region, self._instance = _parse_instance_connection_name(
-            instance_connection_string
+        conn_name = _parse_instance_connection_name(instance_connection_string)
+        self._project, self._region, self._instance = (
+            conn_name.project,
+            conn_name.region,
+            conn_name.instance_name,
         )
-        self._instance_connection_string = instance_connection_string
+        self._conn_name = conn_name
 
         self._enable_iam_auth = enable_iam_auth
         self._keys = keys
@@ -121,8 +108,7 @@ class RefreshAheadCache:
         """
         self._refresh_in_progress.set()
         logger.debug(
-            f"['{self._instance_connection_string}']: Connection info refresh "
-            "operation started"
+            f"['{self._conn_name}']: Connection info refresh " "operation started"
         )
 
         try:
@@ -135,17 +121,16 @@ class RefreshAheadCache:
                 self._enable_iam_auth,
             )
             logger.debug(
-                f"['{self._instance_connection_string}']: Connection info "
-                "refresh operation complete"
+                f"['{self._conn_name}']: Connection info " "refresh operation complete"
             )
             logger.debug(
-                f"['{self._instance_connection_string}']: Current certificate "
+                f"['{self._conn_name}']: Current certificate "
                 f"expiration = {connection_info.expiration.isoformat()}"
             )
 
         except aiohttp.ClientResponseError as e:
             logger.debug(
-                f"['{self._instance_connection_string}']: Connection info "
+                f"['{self._conn_name}']: Connection info "
                 f"refresh operation failed: {str(e)}"
             )
             if e.status == 403:
@@ -154,7 +139,7 @@ class RefreshAheadCache:
 
         except Exception as e:
             logger.debug(
-                f"['{self._instance_connection_string}']: Connection info "
+                f"['{self._conn_name}']: Connection info "
                 f"refresh operation failed: {str(e)}"
             )
             raise
@@ -188,18 +173,17 @@ class RefreshAheadCache:
                 # check that refresh is valid
                 if not await _is_valid(refresh_task):
                     raise RefreshNotValidError(
-                        f"['{self._instance_connection_string}']: Invalid refresh operation. Certficate appears to be expired."
+                        f"['{self._conn_name}']: Invalid refresh operation. Certficate appears to be expired."
                     )
             except asyncio.CancelledError:
                 logger.debug(
-                    f"['{self._instance_connection_string}']: Scheduled refresh"
-                    " operation cancelled"
+                    f"['{self._conn_name}']: Scheduled refresh" " operation cancelled"
                 )
                 raise
             # bad refresh attempt
             except Exception as e:
                 logger.exception(
-                    f"['{self._instance_connection_string}']: "
+                    f"['{self._conn_name}']: "
                     "An error occurred while performing refresh. "
                     "Scheduling another refresh attempt immediately",
                     exc_info=e,
@@ -216,7 +200,7 @@ class RefreshAheadCache:
             # calculate refresh delay based on certificate expiration
             delay = _seconds_until_refresh(refresh_data.expiration)
             logger.debug(
-                f"['{self._instance_connection_string}']: Connection info refresh"
+                f"['{self._conn_name}']: Connection info refresh"
                 " operation scheduled for "
                 f"{(datetime.now(timezone.utc) + timedelta(seconds=delay)).isoformat(timespec='seconds')} "
                 f"(now + {timedelta(seconds=delay)})"
@@ -240,7 +224,7 @@ class RefreshAheadCache:
         graceful exit.
         """
         logger.debug(
-            f"['{self._instance_connection_string}']: Canceling connection info "
+            f"['{self._conn_name}']: Canceling connection info "
             "refresh operation tasks"
         )
         self._current.cancel()

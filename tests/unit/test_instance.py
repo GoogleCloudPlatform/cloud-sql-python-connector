@@ -16,7 +16,6 @@ limitations under the License.
 
 import asyncio
 import datetime
-from typing import Tuple
 
 from aiohttp import ClientResponseError
 from aiohttp import RequestInfo
@@ -31,7 +30,6 @@ from google.cloud.sql.connector.client import CloudSQLClient
 from google.cloud.sql.connector.connection_info import ConnectionInfo
 from google.cloud.sql.connector.exceptions import AutoIAMAuthNotSupported
 from google.cloud.sql.connector.exceptions import CloudSQLIPTypeError
-from google.cloud.sql.connector.instance import _parse_instance_connection_name
 from google.cloud.sql.connector.instance import RefreshAheadCache
 from google.cloud.sql.connector.rate_limiter import AsyncRateLimiter
 from google.cloud.sql.connector.refresh_utils import _is_valid
@@ -41,34 +39,6 @@ from google.cloud.sql.connector.utils import generate_keys
 @pytest.fixture
 def test_rate_limiter() -> AsyncRateLimiter:
     return AsyncRateLimiter(max_capacity=1, rate=1 / 2)
-
-
-@pytest.mark.parametrize(
-    "connection_name, expected",
-    [
-        ("project:region:instance", ("project", "region", "instance")),
-        (
-            "domain-prefix:project:region:instance",
-            ("domain-prefix:project", "region", "instance"),
-        ),
-    ],
-)
-def test_parse_instance_connection_name(
-    connection_name: str, expected: Tuple[str, str, str]
-) -> None:
-    """
-    Test that _parse_instance_connection_name works correctly on
-    normal instance connection names and domain-scoped projects.
-    """
-    assert expected == _parse_instance_connection_name(connection_name)
-
-
-def test_parse_instance_connection_name_bad_conn_name() -> None:
-    """
-    Tests that ValueError is thrown for bad instance connection names.
-    """
-    with pytest.raises(ValueError):
-        _parse_instance_connection_name("project:instance")  # missing region
 
 
 @pytest.mark.asyncio
