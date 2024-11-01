@@ -32,7 +32,7 @@ class ConnectionName:
     region: str
     instance_name: str
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"{self.project}:{self.region}:{self.instance_name}"
 
 
