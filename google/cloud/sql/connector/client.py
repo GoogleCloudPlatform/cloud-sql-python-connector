@@ -17,7 +17,7 @@ from __future__ import annotations
 import asyncio
 import datetime
 import logging
-from typing import Any, Dict, Optional, Tuple, TYPE_CHECKING
+from typing import Any, Optional, TYPE_CHECKING
 
 import aiohttp
 from cryptography.hazmat.backends import default_backend
@@ -98,7 +98,7 @@ class CloudSQLClient:
         project: str,
         region: str,
         instance: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Requests metadata from the Cloud SQL Instance
         and returns a dictionary containing the IP addresses and certificate
         authority of the Cloud SQL Instance.
@@ -113,7 +113,7 @@ class CloudSQLClient:
         :type instance: str
         :param instance: A string representing the name of the instance.
 
-        :rtype: Dict[str: Union[Dict, str]]
+        :rtype: dict[str: Union[dict, str]]
         :returns: Returns a dictionary containing a dictionary of all IP
             addresses and their type and a string representing the
             certificate authority.
@@ -161,7 +161,7 @@ class CloudSQLClient:
         instance: str,
         pub_key: str,
         enable_iam_auth: bool = False,
-    ) -> Tuple[str, datetime.datetime]:
+    ) -> tuple[str, datetime.datetime]:
         """Asynchronously requests an ephemeral certificate from the Cloud SQL Instance.
 
         :type project: str

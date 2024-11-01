@@ -1,5 +1,26 @@
 # Changelog
 
+## [1.13.0](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v1.12.1...v1.13.0) (2024-10-22)
+
+
+### Features
+
+* add support for Python 3.13 ([#1177](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/1177)) ([6e6a1c8](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/6e6a1c8532b044729f54cdd6508d1afa5c7df749))
+* drop support for Python 3.8 ([#1176](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/1176)) ([10c9172](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/10c9172c93bfc8b2f3a2ab0a990f5a5369961199))
+* improve key for connector cache ([#1172](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/1172)) ([066c14e](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/066c14efb92af292cd795fb920d7fe5f736a9b0d))
+
+
+### Bug Fixes
+
+* remove `ConnectorLoopError` from connector.connect ([#1170](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/1170)) ([a348659](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/a3486591d6f4f911b964fd2254ccf9a5ff80da20))
+
+## [1.12.1](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v1.12.0...v1.12.1) (2024-09-17)
+
+
+### Bug Fixes
+
+* set PSC ip type based on `pscEnabled` ([#1158](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/1158)) ([53e40c7](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/53e40c7dbec8f27e2e3e6e344bf87e08cf15c3e9))
+
 ## [1.12.0](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v1.11.0...v1.12.0) (2024-08-13)
 
 

@@ -17,7 +17,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import logging
 import ssl
-from typing import Any, Dict, Optional, TYPE_CHECKING
+from typing import Any, Optional, TYPE_CHECKING
 
 from aiofiles.tempfile import TemporaryDirectory
 
@@ -41,7 +41,7 @@ class ConnectionInfo:
     client_cert: str
     server_ca_cert: str
     private_key: bytes
-    ip_addrs: Dict[str, Any]
+    ip_addrs: dict[str, Any]
     database_version: str
     expiration: datetime.datetime
     context: Optional[ssl.SSLContext] = None
