@@ -94,13 +94,12 @@ class LazyRefreshCache:
                 < (self._cached.expiration - timedelta(seconds=_refresh_buffer))
             ):
                 logger.debug(
-                    f"['{str(self._conn_name)}']: Connection info "
+                    f"['{self._conn_name}']: Connection info "
                     "is still valid, using cached info"
                 )
                 return self._cached
             logger.debug(
-                f"['{str(self._conn_name)}']: Connection info "
-                "refresh operation started"
+                f"['{self._conn_name}']: Connection info " "refresh operation started"
             )
             try:
                 conn_info = await self._client.get_connection_info(
@@ -112,16 +111,16 @@ class LazyRefreshCache:
                 )
             except Exception as e:
                 logger.debug(
-                    f"['{str(self._conn_name)}']: Connection info "
+                    f"['{self._conn_name}']: Connection info "
                     f"refresh operation failed: {str(e)}"
                 )
                 raise
             logger.debug(
-                f"['{str(self._conn_name)}']: Connection info "
+                f"['{self._conn_name}']: Connection info "
                 "refresh operation completed successfully"
             )
             logger.debug(
-                f"['{str(self._conn_name)}']: Current certificate "
+                f"['{self._conn_name}']: Current certificate "
                 f"expiration = {str(conn_info.expiration)}"
             )
             self._cached = conn_info
