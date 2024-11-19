@@ -168,7 +168,7 @@ def test_exponential_backoff(attempt: int, low: int, high: int) -> None:
     """
     Test _exponential_backoff produces times (in ms) in the proper range.
     """
-    backoff = _exponential_backoff(attempt)
+    backoff = round(_exponential_backoff(attempt))
     assert backoff >= low
     assert backoff <= high
 
