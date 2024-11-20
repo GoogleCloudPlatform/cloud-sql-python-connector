@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.14.0](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v1.13.0...v1.14.0) (2024-11-20)
+
+
+### Features
+
+* support native asyncpg connection pools ([#1182](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/1182)) ([eb95a9d](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/eb95a9da35553387408e425721449660cc83196d))
+
 ## [1.13.0](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v1.12.1...v1.13.0) (2024-10-22)
 
 
