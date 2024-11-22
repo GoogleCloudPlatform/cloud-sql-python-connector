@@ -134,7 +134,7 @@ class RefreshAheadCache:
                 f"refresh operation failed: {str(e)}"
             )
             if e.status == 403:
-                e.message = "Forbidden: Authenticated IAM principal does not seem authorized to make API request. Verify 'Cloud SQL Admin API' is enabled within your GCP project and 'Cloud SQL Client' role has been granted to IAM principal."
+                e.message = "Forbidden: Authenticated IAM principal does not seem authorized to make API request. Verify 'Cloud SQL Admin API' is enabled within your GCP project and 'Cloud SQL Client', 'Service Usage Consumer' roles have been granted to IAM principal."
             raise
 
         except Exception as e:
