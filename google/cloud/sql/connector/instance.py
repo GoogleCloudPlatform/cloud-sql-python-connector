@@ -26,7 +26,7 @@ import aiohttp
 
 from google.cloud.sql.connector.client import CloudSQLClient
 from google.cloud.sql.connector.connection_info import ConnectionInfo
-from google.cloud.sql.connector.connection_name import _parse_instance_connection_name
+from google.cloud.sql.connector.connection_name import ConnectionName
 from google.cloud.sql.connector.exceptions import RefreshNotValidError
 from google.cloud.sql.connector.rate_limiter import AsyncRateLimiter
 from google.cloud.sql.connector.refresh_utils import _is_valid
@@ -47,7 +47,7 @@ class RefreshAheadCache:
 
     def __init__(
         self,
-        instance_connection_string: str,
+        conn_name: ConnectionName,
         client: CloudSQLClient,
         keys: asyncio.Future,
         enable_iam_auth: bool = False,
@@ -55,8 +55,8 @@ class RefreshAheadCache:
         """Initializes a RefreshAheadCache instance.
 
         Args:
-            instance_connection_string (str): The Cloud SQL Instance's
-                connection string (also known as an instance connection name).
+            conn_name (ConnectionName): The Cloud SQL Instance's
+                connection name.
             client (CloudSQLClient): The Cloud SQL Client instance.
             keys (asyncio.Future): A future to the client's public-private key
                 pair.
@@ -64,8 +64,6 @@ class RefreshAheadCache:
                 (Postgres and MySQL) as the default authentication method for all
                 connections.
         """
-        # validate and parse instance connection name
-        conn_name = _parse_instance_connection_name(instance_connection_string)
         self._project, self._region, self._instance = (
             conn_name.project,
             conn_name.region,

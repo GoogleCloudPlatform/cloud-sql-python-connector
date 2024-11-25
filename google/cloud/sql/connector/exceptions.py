@@ -70,3 +70,10 @@ class IncompatibleDriverError(Exception):
     Exception to be raised when the database driver given is for the wrong
     database engine. (i.e. asyncpg for a MySQL database)
     """
+
+
+class DnsResolutionError(Exception):
+    """
+    Exception to be raised when an instance connection name can not be resolved
+    from a DNS record.
+    """

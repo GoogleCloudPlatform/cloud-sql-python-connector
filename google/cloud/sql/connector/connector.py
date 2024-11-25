@@ -37,6 +37,8 @@ from google.cloud.sql.connector.lazy import LazyRefreshCache
 import google.cloud.sql.connector.pg8000 as pg8000
 import google.cloud.sql.connector.pymysql as pymysql
 import google.cloud.sql.connector.pytds as pytds
+from google.cloud.sql.connector.resolver import DefaultResolver
+from google.cloud.sql.connector.resolver import DnsResolver
 from google.cloud.sql.connector.utils import format_database_user
 from google.cloud.sql.connector.utils import generate_keys
 
@@ -63,6 +65,7 @@ class Connector:
         user_agent: Optional[str] = None,
         universe_domain: Optional[str] = None,
         refresh_strategy: str | RefreshStrategy = RefreshStrategy.BACKGROUND,
+        resolver: DefaultResolver | DnsResolver = DefaultResolver,
     ) -> None:
         """Initializes a Connector instance.
 
@@ -104,6 +107,12 @@ class Connector:
                 of the following: RefreshStrategy.LAZY ("LAZY") or
                 RefreshStrategy.BACKGROUND ("BACKGROUND").
                 Default: RefreshStrategy.BACKGROUND
+            resolver (DefaultResolver | DnsResolver): The class name of the
+                resolver to use for resolving the Cloud SQL instance connection
+                name. To resolve a DNS record to an instance connection name, use
+                DnsResolver.
+                Default: DefaultResolver
+
         """
         # if refresh_strategy is str, convert to RefreshStrategy enum
         if isinstance(refresh_strategy, str):
@@ -157,6 +166,7 @@ class Connector:
         self._enable_iam_auth = enable_iam_auth
         self._quota_project = quota_project
         self._user_agent = user_agent
+        self._resolver = resolver()
         # if ip_type is str, convert to IPTypes enum
         if isinstance(ip_type, str):
             ip_type = IPTypes._from_str(ip_type)
@@ -269,13 +279,14 @@ class Connector:
         if (instance_connection_string, enable_iam_auth) in self._cache:
             cache = self._cache[(instance_connection_string, enable_iam_auth)]
         else:
+            conn_name = await self._resolver.resolve(instance_connection_string)
             if self._refresh_strategy == RefreshStrategy.LAZY:
                 logger.debug(
                     f"['{instance_connection_string}']: Refresh strategy is set"
                     " to lazy refresh"
                 )
                 cache = LazyRefreshCache(
-                    instance_connection_string,
+                    conn_name,
                     self._client,
                     self._keys,
                     enable_iam_auth,
@@ -286,7 +297,7 @@ class Connector:
                     " to backgound refresh"
                 )
                 cache = RefreshAheadCache(
-                    instance_connection_string,
+                    conn_name,
                     self._client,
                     self._keys,
                     enable_iam_auth,

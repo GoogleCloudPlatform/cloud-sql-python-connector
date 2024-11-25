@@ -57,6 +57,9 @@ class ConnectionInfo:
             return self.context
         context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
 
+        # update ssl.PROTOCOL_TLS_CLIENT default
+        context.check_hostname = False
+
         # TODO: remove if/else when Python 3.10 is min version. PEP 644 has been
         # implemented. The ssl module requires OpenSSL 1.1.1 or newer.
         # verify OpenSSL version supports TLSv1.3

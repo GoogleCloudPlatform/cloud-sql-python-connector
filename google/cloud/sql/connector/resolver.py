@@ -14,14 +14,15 @@
 
 from dns.asyncresolver import Resolver
 
-from google.cloud.sql.connector.instance import _parse_instance_connection_name
+from google.cloud.sql.connector.connection_name import _parse_instance_connection_name
+from google.cloud.sql.connector.exceptions import DnsResolutionError
 
 
 class DefaultResolver:
     """DefaultResolver simply validates and parses instance connection name."""
 
-    async def resolve(connection_name: str) -> str:
-        pass
+    async def resolve(self, connection_name: str) -> str:
+        return _parse_instance_connection_name(connection_name)
 
 
 class DnsResolver(Resolver):
@@ -30,8 +31,23 @@ class DnsResolver(Resolver):
     TXT records in DNS.
     """
 
-    pass
-
-
-async def resolve(dns: str) -> str:
-    pass
+    async def resolve(self, dns: str) -> str:
+        try:
+            conn_name = _parse_instance_connection_name(dns)
+        except ValueError:
+            # The connection name was not project:region:instance format.
+            # Attempt to query a TXT record to get connection name.
+            try:
+                result = await super().resolve(dns, "TXT", raise_on_no_answer=True)
+                if result is not None:
+                    rdata = result[0].to_text().strip('"')
+                    conn_name = _parse_instance_connection_name(rdata)
+            except ValueError:
+                raise DnsResolutionError(
+                    f"Unable to parse TXT for `{dns}` -> {result[0]}"
+                )
+            except Exception as e:
+                raise DnsResolutionError(
+                    f"Unable to resolve TXT record for `{dns}`"
+                ) from e
+        return conn_name
