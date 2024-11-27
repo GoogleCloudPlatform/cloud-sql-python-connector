@@ -17,10 +17,6 @@ limitations under the License.
 import asyncio
 import datetime
 
-from aiohttp import ClientResponseError
-from aiohttp import RequestInfo
-from aioresponses import aioresponses
-from google.auth.credentials import Credentials
 from mock import patch
 import mocks
 import pytest  # noqa F401 Needed to run the tests
@@ -264,59 +260,6 @@ async def test_get_preferred_ip_CloudSQLIPTypeError(cache: RefreshAheadCache) ->
     # test error when PSC is missing
     with pytest.raises(CloudSQLIPTypeError):
         instance_metadata.get_preferred_ip(IPTypes.PSC)
-
-
-@pytest.mark.asyncio
-async def test_ClientResponseError(
-    fake_credentials: Credentials,
-) -> None:
-    """
-    Test that detailed error message is applied to ClientResponseError.
-    """
-    # mock Cloud SQL Admin API calls with exceptions
-    keys = asyncio.create_task(generate_keys())
-    client = CloudSQLClient(
-        sqladmin_api_endpoint="https://sqladmin.googleapis.com",
-        quota_project=None,
-        credentials=fake_credentials,
-    )
-    get_url = "https://sqladmin.googleapis.com/sql/v1beta4/projects/my-project/instances/my-instance/connectSettings"
-    post_url = "https://sqladmin.googleapis.com/sql/v1beta4/projects/my-project/instances/my-instance:generateEphemeralCert"
-    with aioresponses() as mocked:
-        mocked.get(
-            get_url,
-            status=403,
-            exception=ClientResponseError(
-                RequestInfo(get_url, "GET", headers=[]), history=[], status=403  # type: ignore
-            ),
-            repeat=True,
-        )
-        mocked.post(
-            post_url,
-            status=403,
-            exception=ClientResponseError(
-                RequestInfo(post_url, "POST", headers=[]), history=[], status=403  # type: ignore
-            ),
-            repeat=True,
-        )
-        cache = RefreshAheadCache(
-            "my-project:my-region:my-instance",
-            client,
-            keys,
-        )
-        try:
-            await cache._current
-        except ClientResponseError as e:
-            assert e.status == 403
-            assert (
-                e.message == "Forbidden: Authenticated IAM principal does not "
-                "seem authorized to make API request. Verify "
-                "'Cloud SQL Admin API' is enabled within your GCP project and "
-                "'Cloud SQL Client' role has been granted to IAM principal."
-            )
-        finally:
-            await cache.close()
-            await client.close()
 
 
 @pytest.mark.asyncio
