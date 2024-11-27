@@ -132,7 +132,7 @@ class CloudSQLClient:
         try:
             ret_dict = await resp.json()
             if resp.status >= 400:
-                # if detailed error message is in json response, use as message
+                # if detailed error message is in json response, use as error message
                 message = ret_dict.get("error", {}).get("message")
                 if message:
                     resp.reason = message
@@ -213,7 +213,7 @@ class CloudSQLClient:
         try:
             ret_dict = await resp.json()
             if resp.status >= 400:
-                # if detailed error message is in json response, use as message
+                # if detailed error message is in json response, use as error message
                 message = ret_dict.get("error", {}).get("message")
                 if message:
                     resp.reason = message
