@@ -136,6 +136,7 @@ class CloudSQLClient:
                 message = ret_dict.get("error", {}).get("message")
                 if message:
                     resp.reason = message
+        # skip, raise_for_status will catch all errors in finally block
         except Exception:
             pass
         finally:
@@ -216,6 +217,7 @@ class CloudSQLClient:
                 message = ret_dict.get("error", {}).get("message")
                 if message:
                     resp.reason = message
+        # skip, raise_for_status will catch all errors in finally block
         except Exception:
             pass
         finally:
