@@ -131,7 +131,6 @@ class CloudSQLClient:
         # try to get response json for better error message
         try:
             ret_dict = await resp.json()
-            print(ret_dict)
             if resp.status >= 400:
                 # if detailed error message is in json response, use as message
                 message = ret_dict.get("error", {}).get("message")
