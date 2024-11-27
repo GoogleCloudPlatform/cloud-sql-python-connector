@@ -15,6 +15,9 @@
 import datetime
 from typing import Optional
 
+from aiohttp import ClientResponseError
+from aioresponses import aioresponses
+from google.auth.credentials import Credentials
 from mocks import FakeCredentials
 import pytest
 
@@ -138,3 +141,78 @@ async def test_CloudSQLClient_user_agent(
         assert client._user_agent == f"cloud-sql-python-connector/{version}+{driver}"
     # close client
     await client.close()
+
+
+@pytest.mark.asyncio
+async def test_cloud_sql_error_messages_get_metadata(
+    fake_credentials: Credentials,
+) -> None:
+    """
+    Test that Cloud SQL Admin API error messages are raised for _get_metadata.
+    """
+    # mock Cloud SQL Admin API calls with exceptions
+    client = CloudSQLClient(
+        sqladmin_api_endpoint="https://sqladmin.googleapis.com",
+        quota_project=None,
+        credentials=fake_credentials,
+    )
+    get_url = "https://sqladmin.googleapis.com/sql/v1beta4/projects/my-project/instances/my-instance/connectSettings"
+    resp_body = {
+        "error": {
+            "code": 403,
+            "message": "Cloud SQL Admin API has not been used in project 123456789 before or it is disabled",
+        }
+    }
+    with aioresponses() as mocked:
+        mocked.get(
+            get_url,
+            status=403,
+            payload=resp_body,
+            repeat=True,
+        )
+        try:
+            await client._get_metadata("my-project", "my-region", "my-instance")
+        except ClientResponseError as e:
+            assert e.status == 403
+            assert (
+                e.message
+                == "Cloud SQL Admin API has not been used in project 123456789 before or it is disabled"
+            )
+        finally:
+            await client.close()
+
+
+@pytest.mark.asyncio
+async def test_cloud_sql_error_messages_get_ephemeral(
+    fake_credentials: Credentials,
+) -> None:
+    """
+    Test that Cloud SQL Admin API error messages are raised for _get_ephemeral.
+    """
+    # mock Cloud SQL Admin API calls with exceptions
+    client = CloudSQLClient(
+        sqladmin_api_endpoint="https://sqladmin.googleapis.com",
+        quota_project=None,
+        credentials=fake_credentials,
+    )
+    post_url = "https://sqladmin.googleapis.com/sql/v1beta4/projects/my-project/instances/my-instance:generateEphemeralCert"
+    resp_body = {
+        "error": {
+            "code": 404,
+            "message": "The Cloud SQL instance does not exist.",
+        }
+    }
+    with aioresponses() as mocked:
+        mocked.post(
+            post_url,
+            status=404,
+            payload=resp_body,
+            repeat=True,
+        )
+        try:
+            await client._get_ephemeral("my-project", "my-instance", "my-key")
+        except ClientResponseError as e:
+            assert e.status == 404
+            assert e.message == "The Cloud SQL instance does not exist."
+        finally:
+            await client.close()
