@@ -16,6 +16,7 @@ import asyncio
 
 from google.cloud.sql.connector.client import CloudSQLClient
 from google.cloud.sql.connector.connection_info import ConnectionInfo
+from google.cloud.sql.connector.connection_name import ConnectionName
 from google.cloud.sql.connector.lazy import LazyRefreshCache
 from google.cloud.sql.connector.utils import generate_keys
 
@@ -26,7 +27,7 @@ async def test_LazyRefreshCache_connect_info(fake_client: CloudSQLClient) -> Non
     """
     keys = asyncio.create_task(generate_keys())
     cache = LazyRefreshCache(
-        "test-project:test-region:test-instance",
+        ConnectionName("test-project", "test-region", "test-instance"),
         client=fake_client,
         keys=keys,
         enable_iam_auth=False,
@@ -47,7 +48,7 @@ async def test_LazyRefreshCache_force_refresh(fake_client: CloudSQLClient) -> No
     """
     keys = asyncio.create_task(generate_keys())
     cache = LazyRefreshCache(
-        "test-project:test-region:test-instance",
+        ConnectionName("test-project", "test-region", "test-instance"),
         client=fake_client,
         keys=keys,
         enable_iam_auth=False,

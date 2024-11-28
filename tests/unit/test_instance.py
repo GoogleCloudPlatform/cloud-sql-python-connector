@@ -28,6 +28,7 @@ import pytest  # noqa F401 Needed to run the tests
 from google.cloud.sql.connector import IPTypes
 from google.cloud.sql.connector.client import CloudSQLClient
 from google.cloud.sql.connector.connection_info import ConnectionInfo
+from google.cloud.sql.connector.connection_name import ConnectionName
 from google.cloud.sql.connector.exceptions import AutoIAMAuthNotSupported
 from google.cloud.sql.connector.exceptions import CloudSQLIPTypeError
 from google.cloud.sql.connector.instance import RefreshAheadCache
@@ -300,7 +301,7 @@ async def test_ClientResponseError(
             repeat=True,
         )
         cache = RefreshAheadCache(
-            "my-project:my-region:my-instance",
+            ConnectionName("my-project", "my-region", "my-instance"),
             client,
             keys,
         )
@@ -328,7 +329,7 @@ async def test_AutoIAMAuthNotSupportedError(fake_client: CloudSQLClient) -> None
     # generate client key pair
     keys = asyncio.create_task(generate_keys())
     cache = RefreshAheadCache(
-        "test-project:test-region:sqlserver-instance",
+        ConnectionName("test-project", "test-region", "sqlserver-instance"),
         client=fake_client,
         keys=keys,
         enable_iam_auth=True,

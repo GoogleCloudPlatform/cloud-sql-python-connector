@@ -26,6 +26,7 @@ from google.cloud.sql.connector import Connector
 from google.cloud.sql.connector import create_async_connector
 from google.cloud.sql.connector import IPTypes
 from google.cloud.sql.connector.client import CloudSQLClient
+from google.cloud.sql.connector.connection_name import ConnectionName
 from google.cloud.sql.connector.exceptions import CloudSQLIPTypeError
 from google.cloud.sql.connector.exceptions import IncompatibleDriverError
 from google.cloud.sql.connector.instance import RefreshAheadCache
@@ -322,18 +323,18 @@ async def test_Connector_remove_cached_bad_instance(
     async with Connector(
         credentials=fake_credentials, loop=asyncio.get_running_loop()
     ) as connector:
-        conn_name = "bad-project:bad-region:bad-inst"
+        conn_name = ConnectionName("bad-project", "bad-region", "bad-inst")
         # populate cache
         cache = RefreshAheadCache(conn_name, fake_client, connector._keys)
-        connector._cache[(conn_name, False)] = cache
+        connector._cache[(str(conn_name), False)] = cache
         # aiohttp client should throw a 404 ClientResponseError
         with pytest.raises(ClientResponseError):
             await connector.connect_async(
-                conn_name,
+                str(conn_name),
                 "pg8000",
             )
         # check that cache has been removed from dict
-        assert (conn_name, False) not in connector._cache
+        assert (str(conn_name), False) not in connector._cache
 
 
 async def test_Connector_remove_cached_no_ip_type(
@@ -348,21 +349,21 @@ async def test_Connector_remove_cached_no_ip_type(
     async with Connector(
         credentials=fake_credentials, loop=asyncio.get_running_loop()
     ) as connector:
-        conn_name = "test-project:test-region:test-instance"
+        conn_name = ConnectionName("test-project", "test-region", "test-instance")
         # populate cache
         cache = RefreshAheadCache(conn_name, fake_client, connector._keys)
-        connector._cache[(conn_name, False)] = cache
+        connector._cache[(str(conn_name), False)] = cache
         # test instance does not have Private IP, thus should invalidate cache
         with pytest.raises(CloudSQLIPTypeError):
             await connector.connect_async(
-                conn_name,
+                str(conn_name),
                 "pg8000",
                 user="my-user",
                 password="my-pass",
                 ip_type="private",
             )
         # check that cache has been removed from dict
-        assert (conn_name, False) not in connector._cache
+        assert (str(conn_name), False) not in connector._cache
 
 
 def test_default_universe_domain(fake_credentials: Credentials) -> None:

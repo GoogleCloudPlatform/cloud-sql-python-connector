@@ -26,6 +26,7 @@ from unit.mocks import FakeCredentials  # type: ignore
 from unit.mocks import FakeCSQLInstance  # type: ignore
 
 from google.cloud.sql.connector.client import CloudSQLClient
+from google.cloud.sql.connector.connection_name import ConnectionName
 from google.cloud.sql.connector.instance import RefreshAheadCache
 from google.cloud.sql.connector.utils import generate_keys
 
@@ -144,7 +145,7 @@ async def fake_client(
 async def cache(fake_client: CloudSQLClient) -> AsyncGenerator[RefreshAheadCache, None]:
     keys = asyncio.create_task(generate_keys())
     cache = RefreshAheadCache(
-        "test-project:test-region:test-instance",
+        ConnectionName("test-project", "test-region", "test-instance"),
         client=fake_client,
         keys=keys,
     )
