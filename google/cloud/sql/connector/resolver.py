@@ -38,17 +38,30 @@ class DnsResolver(Resolver):
         except ValueError:
             # The connection name was not project:region:instance format.
             # Attempt to query a TXT record to get connection name.
-            try:
-                result = await super().resolve(dns, "TXT", raise_on_no_answer=True)
-                if result is not None:
-                    rdata = result[0].to_text().strip('"')
-                    conn_name = _parse_instance_connection_name(rdata)
-            except ValueError:
-                raise DnsResolutionError(
-                    f"Unable to parse TXT for `{dns}` -> {result[0]}"
-                )
-            except Exception as e:
-                raise DnsResolutionError(
-                    f"Unable to resolve TXT record for `{dns}`"
-                ) from e
+            conn_name = await self.query_dns(dns)
         return conn_name
+
+    async def query_dns(self, dns: str) -> ConnectionName:
+        try:
+            # Attempt to query the TXT records.
+            records = await super().resolve(dns, "TXT", raise_on_no_answer=True)
+            # Sort the TXT record values alphabetically, strip quotes as record
+            # values can be returned as raw strings
+            rdata = [record.to_text().strip('"') for record in records]
+            rdata.sort()
+            # Attempt to parse records, returning the first valid record.
+            for record in rdata:
+                try:
+                    conn_name = _parse_instance_connection_name(record)
+                    return conn_name
+                except Exception:
+                    continue
+            # If all records failed to parse, throw error
+            raise DnsResolutionError(
+                f"Unable to parse TXT record for `{dns}` -> {rdata[0]}"
+            )
+        # Don't override above DnsResolutionError
+        except DnsResolutionError:
+            raise
+        except Exception as e:
+            raise DnsResolutionError(f"Unable to resolve TXT record for `{dns}`") from e
