@@ -28,6 +28,7 @@ dependencies = [
     "aiofiles",
     "aiohttp",
     "cryptography>=42.0.0",
+    "dnspython>=2.0.0",
     "Requests",
     "google-auth>=2.28.0",
 ]
