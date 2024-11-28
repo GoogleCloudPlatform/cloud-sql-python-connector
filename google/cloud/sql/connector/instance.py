@@ -55,7 +55,7 @@ class RefreshAheadCache:
         """Initializes a RefreshAheadCache instance.
 
         Args:
-            conn_name (ConnectionName): The Cloud SQL Instance's
+            conn_name (ConnectionName): The Cloud SQL instance's
                 connection name.
             client (CloudSQLClient): The Cloud SQL Client instance.
             keys (asyncio.Future): A future to the client's public-private key
