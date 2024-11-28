@@ -65,7 +65,7 @@ class Connector:
         user_agent: Optional[str] = None,
         universe_domain: Optional[str] = None,
         refresh_strategy: str | RefreshStrategy = RefreshStrategy.BACKGROUND,
-        resolver: DefaultResolver | DnsResolver = DefaultResolver,
+        resolver: Type[DefaultResolver] | Type[DnsResolver] = DefaultResolver,
     ) -> None:
         """Initializes a Connector instance.
 
@@ -107,6 +107,7 @@ class Connector:
                 of the following: RefreshStrategy.LAZY ("LAZY") or
                 RefreshStrategy.BACKGROUND ("BACKGROUND").
                 Default: RefreshStrategy.BACKGROUND
+
             resolver (DefaultResolver | DnsResolver): The class name of the
                 resolver to use for resolving the Cloud SQL instance connection
                 name. To resolve a DNS record to an instance connection name, use

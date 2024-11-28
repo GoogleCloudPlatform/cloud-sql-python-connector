@@ -15,13 +15,14 @@
 from dns.asyncresolver import Resolver
 
 from google.cloud.sql.connector.connection_name import _parse_instance_connection_name
+from google.cloud.sql.connector.connection_name import ConnectionName
 from google.cloud.sql.connector.exceptions import DnsResolutionError
 
 
 class DefaultResolver:
     """DefaultResolver simply validates and parses instance connection name."""
 
-    async def resolve(self, connection_name: str) -> str:
+    async def resolve(self, connection_name: str) -> ConnectionName:
         return _parse_instance_connection_name(connection_name)
 
 
@@ -31,7 +32,7 @@ class DnsResolver(Resolver):
     TXT records in DNS.
     """
 
-    async def resolve(self, dns: str) -> str:
+    async def resolve(self, dns: str) -> ConnectionName:  # type: ignore
         try:
             conn_name = _parse_instance_connection_name(dns)
         except ValueError:
