@@ -50,7 +50,7 @@ def connect(
 
     # Create socket and wrap with context.
     sock = ctx.wrap_socket(
-        socket.create_connection((ip_address.rstrip("."), SERVER_PROXY_PORT)),
+        socket.create_connection((ip_address, SERVER_PROXY_PORT)),
         server_hostname=ip_address,
     )
 
