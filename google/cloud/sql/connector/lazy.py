@@ -21,7 +21,7 @@ from typing import Optional
 
 from google.cloud.sql.connector.client import CloudSQLClient
 from google.cloud.sql.connector.connection_info import ConnectionInfo
-from google.cloud.sql.connector.connection_name import _parse_instance_connection_name
+from google.cloud.sql.connector.connection_name import ConnectionName
 from google.cloud.sql.connector.refresh_utils import _refresh_buffer
 
 logger = logging.getLogger(name=__name__)
@@ -38,7 +38,7 @@ class LazyRefreshCache:
 
     def __init__(
         self,
-        conn_name: str,
+        conn_name: ConnectionName,
         client: CloudSQLClient,
         keys: asyncio.Future,
         enable_iam_auth: bool = False,
