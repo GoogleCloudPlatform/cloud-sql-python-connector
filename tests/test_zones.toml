@@ -1,0 +1,14 @@
+[[zones]]
+host = 'db.example.com'
+type = 'TXT'
+answer = "test-project:test-region:test-instance"
+
+[[zones]]
+host = 'db.example.com'
+type = 'TXT'
+answer = "test-project2:test-region2:test-instance2"
+
+[[zones]]
+host = 'bad.example.com'
+type = 'TXT'
+answer = "bad-instance-name"

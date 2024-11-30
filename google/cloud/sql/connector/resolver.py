@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from dns.asyncresolver import Resolver
+import dns.asyncresolver
 
 from google.cloud.sql.connector.connection_name import _parse_instance_connection_name
 from google.cloud.sql.connector.connection_name import ConnectionName
@@ -26,7 +26,7 @@ class DefaultResolver:
         return _parse_instance_connection_name(connection_name)
 
 
-class DnsResolver(Resolver):
+class DnsResolver(dns.asyncresolver.Resolver):
     """
     DnsResolver resolves domain names into instance connection names using
     TXT records in DNS.
@@ -58,7 +58,7 @@ class DnsResolver(Resolver):
                     continue
             # If all records failed to parse, throw error
             raise DnsResolutionError(
-                f"Unable to parse TXT record for `{dns}` -> {rdata[0]}"
+                f"Unable to parse TXT record for `{dns}` -> `{rdata[0]}`"
             )
         # Don't override above DnsResolutionError
         except DnsResolutionError:

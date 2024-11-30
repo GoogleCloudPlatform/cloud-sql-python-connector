@@ -21,6 +21,7 @@ from threading import Thread
 from typing import Any, AsyncGenerator, Generator
 
 from aiohttp import web
+from dnserver import DNSServer
 import pytest  # noqa F401 Needed to run the tests
 from unit.mocks import FakeCredentials  # type: ignore
 from unit.mocks import FakeCSQLInstance  # type: ignore
@@ -151,3 +152,13 @@ async def cache(fake_client: CloudSQLClient) -> AsyncGenerator[RefreshAheadCache
     )
     yield cache
     await cache.close()
+
+
+@pytest.fixture(autouse=True, scope="session")
+def dns_server() -> Generator:
+    """Setup local DNS server for tests with TXT records."""
+    server = DNSServer.from_toml("tests/test_zones.toml", port=5053, upstream=None)
+    server.start()
+    assert server.is_running
+    yield server
+    server.stop()
