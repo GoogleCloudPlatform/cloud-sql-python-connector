@@ -6,7 +6,7 @@ answer = "test-project:test-region:test-instance"
 [[zones]]
 host = 'db.example.com'
 type = 'TXT'
-answer = "test-project2:test-region2:test-instance2"
+answer = "zzzz-project:zzzz-region:zzzz-instance"
 
 [[zones]]
 host = 'bad.example.com'
