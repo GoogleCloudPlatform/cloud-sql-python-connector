@@ -54,10 +54,10 @@ async def test_DnsResolver_with_malformed_txt() -> None:
     resolver.port = 5053
     with pytest.raises(DnsResolutionError) as exc_info:
         await resolver.resolve("bad.example.com")
-    assert (
-        exc_info.value.args[0]
-        == "Unable to parse TXT record for `bad.example.com` -> `bad-instance-name`"
-    )
+        assert (
+            exc_info.value.args[0]
+            == "Unable to parse TXT record for `bad.example.com` -> `bad-instance-name`"
+        )
 
 
 async def test_DnsResolver_with_bad_dns_name() -> None:
