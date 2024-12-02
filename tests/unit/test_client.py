@@ -169,16 +169,14 @@ async def test_cloud_sql_error_messages_get_metadata(
             payload=resp_body,
             repeat=True,
         )
-        try:
+        with pytest.raises(ClientResponseError) as e:
             await client._get_metadata("my-project", "my-region", "my-instance")
-        except ClientResponseError as e:
             assert e.status == 403
             assert (
                 e.message
                 == "Cloud SQL Admin API has not been used in project 123456789 before or it is disabled"
             )
-        finally:
-            await client.close()
+        await client.close()
 
 
 async def test_cloud_sql_error_messages_get_ephemeral(
@@ -207,10 +205,8 @@ async def test_cloud_sql_error_messages_get_ephemeral(
             payload=resp_body,
             repeat=True,
         )
-        try:
+        with pytest.raises(ClientResponseError) as e:
             await client._get_ephemeral("my-project", "my-instance", "my-key")
-        except ClientResponseError as e:
             assert e.status == 404
             assert e.message == "The Cloud SQL instance does not exist."
-        finally:
-            await client.close()
+        await client.close()
