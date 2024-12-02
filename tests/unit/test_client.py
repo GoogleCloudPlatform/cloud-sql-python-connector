@@ -143,7 +143,6 @@ async def test_CloudSQLClient_user_agent(
     await client.close()
 
 
-@pytest.mark.asyncio
 async def test_cloud_sql_error_messages_get_metadata(
     fake_credentials: Credentials,
 ) -> None:
@@ -182,7 +181,6 @@ async def test_cloud_sql_error_messages_get_metadata(
             await client.close()
 
 
-@pytest.mark.asyncio
 async def test_cloud_sql_error_messages_get_ephemeral(
     fake_credentials: Credentials,
 ) -> None:
