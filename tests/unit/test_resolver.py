@@ -37,6 +37,7 @@ async def test_DnsResolver_with_conn_str() -> None:
     assert result == conn_name
 
 
+@pytest.mark.usefixtures("dns_server")
 async def test_DnsResolver_with_dns_name() -> None:
     """Test DnsResolver resolves TXT record into proper instance connection name."""
     resolver = DnsResolver()
@@ -45,6 +46,7 @@ async def test_DnsResolver_with_dns_name() -> None:
     assert result == conn_name
 
 
+@pytest.mark.usefixtures("dns_server")
 async def test_DnsResolver_with_malformed_txt() -> None:
     """Test DnsResolver with TXT record that holds malformed instance connection name.
 
@@ -60,6 +62,7 @@ async def test_DnsResolver_with_malformed_txt() -> None:
         )
 
 
+@pytest.mark.usefixtures("dns_server")
 async def test_DnsResolver_with_bad_dns_name() -> None:
     """Test DnsResolver with bad dns name.
 
