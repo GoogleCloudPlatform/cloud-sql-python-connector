@@ -11,4 +11,3 @@ asyncpg==0.30.0
 python-tds==1.16.0
 aioresponses==0.7.7
 pytest-aiohttp==1.0.5
-dnserver==0.4.0
