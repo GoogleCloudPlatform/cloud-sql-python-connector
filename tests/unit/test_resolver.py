@@ -42,6 +42,7 @@ async def test_DnsResolver_with_dns_name() -> None:
     """Test DnsResolver resolves TXT record into proper instance connection name."""
     resolver = DnsResolver()
     resolver.port = 5053
+    resolver.lifetime = 10.0
     result = await resolver.resolve("db.example.com")
     assert result == conn_name
 

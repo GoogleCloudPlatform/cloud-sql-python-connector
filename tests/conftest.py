@@ -154,7 +154,7 @@ async def cache(fake_client: CloudSQLClient) -> AsyncGenerator[RefreshAheadCache
     await cache.close()
 
 
-@pytest.fixture()
+@pytest.fixture
 def dns_server() -> Generator:
     """Setup local DNS server for tests with TXT records."""
     server = DNSServer.from_toml("tests/test_zones.toml", port=5053, upstream=None)
