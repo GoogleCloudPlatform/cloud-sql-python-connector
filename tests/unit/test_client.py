@@ -15,6 +15,9 @@
 import datetime
 from typing import Optional
 
+from aiohttp import ClientResponseError
+from aioresponses import aioresponses
+from google.auth.credentials import Credentials
 from mocks import FakeCredentials
 import pytest
 
@@ -138,3 +141,130 @@ async def test_CloudSQLClient_user_agent(
         assert client._user_agent == f"cloud-sql-python-connector/{version}+{driver}"
     # close client
     await client.close()
+
+
+async def test_cloud_sql_error_messages_get_metadata(
+    fake_credentials: Credentials,
+) -> None:
+    """
+    Test that Cloud SQL Admin API error messages are raised for _get_metadata.
+    """
+    # mock Cloud SQL Admin API calls with exceptions
+    client = CloudSQLClient(
+        sqladmin_api_endpoint="https://sqladmin.googleapis.com",
+        quota_project=None,
+        credentials=fake_credentials,
+    )
+    get_url = "https://sqladmin.googleapis.com/sql/v1beta4/projects/my-project/instances/my-instance/connectSettings"
+    resp_body = {
+        "error": {
+            "code": 403,
+            "message": "Cloud SQL Admin API has not been used in project 123456789 before or it is disabled",
+        }
+    }
+    with aioresponses() as mocked:
+        mocked.get(
+            get_url,
+            status=403,
+            payload=resp_body,
+            repeat=True,
+        )
+        with pytest.raises(ClientResponseError) as exc_info:
+            await client._get_metadata("my-project", "my-region", "my-instance")
+        assert exc_info.value.status == 403
+        assert (
+            exc_info.value.message
+            == "Cloud SQL Admin API has not been used in project 123456789 before or it is disabled"
+        )
+        await client.close()
+
+
+async def test_get_metadata_error_parsing_json(
+    fake_credentials: Credentials,
+) -> None:
+    """
+    Test that aiohttp default error messages are raised when _get_metadata gets
+    a bad JSON response.
+    """
+    # mock Cloud SQL Admin API calls with exceptions
+    client = CloudSQLClient(
+        sqladmin_api_endpoint="https://sqladmin.googleapis.com",
+        quota_project=None,
+        credentials=fake_credentials,
+    )
+    get_url = "https://sqladmin.googleapis.com/sql/v1beta4/projects/my-project/instances/my-instance/connectSettings"
+    resp_body = ["error"]  # invalid JSON
+    with aioresponses() as mocked:
+        mocked.get(
+            get_url,
+            status=403,
+            payload=resp_body,
+            repeat=True,
+        )
+        with pytest.raises(ClientResponseError) as exc_info:
+            await client._get_metadata("my-project", "my-region", "my-instance")
+        assert exc_info.value.status == 403
+        assert exc_info.value.message == "Forbidden"
+        await client.close()
+
+
+async def test_cloud_sql_error_messages_get_ephemeral(
+    fake_credentials: Credentials,
+) -> None:
+    """
+    Test that Cloud SQL Admin API error messages are raised for _get_ephemeral.
+    """
+    # mock Cloud SQL Admin API calls with exceptions
+    client = CloudSQLClient(
+        sqladmin_api_endpoint="https://sqladmin.googleapis.com",
+        quota_project=None,
+        credentials=fake_credentials,
+    )
+    post_url = "https://sqladmin.googleapis.com/sql/v1beta4/projects/my-project/instances/my-instance:generateEphemeralCert"
+    resp_body = {
+        "error": {
+            "code": 404,
+            "message": "The Cloud SQL instance does not exist.",
+        }
+    }
+    with aioresponses() as mocked:
+        mocked.post(
+            post_url,
+            status=404,
+            payload=resp_body,
+            repeat=True,
+        )
+        with pytest.raises(ClientResponseError) as exc_info:
+            await client._get_ephemeral("my-project", "my-instance", "my-key")
+        assert exc_info.value.status == 404
+        assert exc_info.value.message == "The Cloud SQL instance does not exist."
+        await client.close()
+
+
+async def test_get_ephemeral_error_parsing_json(
+    fake_credentials: Credentials,
+) -> None:
+    """
+    Test that aiohttp default error messages are raised when _get_ephemeral gets
+    a bad JSON response.
+    """
+    # mock Cloud SQL Admin API calls with exceptions
+    client = CloudSQLClient(
+        sqladmin_api_endpoint="https://sqladmin.googleapis.com",
+        quota_project=None,
+        credentials=fake_credentials,
+    )
+    post_url = "https://sqladmin.googleapis.com/sql/v1beta4/projects/my-project/instances/my-instance:generateEphemeralCert"
+    resp_body = ["error"]  # invalid JSON
+    with aioresponses() as mocked:
+        mocked.post(
+            post_url,
+            status=404,
+            payload=resp_body,
+            repeat=True,
+        )
+        with pytest.raises(ClientResponseError) as exc_info:
+            await client._get_ephemeral("my-project", "my-instance", "my-key")
+        assert exc_info.value.status == 404
+        assert exc_info.value.message == "Not Found"
+        await client.close()

@@ -128,8 +128,19 @@ class CloudSQLClient:
         resp = await self._client.get(url, headers=headers)
         if resp.status >= 500:
             resp = await retry_50x(self._client.get, url, headers=headers)
-        resp.raise_for_status()
-        ret_dict = await resp.json()
+        # try to get response json for better error message
+        try:
+            ret_dict = await resp.json()
+            if resp.status >= 400:
+                # if detailed error message is in json response, use as error message
+                message = ret_dict.get("error", {}).get("message")
+                if message:
+                    resp.reason = message
+        # skip, raise_for_status will catch all errors in finally block
+        except Exception:
+            pass
+        finally:
+            resp.raise_for_status()
 
         if ret_dict["region"] != region:
             raise ValueError(
@@ -198,8 +209,19 @@ class CloudSQLClient:
         resp = await self._client.post(url, headers=headers, json=data)
         if resp.status >= 500:
             resp = await retry_50x(self._client.post, url, headers=headers, json=data)
-        resp.raise_for_status()
-        ret_dict = await resp.json()
+        # try to get response json for better error message
+        try:
+            ret_dict = await resp.json()
+            if resp.status >= 400:
+                # if detailed error message is in json response, use as error message
+                message = ret_dict.get("error", {}).get("message")
+                if message:
+                    resp.reason = message
+        # skip, raise_for_status will catch all errors in finally block
+        except Exception:
+            pass
+        finally:
+            resp.raise_for_status()
 
         ephemeral_cert: str = ret_dict["ephemeralCert"]["cert"]
 

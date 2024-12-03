@@ -22,8 +22,6 @@ from datetime import timedelta
 from datetime import timezone
 import logging
 
-import aiohttp
-
 from google.cloud.sql.connector.client import CloudSQLClient
 from google.cloud.sql.connector.connection_info import ConnectionInfo
 from google.cloud.sql.connector.connection_name import _parse_instance_connection_name
@@ -127,15 +125,6 @@ class RefreshAheadCache:
                 f"['{self._conn_name}']: Current certificate "
                 f"expiration = {connection_info.expiration.isoformat()}"
             )
-
-        except aiohttp.ClientResponseError as e:
-            logger.debug(
-                f"['{self._conn_name}']: Connection info "
-                f"refresh operation failed: {str(e)}"
-            )
-            if e.status == 403:
-                e.message = "Forbidden: Authenticated IAM principal does not seem authorized to make API request. Verify 'Cloud SQL Admin API' is enabled within your GCP project and 'Cloud SQL Client' role has been granted to IAM principal."
-            raise
 
         except Exception as e:
             logger.debug(
