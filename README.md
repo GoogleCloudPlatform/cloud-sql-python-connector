@@ -365,6 +365,69 @@ conn = connector.connect(
 )
 ```
 
+### Using DNS domain names to identify instances
+
+The connector can be configured to use DNS to look up an instance. This would
+allow you to configure your application to connect to a database instance, and
+centrally configure which instance in your DNS zone.
+
+#### Configure your DNS Records
+
+Add a DNS TXT record for the Cloud SQL instance to a **private** DNS server
+or a private Google Cloud DNS Zone used by your application.
+
+> [!NOTE]
+>
+> You are strongly discouraged from adding DNS records for your
+> Cloud SQL instances to a public DNS server. This would allow anyone on the
+> internet to discover the Cloud SQL instance name.
+
+For example: suppose you wanted to use the domain name
+`prod-db.mycompany.example.com` to connect to your database instance
+`my-project:region:my-instance`. You would create the following DNS record:
+
+* Record type: `TXT`
+* Name: `prod-db.mycompany.example.com` – This is the domain name used by the application
+* Value: `my-project:my-region:my-instance` – This is the Cloud SQL instance connection name
+
+#### Configure the connector
+
+Configure the connector to resolve DNS names by initializing it with
+`resolver=DnsResolver` and replacing the instance connection name with the DNS
+name in `connector.connect`:
+
+```python
+from google.cloud.sql.connector import Connector, DnsResolver
+import pymysql
+import sqlalchemy
+
+# helper function to return SQLAlchemy connection pool
+def init_connection_pool(connector: Connector) -> sqlalchemy.engine.Engine:
+    # function used to generate database connection
+    def getconn() -> pymysql.connections.Connection:
+        conn = connector.connect(
+            "prod-db.mycompany.example.com",  # using DNS name
+            "pymysql",
+            user="my-user",
+            password="my-password",
+            db="my-db-name"
+        )
+        return conn
+
+    # create connection pool
+    pool = sqlalchemy.create_engine(
+        "mysql+pymysql://",
+        creator=getconn,
+    )
+    return pool
+
+# initialize Cloud SQL Python Connector with `resolver=DnsResolver`
+with Connector(resolver=DnsResolver) as connector:
+    # initialize connection pool
+    pool = init_connection_pool(connector)
+    # ... use SQLAlchemy engine normally
+```
+
 ### Using the Python Connector with Python Web Frameworks
 
 The Python Connector can be used alongside popular Python web frameworks such
