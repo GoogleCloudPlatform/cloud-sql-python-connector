@@ -15,6 +15,9 @@
 import pytest  # noqa F401 Needed to run the tests
 
 from google.cloud.sql.connector.connection_name import _parse_connection_name
+from google.cloud.sql.connector.connection_name import (
+    _parse_connection_name_with_domain_name,
+)
 from google.cloud.sql.connector.connection_name import ConnectionName
 
 
@@ -64,3 +67,32 @@ def test_parse_connection_name_bad_conn_name() -> None:
     """
     with pytest.raises(ValueError):
         _parse_connection_name("project:instance")  # missing region
+
+
+@pytest.mark.parametrize(
+    "connection_name, domain_name, expected",
+    [
+        (
+            "project:region:instance",
+            "db.example.com",
+            ConnectionName("project", "region", "instance", "db.example.com"),
+        ),
+        (
+            "domain-prefix:project:region:instance",
+            "db.example.com",
+            ConnectionName(
+                "domain-prefix:project", "region", "instance", "db.example.com"
+            ),
+        ),
+    ],
+)
+def test_parse_connection_name_with_domain_name(
+    connection_name: str, domain_name: str, expected: ConnectionName
+) -> None:
+    """
+    Test that _parse_connection_name_with_domain_name works correctly on
+    normal instance connection names and domain-scoped projects.
+    """
+    assert expected == _parse_connection_name_with_domain_name(
+        connection_name, domain_name
+    )
