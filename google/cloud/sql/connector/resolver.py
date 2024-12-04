@@ -14,7 +14,7 @@
 
 import dns.asyncresolver
 
-from google.cloud.sql.connector.connection_name import _parse_instance_connection_name
+from google.cloud.sql.connector.connection_name import _parse_connection_name
 from google.cloud.sql.connector.connection_name import ConnectionName
 from google.cloud.sql.connector.exceptions import DnsResolutionError
 
@@ -23,7 +23,7 @@ class DefaultResolver:
     """DefaultResolver simply validates and parses instance connection name."""
 
     async def resolve(self, connection_name: str) -> ConnectionName:
-        return _parse_instance_connection_name(connection_name)
+        return _parse_connection_name(connection_name)
 
 
 class DnsResolver(dns.asyncresolver.Resolver):
@@ -34,7 +34,7 @@ class DnsResolver(dns.asyncresolver.Resolver):
 
     async def resolve(self, dns: str) -> ConnectionName:  # type: ignore
         try:
-            conn_name = _parse_instance_connection_name(dns)
+            conn_name = _parse_connection_name(dns)
         except ValueError:
             # The connection name was not project:region:instance format.
             # Attempt to query a TXT record to get connection name.
@@ -52,7 +52,7 @@ class DnsResolver(dns.asyncresolver.Resolver):
             # Attempt to parse records, returning the first valid record.
             for record in rdata:
                 try:
-                    conn_name = _parse_instance_connection_name(record)
+                    conn_name = _parse_connection_name(record)
                     return conn_name
                 except Exception:
                     continue
