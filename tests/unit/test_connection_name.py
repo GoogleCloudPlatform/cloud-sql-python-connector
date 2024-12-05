@@ -14,8 +14,13 @@
 
 import pytest  # noqa F401 Needed to run the tests
 
-from google.cloud.sql.connector.connection_name import _parse_instance_connection_name
+# fmt: off
+from google.cloud.sql.connector.connection_name import _parse_connection_name
+from google.cloud.sql.connector.connection_name import \
+    _parse_connection_name_with_domain_name
 from google.cloud.sql.connector.connection_name import ConnectionName
+
+# fmt: on
 
 
 def test_ConnectionName() -> None:
@@ -24,8 +29,20 @@ def test_ConnectionName() -> None:
     assert conn_name.project == "project"
     assert conn_name.region == "region"
     assert conn_name.instance_name == "instance"
+    assert conn_name.domain_name == ""
     # test ConnectionName str() method prints instance connection name
     assert str(conn_name) == "project:region:instance"
+
+
+def test_ConnectionName_with_domain_name() -> None:
+    conn_name = ConnectionName("project", "region", "instance", "db.example.com")
+    # test class attributes are set properly
+    assert conn_name.project == "project"
+    assert conn_name.region == "region"
+    assert conn_name.instance_name == "instance"
+    assert conn_name.domain_name == "db.example.com"
+    # test ConnectionName str() method prints with domain name
+    assert str(conn_name) == "db.example.com -> project:region:instance"
 
 
 @pytest.mark.parametrize(
@@ -38,19 +55,46 @@ def test_ConnectionName() -> None:
         ),
     ],
 )
-def test_parse_instance_connection_name(
-    connection_name: str, expected: ConnectionName
-) -> None:
+def test_parse_connection_name(connection_name: str, expected: ConnectionName) -> None:
     """
-    Test that _parse_instance_connection_name works correctly on
+    Test that _parse_connection_name works correctly on
     normal instance connection names and domain-scoped projects.
     """
-    assert expected == _parse_instance_connection_name(connection_name)
+    assert expected == _parse_connection_name(connection_name)
 
 
-def test_parse_instance_connection_name_bad_conn_name() -> None:
+def test_parse_connection_name_bad_conn_name() -> None:
     """
     Tests that ValueError is thrown for bad instance connection names.
     """
     with pytest.raises(ValueError):
-        _parse_instance_connection_name("project:instance")  # missing region
+        _parse_connection_name("project:instance")  # missing region
+
+
+@pytest.mark.parametrize(
+    "connection_name, domain_name, expected",
+    [
+        (
+            "project:region:instance",
+            "db.example.com",
+            ConnectionName("project", "region", "instance", "db.example.com"),
+        ),
+        (
+            "domain-prefix:project:region:instance",
+            "db.example.com",
+            ConnectionName(
+                "domain-prefix:project", "region", "instance", "db.example.com"
+            ),
+        ),
+    ],
+)
+def test_parse_connection_name_with_domain_name(
+    connection_name: str, domain_name: str, expected: ConnectionName
+) -> None:
+    """
+    Test that _parse_connection_name_with_domain_name works correctly on
+    normal instance connection names and domain-scoped projects.
+    """
+    assert expected == _parse_connection_name_with_domain_name(
+        connection_name, domain_name
+    )

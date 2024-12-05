@@ -31,12 +31,21 @@ class ConnectionName:
     project: str
     region: str
     instance_name: str
+    domain_name: str = ""
 
     def __str__(self) -> str:
+        if self.domain_name:
+            return f"{self.domain_name} -> {self.project}:{self.region}:{self.instance_name}"
         return f"{self.project}:{self.region}:{self.instance_name}"
 
 
-def _parse_instance_connection_name(connection_name: str) -> ConnectionName:
+def _parse_connection_name(connection_name: str) -> ConnectionName:
+    return _parse_connection_name_with_domain_name(connection_name, "")
+
+
+def _parse_connection_name_with_domain_name(
+    connection_name: str, domain_name: str
+) -> ConnectionName:
     if CONN_NAME_REGEX.fullmatch(connection_name) is None:
         raise ValueError(
             "Arg `instance_connection_string` must have "
@@ -48,4 +57,5 @@ def _parse_instance_connection_name(connection_name: str) -> ConnectionName:
         connection_name_split[1],
         connection_name_split[3],
         connection_name_split[4],
+        domain_name,
     )
