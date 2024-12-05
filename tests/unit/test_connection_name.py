@@ -14,11 +14,13 @@
 
 import pytest  # noqa F401 Needed to run the tests
 
+# fmt: off
 from google.cloud.sql.connector.connection_name import _parse_connection_name
-from google.cloud.sql.connector.connection_name import (
-    _parse_connection_name_with_domain_name,
-)
+from google.cloud.sql.connector.connection_name import \
+    _parse_connection_name_with_domain_name
 from google.cloud.sql.connector.connection_name import ConnectionName
+
+# fmt: on
 
 
 def test_ConnectionName() -> None:
