@@ -47,9 +47,9 @@ async def test_Instance_init(
     can tell if the connection string that's passed in is formatted correctly.
     """
     assert (
-        cache._project == "test-project"
-        and cache._region == "test-region"
-        and cache._instance == "test-instance"
+        cache._conn_name.project == "test-project"
+        and cache._conn_name.region == "test-region"
+        and cache._conn_name.instance_name == "test-instance"
     )
     assert cache._enable_iam_auth is False
 
@@ -283,7 +283,7 @@ async def test_AutoIAMAuthNotSupportedError(fake_client: CloudSQLClient) -> None
 
 async def test_ConnectionInfo_caches_sslcontext() -> None:
     info = ConnectionInfo(
-        "cert", "cert", "key".encode(), {}, "POSTGRES", datetime.datetime.now()
+        "", "cert", "cert", "key".encode(), {}, "POSTGRES", datetime.datetime.now()
     )
     # context should default to None
     assert info.context is None
