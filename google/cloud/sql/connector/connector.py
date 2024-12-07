@@ -113,7 +113,6 @@ class Connector:
                 name. To resolve a DNS record to an instance connection name, use
                 DnsResolver.
                 Default: DefaultResolver
-
         """
         # if refresh_strategy is str, convert to RefreshStrategy enum
         if isinstance(refresh_strategy, str):
@@ -283,8 +282,7 @@ class Connector:
             conn_name = await self._resolver.resolve(instance_connection_string)
             if self._refresh_strategy == RefreshStrategy.LAZY:
                 logger.debug(
-                    f"['{instance_connection_string}']: Refresh strategy is set"
-                    " to lazy refresh"
+                    f"['{conn_name}']: Refresh strategy is set to lazy refresh"
                 )
                 cache = LazyRefreshCache(
                     conn_name,
@@ -294,8 +292,7 @@ class Connector:
                 )
             else:
                 logger.debug(
-                    f"['{instance_connection_string}']: Refresh strategy is set"
-                    " to backgound refresh"
+                    f"['{conn_name}']: Refresh strategy is set to backgound refresh"
                 )
                 cache = RefreshAheadCache(
                     conn_name,
@@ -303,9 +300,7 @@ class Connector:
                     self._keys,
                     enable_iam_auth,
                 )
-            logger.debug(
-                f"['{instance_connection_string}']: Connection info added to cache"
-            )
+            logger.debug(f"['{conn_name}']: Connection info added to cache")
             self._cache[(instance_connection_string, enable_iam_auth)] = cache
 
         connect_func = {
@@ -344,9 +339,7 @@ class Connector:
             # the cache and re-raise the error
             await self._remove_cached(instance_connection_string, enable_iam_auth)
             raise
-        logger.debug(
-            f"['{instance_connection_string}']: Connecting to {ip_address}:3307"
-        )
+        logger.debug(f"['{conn_info.conn_name}']: Connecting to {ip_address}:3307")
         # format `user` param for automatic IAM database authn
         if enable_iam_auth:
             formatted_user = format_database_user(

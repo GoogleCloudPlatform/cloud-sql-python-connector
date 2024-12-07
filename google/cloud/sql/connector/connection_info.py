@@ -21,6 +21,7 @@ from typing import Any, Optional, TYPE_CHECKING
 
 from aiofiles.tempfile import TemporaryDirectory
 
+from google.cloud.sql.connector.connection_name import ConnectionName
 from google.cloud.sql.connector.exceptions import CloudSQLIPTypeError
 from google.cloud.sql.connector.exceptions import TLSVersionError
 from google.cloud.sql.connector.utils import write_to_file
@@ -38,6 +39,7 @@ class ConnectionInfo:
     """Contains all necessary information to connect securely to the
     server-side Proxy running on a Cloud SQL instance."""
 
+    conn_name: ConnectionName
     client_cert: str
     server_ca_cert: str
     private_key: bytes

@@ -62,11 +62,6 @@ class RefreshAheadCache:
                 (Postgres and MySQL) as the default authentication method for all
                 connections.
         """
-        self._project, self._region, self._instance = (
-            conn_name.project,
-            conn_name.region,
-            conn_name.instance_name,
-        )
         self._conn_name = conn_name
 
         self._enable_iam_auth = enable_iam_auth
@@ -104,20 +99,18 @@ class RefreshAheadCache:
         """
         self._refresh_in_progress.set()
         logger.debug(
-            f"['{self._conn_name}']: Connection info refresh " "operation started"
+            f"['{self._conn_name}']: Connection info refresh operation started"
         )
 
         try:
             await self._refresh_rate_limiter.acquire()
             connection_info = await self._client.get_connection_info(
-                self._project,
-                self._region,
-                self._instance,
+                self._conn_name,
                 self._keys,
                 self._enable_iam_auth,
             )
             logger.debug(
-                f"['{self._conn_name}']: Connection info " "refresh operation complete"
+                f"['{self._conn_name}']: Connection info refresh operation complete"
             )
             logger.debug(
                 f"['{self._conn_name}']: Current certificate "

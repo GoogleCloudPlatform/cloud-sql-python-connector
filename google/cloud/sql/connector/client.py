@@ -26,6 +26,7 @@ from google.auth.credentials import TokenState
 from google.auth.transport import requests
 
 from google.cloud.sql.connector.connection_info import ConnectionInfo
+from google.cloud.sql.connector.connection_name import ConnectionName
 from google.cloud.sql.connector.exceptions import AutoIAMAuthNotSupported
 from google.cloud.sql.connector.refresh_utils import _downscope_credentials
 from google.cloud.sql.connector.refresh_utils import retry_50x
@@ -245,9 +246,7 @@ class CloudSQLClient:
 
     async def get_connection_info(
         self,
-        project: str,
-        region: str,
-        instance: str,
+        conn_name: ConnectionName,
         keys: asyncio.Future,
         enable_iam_auth: bool,
     ) -> ConnectionInfo:
@@ -255,10 +254,8 @@ class CloudSQLClient:
         Admin API.
 
         Args:
-            project (str): The name of the project the Cloud SQL instance is
-                located in.
-            region (str): The region the Cloud SQL instance is located in.
-            instance (str): Name of the Cloud SQL instance.
+            conn_name (ConnectionName): The Cloud SQL instance's
+                connection name.
             keys (asyncio.Future): A future to the client's public-private key
                 pair.
             enable_iam_auth (bool): Whether an automatic IAM database
@@ -278,16 +275,16 @@ class CloudSQLClient:
 
         metadata_task = asyncio.create_task(
             self._get_metadata(
-                project,
-                region,
-                instance,
+                conn_name.project,
+                conn_name.region,
+                conn_name.instance_name,
             )
         )
 
         ephemeral_task = asyncio.create_task(
             self._get_ephemeral(
-                project,
-                instance,
+                conn_name.project,
+                conn_name.instance_name,
                 pub_key,
                 enable_iam_auth,
             )
@@ -311,6 +308,7 @@ class CloudSQLClient:
         ephemeral_cert, expiration = await ephemeral_task
 
         return ConnectionInfo(
+            conn_name,
             ephemeral_cert,
             metadata["server_ca_cert"],
             priv_key,
