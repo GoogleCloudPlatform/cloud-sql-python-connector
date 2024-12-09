@@ -20,7 +20,7 @@ import os
 
 import nox
 
-BLACK_VERSION = "black==23.12.1"
+BLACK_VERSION = "black==24.10.0"
 ISORT_VERSION = "isort==5.13.2"
 
 LINT_PATHS = ["google", "tests", "noxfile.py", "setup.py"]
@@ -50,7 +50,10 @@ def lint(session):
         "--fss",
         "--check-only",
         "--diff",
-        "--profile=google",
+        "--profile=black",
+        "--force-single-line-imports",
+        "--dont-order-by-type",
+        "--single-line-exclusions=typing",
         "-w=88",
         *LINT_PATHS,
     )
@@ -85,7 +88,10 @@ def format(session):
     session.run(
         "isort",
         "--fss",
-        "--profile=google",
+        "--profile=black",
+        "--force-single-line-imports",
+        "--dont-order-by-type",
+        "--single-line-exclusions=typing",
         "-w=88",
         *LINT_PATHS,
     )
