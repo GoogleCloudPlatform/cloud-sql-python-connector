@@ -55,13 +55,7 @@ class LazyRefreshCache:
                 (Postgres and MySQL) as the default authentication method for all
                 connections.
         """
-        self._project, self._region, self._instance = (
-            conn_name.project,
-            conn_name.region,
-            conn_name.instance_name,
-        )
         self._conn_name = conn_name
-
         self._enable_iam_auth = enable_iam_auth
         self._keys = keys
         self._client = client
@@ -101,9 +95,7 @@ class LazyRefreshCache:
             )
             try:
                 conn_info = await self._client.get_connection_info(
-                    self._project,
-                    self._region,
-                    self._instance,
+                    self._conn_name,
                     self._keys,
                     self._enable_iam_auth,
                 )

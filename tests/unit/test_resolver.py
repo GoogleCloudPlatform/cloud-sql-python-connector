@@ -26,6 +26,9 @@ from google.cloud.sql.connector.resolver import DnsResolver
 
 conn_str = "my-project:my-region:my-instance"
 conn_name = ConnectionName("my-project", "my-region", "my-instance")
+conn_name_with_domain = ConnectionName(
+    "my-project", "my-region", "my-instance", "db.example.com"
+)
 
 
 async def test_DefaultResolver() -> None:
@@ -74,7 +77,7 @@ async def test_DnsResolver_with_dns_name() -> None:
         resolver.port = 5053
         # Resolution should return first value sorted alphabetically
         result = await resolver.resolve("db.example.com")
-        assert result == conn_name
+        assert result == conn_name_with_domain
 
 
 query_text_malformed = """id 1234
