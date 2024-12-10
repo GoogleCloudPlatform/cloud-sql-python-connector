@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.15.0](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v1.14.0...v1.15.0) (2024-12-10)
+
+
+### Features
+
+* add support for DNS names with Connector ([#1204](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/1204)) ([1a8f274](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/1a8f2743c661806528c54110fd2a08384398816c))
+* improve aiohttp client error messages ([#1201](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/1201)) ([11f9fe9](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/11f9fe93617cd9a161c69d527d3e7592fcbe56af))
+
 ## [1.14.0](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v1.13.0...v1.14.0) (2024-11-20)
 
 
