@@ -14,12 +14,13 @@
 
 from __future__ import annotations
 
-from enum import StrEnum
+from enum import Enum
 
 from google.cloud.sql.connector.exceptions import IncompatibleDriverError
 
 
-class RefreshStrategy(StrEnum):
+# TODO: Replace Enum with StrEnum when Python 3.11 is minimum supported version
+class RefreshStrategy(Enum):
     LAZY = "LAZY"
     BACKGROUND = "BACKGROUND"
 
@@ -36,7 +37,7 @@ class RefreshStrategy(StrEnum):
         return cls(refresh_strategy.upper())
 
 
-class IPTypes(StrEnum):
+class IPTypes(Enum):
     PUBLIC = "PRIMARY"
     PRIVATE = "PRIVATE"
     PSC = "PSC"
@@ -56,7 +57,7 @@ class IPTypes(StrEnum):
         return cls(ip_type_str.upper())
 
 
-class DriverMapping(StrEnum):
+class DriverMapping(Enum):
     """Maps a given database driver to it's corresponding database engine."""
 
     ASYNCPG = "POSTGRES"
