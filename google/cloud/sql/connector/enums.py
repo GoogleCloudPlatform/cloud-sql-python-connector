@@ -14,14 +14,14 @@
 
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 
 from google.cloud.sql.connector.exceptions import IncompatibleDriverError
 
 
-class RefreshStrategy(Enum):
-    LAZY: str = "LAZY"
-    BACKGROUND: str = "BACKGROUND"
+class RefreshStrategy(StrEnum):
+    LAZY = "LAZY"
+    BACKGROUND = "BACKGROUND"
 
     @classmethod
     def _missing_(cls, value: object) -> None:
@@ -36,10 +36,10 @@ class RefreshStrategy(Enum):
         return cls(refresh_strategy.upper())
 
 
-class IPTypes(Enum):
-    PUBLIC: str = "PRIMARY"
-    PRIVATE: str = "PRIVATE"
-    PSC: str = "PSC"
+class IPTypes(StrEnum):
+    PUBLIC = "PRIMARY"
+    PRIVATE = "PRIVATE"
+    PSC = "PSC"
 
     @classmethod
     def _missing_(cls, value: object) -> None:
@@ -56,7 +56,7 @@ class IPTypes(Enum):
         return cls(ip_type_str.upper())
 
 
-class DriverMapping(Enum):
+class DriverMapping(StrEnum):
     """Maps a given database driver to it's corresponding database engine."""
 
     ASYNCPG = "POSTGRES"
