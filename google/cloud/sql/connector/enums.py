@@ -19,9 +19,10 @@ from enum import Enum
 from google.cloud.sql.connector.exceptions import IncompatibleDriverError
 
 
+# TODO: Replace Enum with StrEnum when Python 3.11 is minimum supported version
 class RefreshStrategy(Enum):
-    LAZY: str = "LAZY"
-    BACKGROUND: str = "BACKGROUND"
+    LAZY = "LAZY"
+    BACKGROUND = "BACKGROUND"
 
     @classmethod
     def _missing_(cls, value: object) -> None:
@@ -37,9 +38,9 @@ class RefreshStrategy(Enum):
 
 
 class IPTypes(Enum):
-    PUBLIC: str = "PRIMARY"
-    PRIVATE: str = "PRIVATE"
-    PSC: str = "PSC"
+    PUBLIC = "PRIMARY"
+    PRIVATE = "PRIVATE"
+    PSC = "PSC"
 
     @classmethod
     def _missing_(cls, value: object) -> None:
