@@ -21,7 +21,7 @@ from functools import partial
 import logging
 from threading import Thread
 from types import TracebackType
-from typing import Any, Optional, Type, Union
+from typing import Any, Optional, Union
 
 import google.auth
 from google.auth.credentials import Credentials
@@ -65,7 +65,7 @@ class Connector:
         user_agent: Optional[str] = None,
         universe_domain: Optional[str] = None,
         refresh_strategy: str | RefreshStrategy = RefreshStrategy.BACKGROUND,
-        resolver: Type[DefaultResolver] | Type[DnsResolver] = DefaultResolver,
+        resolver: type[DefaultResolver] | type[DnsResolver] = DefaultResolver,
     ) -> None:
         """Initializes a Connector instance.
 
@@ -391,7 +391,7 @@ class Connector:
 
     def __exit__(
         self,
-        exc_type: Optional[Type[BaseException]],
+        exc_type: Optional[type[BaseException]],
         exc_val: Optional[BaseException],
         exc_tb: Optional[TracebackType],
     ) -> None:
@@ -404,7 +404,7 @@ class Connector:
 
     async def __aexit__(
         self,
-        exc_type: Optional[Type[BaseException]],
+        exc_type: Optional[type[BaseException]],
         exc_val: Optional[BaseException],
         exc_tb: Optional[TracebackType],
     ) -> None:
