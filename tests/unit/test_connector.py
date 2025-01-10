@@ -15,6 +15,7 @@ limitations under the License.
 """
 
 import asyncio
+import os
 from typing import Union
 
 from aiohttp import ClientResponseError
@@ -428,3 +429,25 @@ def test_configured_universe_domain_mismatched_credentials(
         "is the default."
     )
     assert exc_info.value.args[0] == err_msg
+
+
+def test_configured_universe_domain_env_var(
+    fake_credentials: Credentials,
+) -> None:
+    """Test that configured universe domain succeeds with universe
+    domain set via GOOGLE_CLOUD_UNIVERSE_DOMAIN env var.
+    """
+    universe_domain = "test-universe.test"
+    # set fake credentials to be configured for the universe domain
+    fake_credentials._universe_domain = universe_domain
+    # set environment variable
+    os.environ["GOOGLE_CLOUD_UNIVERSE_DOMAIN"] = universe_domain
+    # Note: we are not passing universe_domain arg, env var should set it
+    with Connector(credentials=fake_credentials) as connector:
+        # test universe domain was configured
+        assert connector._universe_domain == universe_domain
+        # test property and service endpoint construction
+        assert connector.universe_domain == universe_domain
+        assert connector._sqladmin_api_endpoint == f"https://sqladmin.{universe_domain}"
+    # unset env var
+    del os.environ["GOOGLE_CLOUD_UNIVERSE_DOMAIN"]
