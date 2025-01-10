@@ -176,7 +176,7 @@ class Connector:
         if universe_domain:
             self._universe_domain = universe_domain
         else:
-            self._universe_domain = os.environ.get("GOOGLE_CLOUD_UNIVERSE_DOMAIN")
+            self._universe_domain = os.environ.get("GOOGLE_CLOUD_UNIVERSE_DOMAIN")  # type: ignore
         # construct service endpoint for Cloud SQL Admin API calls
         if not sqladmin_api_endpoint:
             self._sqladmin_api_endpoint = (
