@@ -19,6 +19,7 @@ from __future__ import annotations
 import asyncio
 from functools import partial
 import logging
+import os
 from threading import Thread
 from types import TracebackType
 from typing import Any, Optional, Union
@@ -171,7 +172,11 @@ class Connector:
         if isinstance(ip_type, str):
             ip_type = IPTypes._from_str(ip_type)
         self._ip_type = ip_type
-        self._universe_domain = universe_domain
+        # check for universe domain arg and then env var
+        if universe_domain:
+            self._universe_domain = universe_domain
+        else:
+            self._universe_domain = os.environ.get("GOOGLE_CLOUD_UNIVERSE_DOMAIN")
         # construct service endpoint for Cloud SQL Admin API calls
         if not sqladmin_api_endpoint:
             self._sqladmin_api_endpoint = (
