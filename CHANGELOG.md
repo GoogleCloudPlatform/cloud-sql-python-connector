@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.16.0](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v1.15.0...v1.16.0) (2025-01-13)
+
+
+### Features
+
+* add support for `GOOGLE_CLOUD_UNIVERSE_DOMAIN` env var ([#1221](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/1221)) ([ac77932](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/ac77932e7f6c592c73abc75a153b61571ba6c7ff))
+
 ## [1.15.0](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v1.14.0...v1.15.0) (2024-12-10)
 
 
