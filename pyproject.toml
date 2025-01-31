@@ -80,5 +80,5 @@ ignore_missing_imports = true
 warn_unused_configs = true
 exclude = ['docs/*', 'samples/*']
 
-[tool.pytest]
+[tool.pytest.ini_options]
 asyncio_mode = "auto"
