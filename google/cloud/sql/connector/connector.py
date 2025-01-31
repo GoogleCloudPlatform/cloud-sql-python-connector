@@ -165,13 +165,17 @@ class Connector:
         # set default params for connections
         self._timeout = timeout
         self._enable_iam_auth = enable_iam_auth
-        self._quota_project = quota_project
         self._user_agent = user_agent
         self._resolver = resolver()
         # if ip_type is str, convert to IPTypes enum
         if isinstance(ip_type, str):
             ip_type = IPTypes._from_str(ip_type)
         self._ip_type = ip_type
+        # check for quota project arg and then env var
+        if quota_project:
+            self._quota_project = quota_project
+        else:
+            self._quota_project = os.environ.get("GOOGLE_CLOUD_QUOTA_PROJECT")  # type: ignore
         # check for universe domain arg and then env var
         if universe_domain:
             self._universe_domain = universe_domain
