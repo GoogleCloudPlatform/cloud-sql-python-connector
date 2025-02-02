@@ -67,6 +67,7 @@ class Connector:
         universe_domain: Optional[str] = None,
         refresh_strategy: str | RefreshStrategy = RefreshStrategy.BACKGROUND,
         resolver: type[DefaultResolver] | type[DnsResolver] = DefaultResolver,
+        failover_period: int = 30,
     ) -> None:
         """Initializes a Connector instance.
 
@@ -114,6 +115,11 @@ class Connector:
                 name. To resolve a DNS record to an instance connection name, use
                 DnsResolver.
                 Default: DefaultResolver
+
+            failover_period (int): The time interval in seconds between each
+                attempt to check if a failover has occured for a given instance.
+                Must be used with `resolver=DnsResolver` to have any effect.
+                Default: 30
         """
         # if refresh_strategy is str, convert to RefreshStrategy enum
         if isinstance(refresh_strategy, str):
@@ -168,6 +174,7 @@ class Connector:
         self._quota_project = quota_project
         self._user_agent = user_agent
         self._resolver = resolver()
+        self._failover_period = failover_period
         # if ip_type is str, convert to IPTypes enum
         if isinstance(ip_type, str):
             ip_type = IPTypes._from_str(ip_type)
