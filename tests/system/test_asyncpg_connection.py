@@ -140,7 +140,7 @@ async def create_asyncpg_pool(
             password=password,
             db=db,
             ip_type="public",  # can also be "private" or "psc",
-            **kwargs
+            **kwargs,
         )
         return conn
 
