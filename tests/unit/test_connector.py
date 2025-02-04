@@ -451,3 +451,20 @@ def test_configured_universe_domain_env_var(
         assert connector._sqladmin_api_endpoint == f"https://sqladmin.{universe_domain}"
     # unset env var
     del os.environ["GOOGLE_CLOUD_UNIVERSE_DOMAIN"]
+
+
+def test_configured_quota_project_env_var(
+    fake_credentials: Credentials,
+) -> None:
+    """Test that configured quota project succeeds with quota project
+    set via GOOGLE_CLOUD_QUOTA_PROJECT env var.
+    """
+    quota_project = "my-cool-project"
+    # set environment variable
+    os.environ["GOOGLE_CLOUD_QUOTA_PROJECT"] = quota_project
+    # Note: we are not passing quota_project arg, env var should set it
+    with Connector(credentials=fake_credentials) as connector:
+        # test quota project was configured
+        assert connector._quota_project == quota_project
+    # unset env var
+    del os.environ["GOOGLE_CLOUD_QUOTA_PROJECT"]
