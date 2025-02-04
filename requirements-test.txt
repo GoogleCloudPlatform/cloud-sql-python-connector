@@ -1,7 +1,7 @@
 pytest==8.3.4
 mock==5.1.0
 pytest-cov==6.0.0
-pytest-asyncio==0.25.2
+pytest-asyncio==0.25.3
 SQLAlchemy[asyncio]==2.0.37
 sqlalchemy-pytds==1.0.2
 sqlalchemy-stubs==0.4
@@ -10,4 +10,4 @@ pg8000==1.31.2
 asyncpg==0.30.0
 python-tds==1.16.0
 aioresponses==0.7.8
-pytest-aiohttp==1.0.5
+pytest-aiohttp==1.1.0
