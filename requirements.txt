@@ -3,4 +3,4 @@ aiohttp==3.11.11
 cryptography==44.0.0
 dnspython==2.7.0
 Requests==2.32.3
-google-auth==2.37.0
+google-auth==2.38.0
