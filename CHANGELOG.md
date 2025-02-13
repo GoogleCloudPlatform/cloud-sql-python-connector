@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.17.0](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v1.16.0...v1.17.0) (2025-02-12)
+
+
+### Features
+
+* add support for `GOOGLE_CLOUD_QUOTA_PROJECT` env var ([#1231](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/1231)) ([5232055](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/523205583b89a7260cf427bbce90a7782abf443c))
+
+
+### Bug Fixes
+
+* update create_async_connector args ([#1232](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/1232)) ([b4f8f52](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/b4f8f520b00b43d3c04fc27e297afaab4100d499))
+
 ## [1.16.0](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v1.15.0...v1.16.0) (2025-01-13)
 
 
