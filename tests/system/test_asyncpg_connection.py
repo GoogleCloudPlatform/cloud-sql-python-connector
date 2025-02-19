@@ -151,8 +151,8 @@ async def create_asyncpg_pool(
 
 async def test_sqlalchemy_connection_with_asyncpg() -> None:
     """Basic test to get time from database."""
-    inst_conn_name = os.environ["POSTGRES_IAM_CONNECTION_NAME"]
-    user = os.environ["POSTGRES_IAM_USER"]
+    inst_conn_name = os.environ["POSTGRES_CONNECTION_NAME"]
+    user = os.environ["POSTGRES_USER"]
     password = os.environ["POSTGRES_PASS"]
     db = os.environ["POSTGRES_DB"]
 
@@ -167,8 +167,8 @@ async def test_sqlalchemy_connection_with_asyncpg() -> None:
 
 async def test_lazy_sqlalchemy_connection_with_asyncpg() -> None:
     """Basic test to get time from database."""
-    inst_conn_name = os.environ["POSTGRES_IAM_CONNECTION_NAME"]
-    user = os.environ["POSTGRES_IAM_USER"]
+    inst_conn_name = os.environ["POSTGRES_CONNECTION_NAME"]
+    user = os.environ["POSTGRES_USER"]
     password = os.environ["POSTGRES_PASS"]
     db = os.environ["POSTGRES_DB"]
 
@@ -185,8 +185,8 @@ async def test_lazy_sqlalchemy_connection_with_asyncpg() -> None:
 
 async def test_connection_with_asyncpg() -> None:
     """Basic test to get time from database."""
-    inst_conn_name = os.environ["POSTGRES_IAM_CONNECTION_NAME"]
-    user = os.environ["POSTGRES_IAM_USER"]
+    inst_conn_name = os.environ["POSTGRES_CONNECTION_NAME"]
+    user = os.environ["POSTGRES_USER"]
     password = os.environ["POSTGRES_PASS"]
     db = os.environ["POSTGRES_DB"]
 
@@ -201,8 +201,8 @@ async def test_connection_with_asyncpg() -> None:
 
 async def test_lazy_connection_with_asyncpg() -> None:
     """Basic test to get time from database."""
-    inst_conn_name = os.environ["POSTGRES_IAM_CONNECTION_NAME"]
-    user = os.environ["POSTGRES_IAM_USER"]
+    inst_conn_name = os.environ["POSTGRES_CONNECTION_NAME"]
+    user = os.environ["POSTGRES_USER"]
     password = os.environ["POSTGRES_PASS"]
     db = os.environ["POSTGRES_DB"]
 
