@@ -73,7 +73,7 @@ export POSTGRES_PASS="db_pass"
 export POSTGRES_DB="db_name"
 # Postgres instance with IAM authentication enabled
 # (can be same as POSTGRES_CONNECTION_NAME)
-export POSTGRES_IAM_CONNECTION_NAME="<PROJECT>:<REGION>:<INSTANCE>"
+export POSTGRES_CONNECTION_NAME="<PROJECT>:<REGION>:<INSTANCE>"
 # IAM Principal of ADC sourced credentials
 export POSTGRES_IAM_USER="test-user@gmail.com"
 

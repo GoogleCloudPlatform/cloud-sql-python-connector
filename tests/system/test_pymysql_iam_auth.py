@@ -84,7 +84,7 @@ def create_sqlalchemy_engine(
 
 def test_pymysql_iam_authn_connection() -> None:
     """Basic test to get time from database."""
-    inst_conn_name = os.environ["MYSQL_IAM_CONNECTION_NAME"]
+    inst_conn_name = os.environ["MYSQL_CONNECTION_NAME"]
     user = os.environ["MYSQL_IAM_USER"]
     db = os.environ["MYSQL_DB"]
 
@@ -99,7 +99,7 @@ def test_pymysql_iam_authn_connection() -> None:
 
 def test_lazy_pymysql_iam_authn_connection() -> None:
     """Basic test to get time from database."""
-    inst_conn_name = os.environ["MYSQL_IAM_CONNECTION_NAME"]
+    inst_conn_name = os.environ["MYSQL_CONNECTION_NAME"]
     user = os.environ["MYSQL_IAM_USER"]
     db = os.environ["MYSQL_DB"]
 

@@ -84,7 +84,7 @@ def create_sqlalchemy_engine(
 
 def test_pg8000_iam_authn_connection() -> None:
     """Basic test to get time from database."""
-    inst_conn_name = os.environ["POSTGRES_IAM_CONNECTION_NAME"]
+    inst_conn_name = os.environ["POSTGRES_CONNECTION_NAME"]
     user = os.environ["POSTGRES_IAM_USER"]
     db = os.environ["POSTGRES_DB"]
 
@@ -99,7 +99,7 @@ def test_pg8000_iam_authn_connection() -> None:
 
 def test_lazy_pg8000_iam_authn_connection() -> None:
     """Basic test to get time from database."""
-    inst_conn_name = os.environ["POSTGRES_IAM_CONNECTION_NAME"]
+    inst_conn_name = os.environ["POSTGRES_CONNECTION_NAME"]
     user = os.environ["POSTGRES_IAM_USER"]
     db = os.environ["POSTGRES_DB"]
 
