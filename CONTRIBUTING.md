@@ -61,9 +61,6 @@ export MYSQL_CONNECTION_NAME="<PROJECT>:<REGION>:<INSTANCE>"
 export MYSQL_USER="db_user"
 export MYSQL_PASS="db_pass"
 export MYSQL_DB="db_name"
-# MySQL instance with IAM authentication enabled
-# (can be same as MYSQL_CONNECTION_NAME)
-export MYSQL_IAM_CONNECTION_NAME="<PROJECT>:<REGION>:<INSTANCE>"
 # IAM Principal of ADC sourced credentials (truncated)
 export MYSQL_IAM_USER="test-user@gmail.com"
 
@@ -71,9 +68,6 @@ export POSTGRES_CONNECTION_NAME="<PROJECT>:<REGION>:<INSTANCE>"
 export POSTGRES_USER="db_user"
 export POSTGRES_PASS="db_pass"
 export POSTGRES_DB="db_name"
-# Postgres instance with IAM authentication enabled
-# (can be same as POSTGRES_CONNECTION_NAME)
-export POSTGRES_CONNECTION_NAME="<PROJECT>:<REGION>:<INSTANCE>"
 # IAM Principal of ADC sourced credentials
 export POSTGRES_IAM_USER="test-user@gmail.com"
 
