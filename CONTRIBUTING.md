@@ -57,6 +57,7 @@ To run all integration tests against real Cloud SQL instances
 1. Once created, set the following environment variables:
 
 ```sh
+# MySQL instance with IAM authentication enabled
 export MYSQL_CONNECTION_NAME="<PROJECT>:<REGION>:<INSTANCE>"
 export MYSQL_USER="db_user"
 export MYSQL_PASS="db_pass"
@@ -64,6 +65,7 @@ export MYSQL_DB="db_name"
 # IAM Principal of ADC sourced credentials (truncated)
 export MYSQL_IAM_USER="test-user@gmail.com"
 
+# Postgres instance with IAM authentication enabled
 export POSTGRES_CONNECTION_NAME="<PROJECT>:<REGION>:<INSTANCE>"
 export POSTGRES_USER="db_user"
 export POSTGRES_PASS="db_pass"
