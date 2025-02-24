@@ -68,13 +68,11 @@ jobs:
         with:
           secrets: |-
             MYSQL_CONNECTION_NAME:${{ vars.GOOGLE_CLOUD_PROJECT }}/MYSQL_CONNECTION_NAME
-            MYSQL_IAM_CONNECTION_NAME:${{ vars.GOOGLE_CLOUD_PROJECT }}/MYSQL_IAM_CONNECTION_NAME
             MYSQL_USER:${{ vars.GOOGLE_CLOUD_PROJECT }}/MYSQL_USER
             MYSQL_IAM_USER:${{ vars.GOOGLE_CLOUD_PROJECT }}/MYSQL_USER_IAM_PYTHON
             MYSQL_PASS:${{ vars.GOOGLE_CLOUD_PROJECT }}/MYSQL_PASS
             MYSQL_DB:${{ vars.GOOGLE_CLOUD_PROJECT }}/MYSQL_DB
             POSTGRES_CONNECTION_NAME:${{ vars.GOOGLE_CLOUD_PROJECT }}/POSTGRES_CONNECTION_NAME
-            POSTGRES_IAM_CONNECTION_NAME:${{ vars.GOOGLE_CLOUD_PROJECT }}/POSTGRES_IAM_CONNECTION_NAME
             POSTGRES_USER:${{ vars.GOOGLE_CLOUD_PROJECT }}/POSTGRES_USER
             POSTGRES_IAM_USER:${{ vars.GOOGLE_CLOUD_PROJECT }}/POSTGRES_USER_IAM_PYTHON
             POSTGRES_PASS:${{ vars.GOOGLE_CLOUD_PROJECT }}/POSTGRES_PASS
@@ -91,13 +89,11 @@ jobs:
       - name: Run tests
         env:
           MYSQL_CONNECTION_NAME: "${{ steps.secrets.outputs.MYSQL_CONNECTION_NAME }}"
-          MYSQL_IAM_CONNECTION_NAME: "${{ steps.secrets.outputs.MYSQL_IAM_CONNECTION_NAME }}"
           MYSQL_USER: "${{ steps.secrets.outputs.MYSQL_USER }}"
           MYSQL_IAM_USER: "${{ steps.secrets.outputs.MYSQL_IAM_USER }}"
           MYSQL_PASS: "${{ steps.secrets.outputs.MYSQL_PASS }}"
           MYSQL_DB: "${{ steps.secrets.outputs.MYSQL_DB }}"
           POSTGRES_CONNECTION_NAME: "${{ steps.secrets.outputs.POSTGRES_CONNECTION_NAME }}"
-          POSTGRES_IAM_CONNECTION_NAME: "${{ steps.secrets.outputs.POSTGRES_IAM_CONNECTION_NAME }}"
           POSTGRES_USER: "${{ steps.secrets.outputs.POSTGRES_USER }}"
           POSTGRES_IAM_USER: "${{ steps.secrets.outputs.POSTGRES_IAM_USER }}"
           POSTGRES_PASS: "${{ steps.secrets.outputs.POSTGRES_PASS }}"
