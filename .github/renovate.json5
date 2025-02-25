@@ -7,7 +7,6 @@
     ":separateMajorReleases", // https://docs.renovatebot.com/presets-default/#separatemajorreleases
     ":prConcurrentLimitNone", // View complete backlog as PRs. https://docs.renovatebot.com/presets-default/#prconcurrentlimitnone
   ],
-  "ignorePaths": [".kokoro/requirements.txt"],
   "rebaseWhen": "behind-base-branch",
   "dependencyDashboard": true,
   "dependencyDashboardLabels": ["type: process"],
