@@ -170,7 +170,6 @@ class Connector:
         # set default params for connections
         self._timeout = timeout
         self._enable_iam_auth = enable_iam_auth
-        self._quota_project = quota_project
         self._user_agent = user_agent
         self._resolver = resolver()
         self._failover_period = failover_period
@@ -178,6 +177,11 @@ class Connector:
         if isinstance(ip_type, str):
             ip_type = IPTypes._from_str(ip_type)
         self._ip_type = ip_type
+        # check for quota project arg and then env var
+        if quota_project:
+            self._quota_project = quota_project
+        else:
+            self._quota_project = os.environ.get("GOOGLE_CLOUD_QUOTA_PROJECT")  # type: ignore
         # check for universe domain arg and then env var
         if universe_domain:
             self._universe_domain = universe_domain
@@ -462,6 +466,8 @@ async def create_async_connector(
     sqladmin_api_endpoint: Optional[str] = None,
     user_agent: Optional[str] = None,
     universe_domain: Optional[str] = None,
+    refresh_strategy: str | RefreshStrategy = RefreshStrategy.BACKGROUND,
+    resolver: type[DefaultResolver] | type[DnsResolver] = DefaultResolver,
 ) -> Connector:
     """Helper function to create Connector object for asyncio connections.
 
@@ -498,6 +504,21 @@ async def create_async_connector(
             Admin API endpoint. Defaults to "https://sqladmin.googleapis.com",
             this argument should only be used in development.
 
+        universe_domain (str): The universe domain for Cloud SQL API calls.
+                Default: "googleapis.com".
+
+        refresh_strategy (str | RefreshStrategy): The default refresh strategy
+            used to refresh SSL/TLS cert and instance metadata. Can be one
+            of the following: RefreshStrategy.LAZY ("LAZY") or
+            RefreshStrategy.BACKGROUND ("BACKGROUND").
+            Default: RefreshStrategy.BACKGROUND
+
+        resolver (DefaultResolver | DnsResolver): The class name of the
+            resolver to use for resolving the Cloud SQL instance connection
+            name. To resolve a DNS record to an instance connection name, use
+            DnsResolver.
+            Default: DefaultResolver
+
     Returns:
         A Connector instance configured with running event loop.
     """
@@ -513,4 +534,7 @@ async def create_async_connector(
         quota_project=quota_project,
         sqladmin_api_endpoint=sqladmin_api_endpoint,
         user_agent=user_agent,
+        universe_domain=universe_domain,
+        refresh_strategy=refresh_strategy,
+        resolver=resolver,
     )

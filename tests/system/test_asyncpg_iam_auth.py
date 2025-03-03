@@ -86,7 +86,7 @@ async def create_sqlalchemy_engine(
 
 async def test_iam_authn_connection_with_asyncpg() -> None:
     """Basic test to get time from database."""
-    inst_conn_name = os.environ["POSTGRES_IAM_CONNECTION_NAME"]
+    inst_conn_name = os.environ["POSTGRES_CONNECTION_NAME"]
     user = os.environ["POSTGRES_IAM_USER"]
     db = os.environ["POSTGRES_DB"]
 
@@ -101,7 +101,7 @@ async def test_iam_authn_connection_with_asyncpg() -> None:
 
 async def test_lazy_iam_authn_connection_with_asyncpg() -> None:
     """Basic test to get time from database."""
-    inst_conn_name = os.environ["POSTGRES_IAM_CONNECTION_NAME"]
+    inst_conn_name = os.environ["POSTGRES_CONNECTION_NAME"]
     user = os.environ["POSTGRES_IAM_USER"]
     db = os.environ["POSTGRES_DB"]
 
