@@ -22,6 +22,8 @@ import pg8000
 import sqlalchemy
 
 from google.cloud.sql.connector import Connector
+from google.cloud.sql.connector import DefaultResolver
+from google.cloud.sql.connector import DnsResolver
 
 
 def create_sqlalchemy_engine(
@@ -30,6 +32,7 @@ def create_sqlalchemy_engine(
     password: str,
     db: str,
     refresh_strategy: str = "background",
+    resolver: DefaultResolver | DnsResolver = DefaultResolver,
 ) -> tuple[sqlalchemy.engine.Engine, Connector]:
     """Creates a connection pool for a Cloud SQL instance and returns the pool
     and the connector. Callers are responsible for closing the pool and the
@@ -64,8 +67,13 @@ def create_sqlalchemy_engine(
             Refresh strategy for the Cloud SQL Connector. Can be one of "lazy"
             or "background". For serverless environments use "lazy" to avoid
             errors resulting from CPU being throttled.
+        resolver (Optional[google.cloud.sql.connector.DefaultResolver | google.cloud.sql.connector.DnsResolver])
+            Resolver class for the Cloud SQL Connector. Can be one of
+            DefaultResolver (default) or DnsResolver. The resolver tells the
+            connector whether to resolve the 'instance_connection_name' as a
+            Cloud SQL instance connection name or as a domain name.
     """
-    connector = Connector(refresh_strategy=refresh_strategy)
+    connector = Connector(refresh_strategy=refresh_strategy, resolver=resolver)
 
     def getconn() -> pg8000.dbapi.Connection:
         conn: pg8000.dbapi.Connection = connector.connect(
@@ -147,6 +155,24 @@ def test_customer_managed_CAS_pg8000_connection() -> None:
     db = os.environ["POSTGRES_DB"]
 
     engine, connector = create_sqlalchemy_engine(inst_conn_name, user, password, db)
+    with engine.connect() as conn:
+        time = conn.execute(sqlalchemy.text("SELECT NOW()")).fetchone()
+        conn.commit()
+        curr_time = time[0]
+        assert type(curr_time) is datetime
+    connector.close()
+
+
+def test_domain_name_pg8000_connection() -> None:
+    """Basic test to get time from database using domain name to connect."""
+    domain_name = os.environ["POSTGRES_CUSTOMER_CAS_DOMAIN_NAME"]
+    user = os.environ["POSTGRES_USER"]
+    password = os.environ["POSTGRES_CUSTOMER_CAS_PASS"]
+    db = os.environ["POSTGRES_DB"]
+
+    engine, connector = create_sqlalchemy_engine(
+        domain_name, user, password, db, "lazy", DnsResolver
+    )
     with engine.connect() as conn:
         time = conn.execute(sqlalchemy.text("SELECT NOW()")).fetchone()
         conn.commit()
