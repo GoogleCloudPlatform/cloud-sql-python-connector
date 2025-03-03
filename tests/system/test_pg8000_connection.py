@@ -18,6 +18,8 @@ from datetime import datetime
 import os
 
 # [START cloud_sql_connector_postgres_pg8000]
+from typing import Union
+
 import pg8000
 import sqlalchemy
 
@@ -32,7 +34,7 @@ def create_sqlalchemy_engine(
     password: str,
     db: str,
     refresh_strategy: str = "background",
-    resolver: DefaultResolver | DnsResolver = DefaultResolver,
+    resolver: Union[DefaultResolver, DnsResolver] = DefaultResolver,
 ) -> tuple[sqlalchemy.engine.Engine, Connector]:
     """Creates a connection pool for a Cloud SQL instance and returns the pool
     and the connector. Callers are responsible for closing the pool and the
