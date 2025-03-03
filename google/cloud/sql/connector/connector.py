@@ -35,6 +35,7 @@ from google.cloud.sql.connector.enums import IPTypes
 from google.cloud.sql.connector.enums import RefreshStrategy
 from google.cloud.sql.connector.instance import RefreshAheadCache
 from google.cloud.sql.connector.lazy import LazyRefreshCache
+from google.cloud.sql.connector.monitored_cache import MonitoredCache
 import google.cloud.sql.connector.pg8000 as pg8000
 import google.cloud.sql.connector.pymysql as pymysql
 import google.cloud.sql.connector.pytds as pytds
@@ -149,9 +150,7 @@ class Connector:
                 )
         # initialize dict to store caches, key is a tuple consisting of instance
         # connection name string and enable_iam_auth boolean flag
-        self._cache: dict[
-            tuple[str, bool], Union[RefreshAheadCache, LazyRefreshCache]
-        ] = {}
+        self._cache: dict[tuple[str, bool], MonitoredCache] = {}
         self._client: Optional[CloudSQLClient] = None
 
         # initialize credentials
@@ -289,14 +288,14 @@ class Connector:
             )
         enable_iam_auth = kwargs.pop("enable_iam_auth", self._enable_iam_auth)
         if (instance_connection_string, enable_iam_auth) in self._cache:
-            cache = self._cache[(instance_connection_string, enable_iam_auth)]
+            monitored_cache = self._cache[(instance_connection_string, enable_iam_auth)]
         else:
             conn_name = await self._resolver.resolve(instance_connection_string)
             if self._refresh_strategy == RefreshStrategy.LAZY:
                 logger.debug(
                     f"['{conn_name}']: Refresh strategy is set to lazy refresh"
                 )
-                cache = LazyRefreshCache(
+                cache: Union[LazyRefreshCache, RefreshAheadCache] = LazyRefreshCache(
                     conn_name,
                     self._client,
                     self._keys,
@@ -312,8 +311,14 @@ class Connector:
                     self._keys,
                     enable_iam_auth,
                 )
+            # wrap cache as a MonitoredCache
+            monitored_cache = MonitoredCache(
+                cache,
+                self._failover_period,
+                self._resolver,
+            )
             logger.debug(f"['{conn_name}']: Connection info added to cache")
-            self._cache[(instance_connection_string, enable_iam_auth)] = cache
+            self._cache[(instance_connection_string, enable_iam_auth)] = monitored_cache
 
         connect_func = {
             "pymysql": pymysql.connect,
@@ -342,7 +347,7 @@ class Connector:
 
         # attempt to get connection info for Cloud SQL instance
         try:
-            conn_info = await cache.connect_info()
+            conn_info = await monitored_cache.connect_info()
             # validate driver matches intended database engine
             DriverMapping.validate_engine(driver, conn_info.database_version)
             ip_address = conn_info.get_preferred_ip(ip_type)

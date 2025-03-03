@@ -38,6 +38,10 @@ class ConnectionName:
             return f"{self.domain_name} -> {self.project}:{self.region}:{self.instance_name}"
         return f"{self.project}:{self.region}:{self.instance_name}"
 
+    def get_connection_string(self) -> str:
+        """Get the instance connection string for the Cloud SQL instance."""
+        return f"{self.project}:{self.region}:{self.instance_name}"
+
 
 def _parse_connection_name(connection_name: str) -> ConnectionName:
     return _parse_connection_name_with_domain_name(connection_name, "")

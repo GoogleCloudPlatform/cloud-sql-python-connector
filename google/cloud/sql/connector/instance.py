@@ -24,6 +24,7 @@ import logging
 
 from google.cloud.sql.connector.client import CloudSQLClient
 from google.cloud.sql.connector.connection_info import ConnectionInfo
+from google.cloud.sql.connector.connection_info import ConnectionInfoCache
 from google.cloud.sql.connector.connection_name import ConnectionName
 from google.cloud.sql.connector.exceptions import RefreshNotValidError
 from google.cloud.sql.connector.rate_limiter import AsyncRateLimiter
@@ -35,7 +36,7 @@ logger = logging.getLogger(name=__name__)
 APPLICATION_NAME = "cloud-sql-python-connector"
 
 
-class RefreshAheadCache:
+class RefreshAheadCache(ConnectionInfoCache):
     """Cache that refreshes connection info in the background prior to expiration.
 
     Background tasks are used to schedule refresh attempts to get a new
@@ -74,6 +75,15 @@ class RefreshAheadCache:
         self._refresh_in_progress = asyncio.locks.Event()
         self._current: asyncio.Task = self._schedule_refresh(0)
         self._next: asyncio.Task = self._current
+        self._closed = False
+
+    @property
+    def conn_name(self) -> ConnectionName:
+        return self._conn_name
+
+    @property
+    def closed(self) -> bool:
+        return self._closed
 
     async def force_refresh(self) -> None:
         """
@@ -212,3 +222,4 @@ class RefreshAheadCache:
         # gracefully wait for tasks to cancel
         tasks = asyncio.gather(self._current, self._next, return_exceptions=True)
         await asyncio.wait_for(tasks, timeout=2.0)
+        self._closed = True

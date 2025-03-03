@@ -30,6 +30,8 @@ def test_ConnectionName() -> None:
     assert conn_name.domain_name == ""
     # test ConnectionName str() method prints instance connection name
     assert str(conn_name) == "project:region:instance"
+    # test ConnectionName.get_connection_string
+    assert conn_name.get_connection_string() == "project:region:instance"
 
 
 def test_ConnectionName_with_domain_name() -> None:
@@ -41,6 +43,8 @@ def test_ConnectionName_with_domain_name() -> None:
     assert conn_name.domain_name == "db.example.com"
     # test ConnectionName str() method prints with domain name
     assert str(conn_name) == "db.example.com -> project:region:instance"
+    # test ConnectionName.get_connection_string
+    assert conn_name.get_connection_string() == "project:region:instance"
 
 
 @pytest.mark.parametrize(
