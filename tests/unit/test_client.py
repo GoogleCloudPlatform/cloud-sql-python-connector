@@ -66,6 +66,28 @@ async def test_get_metadata_with_psc(fake_client: CloudSQLClient) -> None:
 
 
 @pytest.mark.asyncio
+async def test_get_metadata_legacy_dns_with_psc(fake_client: CloudSQLClient) -> None:
+    """
+    Test _get_metadata returns successfully with PSC IP type.
+    """
+    # set PSC to enabled on test instance
+    fake_client.instance.psc_enabled = True
+    fake_client.instance.legacy_dns_name = True
+    resp = await fake_client._get_metadata(
+        "test-project",
+        "test-region",
+        "test-instance",
+    )
+    assert resp["database_version"] == "POSTGRES_15"
+    assert resp["ip_addresses"] == {
+        "PRIMARY": "127.0.0.1",
+        "PRIVATE": "10.0.0.1",
+        "PSC": "abcde.12345.us-central1.sql.goog",
+    }
+    assert isinstance(resp["server_ca_cert"], str)
+
+
+@pytest.mark.asyncio
 async def test_get_ephemeral(fake_client: CloudSQLClient) -> None:
     """
     Test _get_ephemeral returns successfully.
