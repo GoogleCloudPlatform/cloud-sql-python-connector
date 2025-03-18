@@ -23,6 +23,8 @@ import sqlalchemy
 import sqlalchemy.ext.asyncio
 
 from google.cloud.sql.connector import Connector
+from google.cloud.sql.connector import DefaultResolver
+from google.cloud.sql.connector import DnsResolver
 
 
 async def create_sqlalchemy_engine(
@@ -31,6 +33,7 @@ async def create_sqlalchemy_engine(
     password: str,
     db: str,
     refresh_strategy: str = "background",
+    resolver: type[DefaultResolver] | type[DnsResolver] = DefaultResolver,
 ) -> tuple[sqlalchemy.ext.asyncio.engine.AsyncEngine, Connector]:
     """Creates a connection pool for a Cloud SQL instance and returns the pool
     and the connector. Callers are responsible for closing the pool and the
@@ -64,9 +67,16 @@ async def create_sqlalchemy_engine(
             Refresh strategy for the Cloud SQL Connector. Can be one of "lazy"
             or "background". For serverless environments use "lazy" to avoid
             errors resulting from CPU being throttled.
+        resolver (Optional[google.cloud.sql.connector.DefaultResolver]):
+            Resolver class for resolving instance connection name. Use
+            google.cloud.sql.connector.DnsResolver when resolving DNS domain
+            names or google.cloud.sql.connector.DefaultResolver for regular
+            instance connection names ("my-project:my-region:my-instance").
     """
     loop = asyncio.get_running_loop()
-    connector = Connector(loop=loop, refresh_strategy=refresh_strategy)
+    connector = Connector(
+        loop=loop, refresh_strategy=refresh_strategy, resolver=resolver
+    )
 
     async def getconn() -> asyncpg.Connection:
         conn: asyncpg.Connection = await connector.connect_async(
@@ -174,6 +184,24 @@ async def test_lazy_sqlalchemy_connection_with_asyncpg() -> None:
 
     pool, connector = await create_sqlalchemy_engine(
         inst_conn_name, user, password, db, "lazy"
+    )
+
+    async with pool.connect() as conn:
+        res = (await conn.execute(sqlalchemy.text("SELECT 1"))).fetchone()
+        assert res[0] == 1
+
+    await connector.close_async()
+
+
+async def test_custom_SAN_with_dns_sqlalchemy_connection_with_asyncpg() -> None:
+    """Basic test to get time from database."""
+    inst_conn_name = os.environ["POSTGRES_CUSTOMER_CAS_PASS_VALID_DOMAIN_NAME"]
+    user = os.environ["POSTGRES_USER"]
+    password = os.environ["POSTGRES_CUSTOMER_CAS_PASS"]
+    db = os.environ["POSTGRES_DB"]
+
+    pool, connector = await create_sqlalchemy_engine(
+        inst_conn_name, user, password, db, resolver=DnsResolver
     )
 
     async with pool.connect() as conn:
