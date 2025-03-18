@@ -21,7 +21,7 @@ import re
 CONN_NAME_REGEX = re.compile(("([^:]+(:[^:]+)?):([^:]+):([^:]+)"))
 # The domain name pattern in accordance with RFC 1035, RFC 1123 and RFC 2181.
 DOMAIN_NAME_REGEX = re.compile(
-    "^(?:[_a-z0-9](?:[_a-z0-9-]{0,61}[a-z0-9])?\.)+(?:[a-z](?:[a-z0-9-]{0,61}[a-z0-9])?)?$"
+    r"^(?:[_a-z0-9](?:[_a-z0-9-]{0,61}[a-z0-9])?\.)+(?:[a-z](?:[a-z0-9-]{0,61}[a-z0-9])?)?$"
 )
 
 
