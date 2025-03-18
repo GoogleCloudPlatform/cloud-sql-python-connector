@@ -16,7 +16,7 @@ limitations under the License.
 
 import asyncio
 import os
-from typing import Any
+from typing import Any, Union
 
 import asyncpg
 import sqlalchemy
@@ -33,7 +33,7 @@ async def create_sqlalchemy_engine(
     password: str,
     db: str,
     refresh_strategy: str = "background",
-    resolver: type[DefaultResolver] | type[DnsResolver] = DefaultResolver,
+    resolver: Union[type[DefaultResolver], type[DnsResolver]] = DefaultResolver,
 ) -> tuple[sqlalchemy.ext.asyncio.engine.AsyncEngine, Connector]:
     """Creates a connection pool for a Cloud SQL instance and returns the pool
     and the connector. Callers are responsible for closing the pool and the
