@@ -17,6 +17,7 @@ import dns.asyncresolver
 from google.cloud.sql.connector.connection_name import (
     _parse_connection_name_with_domain_name,
 )
+from google.cloud.sql.connector.connection_name import _is_valid_domain
 from google.cloud.sql.connector.connection_name import _parse_connection_name
 from google.cloud.sql.connector.connection_name import ConnectionName
 from google.cloud.sql.connector.exceptions import DnsResolutionError
@@ -40,8 +41,16 @@ class DnsResolver(dns.asyncresolver.Resolver):
             conn_name = _parse_connection_name(dns)
         except ValueError:
             # The connection name was not project:region:instance format.
-            # Attempt to query a TXT record to get connection name.
-            conn_name = await self.query_dns(dns)
+            # Check if connection name is a valid DNS domain name
+            if _is_valid_domain(dns):
+                # Attempt to query a TXT record to get connection name.
+                conn_name = await self.query_dns(dns)
+            else:
+                raise ValueError(
+                    "Arg `instance_connection_string` must have "
+                    "format: PROJECT:REGION:INSTANCE or be a valid DNS domain "
+                    f"name, got {dns}."
+                )
         return conn_name
 
     async def query_dns(self, dns: str) -> ConnectionName:
