@@ -36,7 +36,7 @@ class MonitoredCache(ConnectionInfoCache):
         self.resolver = resolver
         self.cache = cache
         self.domain_name_ticker: Optional[asyncio.Task] = None
-        self.open_conns_count: int = 0
+        self.open_conns: int = 0
 
         if self.cache.conn_name.domain_name:
             self.domain_name_ticker = asyncio.create_task(
@@ -66,6 +66,12 @@ class MonitoredCache(ConnectionInfoCache):
                     "connections!"
                 )
                 await self.close()
+                conn_info = await self.connect_info()
+                if conn_info.sock:
+                    logger.debug(f"Socket type: {type(conn_info.sock)}")
+                    conn_info.sock.close()
+            else:
+                logger.debug("Domain name mapping has not changed!")
 
         except Exception as e:
             # Domain name checks should not be fatal, log error and continue.

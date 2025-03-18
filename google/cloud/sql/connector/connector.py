@@ -390,7 +390,7 @@ class Connector:
 
         except Exception:
             # with any exception, we attempt a force refresh, then throw the error
-            await cache.force_refresh()
+            await monitored_cache.force_refresh()
             raise
 
     async def _remove_cached(
