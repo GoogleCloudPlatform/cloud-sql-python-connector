@@ -1,0 +1,8 @@
+steps:
+  - id: ping-google
+    name: alpine:3.10
+    entrypoint: ping
+    args:
+      - -c
+      - "4"
+      - google.com
