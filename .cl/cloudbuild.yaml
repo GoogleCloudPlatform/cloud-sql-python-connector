@@ -20,5 +20,9 @@ steps:
       - -c
       - "4"
       - google.com
+
 options:
+  dynamicSubstitutions: true
+  pool:
+    name: $_POOL_NAME
   logging: CLOUD_LOGGING_ONLY
