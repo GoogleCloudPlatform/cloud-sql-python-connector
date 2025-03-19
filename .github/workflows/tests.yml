@@ -25,6 +25,110 @@ on:
 permissions: read-all
 
 jobs:
+  integration:
+    name: integration tests
+    # run integration tests on all builds except pull requests from forks or dependabot
+    if: |
+      github.event_name != 'pull_request' || 
+      (github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]')
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [macos-latest, windows-latest, ubuntu-latest]
+        python-version: ["3.9", "3.13"]
+      fail-fast: false
+    permissions:
+      contents: read
+      id-token: write
+      issues: write
+      pull-requests: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Setup Python ${{ matrix.python-version }}
+        uses: actions/setup-python@42375524e23c412d93fb67b49958b491fce71c38 # v5.4.0
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install nox
+        run: pip install nox
+
+      - id: auth
+        name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@71f986410dfbc7added4569d411d040a91dc6935 # v2.1.8
+        with:
+          workload_identity_provider: ${{ vars.PROVIDER_NAME }}
+          service_account: ${{ vars.SERVICE_ACCOUNT }}
+          access_token_lifetime: 600s
+
+      - id: secrets
+        name: Get secrets
+        uses: google-github-actions/get-secretmanager-secrets@a8440875e1c2892062aef9061228d4f1af8f919b # v2.2.3
+        with:
+          secrets: |-
+            MYSQL_CONNECTION_NAME:${{ vars.GOOGLE_CLOUD_PROJECT }}/MYSQL_CONNECTION_NAME
+            MYSQL_USER:${{ vars.GOOGLE_CLOUD_PROJECT }}/MYSQL_USER
+            MYSQL_IAM_USER:${{ vars.GOOGLE_CLOUD_PROJECT }}/MYSQL_USER_IAM_PYTHON
+            MYSQL_PASS:${{ vars.GOOGLE_CLOUD_PROJECT }}/MYSQL_PASS
+            MYSQL_DB:${{ vars.GOOGLE_CLOUD_PROJECT }}/MYSQL_DB
+            POSTGRES_CONNECTION_NAME:${{ vars.GOOGLE_CLOUD_PROJECT }}/POSTGRES_CONNECTION_NAME
+            POSTGRES_USER:${{ vars.GOOGLE_CLOUD_PROJECT }}/POSTGRES_USER
+            POSTGRES_IAM_USER:${{ vars.GOOGLE_CLOUD_PROJECT }}/POSTGRES_USER_IAM_PYTHON
+            POSTGRES_PASS:${{ vars.GOOGLE_CLOUD_PROJECT }}/POSTGRES_PASS
+            POSTGRES_DB:${{ vars.GOOGLE_CLOUD_PROJECT }}/POSTGRES_DB
+            POSTGRES_CAS_CONNECTION_NAME:${{ vars.GOOGLE_CLOUD_PROJECT }}/POSTGRES_CAS_CONNECTION_NAME
+            POSTGRES_CAS_PASS:${{ vars.GOOGLE_CLOUD_PROJECT }}/POSTGRES_CAS_PASS
+            POSTGRES_CUSTOMER_CAS_CONNECTION_NAME:${{ vars.GOOGLE_CLOUD_PROJECT }}/POSTGRES_CUSTOMER_CAS_CONNECTION_NAME
+            POSTGRES_CUSTOMER_CAS_PASS:${{ vars.GOOGLE_CLOUD_PROJECT }}/POSTGRES_CUSTOMER_CAS_PASS
+            SQLSERVER_CONNECTION_NAME:${{ vars.GOOGLE_CLOUD_PROJECT }}/SQLSERVER_CONNECTION_NAME
+            SQLSERVER_USER:${{ vars.GOOGLE_CLOUD_PROJECT }}/SQLSERVER_USER
+            SQLSERVER_PASS:${{ vars.GOOGLE_CLOUD_PROJECT }}/SQLSERVER_PASS
+            SQLSERVER_DB:${{ vars.GOOGLE_CLOUD_PROJECT }}/SQLSERVER_DB
+
+      - name: Run tests
+        env:
+          MYSQL_CONNECTION_NAME: "${{ steps.secrets.outputs.MYSQL_CONNECTION_NAME }}"
+          MYSQL_USER: "${{ steps.secrets.outputs.MYSQL_USER }}"
+          MYSQL_IAM_USER: "${{ steps.secrets.outputs.MYSQL_IAM_USER }}"
+          MYSQL_PASS: "${{ steps.secrets.outputs.MYSQL_PASS }}"
+          MYSQL_DB: "${{ steps.secrets.outputs.MYSQL_DB }}"
+          POSTGRES_CONNECTION_NAME: "${{ steps.secrets.outputs.POSTGRES_CONNECTION_NAME }}"
+          POSTGRES_USER: "${{ steps.secrets.outputs.POSTGRES_USER }}"
+          POSTGRES_IAM_USER: "${{ steps.secrets.outputs.POSTGRES_IAM_USER }}"
+          POSTGRES_PASS: "${{ steps.secrets.outputs.POSTGRES_PASS }}"
+          POSTGRES_DB: "${{ steps.secrets.outputs.POSTGRES_DB }}"
+          POSTGRES_CAS_CONNECTION_NAME: "${{ steps.secrets.outputs.POSTGRES_CAS_CONNECTION_NAME }}"
+          POSTGRES_CAS_PASS: "${{ steps.secrets.outputs.POSTGRES_CAS_PASS }}"
+          POSTGRES_CUSTOMER_CAS_CONNECTION_NAME: "${{ steps.secrets.outputs.POSTGRES_CUSTOMER_CAS_CONNECTION_NAME }}"
+          POSTGRES_CUSTOMER_CAS_PASS: "${{ steps.secrets.outputs.POSTGRES_CUSTOMER_CAS_PASS }}"
+          SQLSERVER_CONNECTION_NAME: "${{ steps.secrets.outputs.SQLSERVER_CONNECTION_NAME }}"
+          SQLSERVER_USER: "${{ steps.secrets.outputs.SQLSERVER_USER }}"
+          SQLSERVER_PASS: "${{ steps.secrets.outputs.SQLSERVER_PASS }}"
+          SQLSERVER_DB: "${{ steps.secrets.outputs.SQLSERVER_DB }}"
+        run: nox -s system-${{ matrix.python-version }}
+
+      - name: FlakyBot (Linux)
+        # only run flakybot on periodic (schedule) and continuous (push) events
+        if: ${{ (github.event_name == 'schedule' || github.event_name == 'push') && runner.os == 'Linux' && always() }}
+        run: |
+          curl https://github.com/googleapis/repo-automation-bots/releases/download/flakybot-1.1.0/flakybot -o flakybot -s -L
+          chmod +x ./flakybot
+          ./flakybot --repo ${{github.repository}} --commit_hash ${{github.sha}} --build_url https://github.com/${{github.repository}}/actions/runs/${{github.run_id}}
+      - name: FlakyBot (Windows)
+        # only run flakybot on periodic (schedule) and continuous (push) events
+        if: ${{ (github.event_name == 'schedule' || github.event_name == 'push') && runner.os == 'Windows' && always() }}
+        run: |
+          curl https://github.com/googleapis/repo-automation-bots/releases/download/flakybot-1.1.0/flakybot.exe -o flakybot.exe -s -L
+          ./flakybot.exe --repo ${{github.repository}} --commit_hash ${{github.sha}} --build_url https://github.com/${{github.repository}}/actions/runs/${{github.run_id}}
+      - name: FlakyBot (macOS)
+        # only run flakybot on periodic (schedule) and continuous (push) events
+        if: ${{ (github.event_name == 'schedule' || github.event_name == 'push') && runner.os == 'macOS' && always() }}
+        run: |
+          curl https://github.com/googleapis/repo-automation-bots/releases/download/flakybot-1.1.0/flakybot-darwin-amd64 -o flakybot -s -L
+          chmod +x ./flakybot
+          ./flakybot --repo ${{github.repository}} --commit_hash ${{github.sha}} --build_url https://github.com/${{github.repository}}/actions/runs/${{github.run_id}}
+
   unit:
     name: unit tests
     runs-on: ubuntu-latest
@@ -61,3 +165,11 @@ jobs:
 
       - name: Run tests
         run: nox -s unit-${{ matrix.python-version }}
+
+      - name: FlakyBot (Linux)
+        # only run flakybot on periodic (schedule) and continuous (push) events
+        if: ${{ (github.event_name == 'schedule' || github.event_name == 'push') && runner.os == 'Linux' && always() }}
+        run: |
+          curl https://github.com/googleapis/repo-automation-bots/releases/download/flakybot-1.1.0/flakybot -o flakybot -s -L
+          chmod +x ./flakybot
+          ./flakybot --repo ${{github.repository}} --commit_hash ${{github.sha}} --build_url https://github.com/${{github.repository}}/actions/runs/${{github.run_id}}
