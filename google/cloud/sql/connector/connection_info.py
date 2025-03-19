@@ -14,17 +14,14 @@
 
 from __future__ import annotations
 
-import abc
 from dataclasses import dataclass
 import logging
-import socket
 import ssl
-from typing import Any, Optional, TYPE_CHECKING, Union
+from typing import Any, Optional, TYPE_CHECKING
 
 from aiofiles.tempfile import TemporaryDirectory
 
 from google.cloud.sql.connector.connection_name import ConnectionName
-from google.cloud.sql.connector.enums import IPTypes
 from google.cloud.sql.connector.exceptions import CloudSQLIPTypeError
 from google.cloud.sql.connector.exceptions import TLSVersionError
 from google.cloud.sql.connector.utils import write_to_file
@@ -32,29 +29,9 @@ from google.cloud.sql.connector.utils import write_to_file
 if TYPE_CHECKING:
     import datetime
 
+    from google.cloud.sql.connector.enums import IPTypes
 
 logger = logging.getLogger(name=__name__)
-
-
-class ConnectionInfoCache(abc.ABC):
-    """Abstract class for Connector connection info caches."""
-
-    @abc.abstractmethod
-    async def connect_info(self) -> ConnectionInfo:
-        pass
-
-    @abc.abstractmethod
-    async def force_refresh(self) -> None:
-        pass
-
-    @abc.abstractmethod
-    async def close(self) -> None:
-        pass
-
-    @property
-    @abc.abstractmethod
-    def closed(self) -> bool:
-        pass
 
 
 @dataclass
@@ -70,21 +47,13 @@ class ConnectionInfo:
     database_version: str
     expiration: datetime.datetime
     context: Optional[ssl.SSLContext] = None
-    sock: Optional[ssl.SSLSocket] = None
 
-    async def create_ssl_context(
-        self, enable_iam_auth: bool = False, return_socket: bool = False
-    ) -> Union[ssl.SSLContext, ssl.SSLSocket]:
+    async def create_ssl_context(self, enable_iam_auth: bool = False) -> ssl.SSLContext:
         """Constructs a SSL/TLS context for the given connection info.
 
         Cache the SSL context to ensure we don't read from disk repeatedly when
         configuring a secure connection.
         """
-        # Return socket if socket is cached and return_socket is set to True
-        if self.sock is not None and return_socket:
-            logger.debug("Socket in cache, returning it!")
-            return self.sock
-
         # if SSL context is cached, use it
         if self.context is not None:
             return self.context
@@ -125,15 +94,6 @@ class ConnectionInfo:
             context.load_verify_locations(cafile=ca_filename)
         # set class attribute to cache context for subsequent calls
         self.context = context
-        # If return_socket is True, cache socket and return it
-        if return_socket:
-            logger.debug("Returning socket instead of context!")
-            sock = self.context.wrap_socket(
-                socket.create_connection((self.get_preferred_ip(IPTypes.PUBLIC), 3307)),
-                server_hostname="blah",
-            )
-            self.sock = sock
-            return sock
         return context
 
     def get_preferred_ip(self, ip_type: IPTypes) -> str:
