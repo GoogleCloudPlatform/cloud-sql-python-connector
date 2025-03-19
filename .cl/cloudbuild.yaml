@@ -6,3 +6,5 @@ steps:
       - -c
       - "4"
       - google.com
+options:
+  logging: CLOUD_LOGGING_ONLY
