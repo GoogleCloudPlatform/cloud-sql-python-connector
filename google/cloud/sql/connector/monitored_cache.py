@@ -14,6 +14,7 @@
 
 import asyncio
 import logging
+import ssl
 from typing import Any, Callable, Optional, Union
 
 from google.cloud.sql.connector.connection_info import ConnectionInfo
@@ -36,7 +37,7 @@ class MonitoredCache(ConnectionInfoCache):
         self.resolver = resolver
         self.cache = cache
         self.domain_name_ticker: Optional[asyncio.Task] = None
-        self.open_conns: int = 0
+        self.sockets: list[ssl.SSLSocket] = []
 
         if self.cache.conn_name.domain_name:
             self.domain_name_ticker = asyncio.create_task(
@@ -50,6 +51,15 @@ class MonitoredCache(ConnectionInfoCache):
     @property
     def closed(self) -> bool:
         return self.cache.closed
+
+    async def _purge_closed_sockets(self) -> None:
+        open_sockets = []
+        for socket in self.sockets:
+            # Check fileno as method to check if socket is closed. Will return
+            # -1 on failure, which will be used to signal socket closed.
+            if socket.fileno() != -1:
+                open_sockets.append(socket)
+        self.sockets = open_sockets
 
     async def _check_domain_name(self) -> None:
         try:
@@ -66,12 +76,6 @@ class MonitoredCache(ConnectionInfoCache):
                     "connections!"
                 )
                 await self.close()
-                conn_info = await self.connect_info()
-                if conn_info.sock:
-                    logger.debug(f"Socket type: {type(conn_info.sock)}")
-                    conn_info.sock.close()
-            else:
-                logger.debug("Domain name mapping has not changed!")
 
         except Exception as e:
             # Domain name checks should not be fatal, log error and continue.
@@ -97,10 +101,20 @@ class MonitoredCache(ConnectionInfoCache):
                 logger.debug(
                     f"['{self.cache.conn_name}']: Cancelled domain name polling task."
                 )
-
+            finally:
+                self.domain_name_ticker = None
         # If cache is already closed, no further work.
-        if self.cache.closed:
+        if self.closed:
             return
+
+        # Close any still open sockets
+        for socket in self.sockets:
+            # Check fileno as method to check if socket is closed. Will return
+            # -1 on failure, which will be used to signal socket closed.
+            if socket.fileno() != -1:
+                socket.close()
+
+        # Close underyling ConnectionInfoCache
         await self.cache.close()
 
 

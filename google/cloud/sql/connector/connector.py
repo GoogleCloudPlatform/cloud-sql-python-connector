@@ -20,6 +20,7 @@ import asyncio
 from functools import partial
 import logging
 import os
+import socket
 from threading import Thread
 from types import TracebackType
 from typing import Any, Optional, Union
@@ -47,6 +48,7 @@ from google.cloud.sql.connector.utils import generate_keys
 logger = logging.getLogger(name=__name__)
 
 ASYNC_DRIVERS = ["asyncpg"]
+SERVER_PROXY_PORT = 3307
 _DEFAULT_SCHEME = "https://"
 _DEFAULT_UNIVERSE_DOMAIN = "googleapis.com"
 _SQLADMIN_HOST_TEMPLATE = "sqladmin.{universe_domain}"
@@ -291,10 +293,11 @@ class Connector:
                 driver=driver,
             )
         enable_iam_auth = kwargs.pop("enable_iam_auth", self._enable_iam_auth)
-        if (instance_connection_string, enable_iam_auth) in self._cache:
-            monitored_cache = self._cache[(instance_connection_string, enable_iam_auth)]
+
+        conn_name = await self._resolver.resolve(instance_connection_string)
+        if (str(conn_name), enable_iam_auth) in self._cache:
+            monitored_cache = self._cache[(str(conn_name), enable_iam_auth)]
         else:
-            conn_name = await self._resolver.resolve(instance_connection_string)
             if self._refresh_strategy == RefreshStrategy.LAZY:
                 logger.debug(
                     f"['{conn_name}']: Refresh strategy is set to lazy refresh"
@@ -322,7 +325,7 @@ class Connector:
                 self._resolver,
             )
             logger.debug(f"['{conn_name}']: Connection info added to cache")
-            self._cache[(instance_connection_string, enable_iam_auth)] = monitored_cache
+            self._cache[(str(conn_name), enable_iam_auth)] = monitored_cache
 
         connect_func = {
             "pymysql": pymysql.connect,
@@ -358,7 +361,7 @@ class Connector:
         except Exception:
             # with an error from Cloud SQL Admin API call or IP type, invalidate
             # the cache and re-raise the error
-            await self._remove_cached(instance_connection_string, enable_iam_auth)
+            await self._remove_cached(str(conn_name), enable_iam_auth)
             raise
         logger.debug(f"['{conn_info.conn_name}']: Connecting to {ip_address}:3307")
         # format `user` param for automatic IAM database authn
@@ -379,11 +382,21 @@ class Connector:
                     await conn_info.create_ssl_context(enable_iam_auth),
                     **kwargs,
                 )
-            # synchronous drivers are blocking and run using executor
+            # Create socket with SSLContext for sync drivers
+            ctx = await conn_info.create_ssl_context(enable_iam_auth)
+            sock = ctx.wrap_socket(
+                socket.create_connection((ip_address, SERVER_PROXY_PORT)),
+                server_hostname=ip_address,
+            )
+            # If this connection was opened using a domain name, then store it
+            # for later in case we need to forcibly close it on failover.
+            if conn_info.conn_name.domain_name:
+                monitored_cache.sockets.append(sock)
+            # Synchronous drivers are blocking and run using executor
             connect_partial = partial(
                 connector,
                 ip_address,
-                await conn_info.create_ssl_context(enable_iam_auth),
+                sock,
                 **kwargs,
             )
             return await self._loop.run_in_executor(None, connect_partial)
@@ -468,6 +481,7 @@ async def create_async_connector(
     universe_domain: Optional[str] = None,
     refresh_strategy: str | RefreshStrategy = RefreshStrategy.BACKGROUND,
     resolver: type[DefaultResolver] | type[DnsResolver] = DefaultResolver,
+    failover_period: int = 30,
 ) -> Connector:
     """Helper function to create Connector object for asyncio connections.
 
@@ -519,6 +533,11 @@ async def create_async_connector(
             DnsResolver.
             Default: DefaultResolver
 
+        failover_period (int): The time interval in seconds between each
+            attempt to check if a failover has occured for a given instance.
+            Must be used with `resolver=DnsResolver` to have any effect.
+            Default: 30
+
     Returns:
         A Connector instance configured with running event loop.
     """
@@ -537,4 +556,5 @@ async def create_async_connector(
         universe_domain=universe_domain,
         refresh_strategy=refresh_strategy,
         resolver=resolver,
+        failover_period=failover_period,
     )

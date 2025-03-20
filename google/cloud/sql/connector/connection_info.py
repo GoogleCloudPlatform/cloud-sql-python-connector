@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+import abc
 from dataclasses import dataclass
 import logging
 import ssl
@@ -32,6 +33,27 @@ if TYPE_CHECKING:
     from google.cloud.sql.connector.enums import IPTypes
 
 logger = logging.getLogger(name=__name__)
+
+
+class ConnectionInfoCache(abc.ABC):
+    """Abstract class for Connector connection info caches."""
+
+    @abc.abstractmethod
+    async def connect_info(self) -> ConnectionInfo:
+        pass
+
+    @abc.abstractmethod
+    async def force_refresh(self) -> None:
+        pass
+
+    @abc.abstractmethod
+    async def close(self) -> None:
+        pass
+
+    @property
+    @abc.abstractmethod
+    def closed(self) -> bool:
+        pass
 
 
 @dataclass
