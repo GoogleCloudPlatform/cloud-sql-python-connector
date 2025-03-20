@@ -23,7 +23,7 @@ import os
 import socket
 from threading import Thread
 from types import TracebackType
-from typing import Any, Optional, Union
+from typing import Any, Callable, Optional, Union
 
 import google.auth
 from google.auth.credentials import Credentials
@@ -336,7 +336,7 @@ class Connector:
 
         # only accept supported database drivers
         try:
-            connector = connect_func[driver]
+            connector: Callable = connect_func[driver]  # type: ignore
         except KeyError:
             raise KeyError(f"Driver '{driver}' is not supported.")
 
