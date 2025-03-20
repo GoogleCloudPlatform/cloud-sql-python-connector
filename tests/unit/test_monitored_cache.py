@@ -212,7 +212,6 @@ async def test_MonitoredCache_purge_closed_sockets(fake_client: CloudSQLClient) 
     assert len(monitored_cache.sockets) == 1
     # close socket
     sock.close()
-    # call _purge_closed_sockets and verify socket is clsoed
+    # call _purge_closed_sockets and verify socket is removed
     monitored_cache._purge_closed_sockets()
     assert len(monitored_cache.sockets) == 0
-    assert sock.fileno() == -1
