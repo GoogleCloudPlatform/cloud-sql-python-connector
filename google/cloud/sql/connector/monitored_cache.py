@@ -116,15 +116,15 @@ class MonitoredCache(ConnectionInfoCache):
         if self.closed:
             return
 
+        # Close underyling ConnectionInfoCache
+        await self.cache.close()
+
         # Close any still open sockets
         for socket in self.sockets:
             # Check fileno for if socket is closed. Will return
             # -1 on failure, which will be used to signal socket closed.
             if socket.fileno() != -1:
                 socket.close()
-
-        # Close underyling ConnectionInfoCache
-        await self.cache.close()
 
 
 async def ticker(interval: int, function: Callable, *args: Any, **kwargs: Any) -> None:

@@ -295,7 +295,10 @@ class Connector:
         enable_iam_auth = kwargs.pop("enable_iam_auth", self._enable_iam_auth)
 
         conn_name = await self._resolver.resolve(instance_connection_string)
-        if (str(conn_name), enable_iam_auth) in self._cache:
+        # Cache entry must exist and not be closed
+        if (str(conn_name), enable_iam_auth) in self._cache and not self._cache[
+            (str(conn_name), enable_iam_auth)
+        ].closed:
             monitored_cache = self._cache[(str(conn_name), enable_iam_auth)]
         else:
             if self._refresh_strategy == RefreshStrategy.LAZY:
