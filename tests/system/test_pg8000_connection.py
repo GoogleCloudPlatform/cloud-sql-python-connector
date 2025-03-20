@@ -167,7 +167,7 @@ def test_customer_managed_CAS_pg8000_connection() -> None:
 
 def test_custom_SAN_with_dns_pg8000_connection() -> None:
     """Basic test to get time from database."""
-    inst_conn_name = os.environ["POSTGRES_CUSTOMER_CAS_DOMAIN_NAME"]
+    inst_conn_name = os.environ["POSTGRES_CUSTOMER_CAS_PASS_VALID_DOMAIN_NAME"]
     user = os.environ["POSTGRES_USER"]
     password = os.environ["POSTGRES_CUSTOMER_CAS_PASS"]
     db = os.environ["POSTGRES_DB"]
