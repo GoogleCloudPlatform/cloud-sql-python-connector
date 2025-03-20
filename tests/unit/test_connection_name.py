@@ -17,6 +17,7 @@ import pytest  # noqa F401 Needed to run the tests
 from google.cloud.sql.connector.connection_name import (
     _parse_connection_name_with_domain_name,
 )
+from google.cloud.sql.connector.connection_name import _is_valid_domain
 from google.cloud.sql.connector.connection_name import _parse_connection_name
 from google.cloud.sql.connector.connection_name import ConnectionName
 
@@ -100,3 +101,40 @@ def test_parse_connection_name_with_domain_name(
     assert expected == _parse_connection_name_with_domain_name(
         connection_name, domain_name
     )
+
+
+@pytest.mark.parametrize(
+    "domain_name, expected",
+    [
+        (
+            "prod-db.mycompany.example.com",
+            True,
+        ),
+        (
+            "example.com.",  # trailing dot
+            True,
+        ),
+        (
+            "-example.com.",  # leading hyphen
+            False,
+        ),
+        (
+            "example",  # missing TLD
+            False,
+        ),
+        (
+            "127.0.0.1",  # IPv4 address
+            False,
+        ),
+        (
+            "0:0:0:0:0:0:0:1",  # IPv6 address
+            False,
+        ),
+    ],
+)
+def test_is_valid_domain(domain_name: str, expected: bool) -> None:
+    """
+    Test that _is_valid_domain works correctly for
+    parsing domain names.
+    """
+    assert expected == _is_valid_domain(domain_name)

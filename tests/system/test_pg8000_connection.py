@@ -34,7 +34,7 @@ def create_sqlalchemy_engine(
     password: str,
     db: str,
     refresh_strategy: str = "background",
-    resolver: Union[DefaultResolver, DnsResolver] = DefaultResolver,
+    resolver: Union[type[DefaultResolver], type[DnsResolver]] = DefaultResolver,
 ) -> tuple[sqlalchemy.engine.Engine, Connector]:
     """Creates a connection pool for a Cloud SQL instance and returns the pool
     and the connector. Callers are responsible for closing the pool and the
@@ -69,11 +69,11 @@ def create_sqlalchemy_engine(
             Refresh strategy for the Cloud SQL Connector. Can be one of "lazy"
             or "background". For serverless environments use "lazy" to avoid
             errors resulting from CPU being throttled.
-        resolver (Optional[google.cloud.sql.connector.DefaultResolver | google.cloud.sql.connector.DnsResolver])
-            Resolver class for the Cloud SQL Connector. Can be one of
-            DefaultResolver (default) or DnsResolver. The resolver tells the
-            connector whether to resolve the 'instance_connection_name' as a
-            Cloud SQL instance connection name or as a domain name.
+        resolver (Optional[google.cloud.sql.connector.DefaultResolver]):
+            Resolver class for resolving instance connection name. Use
+            google.cloud.sql.connector.DnsResolver when resolving DNS domain
+            names or google.cloud.sql.connector.DefaultResolver for regular
+            instance connection names ("my-project:my-region:my-instance").
     """
     connector = Connector(refresh_strategy=refresh_strategy, resolver=resolver)
 
@@ -165,15 +165,15 @@ def test_customer_managed_CAS_pg8000_connection() -> None:
     connector.close()
 
 
-def test_domain_name_pg8000_connection() -> None:
-    """Basic test to get time from database using domain name to connect."""
-    domain_name = os.environ["POSTGRES_CUSTOMER_CAS_DOMAIN_NAME"]
+def test_custom_SAN_with_dns_pg8000_connection() -> None:
+    """Basic test to get time from database."""
+    inst_conn_name = os.environ["POSTGRES_CUSTOMER_CAS_DOMAIN_NAME"]
     user = os.environ["POSTGRES_USER"]
     password = os.environ["POSTGRES_CUSTOMER_CAS_PASS"]
     db = os.environ["POSTGRES_DB"]
 
     engine, connector = create_sqlalchemy_engine(
-        domain_name, user, password, db, "lazy", DnsResolver
+        inst_conn_name, user, password, db, resolver=DnsResolver
     )
     with engine.connect() as conn:
         time = conn.execute(sqlalchemy.text("SELECT NOW()")).fetchone()
