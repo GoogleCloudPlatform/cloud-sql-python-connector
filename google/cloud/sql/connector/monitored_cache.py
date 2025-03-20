@@ -54,7 +54,23 @@ class MonitoredCache(ConnectionInfoCache):
     def closed(self) -> bool:
         return self.cache.closed
 
+    def _purge_closed_sockets(self) -> None:
+        """Remove closed sockets from monitored cache.
+
+        If a socket is closed by the database driver we should remove it from
+        list of sockets.
+        """
+        open_sockets = []
+        for socket in self.sockets:
+            # Check fileno for if socket is closed. Will return
+            # -1 on failure, which will be used to signal socket closed.
+            if socket.fileno() != -1:
+                open_sockets.append(socket)
+        self.sockets = open_sockets
+
     async def _check_domain_name(self) -> None:
+        # remove any closed connections from cache
+        self._purge_closed_sockets()
         try:
             # Resolve domain name and see if Cloud SQL instance connection name
             # has changed. If it has, close all connections.
