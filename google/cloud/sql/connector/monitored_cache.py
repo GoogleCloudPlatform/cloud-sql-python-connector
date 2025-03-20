@@ -39,7 +39,9 @@ class MonitoredCache(ConnectionInfoCache):
         self.domain_name_ticker: Optional[asyncio.Task] = None
         self.sockets: list[ssl.SSLSocket] = []
 
-        if self.cache.conn_name.domain_name:
+        # If domain name is configured for instance and failover period is set,
+        # poll for DNS record changes.
+        if self.cache.conn_name.domain_name and failover_period > 0:
             self.domain_name_ticker = asyncio.create_task(
                 ticker(failover_period, self._check_domain_name)
             )
@@ -51,15 +53,6 @@ class MonitoredCache(ConnectionInfoCache):
     @property
     def closed(self) -> bool:
         return self.cache.closed
-
-    async def _purge_closed_sockets(self) -> None:
-        open_sockets = []
-        for socket in self.sockets:
-            # Check fileno as method to check if socket is closed. Will return
-            # -1 on failure, which will be used to signal socket closed.
-            if socket.fileno() != -1:
-                open_sockets.append(socket)
-        self.sockets = open_sockets
 
     async def _check_domain_name(self) -> None:
         try:
@@ -109,7 +102,7 @@ class MonitoredCache(ConnectionInfoCache):
 
         # Close any still open sockets
         for socket in self.sockets:
-            # Check fileno as method to check if socket is closed. Will return
+            # Check fileno for if socket is closed. Will return
             # -1 on failure, which will be used to signal socket closed.
             if socket.fileno() != -1:
                 socket.close()
