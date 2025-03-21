@@ -25,6 +25,7 @@ import pytest
 
 from google.cloud.sql.connector.client import CloudSQLClient
 from google.cloud.sql.connector.connection_name import ConnectionName
+from google.cloud.sql.connector.exceptions import CacheClosedError
 from google.cloud.sql.connector.lazy import LazyRefreshCache
 from google.cloud.sql.connector.monitored_cache import MonitoredCache
 from google.cloud.sql.connector.resolver import DefaultResolver
@@ -63,6 +64,28 @@ async def test_MonitoredCache_properties(fake_client: CloudSQLClient) -> None:
     # close cache and make sure property is updated
     await monitored_cache.close()
     assert monitored_cache.closed is True
+
+
+async def test_MonitoredCache_CacheClosedError(fake_client: CloudSQLClient) -> None:
+    """
+    Test that MonitoredCache.connect_info errors when cache is closed.
+    """
+    conn_name = ConnectionName("test-project", "test-region", "test-instance")
+    cache = LazyRefreshCache(
+        conn_name,
+        client=fake_client,
+        keys=asyncio.create_task(generate_keys()),
+        enable_iam_auth=False,
+    )
+    monitored_cache = MonitoredCache(cache, 30, DefaultResolver())
+    # test closed property
+    assert monitored_cache.closed is False
+    # close cache and make sure property is updated
+    await monitored_cache.close()
+    assert monitored_cache.closed is True
+    # attempt to get connect info from closed cache
+    with pytest.raises(CacheClosedError):
+        await monitored_cache.connect_info()
 
 
 async def test_MonitoredCache_with_DnsResolver(fake_client: CloudSQLClient) -> None:

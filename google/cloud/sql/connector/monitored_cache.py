@@ -19,6 +19,7 @@ from typing import Any, Callable, Optional, Union
 
 from google.cloud.sql.connector.connection_info import ConnectionInfo
 from google.cloud.sql.connector.connection_info import ConnectionInfoCache
+from google.cloud.sql.connector.exceptions import CacheClosedError
 from google.cloud.sql.connector.instance import RefreshAheadCache
 from google.cloud.sql.connector.lazy import LazyRefreshCache
 from google.cloud.sql.connector.resolver import DefaultResolver
@@ -95,9 +96,16 @@ class MonitoredCache(ConnectionInfoCache):
             )
 
     async def connect_info(self) -> ConnectionInfo:
+        if self.closed:
+            raise CacheClosedError(
+                "Can not get connection info, cache has already been closed."
+            )
         return await self.cache.connect_info()
 
     async def force_refresh(self) -> None:
+        # if cache is closed do not refresh
+        if self.closed:
+            return
         return await self.cache.force_refresh()
 
     async def close(self) -> None:
