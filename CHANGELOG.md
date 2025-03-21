@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.18.0](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v1.17.0...v1.18.0) (2025-03-21)
+
+
+### Features
+
+* add domain name validation ([#1246](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/1246)) ([15934bd](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/15934bd18ab426edd19af67be799876b52895a48))
+* reset connection when the DNS record changes ([#1241](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/1241)) ([1405f56](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/1405f564019f6a30a15535ed2e0d1dc108f38195))
+
 ## [1.17.0](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v1.16.0...v1.17.0) (2025-02-12)
 
 
