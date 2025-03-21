@@ -42,6 +42,10 @@ class ConnectionName:
             return f"{self.domain_name} -> {self.project}:{self.region}:{self.instance_name}"
         return f"{self.project}:{self.region}:{self.instance_name}"
 
+    def get_connection_string(self) -> str:
+        """Get the instance connection string for the Cloud SQL instance."""
+        return f"{self.project}:{self.region}:{self.instance_name}"
+
 
 def _is_valid_domain(domain_name: str) -> bool:
     if DOMAIN_NAME_REGEX.fullmatch(domain_name) is None:

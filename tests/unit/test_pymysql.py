@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-from functools import partial
+import socket
 import ssl
 from typing import Any
 
@@ -40,15 +40,14 @@ async def test_pymysql(kwargs: Any) -> None:
     ip_addr = "127.0.0.1"
     # build ssl.SSLContext
     context = await create_ssl_context()
-    # force all wrap_socket calls to have do_handshake_on_connect=False
-    setattr(
-        context,
-        "wrap_socket",
-        partial(context.wrap_socket, do_handshake_on_connect=False),
+    sock = context.wrap_socket(
+        socket.create_connection((ip_addr, 3307)),
+        server_hostname=ip_addr,
+        do_handshake_on_connect=False,
     )
     kwargs["timeout"] = 30
     with patch("pymysql.Connection") as mock_connect:
         mock_connect.return_value = MockConnection
-        pymysql_connect(ip_addr, context, **kwargs)
+        pymysql_connect(ip_addr, sock, **kwargs)
         # verify that driver connection call would be made
         assert mock_connect.assert_called_once

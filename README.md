@@ -428,6 +428,44 @@ with Connector(resolver=DnsResolver) as connector:
     # ... use SQLAlchemy engine normally
 ```
 
+### Automatic failover using DNS domain names
+
+> [!NOTE]
+>
+> Usage of the `asyncpg` driver does not currently support automatic failover.
+
+When the connector is configured using a domain name, the connector will
+periodically check if the DNS record for an instance changes. When the connector
+detects that the domain name refers to a different instance, the connector will
+close all open connections to the old instance. Subsequent connection attempts
+will be directed to the new instance.
+
+For example: suppose application is configured to connect using the
+domain name `prod-db.mycompany.example.com`. Initially the private DNS
+zone has a TXT record with the value `my-project:region:my-instance`. The
+application establishes connections to the `my-project:region:my-instance`
+Cloud SQL instance.
+
+Then, to reconfigure the application to use a different database
+instance, change the value of the `prod-db.mycompany.example.com` DNS record
+from `my-project:region:my-instance` to `my-project:other-region:my-instance-2`
+
+The connector inside the application detects the change to this
+DNS record. Now, when the application connects to its database using the
+domain name `prod-db.mycompany.example.com`, it will connect to the
+`my-project:other-region:my-instance-2` Cloud SQL instance.
+
+The connector will automatically close all existing connections to
+`my-project:region:my-instance`. This will force the connection pools to
+establish new connections. Also, it may cause database queries in progress
+to fail.
+
+The connector will poll for changes to the DNS name every 30 seconds by default.
+You may configure the frequency of the connections using the Connector's
+`failover_period` argument (i.e. `Connector(failover_period=60`). When this is
+set to 0, the connector will disable polling and only check if the DNS record
+changed when it is creating a new connection.
+
 ### Using the Python Connector with Python Web Frameworks
 
 The Python Connector can be used alongside popular Python web frameworks such

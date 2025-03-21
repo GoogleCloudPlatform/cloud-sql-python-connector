@@ -14,18 +14,15 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-import socket
 import ssl
 from typing import Any, TYPE_CHECKING
-
-SERVER_PROXY_PORT = 3307
 
 if TYPE_CHECKING:
     import pg8000
 
 
 def connect(
-    ip_address: str, ctx: ssl.SSLContext, **kwargs: Any
+    ip_address: str, sock: ssl.SSLSocket, **kwargs: Any
 ) -> "pg8000.dbapi.Connection":
     """Helper function to create a pg8000 DB-API connection object.
 
@@ -33,8 +30,8 @@ def connect(
     :param ip_address: A string containing an IP address for the Cloud SQL
         instance.
 
-    :type ctx: ssl.SSLContext
-    :param ctx: An SSLContext object created from the Cloud SQL server CA
+    :type sock: ssl.SSLSocket
+    :param sock: An SSLSocket object created from the Cloud SQL server CA
         cert and ephemeral cert.
 
 
@@ -47,12 +44,6 @@ def connect(
         raise ImportError(
             'Unable to import module "pg8000." Please install and try again.'
         )
-
-    # Create socket and wrap with context.
-    sock = ctx.wrap_socket(
-        socket.create_connection((ip_address, SERVER_PROXY_PORT)),
-        server_hostname=ip_address,
-    )
 
     user = kwargs.pop("user")
     db = kwargs.pop("db")

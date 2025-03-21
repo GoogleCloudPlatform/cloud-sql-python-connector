@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-from functools import partial
+import socket
 from typing import Any
 
 from mock import patch
@@ -31,15 +31,14 @@ async def test_pg8000(kwargs: Any) -> None:
     ip_addr = "127.0.0.1"
     # build ssl.SSLContext
     context = await create_ssl_context()
-    # force all wrap_socket calls to have do_handshake_on_connect=False
-    setattr(
-        context,
-        "wrap_socket",
-        partial(context.wrap_socket, do_handshake_on_connect=False),
+    sock = context.wrap_socket(
+        socket.create_connection((ip_addr, 3307)),
+        server_hostname=ip_addr,
+        do_handshake_on_connect=False,
     )
     with patch("pg8000.dbapi.connect") as mock_connect:
         mock_connect.return_value = True
-        connection = connect(ip_addr, context, **kwargs)
+        connection = connect(ip_addr, sock, **kwargs)
         assert connection is True
         # verify that driver connection call would be made
         assert mock_connect.assert_called_once
