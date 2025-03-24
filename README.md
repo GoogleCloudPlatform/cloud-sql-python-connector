@@ -126,7 +126,7 @@ import sqlalchemy
 # initialize Connector object
 connector = Connector()
 
-# create connection pool using Connector.connect as SQLAlchemy creator arg
+# initialize SQLAlchemy connection pool with Connector
 pool = sqlalchemy.create_engine(
     "mysql+pymysql://",
     creator=lambda: connector.connect(
