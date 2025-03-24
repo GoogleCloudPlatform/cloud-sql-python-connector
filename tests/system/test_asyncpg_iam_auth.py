@@ -17,7 +17,6 @@ limitations under the License.
 import asyncio
 import os
 
-import asyncpg
 import sqlalchemy
 import sqlalchemy.ext.asyncio
 
@@ -64,21 +63,17 @@ async def create_sqlalchemy_engine(
     loop = asyncio.get_running_loop()
     connector = Connector(loop=loop, refresh_strategy=refresh_strategy)
 
-    async def getconn() -> asyncpg.Connection:
-        conn: asyncpg.Connection = await connector.connect_async(
+    # create SQLAlchemy connection pool
+    engine = sqlalchemy.ext.asyncio.create_async_engine(
+        "postgresql+asyncpg://",
+        async_creator=lambda: connector.connect_async(
             instance_connection_name,
             "asyncpg",
             user=user,
             db=db,
             ip_type="public",  # can also be "private" or "psc"
             enable_iam_auth=True,
-        )
-        return conn
-
-    # create SQLAlchemy connection pool
-    engine = sqlalchemy.ext.asyncio.create_async_engine(
-        "postgresql+asyncpg://",
-        async_creator=getconn,
+        ),
         execution_options={"isolation_level": "AUTOCOMMIT"},
     )
     return engine, connector

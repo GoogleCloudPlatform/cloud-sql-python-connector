@@ -17,7 +17,6 @@ limitations under the License.
 import os
 
 # [START cloud_sql_connector_mysql_pytds]
-import pytds
 import sqlalchemy
 
 from google.cloud.sql.connector import Connector
@@ -65,21 +64,17 @@ def create_sqlalchemy_engine(
     """
     connector = Connector(refresh_strategy=refresh_strategy)
 
-    def getconn() -> pytds.Connection:
-        conn: pytds.Connection = connector.connect(
+    # create SQLAlchemy connection pool
+    engine = sqlalchemy.create_engine(
+        "mssql+pytds://",
+        creator=lambda: connector.connect(
             instance_connection_name,
             "pytds",
             user=user,
             password=password,
             db=db,
             ip_type="public",  # can also be "private" or "psc"
-        )
-        return conn
-
-    # create SQLAlchemy connection pool
-    engine = sqlalchemy.create_engine(
-        "mssql+pytds://",
-        creator=getconn,
+        ),
     )
     return engine, connector
 

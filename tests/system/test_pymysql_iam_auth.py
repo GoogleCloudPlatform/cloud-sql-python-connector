@@ -17,7 +17,6 @@ limitations under the License.
 from datetime import datetime
 import os
 
-import pymysql
 import sqlalchemy
 
 from google.cloud.sql.connector import Connector
@@ -63,21 +62,17 @@ def create_sqlalchemy_engine(
     """
     connector = Connector(refresh_strategy=refresh_strategy)
 
-    def getconn() -> pymysql.Connection:
-        conn: pymysql.Connection = connector.connect(
+    # create SQLAlchemy connection pool
+    engine = sqlalchemy.create_engine(
+        "mysql+pymysql://",
+        creator=lambda: connector.connect(
             instance_connection_name,
             "pymysql",
             user=user,
             db=db,
             ip_type="public",  # can also be "private" or "psc"
             enable_iam_auth=True,
-        )
-        return conn
-
-    # create SQLAlchemy connection pool
-    engine = sqlalchemy.create_engine(
-        "mysql+pymysql://",
-        creator=getconn,
+        ),
     )
     return engine, connector
 

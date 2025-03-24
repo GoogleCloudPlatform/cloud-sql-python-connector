@@ -78,21 +78,17 @@ async def create_sqlalchemy_engine(
         loop=loop, refresh_strategy=refresh_strategy, resolver=resolver
     )
 
-    async def getconn() -> asyncpg.Connection:
-        conn: asyncpg.Connection = await connector.connect_async(
+    # create SQLAlchemy connection pool
+    engine = sqlalchemy.ext.asyncio.create_async_engine(
+        "postgresql+asyncpg://",
+        async_creator=lambda: connector.connect_async(
             instance_connection_name,
             "asyncpg",
             user=user,
             password=password,
             db=db,
             ip_type="public",  # can also be "private" or "psc"
-        )
-        return conn
-
-    # create SQLAlchemy connection pool
-    engine = sqlalchemy.ext.asyncio.create_async_engine(
-        "postgresql+asyncpg://",
-        async_creator=getconn,
+        ),
         execution_options={"isolation_level": "AUTOCOMMIT"},
     )
     return engine, connector
