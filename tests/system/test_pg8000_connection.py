@@ -20,7 +20,6 @@ import os
 # [START cloud_sql_connector_postgres_pg8000]
 from typing import Union
 
-import pg8000
 import sqlalchemy
 
 from google.cloud.sql.connector import Connector
@@ -77,21 +76,17 @@ def create_sqlalchemy_engine(
     """
     connector = Connector(refresh_strategy=refresh_strategy, resolver=resolver)
 
-    def getconn() -> pg8000.dbapi.Connection:
-        conn: pg8000.dbapi.Connection = connector.connect(
+    # create SQLAlchemy connection pool
+    engine = sqlalchemy.create_engine(
+        "postgresql+pg8000://",
+        creator=lambda: connector.connect(
             instance_connection_name,
             "pg8000",
             user=user,
             password=password,
             db=db,
             ip_type="public",  # can also be "private" or "psc"
-        )
-        return conn
-
-    # create SQLAlchemy connection pool
-    engine = sqlalchemy.create_engine(
-        "postgresql+pg8000://",
-        creator=getconn,
+        ),
     )
     return engine, connector
 
