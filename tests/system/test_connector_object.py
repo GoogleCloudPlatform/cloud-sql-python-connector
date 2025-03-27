@@ -20,7 +20,6 @@ import datetime
 import os
 from threading import Thread
 
-import google.auth
 import pymysql
 import pytest
 import sqlalchemy
