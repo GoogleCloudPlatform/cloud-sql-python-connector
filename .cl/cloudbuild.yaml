@@ -16,9 +16,6 @@ steps:
   - id: run-tests
     name: python:3.10
     entrypoint: nox
-    args:
-      - -s
-      - "system-3.10"
     env:
       - 'MYSQL_CONNECTION_NAME=${_MYSQL_CONNECTION_NAME}'
       - 'MYSQL_USER=${_MYSQL_USER}'
@@ -39,6 +36,9 @@ steps:
       - 'SQLSERVER_USER=${_SQLSERVER_USER}'
       - 'SQLSERVER_PASS=${_SQLSERVER_PASS}'
       - 'SQLSERVER_DB=${_SQLSERVER_DB}'
+    args:
+      - -s
+      - "system-3.10"
 availableSecrets:
   secretManager:
   - versionName: 'projects/$PROJECT_ID/secrets/MYSQL_CONNECTION_NAME/versions/latest'
