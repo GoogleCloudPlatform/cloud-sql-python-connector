@@ -13,6 +13,10 @@
 # limitations under the License.
 
 steps:
+  - id: install-nox
+    name: python:3.10
+    entrypoint: pip
+    args: ["install", "nox"]
   - id: run-tests
     name: python:3.10
     entrypoint: nox
