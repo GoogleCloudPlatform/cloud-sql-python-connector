@@ -19,6 +19,7 @@ steps:
     args:
       - "-c"
       - |
+        pip install nox
         nox -s unit-3.10
   - id: run integration tests
     name: python:3.10
@@ -29,6 +30,7 @@ steps:
     args:
       - "-c"
       - |
+        pip install nox
         nox -s system-3.10
 availableSecrets:
   secretManager:
