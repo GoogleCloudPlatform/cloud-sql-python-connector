@@ -75,7 +75,9 @@ def create_sqlalchemy_engine(
             user=user,
             password=password,
             db=db,
-            ip_type="public",  # can also be "private" or "psc"
+            ip_type=os.environ.get(
+                "IP_TYPE", "public"
+            ),  # can be "public","private" or "psc"
         ),
     )
     return engine, connector

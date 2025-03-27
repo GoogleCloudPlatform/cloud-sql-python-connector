@@ -70,7 +70,9 @@ def create_sqlalchemy_engine(
             "pg8000",
             user=user,
             db=db,
-            ip_type="public",  # can also be "private" or "psc"
+            ip_type=os.environ.get(
+                "IP_TYPE", "public"
+            ),  # can be "public","private" or "psc"
             enable_iam_auth=True,
         ),
     )
