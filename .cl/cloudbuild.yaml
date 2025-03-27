@@ -13,7 +13,14 @@
 # limitations under the License.
 
 steps:
-  - id: run-tests
+  - id: run unit tests
+    name: python:3.10
+    entrypoint: bash
+    args:
+      - "-c"
+      - |
+        nox -s unit-3.10
+  - id: run integration tests
     name: python:3.10
     entrypoint: bash
     env: 
@@ -22,7 +29,6 @@ steps:
     args:
       - "-c"
       - |
-        pip install nox
         nox -s system-3.10
 availableSecrets:
   secretManager:
