@@ -44,8 +44,11 @@ def _seconds_until_refresh(
     Usually the duration will be half of the time until certificate
     expiration.
 
-    :rtype: int
-    :returns: Time in seconds to wait before performing next refresh.
+    Args:
+        expiration (datetime.datetime): The expiration time of the certificate.
+    
+    Returns:
+        int: Time in seconds to wait before performing next refresh.
     """
 
     duration = int(
@@ -81,16 +84,12 @@ def _downscope_credentials(
 ) -> Credentials:
     """Generate a down-scoped credential.
 
-    :type credentials: google.auth.credentials.Credentials
-    :param credentials
-        Credentials object used to generate down-scoped credentials.
-
-    :type scopes: list[str]
-    :param scopes
-        List of Google scopes to include in down-scoped credentials object.
-
-    :rtype: google.auth.credentials.Credentials
-    :returns: Down-scoped credentials object.
+    Args:
+        credentials (google.auth.credentials.Credentials): Credentials object used to generate down-scoped credentials.
+        scopes (list[str]): List of Google scopes to include in down-scoped credentials object.
+    
+    Returns:
+        google.auth.credentials.Credentials: Down-scoped credentials object.
     """
     # credentials sourced from a service account or metadata are children of
     # Scoped class and are capable of being re-scoped
