@@ -225,6 +225,7 @@ class FakeCSQLInstance:
             "PRIMARY": "127.0.0.1",
             "PRIVATE": "10.0.0.1",
         },
+        legacy_dns_name: bool = False,
         cert_before: datetime = datetime.datetime.now(datetime.timezone.utc),
         cert_expiration: datetime = datetime.datetime.now(datetime.timezone.utc)
         + datetime.timedelta(hours=1),
@@ -237,6 +238,7 @@ class FakeCSQLInstance:
         self.psc_enabled = False
         self.cert_before = cert_before
         self.cert_expiration = cert_expiration
+        self.legacy_dns_name = legacy_dns_name
         # create self signed CA cert
         self.server_ca, self.server_key = generate_cert(
             self.project, self.name, cert_before, cert_expiration
@@ -255,12 +257,22 @@ class FakeCSQLInstance:
                 "instance": self.name,
                 "expirationTime": str(self.cert_expiration),
             },
-            "dnsName": "abcde.12345.us-central1.sql.goog",
             "pscEnabled": self.psc_enabled,
             "ipAddresses": ip_addrs,
             "region": self.region,
             "databaseVersion": self.db_version,
         }
+        if self.legacy_dns_name:
+            response["dnsName"] = "abcde.12345.us-central1.sql.goog"
+        else:
+            response["dnsNames"] = [
+                {
+                    "name": "abcde.12345.us-central1.sql.goog",
+                    "connectionType": "PRIVATE_SERVICE_CONNECT",
+                    "dnsScope": "INSTANCE",
+                }
+            ]
+
         return web.Response(content_type="application/json", body=json.dumps(response))
 
     async def generate_ephemeral(self, request: Any) -> web.Response:

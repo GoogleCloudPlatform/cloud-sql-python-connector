@@ -15,27 +15,24 @@ limitations under the License.
 """
 
 import platform
-import socket
 import ssl
 from typing import Any, TYPE_CHECKING
 
 from google.cloud.sql.connector.exceptions import PlatformNotSupportedError
 
-SERVER_PROXY_PORT = 3307
-
 if TYPE_CHECKING:
     import pytds
 
 
-def connect(ip_address: str, ctx: ssl.SSLContext, **kwargs: Any) -> "pytds.Connection":
+def connect(ip_address: str, sock: ssl.SSLSocket, **kwargs: Any) -> "pytds.Connection":
     """Helper function to create a pytds DB-API connection object.
 
     :type ip_address: str
     :param ip_address: A string containing an IP address for the Cloud SQL
         instance.
 
-    :type ctx: ssl.SSLContext
-    :param ctx: An SSLContext object created from the Cloud SQL server CA
+    :type sock: ssl.SSLSocket
+    :param sock: An SSLSocket object created from the Cloud SQL server CA
         cert and ephemeral cert.
 
 
@@ -51,11 +48,6 @@ def connect(ip_address: str, ctx: ssl.SSLContext, **kwargs: Any) -> "pytds.Conne
 
     db = kwargs.pop("db", None)
 
-    # Create socket and wrap with context.
-    sock = ctx.wrap_socket(
-        socket.create_connection((ip_address, SERVER_PROXY_PORT)),
-        server_hostname=ip_address,
-    )
     if kwargs.pop("active_directory_auth", False):
         if platform.system() == "Windows":
             # Ignore username and password if using active directory auth

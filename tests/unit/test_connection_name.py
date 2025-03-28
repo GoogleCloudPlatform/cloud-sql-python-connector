@@ -17,6 +17,7 @@ import pytest  # noqa F401 Needed to run the tests
 from google.cloud.sql.connector.connection_name import (
     _parse_connection_name_with_domain_name,
 )
+from google.cloud.sql.connector.connection_name import _is_valid_domain
 from google.cloud.sql.connector.connection_name import _parse_connection_name
 from google.cloud.sql.connector.connection_name import ConnectionName
 
@@ -30,6 +31,8 @@ def test_ConnectionName() -> None:
     assert conn_name.domain_name == ""
     # test ConnectionName str() method prints instance connection name
     assert str(conn_name) == "project:region:instance"
+    # test ConnectionName.get_connection_string
+    assert conn_name.get_connection_string() == "project:region:instance"
 
 
 def test_ConnectionName_with_domain_name() -> None:
@@ -41,6 +44,8 @@ def test_ConnectionName_with_domain_name() -> None:
     assert conn_name.domain_name == "db.example.com"
     # test ConnectionName str() method prints with domain name
     assert str(conn_name) == "db.example.com -> project:region:instance"
+    # test ConnectionName.get_connection_string
+    assert conn_name.get_connection_string() == "project:region:instance"
 
 
 @pytest.mark.parametrize(
@@ -96,3 +101,40 @@ def test_parse_connection_name_with_domain_name(
     assert expected == _parse_connection_name_with_domain_name(
         connection_name, domain_name
     )
+
+
+@pytest.mark.parametrize(
+    "domain_name, expected",
+    [
+        (
+            "prod-db.mycompany.example.com",
+            True,
+        ),
+        (
+            "example.com.",  # trailing dot
+            True,
+        ),
+        (
+            "-example.com.",  # leading hyphen
+            False,
+        ),
+        (
+            "example",  # missing TLD
+            False,
+        ),
+        (
+            "127.0.0.1",  # IPv4 address
+            False,
+        ),
+        (
+            "0:0:0:0:0:0:0:1",  # IPv6 address
+            False,
+        ),
+    ],
+)
+def test_is_valid_domain(domain_name: str, expected: bool) -> None:
+    """
+    Test that _is_valid_domain works correctly for
+    parsing domain names.
+    """
+    assert expected == _is_valid_domain(domain_name)

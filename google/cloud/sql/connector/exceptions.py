@@ -77,3 +77,10 @@ class DnsResolutionError(Exception):
     Exception to be raised when an instance connection name can not be resolved
     from a DNS record.
     """
+
+
+class CacheClosedError(Exception):
+    """
+    Exception to be raised when a ConnectionInfoCache can not be accessed after
+    it is closed.
+    """

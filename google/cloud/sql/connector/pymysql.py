@@ -14,18 +14,15 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-import socket
 import ssl
 from typing import Any, TYPE_CHECKING
-
-SERVER_PROXY_PORT = 3307
 
 if TYPE_CHECKING:
     import pymysql
 
 
 def connect(
-    ip_address: str, ctx: ssl.SSLContext, **kwargs: Any
+    ip_address: str, sock: ssl.SSLSocket, **kwargs: Any
 ) -> "pymysql.connections.Connection":
     """Helper function to create a pymysql DB-API connection object.
 
@@ -33,8 +30,8 @@ def connect(
     :param ip_address: A string containing an IP address for the Cloud SQL
         instance.
 
-    :type ctx: ssl.SSLContext
-    :param ctx: An SSLContext object created from the Cloud SQL server CA
+    :type sock: ssl.SSLSocket
+    :param sock: An SSLSocket object created from the Cloud SQL server CA
         cert and ephemeral cert.
 
     :rtype: pymysql.Connection
@@ -50,11 +47,6 @@ def connect(
     # allow automatic IAM database authentication to not require password
     kwargs["password"] = kwargs["password"] if "password" in kwargs else None
 
-    # Create socket and wrap with context.
-    sock = ctx.wrap_socket(
-        socket.create_connection((ip_address, SERVER_PROXY_PORT)),
-        server_hostname=ip_address,
-    )
     # pop timeout as timeout arg is called 'connect_timeout' for pymysql
     timeout = kwargs.pop("timeout")
     kwargs["connect_timeout"] = kwargs.get("connect_timeout", timeout)

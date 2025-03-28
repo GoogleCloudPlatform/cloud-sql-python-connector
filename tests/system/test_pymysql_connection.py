@@ -1,4 +1,4 @@
-""""
+"""
 Copyright 2021 Google LLC
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -18,7 +18,6 @@ from datetime import datetime
 import os
 
 # [START cloud_sql_connector_mysql_pymysql]
-import pymysql
 import sqlalchemy
 
 from google.cloud.sql.connector import Connector
@@ -67,21 +66,19 @@ def create_sqlalchemy_engine(
     """
     connector = Connector(refresh_strategy=refresh_strategy)
 
-    def getconn() -> pymysql.Connection:
-        conn: pymysql.Connection = connector.connect(
+    # create SQLAlchemy connection pool
+    engine = sqlalchemy.create_engine(
+        "mysql+pymysql://",
+        creator=lambda: connector.connect(
             instance_connection_name,
             "pymysql",
             user=user,
             password=password,
             db=db,
-            ip_type="public",  # can also be "private" or "psc"
-        )
-        return conn
-
-    # create SQLAlchemy connection pool
-    engine = sqlalchemy.create_engine(
-        "mysql+pymysql://",
-        creator=getconn,
+            ip_type=os.environ.get(
+                "IP_TYPE", "public"
+            ),  # can be "public","private" or "psc"
+        ),
     )
     return engine, connector
 

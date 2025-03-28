@@ -21,13 +21,14 @@ from typing import Optional
 
 from google.cloud.sql.connector.client import CloudSQLClient
 from google.cloud.sql.connector.connection_info import ConnectionInfo
+from google.cloud.sql.connector.connection_info import ConnectionInfoCache
 from google.cloud.sql.connector.connection_name import ConnectionName
 from google.cloud.sql.connector.refresh_utils import _refresh_buffer
 
 logger = logging.getLogger(name=__name__)
 
 
-class LazyRefreshCache:
+class LazyRefreshCache(ConnectionInfoCache):
     """Cache that refreshes connection info when a caller requests a connection.
 
     Only refreshes the cache when a new connection is requested and the current
@@ -62,6 +63,15 @@ class LazyRefreshCache:
         self._lock = asyncio.Lock()
         self._cached: Optional[ConnectionInfo] = None
         self._needs_refresh = False
+        self._closed = False
+
+    @property
+    def conn_name(self) -> ConnectionName:
+        return self._conn_name
+
+    @property
+    def closed(self) -> bool:
+        return self._closed
 
     async def force_refresh(self) -> None:
         """
@@ -121,4 +131,5 @@ class LazyRefreshCache:
         """Close is a no-op and provided purely for a consistent interface with
         other cache types.
         """
-        pass
+        self._closed = True
+        return
