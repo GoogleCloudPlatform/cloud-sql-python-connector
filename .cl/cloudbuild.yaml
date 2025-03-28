@@ -24,6 +24,7 @@ steps:
       - |
         pip install nox
         nox -s system-3.13
+    waitFor: ["-"]
   - id: run integration tests 3.9
     name: python:3.9
     entrypoint: bash
@@ -35,6 +36,7 @@ steps:
       - |
         pip install nox
         nox -s system-3.9
+    waitFor: ["-"]
 availableSecrets:
   secretManager:
   - versionName: 'projects/$PROJECT_ID/secrets/MYSQL_CONNECTION_NAME/versions/latest'
