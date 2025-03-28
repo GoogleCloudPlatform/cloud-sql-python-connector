@@ -66,7 +66,7 @@ availableSecrets:
   - versionName: 'projects/$PROJECT_ID/secrets/SQLSERVER_DB/versions/latest'
     env: 'SQLSERVER_DB'
 substitutions:
-  _VERSION: {3.13,3.9}
+  _VERSION: {"3.13","3.9"}
 options:
   dynamicSubstitutions: true
   pool:
