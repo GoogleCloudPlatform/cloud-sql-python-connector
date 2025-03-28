@@ -14,7 +14,7 @@
 
 steps:
   - id: run integration tests ${_EARLIEST_PYTHON_VERSION}
-    name: python:${_EARLIES_PYTHON_VERSION}
+    name: python:${_EARLIEST_PYTHON_VERSION}
     entrypoint: bash
     env: 
       - "IP_TYPE=private"
