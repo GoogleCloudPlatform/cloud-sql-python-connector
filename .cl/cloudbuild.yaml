@@ -13,8 +13,8 @@
 # limitations under the License.
 
 steps:
-  - id: run integration tests {_VERSION}
-    name: python:{_VERSION}
+  - id: run integration tests ${_VERSION}
+    name: python:${_VERSION}
     entrypoint: bash
     env: 
       - "IP_TYPE=private"
@@ -23,7 +23,7 @@ steps:
       - "-c"
       - |
         pip install nox
-        nox -s system-{_VERSION}
+        nox -s system-${_VERSION}
     waitFor: ["-"]
 availableSecrets:
   secretManager:
