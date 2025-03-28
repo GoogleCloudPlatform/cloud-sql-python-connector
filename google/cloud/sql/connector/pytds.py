@@ -27,17 +27,18 @@ if TYPE_CHECKING:
 def connect(ip_address: str, sock: ssl.SSLSocket, **kwargs: Any) -> "pytds.Connection":
     """Helper function to create a pytds DB-API connection object.
 
-    :type ip_address: str
-    :param ip_address: A string containing an IP address for the Cloud SQL
-        instance.
-
-    :type sock: ssl.SSLSocket
-    :param sock: An SSLSocket object created from the Cloud SQL server CA
-        cert and ephemeral cert.
-
-
-    :rtype: pytds.Connection
-    :returns: A pytds Connection object for the Cloud SQL instance.
+    Args:
+        ip_address (str): A string containing an IP address for the Cloud SQL
+            instance.
+        sock (ssl.SSLSocket): An SSLSocket object created from the Cloud SQL
+            server CA cert and ephemeral cert.
+    
+    Returns:
+        pytds.Connection: A pytds Connection object for the Cloud SQL
+            instance.
+    
+    Raises:
+        ImportError: The pytds module cannot be imported.
     """
     try:
         import pytds

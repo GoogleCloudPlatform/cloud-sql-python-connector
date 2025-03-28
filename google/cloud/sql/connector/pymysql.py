@@ -26,16 +26,18 @@ def connect(
 ) -> "pymysql.connections.Connection":
     """Helper function to create a pymysql DB-API connection object.
 
-    :type ip_address: str
-    :param ip_address: A string containing an IP address for the Cloud SQL
-        instance.
+    Args:
+        ip_address (str): A string containing an IP address for the Cloud SQL
+            instance.
+        sock (ssl.SSLSocket): An SSLSocket object created from the Cloud SQL
+            server CA cert and ephemeral cert.
 
-    :type sock: ssl.SSLSocket
-    :param sock: An SSLSocket object created from the Cloud SQL server CA
-        cert and ephemeral cert.
-
-    :rtype: pymysql.Connection
-    :returns: A PyMySQL Connection object for the Cloud SQL instance.
+    Returns:
+        pymysql.connections.Connection: A pymysql Connection object for the Cloud SQL
+            instance.
+    
+    Raises:
+        ImportError: The pymysql module cannot be imported.
     """
     try:
         import pymysql

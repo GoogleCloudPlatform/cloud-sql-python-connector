@@ -26,17 +26,19 @@ def connect(
 ) -> "pg8000.dbapi.Connection":
     """Helper function to create a pg8000 DB-API connection object.
 
-    :type ip_address: str
-    :param ip_address: A string containing an IP address for the Cloud SQL
-        instance.
-
-    :type sock: ssl.SSLSocket
-    :param sock: An SSLSocket object created from the Cloud SQL server CA
-        cert and ephemeral cert.
-
-
-    :rtype: pg8000.dbapi.Connection
-    :returns: A pg8000 Connection object for the Cloud SQL instance.
+    Args:
+        ip_address (str): A string containing an IP address for the Cloud SQL
+            instance.
+        sock (ssl.SSLSocket): An SSLSocket object created from the Cloud SQL
+            server CA cert and ephemeral cert.
+        kwargs: Additional arguments to pass to the pg8000 connect method.
+        
+    Returns:
+        pg8000.dbapi.Connection: A pg8000 Connection object for the Cloud SQL
+            instance.
+        
+    Raises:
+        ImportError: The pg8000 module cannot be imported.
     """
     try:
         import pg8000
