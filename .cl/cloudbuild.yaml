@@ -13,7 +13,7 @@
 # limitations under the License.
 
 steps:
-  - id: run integration tests
+  - id: run integration tests 3.13
     name: python:3.13
     entrypoint: bash
     env: 
@@ -24,7 +24,7 @@ steps:
       - |
         pip install nox
         nox -s system-3.13
-  - id: run integration tests
+  - id: run integration tests 3.9
     name: python:3.9
     entrypoint: bash
     env: 
