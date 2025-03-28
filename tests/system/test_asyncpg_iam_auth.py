@@ -19,6 +19,7 @@ import os
 
 import sqlalchemy
 import sqlalchemy.ext.asyncio
+import logging
 
 from google.cloud.sql.connector import Connector
 
@@ -109,3 +110,7 @@ async def test_lazy_iam_authn_connection_with_asyncpg() -> None:
         assert res[0] == 1
 
     await connector.close_async()
+
+logging.basicConfig(format="%(asctime)s [%(levelname)s]: %(message)s")
+logger = logging.getLogger(name="google.cloud.sql.connector")
+logger.setLevel(logging.DEBUG)

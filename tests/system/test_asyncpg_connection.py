@@ -147,9 +147,7 @@ async def create_asyncpg_pool(
             user=user,
             password=password,
             db=db,
-            ip_type=os.environ.get(
-                "IP_TYPE", "public"
-            ),  # can also be "private" or "psc",
+            ip_type="private",  # can also be "private" or "psc",
             **kwargs,
         )
         return conn
