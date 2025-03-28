@@ -32,7 +32,8 @@ async def connect(
         ip_address (str): A string containing an IP address for the Cloud SQL
             instance.
         ctx (ssl.SSLContext): An SSLContext object created from the Cloud SQL
-        kwargs: Additional arguments to pass to the asyncpg connect method.
+        kwargs: Keyword arguments for establishing asyncpg connection
+            object to Cloud SQL instance.
     
     Returns:
         asyncpg.Connection: A asyncpg Connection object for the Cloud SQL
