@@ -71,7 +71,9 @@ async def create_sqlalchemy_engine(
             "asyncpg",
             user=user,
             db=db,
-            ip_type="public",  # can also be "private" or "psc"
+            ip_type=os.environ.get(
+                "IP_TYPE", "public"
+            ),  # can also be "private" or "psc"
             enable_iam_auth=True,
         ),
         execution_options={"isolation_level": "AUTOCOMMIT"},
