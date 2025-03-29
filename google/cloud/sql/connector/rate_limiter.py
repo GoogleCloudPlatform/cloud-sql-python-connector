@@ -24,8 +24,8 @@ class AsyncRateLimiter(object):
     of function calls over a time interval using an event queue.
 
     Args:
-        max_capacity (int): The maximum capacity of tokens the bucket will store at any one time.
-            Default: 1
+        max_capacity (int): The maximum capacity of tokens the bucket 
+            will store at any one time. Default: 1
         rate (float): The number of tokens that should be added per second.
         loop (asyncio.AbstractEventLoop): The event loop to use. 
             If not provided, the default event loop will be used.

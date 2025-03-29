@@ -34,7 +34,7 @@ def connect(
         kwargs: Additional arguments to pass to the pg8000 connect method.
         
     Returns:
-        pg8000.dbapi.Connection: A pg8000 Connection object for the Cloud SQL
+        pg8000.dbapi.Connection: A pg8000 connection to the Cloud SQL
             instance.
         
     Raises:

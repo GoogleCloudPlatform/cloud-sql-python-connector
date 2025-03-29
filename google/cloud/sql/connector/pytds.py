@@ -34,7 +34,7 @@ def connect(ip_address: str, sock: ssl.SSLSocket, **kwargs: Any) -> "pytds.Conne
             server CA cert and ephemeral cert.
     
     Returns:
-        pytds.Connection: A pytds Connection object for the Cloud SQL
+        pytds.Connection: A pytds connection to the Cloud SQL
             instance.
     
     Raises:

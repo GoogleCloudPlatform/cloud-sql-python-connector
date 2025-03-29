@@ -194,8 +194,9 @@ class CloudSQLClient:
                  authentication for Postgres or MySQL instances.
 
         Returns:
-            An ephemeral certificate from the Cloud SQL instance that allows
-            authorized connections to the instance.
+            A tuple containing an ephemeral certificate from 
+            the Cloud SQL instance as well as a datetime object 
+            representing the expiration time of the certificate.
         """
         headers = {
             "Authorization": f"Bearer {self._credentials.token}",

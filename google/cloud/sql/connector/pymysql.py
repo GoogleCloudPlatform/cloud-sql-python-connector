@@ -33,7 +33,7 @@ def connect(
             server CA cert and ephemeral cert.
 
     Returns:
-        pymysql.connections.Connection: A pymysql Connection object for the Cloud SQL
+        pymysql.connections.Connection: A pymysql connection to the Cloud SQL
             instance.
     
     Raises:

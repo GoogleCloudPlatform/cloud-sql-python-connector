@@ -85,8 +85,10 @@ def _downscope_credentials(
     """Generate a down-scoped credential.
 
     Args:
-        credentials (google.auth.credentials.Credentials): Credentials object used to generate down-scoped credentials.
-        scopes (list[str]): List of Google scopes to include in down-scoped credentials object.
+        credentials (google.auth.credentials.Credentials): 
+            Credentials object used to generate down-scoped credentials.
+        scopes (list[str]): List of Google scopes to 
+            include in down-scoped credentials object.
     
     Returns:
         google.auth.credentials.Credentials: Down-scoped credentials object.
