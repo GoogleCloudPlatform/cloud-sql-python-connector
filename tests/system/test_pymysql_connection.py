@@ -28,7 +28,7 @@ def create_sqlalchemy_engine(
     user: str,
     password: str,
     db: str,
-    ip_type: str,
+    ip_type: str = "public",
     refresh_strategy: str = "background",
 ) -> tuple[sqlalchemy.engine.Engine, Connector]:
     """Creates a connection pool for a Cloud SQL instance and returns the pool
@@ -61,7 +61,7 @@ def create_sqlalchemy_engine(
         db (str):
             The name of the database, e.g., mydb
         ip_type (str):
-            The IP type of the Cloud SQL instance.
+            The IP type of the Cloud SQL instance. Can be one of "public", "private", or "psc".
         refresh_strategy (Optional[str]):
             Refresh strategy for the Cloud SQL Connector. Can be one of "lazy"
             or "background". For serverless environments use "lazy" to avoid
@@ -78,7 +78,7 @@ def create_sqlalchemy_engine(
             user=user,
             password=password,
             db=db,
-            ip_type=ip_type,
+            ip_type=ip_type,  # can be "public", "private" or "psc"
         ),
     )
     return engine, connector
@@ -93,7 +93,7 @@ def test_pymysql_connection() -> None:
     user = os.environ["MYSQL_USER"]
     password = os.environ["MYSQL_PASS"]
     db = os.environ["MYSQL_DB"]
-    ip_type = os.environ.get("IP_TYPE", "public")  # can be "public", "private" or "psc"
+    ip_type = os.environ.get("IP_TYPE", "public")
 
     engine, connector = create_sqlalchemy_engine(
         inst_conn_name, user, password, db, ip_type
@@ -112,7 +112,7 @@ def test_lazy_pymysql_connection() -> None:
     user = os.environ["MYSQL_USER"]
     password = os.environ["MYSQL_PASS"]
     db = os.environ["MYSQL_DB"]
-    ip_type = os.environ.get("IP_TYPE", "public")  # can be "public", "private" or "psc"
+    ip_type = os.environ.get("IP_TYPE", "public")
 
     engine, connector = create_sqlalchemy_engine(
         inst_conn_name, user, password, db, ip_type, "lazy"

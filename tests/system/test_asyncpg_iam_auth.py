@@ -27,7 +27,7 @@ async def create_sqlalchemy_engine(
     instance_connection_name: str,
     user: str,
     db: str,
-    ip_type: str,
+    ip_type: str = "public",
     refresh_strategy: str = "background",
 ) -> tuple[sqlalchemy.ext.asyncio.engine.AsyncEngine, Connector]:
     """Creates a connection pool for a Cloud SQL instance and returns the pool
@@ -57,7 +57,7 @@ async def create_sqlalchemy_engine(
         db (str):
             The name of the database, e.g., mydb
         ip_type (str):
-            The IP type of the Cloud SQL instance.
+            The IP type of the Cloud SQL instance. Can be one of "public", "private", or "psc".
         refresh_strategy (Optional[str]):
             Refresh strategy for the Cloud SQL Connector. Can be one of "lazy"
             or "background". For serverless environments use "lazy" to avoid
@@ -74,7 +74,7 @@ async def create_sqlalchemy_engine(
             "asyncpg",
             user=user,
             db=db,
-            ip_type=ip_type,
+            ip_type=ip_type,  # can be "public", "private" or "psc"
             enable_iam_auth=True,
         ),
         execution_options={"isolation_level": "AUTOCOMMIT"},
@@ -87,7 +87,7 @@ async def test_iam_authn_connection_with_asyncpg() -> None:
     inst_conn_name = os.environ["POSTGRES_CONNECTION_NAME"]
     user = os.environ["POSTGRES_IAM_USER"]
     db = os.environ["POSTGRES_DB"]
-    ip_type = os.environ.get("IP_TYPE", "public")  # can be "public", "private" or "psc"
+    ip_type = os.environ.get("IP_TYPE", "public")
 
     pool, connector = await create_sqlalchemy_engine(inst_conn_name, user, db, ip_type)
 
@@ -103,7 +103,7 @@ async def test_lazy_iam_authn_connection_with_asyncpg() -> None:
     inst_conn_name = os.environ["POSTGRES_CONNECTION_NAME"]
     user = os.environ["POSTGRES_IAM_USER"]
     db = os.environ["POSTGRES_DB"]
-    ip_type = os.environ.get("IP_TYPE", "public")  # can be "public", "private" or "psc"
+    ip_type = os.environ.get("IP_TYPE", "public")
 
     pool, connector = await create_sqlalchemy_engine(
         inst_conn_name, user, db, ip_type, "lazy"
