@@ -27,6 +27,7 @@ def create_sqlalchemy_engine(
     user: str,
     password: str,
     db: str,
+    ip_type: str,
     refresh_strategy: str = "background",
 ) -> tuple[sqlalchemy.engine.Engine, Connector]:
     """Creates a connection pool for a Cloud SQL instance and returns the pool
@@ -57,6 +58,8 @@ def create_sqlalchemy_engine(
             The database user's password, e.g., secret-password
         db (str):
             The name of the database, e.g., mydb
+        ip_type (str):
+            The IP type of the Cloud SQL instance.
         refresh_strategy (Optional[str]):
             Refresh strategy for the Cloud SQL Connector. Can be one of "lazy"
             or "background". For serverless environments use "lazy" to avoid
@@ -73,9 +76,7 @@ def create_sqlalchemy_engine(
             user=user,
             password=password,
             db=db,
-            ip_type=os.environ.get(
-                "IP_TYPE", "public"
-            ),  # can also be "private" or "psc"
+            ip_type=ip_type,  # can also be "private" or "psc"
         ),
     )
     return engine, connector
@@ -90,8 +91,9 @@ def test_pytds_connection() -> None:
     user = os.environ["SQLSERVER_USER"]
     password = os.environ["SQLSERVER_PASS"]
     db = os.environ["SQLSERVER_DB"]
+    ip_type = os.environ.get("IP_TYPE", "public") # can be "public", "private" or "psc"
 
-    engine, connector = create_sqlalchemy_engine(inst_conn_name, user, password, db)
+    engine, connector = create_sqlalchemy_engine(inst_conn_name, user, password, db, ip_type)
     with engine.connect() as conn:
         res = conn.execute(sqlalchemy.text("SELECT 1")).fetchone()
         conn.commit()
@@ -105,9 +107,10 @@ def test_lazy_pytds_connection() -> None:
     user = os.environ["SQLSERVER_USER"]
     password = os.environ["SQLSERVER_PASS"]
     db = os.environ["SQLSERVER_DB"]
+    ip_type = os.environ.get("IP_TYPE", "public") # can be "public", "private" or "psc"
 
     engine, connector = create_sqlalchemy_engine(
-        inst_conn_name, user, password, db, "lazy"
+        inst_conn_name, user, password, db, ip_type, "lazy"
     )
     with engine.connect() as conn:
         res = conn.execute(sqlalchemy.text("SELECT 1")).fetchone()
