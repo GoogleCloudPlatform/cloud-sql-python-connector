@@ -32,11 +32,11 @@ def connect(ip_address: str, sock: ssl.SSLSocket, **kwargs: Any) -> "pytds.Conne
             instance.
         sock (ssl.SSLSocket): An SSLSocket object created from the Cloud SQL
             server CA cert and ephemeral cert.
-    
+
     Returns:
         pytds.Connection: A pytds connection to the Cloud SQL
             instance.
-    
+
     Raises:
         ImportError: The pytds module cannot be imported.
     """

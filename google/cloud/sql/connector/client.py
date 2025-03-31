@@ -100,7 +100,7 @@ class CloudSQLClient:
         instance: str,
     ) -> dict[str, Any]:
         """Requests metadata from the Cloud SQL Instance and returns a dictionary
-        containing the IP addresses and certificate authority of the Cloud SQL 
+        containing the IP addresses and certificate authority of the Cloud SQL
         Instance.
 
         Args:
@@ -109,7 +109,7 @@ class CloudSQLClient:
             instance (str): A string representing the name of the instance.
 
         Returns:
-            A dictionary containing a dictionary of all IP addresses 
+            A dictionary containing a dictionary of all IP addresses
             and their type and a string representing the certificate authority.
 
         Raises:
@@ -194,8 +194,8 @@ class CloudSQLClient:
                  authentication for Postgres or MySQL instances.
 
         Returns:
-            A tuple containing an ephemeral certificate from 
-            the Cloud SQL instance as well as a datetime object 
+            A tuple containing an ephemeral certificate from
+            the Cloud SQL instance as well as a datetime object
             representing the expiration time of the certificate.
         """
         headers = {

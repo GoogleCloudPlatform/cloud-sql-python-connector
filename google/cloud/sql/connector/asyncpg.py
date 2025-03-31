@@ -36,7 +36,7 @@ async def connect(
             server CA cert and ephemeral cert.
         kwargs: Keyword arguments for establishing asyncpg connection
             object to Cloud SQL instance.
-    
+
     Returns:
         asyncpg.Connection: An asyncpg connection to the Cloud SQL
             instance.

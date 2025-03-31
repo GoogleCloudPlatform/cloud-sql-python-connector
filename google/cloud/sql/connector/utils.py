@@ -84,7 +84,7 @@ def format_database_user(database_version: str, user: str) -> str:
     Args:
         database_version (str): Cloud SQL database version.
         user (str): Database username to connect to Cloud SQL database with.
-    
+
     Returns:
         str: Formatted database username.
     """

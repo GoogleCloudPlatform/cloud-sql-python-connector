@@ -46,7 +46,7 @@ def _seconds_until_refresh(
 
     Args:
         expiration (datetime.datetime): The expiration time of the certificate.
-    
+
     Returns:
         int: Time in seconds to wait before performing next refresh.
     """
@@ -85,11 +85,11 @@ def _downscope_credentials(
     """Generate a down-scoped credential.
 
     Args:
-        credentials (google.auth.credentials.Credentials): 
+        credentials (google.auth.credentials.Credentials):
             Credentials object used to generate down-scoped credentials.
-        scopes (list[str]): List of Google scopes to 
+        scopes (list[str]): List of Google scopes to
             include in down-scoped credentials object.
-    
+
     Returns:
         google.auth.credentials.Credentials: Down-scoped credentials object.
     """

@@ -35,7 +35,7 @@ def connect(
     Returns:
         pymysql.connections.Connection: A pymysql connection to the Cloud SQL
             instance.
-    
+
     Raises:
         ImportError: The pymysql module cannot be imported.
     """
