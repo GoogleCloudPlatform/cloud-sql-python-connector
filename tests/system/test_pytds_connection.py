@@ -59,7 +59,8 @@ def create_sqlalchemy_engine(
         db (str):
             The name of the database, e.g., mydb
         ip_type (str):
-            The IP type of the Cloud SQL instance. Can be one of "public", "private", or "psc".
+            The IP type of the Cloud SQL instance to connect to. Can be one
+            of "public", "private", or "psc".
         refresh_strategy (Optional[str]):
             Refresh strategy for the Cloud SQL Connector. Can be one of "lazy"
             or "background". For serverless environments use "lazy" to avoid
