@@ -19,24 +19,16 @@ from typing import Optional
 
 
 class AsyncRateLimiter(object):
-    """
-    An asyncio-compatible rate limiter which uses the Token Bucket algorithm
-    (https://en.wikipedia.org/wiki/Token_bucket) to limit the number of function calls over a time interval using an event queue.
+    """An asyncio-compatible rate limiter which uses the Token Bucket algorithm
+    (https://en.wikipedia.org/wiki/Token_bucket) to limit the number
+    of function calls over a time interval using an event queue.
 
-    :type max_capacity: int
-    :param: max_capacity:
-        The maximum capacity of tokens the bucket will store at any one time.
-        Default: 1
-
-    :type rate: float
-    :param: rate:
-        The number of tokens that should be added per second.
-
-    :type loop: asyncio.AbstractEventLoop
-    :param: loop:
-        The event loop to use. If not provided, the default event loop will be used.
-
-
+    Args:
+        max_capacity (int): The maximum capacity of tokens the bucket
+            will store at any one time. Default: 1
+        rate (float): The number of tokens that should be added per second.
+        loop (asyncio.AbstractEventLoop): The event loop to use.
+            If not provided, the default event loop will be used.
     """
 
     def __init__(

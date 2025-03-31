@@ -28,21 +28,22 @@ async def connect(
 ) -> "asyncpg.Connection":
     """Helper function to create an asyncpg DB-API connection object.
 
-    :type ip_address: str
-    :param ip_address: A string containing an IP address for the Cloud SQL
-        instance.
+    Args:
+        ip_address (str): A string containing an IP address for the Cloud SQL
+            instance.
+        ctx (ssl.SSLContext): An SSLContext object created from the Cloud SQL
+            server CA cert and ephemeral cert.
+            server CA cert and ephemeral cert.
+        kwargs: Keyword arguments for establishing asyncpg connection
+            object to Cloud SQL instance.
 
-    :type ctx: ssl.SSLContext
-    :param ctx: An SSLContext object created from the Cloud SQL server CA
-        cert and ephemeral cert.
-
-    :type kwargs: Any
-    :param kwargs: Keyword arguments for establishing asyncpg connection
-        object to Cloud SQL instance.
-
-    :rtype: asyncpg.Connection
-    :returns: An asyncpg.Connection object to a Cloud SQL instance.
+    Returns:
+        asyncpg.Connection: An asyncpg connection to the Cloud SQL
+            instance.
+    Raises:
+        ImportError: The asyncpg module cannot be imported.
     """
+
     try:
         import asyncpg
     except ImportError:

@@ -59,8 +59,7 @@ class CloudSQLClient:
         driver: Optional[str] = None,
         user_agent: Optional[str] = None,
     ) -> None:
-        """
-        Establish the client to be used for Cloud SQL Admin API requests.
+        """Establishes the client to be used for Cloud SQL Admin API requests.
 
         Args:
             sqladmin_api_endpoint (str): Base URL to use when calling
@@ -100,24 +99,22 @@ class CloudSQLClient:
         region: str,
         instance: str,
     ) -> dict[str, Any]:
-        """Requests metadata from the Cloud SQL Instance
-        and returns a dictionary containing the IP addresses and certificate
-        authority of the Cloud SQL Instance.
+        """Requests metadata from the Cloud SQL Instance and returns a dictionary
+        containing the IP addresses and certificate authority of the Cloud SQL
+        Instance.
 
-        :type project: str
-        :param project:
-            A string representing the name of the project.
+        Args:
+            project (str): A string representing the name of the project.
+            region (str): A string representing the name of the region.
+            instance (str): A string representing the name of the instance.
 
-        :type region: str
-        :param region : A string representing the name of the region.
+        Returns:
+            A dictionary containing a dictionary of all IP addresses
+            and their type and a string representing the certificate authority.
 
-        :type instance: str
-        :param instance: A string representing the name of the instance.
-
-        :rtype: dict[str: Union[dict, str]]
-        :returns: Returns a dictionary containing a dictionary of all IP
-            addresses and their type and a string representing the
-            certificate authority.
+        Raises:
+            ValueError: Provided region does not match the region of the
+                Cloud SQL instance.
         """
 
         headers = {
@@ -189,23 +186,17 @@ class CloudSQLClient:
     ) -> tuple[str, datetime.datetime]:
         """Asynchronously requests an ephemeral certificate from the Cloud SQL Instance.
 
-        :type project: str
-        :param project : A string representing the name of the project.
+        Args:
+            project (str):  A string representing the name of the project.
+            instance (str):  string representing the name of the instance.
+            pub_key (str): A string representing PEM-encoded RSA public key.
+            enable_iam_auth (bool): Enables automatic IAM database
+                 authentication for Postgres or MySQL instances.
 
-        :type instance: str
-        :param instance: A string representing the name of the instance.
-
-        :type pub_key:
-        :param str: A string representing PEM-encoded RSA public key.
-
-        :type enable_iam_auth: bool
-        :param enable_iam_auth
-            Enables automatic IAM database authentication for Postgres or MySQL
-            instances.
-
-        :rtype: str
-        :returns: An ephemeral certificate from the Cloud SQL instance that allows
-            authorized connections to the instance.
+        Returns:
+            A tuple containing an ephemeral certificate from
+            the Cloud SQL instance as well as a datetime object
+            representing the expiration time of the certificate.
         """
         headers = {
             "Authorization": f"Bearer {self._credentials.token}",
