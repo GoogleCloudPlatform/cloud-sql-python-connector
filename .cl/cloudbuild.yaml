@@ -14,7 +14,7 @@
 
 steps:
   - id: run integration tests for python version 3.9
-    name: python:${_PYTHON_3.9}
+    name: python:${_PYTHON_3_9}
     entrypoint: bash
     env: 
       - "IP_TYPE=private"
@@ -23,10 +23,10 @@ steps:
       - "-c"
       - |
         pip install nox
-        nox -s system-${_PYTHON_3.9}
+        nox -s system-${_PYTHON_3_9}
     waitFor: ["-"]
   - id: run integration tests for python version 3.13
-    name: python:${_PYTHON_3.13}
+    name: python:${_PYTHON_3_13}
     entrypoint: bash
     env: 
       - "IP_TYPE=private"
@@ -35,7 +35,7 @@ steps:
       - "-c"
       - |
         pip install nox
-        nox -s system-${_PYTHON_3.13}
+        nox -s system-${_PYTHON_3_13}
     waitFor: ["-"]
 availableSecrets:
   secretManager:
@@ -78,8 +78,8 @@ availableSecrets:
   - versionName: 'projects/$PROJECT_ID/secrets/SQLSERVER_DB/versions/latest'
     env: 'SQLSERVER_DB'
 substitutions:
-  _PYTHON_3.13: '3.13'
-  _PYTHON_3.9: '3.9'
+  _PYTHON_3_13: '3.13'
+  _PYTHON_3_9: '3.9'
   
 options:
   dynamicSubstitutions: true
