@@ -34,7 +34,7 @@ def init_connection_engine(
         conn: pymysql.connections.Connection = connector.connect(
             os.environ["MYSQL_CONNECTION_NAME"],
             "pymysql",
-            ip_type=ip_type,  # can be "public", "private" or "psc"
+            ip_type=ip_type,
             user=os.environ["MYSQL_USER"],
             password=os.environ["MYSQL_PASS"],
             db=os.environ["MYSQL_DB"],
