@@ -33,6 +33,7 @@ async def connect(
             instance.
         ctx (ssl.SSLContext): An SSLContext object created from the Cloud SQL
             server CA cert and ephemeral cert.
+            server CA cert and ephemeral cert.
         kwargs: Keyword arguments for establishing asyncpg connection
             object to Cloud SQL instance.
     
