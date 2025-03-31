@@ -32,6 +32,7 @@ async def create_sqlalchemy_engine(
     user: str,
     password: str,
     db: str,
+    ip_type: str = "public",
     refresh_strategy: str = "background",
     resolver: Union[type[DefaultResolver], type[DnsResolver]] = DefaultResolver,
 ) -> tuple[sqlalchemy.ext.asyncio.engine.AsyncEngine, Connector]:
@@ -63,6 +64,9 @@ async def create_sqlalchemy_engine(
             The database user's password, e.g., secret-password
         db (str):
             The name of the database, e.g., mydb
+        ip_type (str):
+            The IP type of the Cloud SQL instance to connect to. Can be one
+            of "public", "private", or "psc".
         refresh_strategy (Optional[str]):
             Refresh strategy for the Cloud SQL Connector. Can be one of "lazy"
             or "background". For serverless environments use "lazy" to avoid
@@ -87,9 +91,7 @@ async def create_sqlalchemy_engine(
             user=user,
             password=password,
             db=db,
-            ip_type=os.environ.get(
-                "IP_TYPE", "public"
-            ),  # can also be "private" or "psc"
+            ip_type=ip_type,  # can be "public", "private" or "psc"
         ),
         execution_options={"isolation_level": "AUTOCOMMIT"},
     )
@@ -101,6 +103,7 @@ async def create_asyncpg_pool(
     user: str,
     password: str,
     db: str,
+    ip_type: str = "public",
     refresh_strategy: str = "background",
 ) -> tuple[asyncpg.Pool, Connector]:
     """Creates a native asyncpg connection pool for a Cloud SQL instance and
@@ -130,6 +133,9 @@ async def create_asyncpg_pool(
             The database user's password, e.g., secret-password
         db (str):
             The name of the database, e.g., mydb
+        ip_type (str):
+            The IP type of the Cloud SQL instance to connect to. Can be one
+            of "public", "private", or "psc".
         refresh_strategy (Optional[str]):
             Refresh strategy for the Cloud SQL Connector. Can be one of "lazy"
             or "background". For serverless environments use "lazy" to avoid
@@ -147,9 +153,7 @@ async def create_asyncpg_pool(
             user=user,
             password=password,
             db=db,
-            ip_type=os.environ.get(
-                "IP_TYPE", "public"
-            ),  # can also be "private" or "psc",
+            ip_type=ip_type,  # can be "public", "private" or "psc"
             **kwargs,
         )
         return conn
@@ -165,8 +169,11 @@ async def test_sqlalchemy_connection_with_asyncpg() -> None:
     user = os.environ["POSTGRES_USER"]
     password = os.environ["POSTGRES_PASS"]
     db = os.environ["POSTGRES_DB"]
+    ip_type = os.environ.get("IP_TYPE", "public")
 
-    pool, connector = await create_sqlalchemy_engine(inst_conn_name, user, password, db)
+    pool, connector = await create_sqlalchemy_engine(
+        inst_conn_name, user, password, db, ip_type
+    )
 
     async with pool.connect() as conn:
         res = (await conn.execute(sqlalchemy.text("SELECT 1"))).fetchone()
@@ -181,9 +188,10 @@ async def test_lazy_sqlalchemy_connection_with_asyncpg() -> None:
     user = os.environ["POSTGRES_USER"]
     password = os.environ["POSTGRES_PASS"]
     db = os.environ["POSTGRES_DB"]
+    ip_type = os.environ.get("IP_TYPE", "public")
 
     pool, connector = await create_sqlalchemy_engine(
-        inst_conn_name, user, password, db, "lazy"
+        inst_conn_name, user, password, db, ip_type, "lazy"
     )
 
     async with pool.connect() as conn:
@@ -199,9 +207,10 @@ async def test_custom_SAN_with_dns_sqlalchemy_connection_with_asyncpg() -> None:
     user = os.environ["POSTGRES_USER"]
     password = os.environ["POSTGRES_CUSTOMER_CAS_PASS"]
     db = os.environ["POSTGRES_DB"]
+    ip_type = os.environ.get("IP_TYPE", "public")
 
     pool, connector = await create_sqlalchemy_engine(
-        inst_conn_name, user, password, db, resolver=DnsResolver
+        inst_conn_name, user, password, db, ip_type, resolver=DnsResolver
     )
 
     async with pool.connect() as conn:
@@ -217,8 +226,11 @@ async def test_connection_with_asyncpg() -> None:
     user = os.environ["POSTGRES_USER"]
     password = os.environ["POSTGRES_PASS"]
     db = os.environ["POSTGRES_DB"]
+    ip_type = os.environ.get("IP_TYPE", "public")
 
-    pool, connector = await create_asyncpg_pool(inst_conn_name, user, password, db)
+    pool, connector = await create_asyncpg_pool(
+        inst_conn_name, user, password, db, ip_type
+    )
 
     async with pool.acquire() as conn:
         res = await conn.fetch("SELECT 1")
@@ -233,9 +245,10 @@ async def test_lazy_connection_with_asyncpg() -> None:
     user = os.environ["POSTGRES_USER"]
     password = os.environ["POSTGRES_PASS"]
     db = os.environ["POSTGRES_DB"]
+    ip_type = os.environ.get("IP_TYPE", "public")
 
     pool, connector = await create_asyncpg_pool(
-        inst_conn_name, user, password, db, "lazy"
+        inst_conn_name, user, password, db, ip_type, "lazy"
     )
 
     async with pool.acquire() as conn:
