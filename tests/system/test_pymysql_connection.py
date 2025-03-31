@@ -93,9 +93,11 @@ def test_pymysql_connection() -> None:
     user = os.environ["MYSQL_USER"]
     password = os.environ["MYSQL_PASS"]
     db = os.environ["MYSQL_DB"]
-    ip_type = os.environ.get("IP_TYPE", "public") # can be "public", "private" or "psc"
+    ip_type = os.environ.get("IP_TYPE", "public")  # can be "public", "private" or "psc"
 
-    engine, connector = create_sqlalchemy_engine(inst_conn_name, user, password, db, ip_type)
+    engine, connector = create_sqlalchemy_engine(
+        inst_conn_name, user, password, db, ip_type
+    )
     with engine.connect() as conn:
         time = conn.execute(sqlalchemy.text("SELECT NOW()")).fetchone()
         conn.commit()
@@ -110,7 +112,7 @@ def test_lazy_pymysql_connection() -> None:
     user = os.environ["MYSQL_USER"]
     password = os.environ["MYSQL_PASS"]
     db = os.environ["MYSQL_DB"]
-    ip_type = os.environ.get("IP_TYPE", "public") # can be "public", "private" or "psc"
+    ip_type = os.environ.get("IP_TYPE", "public")  # can be "public", "private" or "psc"
 
     engine, connector = create_sqlalchemy_engine(
         inst_conn_name, user, password, db, ip_type, "lazy"

@@ -87,7 +87,7 @@ async def test_iam_authn_connection_with_asyncpg() -> None:
     inst_conn_name = os.environ["POSTGRES_CONNECTION_NAME"]
     user = os.environ["POSTGRES_IAM_USER"]
     db = os.environ["POSTGRES_DB"]
-    ip_type = os.environ.get("IP_TYPE", "public") # can be "public", "private" or "psc"
+    ip_type = os.environ.get("IP_TYPE", "public")  # can be "public", "private" or "psc"
 
     pool, connector = await create_sqlalchemy_engine(inst_conn_name, user, db, ip_type)
 
@@ -103,9 +103,11 @@ async def test_lazy_iam_authn_connection_with_asyncpg() -> None:
     inst_conn_name = os.environ["POSTGRES_CONNECTION_NAME"]
     user = os.environ["POSTGRES_IAM_USER"]
     db = os.environ["POSTGRES_DB"]
-    ip_type = os.environ.get("IP_TYPE", "public") # can be "public", "private" or "psc"
+    ip_type = os.environ.get("IP_TYPE", "public")  # can be "public", "private" or "psc"
 
-    pool, connector = await create_sqlalchemy_engine(inst_conn_name, user, db, ip_type, "lazy")
+    pool, connector = await create_sqlalchemy_engine(
+        inst_conn_name, user, db, ip_type, "lazy"
+    )
 
     async with pool.connect() as conn:
         res = (await conn.execute(sqlalchemy.text("SELECT 1"))).fetchone()

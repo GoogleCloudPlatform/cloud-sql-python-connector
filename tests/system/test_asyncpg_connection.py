@@ -167,9 +167,11 @@ async def test_sqlalchemy_connection_with_asyncpg() -> None:
     user = os.environ["POSTGRES_USER"]
     password = os.environ["POSTGRES_PASS"]
     db = os.environ["POSTGRES_DB"]
-    ip_type = os.environ.get("IP_TYPE", "public") # can be "public", "private" or "psc"
+    ip_type = os.environ.get("IP_TYPE", "public")  # can be "public", "private" or "psc"
 
-    pool, connector = await create_sqlalchemy_engine(inst_conn_name, user, password, db, ip_type)
+    pool, connector = await create_sqlalchemy_engine(
+        inst_conn_name, user, password, db, ip_type
+    )
 
     async with pool.connect() as conn:
         res = (await conn.execute(sqlalchemy.text("SELECT 1"))).fetchone()
@@ -184,7 +186,7 @@ async def test_lazy_sqlalchemy_connection_with_asyncpg() -> None:
     user = os.environ["POSTGRES_USER"]
     password = os.environ["POSTGRES_PASS"]
     db = os.environ["POSTGRES_DB"]
-    ip_type = os.environ.get("IP_TYPE", "public") # can be "public", "private" or "psc"
+    ip_type = os.environ.get("IP_TYPE", "public")  # can be "public", "private" or "psc"
 
     pool, connector = await create_sqlalchemy_engine(
         inst_conn_name, user, password, db, ip_type, "lazy"
@@ -203,10 +205,10 @@ async def test_custom_SAN_with_dns_sqlalchemy_connection_with_asyncpg() -> None:
     user = os.environ["POSTGRES_USER"]
     password = os.environ["POSTGRES_CUSTOMER_CAS_PASS"]
     db = os.environ["POSTGRES_DB"]
-    ip_type = os.environ.get("IP_TYPE", "public") # can be "public", "private" or "psc"
+    ip_type = os.environ.get("IP_TYPE", "public")  # can be "public", "private" or "psc"
 
     pool, connector = await create_sqlalchemy_engine(
-        inst_conn_name, user, password, db, ip_type,resolver=DnsResolver
+        inst_conn_name, user, password, db, ip_type, resolver=DnsResolver
     )
 
     async with pool.connect() as conn:
@@ -222,9 +224,11 @@ async def test_connection_with_asyncpg() -> None:
     user = os.environ["POSTGRES_USER"]
     password = os.environ["POSTGRES_PASS"]
     db = os.environ["POSTGRES_DB"]
-    ip_type = os.environ.get("IP_TYPE", "public") # can be "public", "private" or "psc"
+    ip_type = os.environ.get("IP_TYPE", "public")  # can be "public", "private" or "psc"
 
-    pool, connector = await create_asyncpg_pool(inst_conn_name, user, password, db, ip_type)
+    pool, connector = await create_asyncpg_pool(
+        inst_conn_name, user, password, db, ip_type
+    )
 
     async with pool.acquire() as conn:
         res = await conn.fetch("SELECT 1")
@@ -239,7 +243,7 @@ async def test_lazy_connection_with_asyncpg() -> None:
     user = os.environ["POSTGRES_USER"]
     password = os.environ["POSTGRES_PASS"]
     db = os.environ["POSTGRES_DB"]
-    ip_type = os.environ.get("IP_TYPE", "public") # can be "public", "private" or "psc"
+    ip_type = os.environ.get("IP_TYPE", "public")  # can be "public", "private" or "psc"
 
     pool, connector = await create_asyncpg_pool(
         inst_conn_name, user, password, db, ip_type, "lazy"

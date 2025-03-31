@@ -39,9 +39,7 @@ def init_connection_engine(
             user=os.environ["MYSQL_USER"],
             password=os.environ["MYSQL_PASS"],
             db=os.environ["MYSQL_DB"],
-            ip_type=os.environ.get(
-                "IP_TYPE", "public"
-            ),
+            ip_type=os.environ.get("IP_TYPE", "public"),
         )
         return conn
 

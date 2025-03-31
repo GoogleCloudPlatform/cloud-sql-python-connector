@@ -103,9 +103,11 @@ def test_pg8000_connection() -> None:
     user = os.environ["POSTGRES_USER"]
     password = os.environ["POSTGRES_PASS"]
     db = os.environ["POSTGRES_DB"]
-    ip_type = os.environ.get("IP_TYPE", "public") # can be "public", "private" or "psc"
+    ip_type = os.environ.get("IP_TYPE", "public")  # can be "public", "private" or "psc"
 
-    engine, connector = create_sqlalchemy_engine(inst_conn_name, user, password, db, ip_type)
+    engine, connector = create_sqlalchemy_engine(
+        inst_conn_name, user, password, db, ip_type
+    )
     with engine.connect() as conn:
         time = conn.execute(sqlalchemy.text("SELECT NOW()")).fetchone()
         conn.commit()
@@ -120,7 +122,7 @@ def test_lazy_pg8000_connection() -> None:
     user = os.environ["POSTGRES_USER"]
     password = os.environ["POSTGRES_PASS"]
     db = os.environ["POSTGRES_DB"]
-    ip_type = os.environ.get("IP_TYPE", "public") # can be "public", "private" or "psc"
+    ip_type = os.environ.get("IP_TYPE", "public")  # can be "public", "private" or "psc"
 
     engine, connector = create_sqlalchemy_engine(
         inst_conn_name, user, password, db, ip_type, "lazy"
@@ -139,9 +141,11 @@ def test_CAS_pg8000_connection() -> None:
     user = os.environ["POSTGRES_USER"]
     password = os.environ["POSTGRES_CAS_PASS"]
     db = os.environ["POSTGRES_DB"]
-    ip_type = os.environ.get("IP_TYPE", "public") # can be "public", "private" or "psc"
+    ip_type = os.environ.get("IP_TYPE", "public")  # can be "public", "private" or "psc"
 
-    engine, connector = create_sqlalchemy_engine(inst_conn_name, user, password, db, ip_type)
+    engine, connector = create_sqlalchemy_engine(
+        inst_conn_name, user, password, db, ip_type
+    )
     with engine.connect() as conn:
         time = conn.execute(sqlalchemy.text("SELECT NOW()")).fetchone()
         conn.commit()
@@ -156,9 +160,11 @@ def test_customer_managed_CAS_pg8000_connection() -> None:
     user = os.environ["POSTGRES_USER"]
     password = os.environ["POSTGRES_CUSTOMER_CAS_PASS"]
     db = os.environ["POSTGRES_DB"]
-    ip_type = os.environ.get("IP_TYPE", "public") # can be "public", "private" or "psc"
+    ip_type = os.environ.get("IP_TYPE", "public")  # can be "public", "private" or "psc"
 
-    engine, connector = create_sqlalchemy_engine(inst_conn_name, user, password, db, ip_type)
+    engine, connector = create_sqlalchemy_engine(
+        inst_conn_name, user, password, db, ip_type
+    )
     with engine.connect() as conn:
         time = conn.execute(sqlalchemy.text("SELECT NOW()")).fetchone()
         conn.commit()
@@ -173,7 +179,7 @@ def test_custom_SAN_with_dns_pg8000_connection() -> None:
     user = os.environ["POSTGRES_USER"]
     password = os.environ["POSTGRES_CUSTOMER_CAS_PASS"]
     db = os.environ["POSTGRES_DB"]
-    ip_type = os.environ.get("IP_TYPE", "public") # can be "public", "private" or "psc"
+    ip_type = os.environ.get("IP_TYPE", "public")  # can be "public", "private" or "psc"
 
     engine, connector = create_sqlalchemy_engine(
         inst_conn_name, user, password, db, ip_type, resolver=DnsResolver

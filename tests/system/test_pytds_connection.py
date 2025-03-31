@@ -91,9 +91,11 @@ def test_pytds_connection() -> None:
     user = os.environ["SQLSERVER_USER"]
     password = os.environ["SQLSERVER_PASS"]
     db = os.environ["SQLSERVER_DB"]
-    ip_type = os.environ.get("IP_TYPE", "public") # can be "public", "private" or "psc"
+    ip_type = os.environ.get("IP_TYPE", "public")  # can be "public", "private" or "psc"
 
-    engine, connector = create_sqlalchemy_engine(inst_conn_name, user, password, db, ip_type)
+    engine, connector = create_sqlalchemy_engine(
+        inst_conn_name, user, password, db, ip_type
+    )
     with engine.connect() as conn:
         res = conn.execute(sqlalchemy.text("SELECT 1")).fetchone()
         conn.commit()
@@ -107,7 +109,7 @@ def test_lazy_pytds_connection() -> None:
     user = os.environ["SQLSERVER_USER"]
     password = os.environ["SQLSERVER_PASS"]
     db = os.environ["SQLSERVER_DB"]
-    ip_type = os.environ.get("IP_TYPE", "public") # can be "public", "private" or "psc"
+    ip_type = os.environ.get("IP_TYPE", "public")  # can be "public", "private" or "psc"
 
     engine, connector = create_sqlalchemy_engine(
         inst_conn_name, user, password, db, ip_type, "lazy"
