@@ -26,4 +26,4 @@ jobs:
       contents: 'read'
     uses: ./.github/workflows/cloud_build_failure_reporter.yml
     with:
-      trigger_names: "integration-test-pr-py39,integration-test-pr-py313"
+      trigger_names: "py-continuous-test-on-merge,py-integration-test-nightly"
