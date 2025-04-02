@@ -26,8 +26,10 @@ from google.protobuf.internal import builder as _builder
 _sym_db = _symbol_database.Default()
 
 
+from google.api import field_behavior_pb2 as google_dot_api_dot_field__behavior__pb2
+
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(
-    b'\n:google/cloud/sql/v1beta4/cloud_sql_metadata_exchange.proto\x12\x18google.cloud.sql.v1beta4"\x90\x02\n\x16\x43loudSQLConnectRequest\x12\x14\n\x07version\x18\x01 \x01(\tH\x00\x88\x01\x01\x12\x17\n\nuser_agent\x18\x02 \x01(\tH\x01\x88\x01\x01\x12Y\n\rprotocol_type\x18\x03 \x01(\x0e\x32=.google.cloud.sql.v1beta4.CloudSQLConnectRequest.ProtocolTypeH\x02\x88\x01\x01"?\n\x0cProtocolType\x12\x1d\n\x19PROTOCOL_TYPE_UNSPECIFIED\x10\x00\x12\x07\n\x03TCP\x10\x01\x12\x07\n\x03UDS\x10\x02\x42\n\n\x08_versionB\r\n\x0b_user_agentB\x10\n\x0e_protocol_type"\x8d\x01\n\x17\x43loudSQLConnectResponse\x12\x42\n\rresponse_code\x18\x01 \x01(\x0e\x32&.google.cloud.sql.v1beta4.ResponseCodeH\x00\x88\x01\x01\x12\x12\n\x05\x65rror\x18\x02 \x01(\tH\x01\x88\x01\x01\x42\x10\n\x0e_response_codeB\x08\n\x06_error*@\n\x0cResponseCode\x12\x1d\n\x19RESPONSE_CODE_UNSPECIFIED\x10\x00\x12\x06\n\x02OK\x10\x01\x12\t\n\x05\x45RROR\x10\x02\x62\x06proto3'
+    b'\n:google/cloud/sql/v1beta4/cloud_sql_metadata_exchange.proto\x12\x18google.cloud.sql.v1beta4\x1a\x1fgoogle/api/field_behavior.proto"\xc8\x01\n\x16\x43loudSQLConnectRequest\x12\x17\n\nuser_agent\x18\x01 \x01(\tB\x03\xe0\x41\x01\x12T\n\rprotocol_type\x18\x02 \x01(\x0e\x32=.google.cloud.sql.v1beta4.CloudSQLConnectRequest.ProtocolType"?\n\x0cProtocolType\x12\x1d\n\x19PROTOCOL_TYPE_UNSPECIFIED\x10\x00\x12\x07\n\x03TCP\x10\x01\x12\x07\n\x03UDS\x10\x02"\xc6\x01\n\x17\x43loudSQLConnectResponse\x12U\n\rresponse_code\x18\x01 \x01(\x0e\x32>.google.cloud.sql.v1beta4.CloudSQLConnectResponse.ResponseCode\x12\x12\n\x05\x65rror\x18\x02 \x01(\tB\x03\xe0\x41\x01"@\n\x0cResponseCode\x12\x1d\n\x19RESPONSE_CODE_UNSPECIFIED\x10\x00\x12\x06\n\x02OK\x10\x01\x12\t\n\x05\x45RROR\x10\x02\x62\x06proto3'
 )
 
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, globals())
@@ -37,12 +39,18 @@ _builder.BuildTopDescriptorsAndMessages(
 if _descriptor._USE_C_DESCRIPTORS == False:
 
     DESCRIPTOR._options = None
-    _RESPONSECODE._serialized_start = 507
-    _RESPONSECODE._serialized_end = 571
-    _CLOUDSQLCONNECTREQUEST._serialized_start = 89
-    _CLOUDSQLCONNECTREQUEST._serialized_end = 361
-    _CLOUDSQLCONNECTREQUEST_PROTOCOLTYPE._serialized_start = 253
-    _CLOUDSQLCONNECTREQUEST_PROTOCOLTYPE._serialized_end = 316
-    _CLOUDSQLCONNECTRESPONSE._serialized_start = 364
-    _CLOUDSQLCONNECTRESPONSE._serialized_end = 505
+    _CLOUDSQLCONNECTREQUEST.fields_by_name["user_agent"]._options = None
+    _CLOUDSQLCONNECTREQUEST.fields_by_name["user_agent"]._serialized_options = (
+        b"\340A\001"
+    )
+    _CLOUDSQLCONNECTRESPONSE.fields_by_name["error"]._options = None
+    _CLOUDSQLCONNECTRESPONSE.fields_by_name["error"]._serialized_options = b"\340A\001"
+    _CLOUDSQLCONNECTREQUEST._serialized_start = 122
+    _CLOUDSQLCONNECTREQUEST._serialized_end = 322
+    _CLOUDSQLCONNECTREQUEST_PROTOCOLTYPE._serialized_start = 259
+    _CLOUDSQLCONNECTREQUEST_PROTOCOLTYPE._serialized_end = 322
+    _CLOUDSQLCONNECTRESPONSE._serialized_start = 325
+    _CLOUDSQLCONNECTRESPONSE._serialized_end = 523
+    _CLOUDSQLCONNECTRESPONSE_RESPONSECODE._serialized_start = 459
+    _CLOUDSQLCONNECTRESPONSE_RESPONSECODE._serialized_end = 523
 # @@protoc_insertion_point(module_scope)

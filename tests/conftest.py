@@ -28,6 +28,7 @@ import pytest  # noqa F401 Needed to run the tests
 from unit.mocks import create_ssl_context  # type: ignore
 from unit.mocks import FakeCredentials  # type: ignore
 from unit.mocks import FakeCSQLInstance  # type: ignore
+from unit.mocks import metadata_exchange
 
 from google.cloud.sql.connector.client import CloudSQLClient
 from google.cloud.sql.connector.connection_name import ConnectionName
@@ -84,10 +85,11 @@ def fake_credentials() -> FakeCredentials:
     return FakeCredentials()
 
 
-async def start_proxy_server(instance: FakeCSQLInstance) -> None:
-    """Run local proxy server capable of performing mTLS"""
+async def start_proxy_server(
+    instance: FakeCSQLInstance, port: int = 3307, use_metadata: bool = True
+) -> None:
+    """Run local proxy server capable of performing mTLS and metadata exchange"""
     ip_address = "127.0.0.1"
-    port = 3307
     # create socket
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
         # create SSL/TLS context
@@ -116,12 +118,15 @@ async def start_proxy_server(instance: FakeCSQLInstance) -> None:
         with context.wrap_socket(sock, server_side=True) as ssock:
             while True:
                 conn, _ = ssock.accept()
+                if use_metadata:
+                    metadata_exchange(conn)
+                    conn.sendall(instance.name.encode("utf-8"))
                 conn.close()
 
 
 @pytest.fixture(scope="session")
-def proxy_server(fake_instance: FakeCSQLInstance) -> None:
-    """Run local proxy server capable of performing mTLS"""
+def proxy_server_with_metadata(fake_instance: FakeCSQLInstance) -> None:
+    """Run local proxy server capable of performing metadata exchange"""
     thread = Thread(
         target=asyncio.run,
         args=(
@@ -129,6 +134,18 @@ def proxy_server(fake_instance: FakeCSQLInstance) -> None:
                 fake_instance,
             ),
         ),
+        daemon=True,
+    )
+    thread.start()
+    thread.join(1.0)  # add a delay to allow the proxy server to start
+
+
+@pytest.fixture(scope="session")
+def proxy_server(fake_instance: FakeCSQLInstance) -> None:
+    """Run local proxy server capable of performing mTLS"""
+    thread = Thread(
+        target=asyncio.run,
+        args=(start_proxy_server(fake_instance, 3308, False),),
         daemon=True,
     )
     thread.start()

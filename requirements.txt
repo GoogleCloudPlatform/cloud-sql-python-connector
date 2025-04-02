@@ -4,3 +4,4 @@ cryptography==44.0.2
 dnspython==2.7.0
 Requests==2.32.3
 google-auth==2.38.0
+protobuf==6.30.0

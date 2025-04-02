@@ -41,7 +41,7 @@ async def test_pytds(context: ssl.SSLContext, kwargs: Any) -> None:
     """Test to verify that pytds gets to proper connection call."""
     ip_addr = "127.0.0.1"
     sock = context.wrap_socket(
-        socket.create_connection((ip_addr, 3307)),
+        socket.create_connection((ip_addr, 3308)),
         server_hostname=ip_addr,
     )
 
@@ -61,7 +61,7 @@ async def test_pytds_platform_error(context: ssl.SSLContext, kwargs: Any) -> Non
     setattr(platform, "system", stub_platform_linux)
     assert platform.system() == "Linux"
     sock = context.wrap_socket(
-        socket.create_connection((ip_addr, 3307)),
+        socket.create_connection((ip_addr, 3308)),
         server_hostname=ip_addr,
     )
     # add active_directory_auth to kwargs
@@ -84,7 +84,7 @@ async def test_pytds_windows_active_directory_auth(
     setattr(platform, "system", stub_platform_windows)
     assert platform.system() == "Windows"
     sock = context.wrap_socket(
-        socket.create_connection((ip_addr, 3307)),
+        socket.create_connection((ip_addr, 3308)),
         server_hostname=ip_addr,
     )
     # add active_directory_auth and server_name to kwargs

@@ -20,13 +20,12 @@ from google.protobuf import descriptor as _descriptor
 from google.protobuf import message as _message
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
 
+from google.api import field_behavior_pb2 as _field_behavior_pb2
+
 DESCRIPTOR: _descriptor.FileDescriptor
-ERROR: ResponseCode
-OK: ResponseCode
-RESPONSE_CODE_UNSPECIFIED: ResponseCode
 
 class CloudSQLConnectRequest(_message.Message):
-    __slots__ = ["protocol_type", "user_agent", "version"]
+    __slots__ = ["protocol_type", "user_agent"]
 
     class ProtocolType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
         __slots__ = []
@@ -36,13 +35,10 @@ class CloudSQLConnectRequest(_message.Message):
     TCP: CloudSQLConnectRequest.ProtocolType
     UDS: CloudSQLConnectRequest.ProtocolType
     USER_AGENT_FIELD_NUMBER: _ClassVar[int]
-    VERSION_FIELD_NUMBER: _ClassVar[int]
     protocol_type: CloudSQLConnectRequest.ProtocolType
     user_agent: str
-    version: str
     def __init__(
         self,
-        version: _Optional[str] = ...,
         user_agent: _Optional[str] = ...,
         protocol_type: _Optional[
             _Union[CloudSQLConnectRequest.ProtocolType, str]
@@ -51,15 +47,21 @@ class CloudSQLConnectRequest(_message.Message):
 
 class CloudSQLConnectResponse(_message.Message):
     __slots__ = ["error", "response_code"]
+
+    class ResponseCode(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+        __slots__ = []
+
+    ERROR: CloudSQLConnectResponse.ResponseCode
     ERROR_FIELD_NUMBER: _ClassVar[int]
+    OK: CloudSQLConnectResponse.ResponseCode
     RESPONSE_CODE_FIELD_NUMBER: _ClassVar[int]
+    RESPONSE_CODE_UNSPECIFIED: CloudSQLConnectResponse.ResponseCode
     error: str
-    response_code: ResponseCode
+    response_code: CloudSQLConnectResponse.ResponseCode
     def __init__(
         self,
-        response_code: _Optional[_Union[ResponseCode, str]] = ...,
+        response_code: _Optional[
+            _Union[CloudSQLConnectResponse.ResponseCode, str]
+        ] = ...,
         error: _Optional[str] = ...,
     ) -> None: ...
-
-class ResponseCode(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
-    __slots__ = []
