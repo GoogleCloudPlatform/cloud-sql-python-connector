@@ -17,11 +17,15 @@ limitations under the License.
 import asyncio
 import os
 import socket
+import ssl
 from threading import Thread
-from typing import Any, AsyncGenerator, Generator
+from typing import Any, AsyncGenerator
 
+from aiofiles.tempfile import TemporaryDirectory
 from aiohttp import web
+from cryptography.hazmat.primitives import serialization
 import pytest  # noqa F401 Needed to run the tests
+from unit.mocks import create_ssl_context  # type: ignore
 from unit.mocks import FakeCredentials  # type: ignore
 from unit.mocks import FakeCSQLInstance  # type: ignore
 
@@ -29,6 +33,7 @@ from google.cloud.sql.connector.client import CloudSQLClient
 from google.cloud.sql.connector.connection_name import ConnectionName
 from google.cloud.sql.connector.instance import RefreshAheadCache
 from google.cloud.sql.connector.utils import generate_keys
+from google.cloud.sql.connector.utils import write_to_file
 
 SCOPES = ["https://www.googleapis.com/auth/sqlservice.admin"]
 
@@ -79,25 +84,60 @@ def fake_credentials() -> FakeCredentials:
     return FakeCredentials()
 
 
-def mock_server(server_sock: socket.socket) -> None:
-    """Create mock server listening on specified ip_address and port."""
+async def start_proxy_server(instance: FakeCSQLInstance) -> None:
+    """Run local proxy server capable of performing mTLS"""
     ip_address = "127.0.0.1"
     port = 3307
-    server_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    server_sock.bind((ip_address, port))
-    server_sock.listen(0)
-    server_sock.accept()
+    # create socket
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        # create SSL/TLS context
+        context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        context.minimum_version = ssl.TLSVersion.TLSv1_3
+        # tmpdir and its contents are automatically deleted after the CA cert
+        # and cert chain are loaded into the SSLcontext. The values
+        # need to be written to files in order to be loaded by the SSLContext
+        server_key_bytes = instance.server_key.private_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PrivateFormat.TraditionalOpenSSL,
+            encryption_algorithm=serialization.NoEncryption(),
+        )
+        async with TemporaryDirectory() as tmpdir:
+            server_filename, _, key_filename = await write_to_file(
+                tmpdir, instance.server_cert_pem, "", server_key_bytes
+            )
+            context.load_cert_chain(server_filename, key_filename)
+        # allow socket to be re-used
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        # bind socket to Cloud SQL proxy server port on localhost
+        sock.bind((ip_address, port))
+        # listen for incoming connections
+        sock.listen(5)
+
+        with context.wrap_socket(sock, server_side=True) as ssock:
+            while True:
+                conn, _ = ssock.accept()
+                conn.close()
+
+
+@pytest.fixture(scope="session")
+def proxy_server(fake_instance: FakeCSQLInstance) -> None:
+    """Run local proxy server capable of performing mTLS"""
+    thread = Thread(
+        target=asyncio.run,
+        args=(
+            start_proxy_server(
+                fake_instance,
+            ),
+        ),
+        daemon=True,
+    )
+    thread.start()
+    thread.join(1.0)  # add a delay to allow the proxy server to start
 
 
 @pytest.fixture
-def server() -> Generator:
-    """Create thread with server listening on proper port"""
-    server_sock = socket.socket()
-    thread = Thread(target=mock_server, args=(server_sock,), daemon=True)
-    thread.start()
-    yield thread
-    server_sock.close()
-    thread.join()
+async def context(fake_instance: FakeCSQLInstance) -> ssl.SSLContext:
+    return await create_ssl_context(fake_instance)
 
 
 @pytest.fixture
@@ -107,7 +147,7 @@ def kwargs() -> Any:
     return kwargs
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def fake_instance() -> FakeCSQLInstance:
     return FakeCSQLInstance()
 

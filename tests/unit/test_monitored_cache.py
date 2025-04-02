@@ -14,13 +14,13 @@
 
 import asyncio
 import socket
+import ssl
 
 import dns.message
 import dns.rdataclass
 import dns.rdatatype
 import dns.resolver
 from mock import patch
-from mocks import create_ssl_context
 import pytest
 
 from google.cloud.sql.connector.client import CloudSQLClient
@@ -149,8 +149,10 @@ async def test_MonitoredCache_with_disabled_failover(
     assert monitored_cache.closed is True
 
 
-@pytest.mark.usefixtures("server")
-async def test_MonitoredCache_check_domain_name(fake_client: CloudSQLClient) -> None:
+@pytest.mark.usefixtures("proxy_server")
+async def test_MonitoredCache_check_domain_name(
+    context: ssl.SSLContext, fake_client: CloudSQLClient
+) -> None:
     """
     Test that MonitoredCache is closed when _check_domain_name has domain change.
     """
@@ -177,11 +179,9 @@ async def test_MonitoredCache_check_domain_name(fake_client: CloudSQLClient) -> 
 
         # configure a local socket
         ip_addr = "127.0.0.1"
-        context = await create_ssl_context()
         sock = context.wrap_socket(
             socket.create_connection((ip_addr, 3307)),
             server_hostname=ip_addr,
-            do_handshake_on_connect=False,
         )
         # verify socket is open
         assert sock.fileno() != -1
@@ -198,8 +198,10 @@ async def test_MonitoredCache_check_domain_name(fake_client: CloudSQLClient) -> 
         assert sock.fileno() == -1
 
 
-@pytest.mark.usefixtures("server")
-async def test_MonitoredCache_purge_closed_sockets(fake_client: CloudSQLClient) -> None:
+@pytest.mark.usefixtures("proxy_server")
+async def test_MonitoredCache_purge_closed_sockets(
+    context: ssl.SSLContext, fake_client: CloudSQLClient
+) -> None:
     """
     Test that MonitoredCache._purge_closed_sockets removes closed sockets from
     cache.
@@ -215,11 +217,9 @@ async def test_MonitoredCache_purge_closed_sockets(fake_client: CloudSQLClient) 
     )
     # configure a local socket
     ip_addr = "127.0.0.1"
-    context = await create_ssl_context()
     sock = context.wrap_socket(
         socket.create_connection((ip_addr, 3307)),
         server_hostname=ip_addr,
-        do_handshake_on_connect=False,
     )
 
     # set failover to 0 to disable polling

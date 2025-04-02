@@ -186,17 +186,18 @@ async def test_RefreshAheadCache_close(cache: RefreshAheadCache) -> None:
 @pytest.mark.asyncio
 async def test_perform_refresh(
     cache: RefreshAheadCache,
-    fake_instance: mocks.FakeCSQLInstance,
 ) -> None:
     """
     Test that _perform_refresh returns valid ConnectionInfo object.
     """
     instance_metadata = await cache._perform_refresh()
-
     # verify instance metadata object is returned
     assert isinstance(instance_metadata, ConnectionInfo)
     # verify instance metadata expiration
-    assert fake_instance.server_cert.not_valid_after_utc == instance_metadata.expiration
+    assert (
+        cache._client.instance.cert_expiration.replace(microsecond=0)
+        == instance_metadata.expiration
+    )
 
 
 @pytest.mark.asyncio
