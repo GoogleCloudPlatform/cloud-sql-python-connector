@@ -16,10 +16,10 @@ limitations under the License.
 
 import platform
 import socket
+import ssl
 from typing import Any
 
 from mock import patch
-from mocks import create_ssl_context
 import pytest
 
 from google.cloud.sql.connector.exceptions import PlatformNotSupportedError
@@ -36,17 +36,13 @@ def stub_platform_windows() -> str:
     return "Windows"
 
 
-@pytest.mark.usefixtures("server")
-@pytest.mark.asyncio
-async def test_pytds(kwargs: Any) -> None:
+@pytest.mark.usefixtures("proxy_server")
+async def test_pytds(context: ssl.SSLContext, kwargs: Any) -> None:
     """Test to verify that pytds gets to proper connection call."""
     ip_addr = "127.0.0.1"
-    # build ssl.SSLContext
-    context = await create_ssl_context()
     sock = context.wrap_socket(
         socket.create_connection((ip_addr, 3307)),
         server_hostname=ip_addr,
-        do_handshake_on_connect=False,
     )
 
     with patch("pytds.connect") as mock_connect:
@@ -57,20 +53,16 @@ async def test_pytds(kwargs: Any) -> None:
         assert mock_connect.assert_called_once
 
 
-@pytest.mark.usefixtures("server")
-@pytest.mark.asyncio
-async def test_pytds_platform_error(kwargs: Any) -> None:
+@pytest.mark.usefixtures("proxy_server")
+async def test_pytds_platform_error(context: ssl.SSLContext, kwargs: Any) -> None:
     """Test to verify that pytds.connect throws proper PlatformNotSupportedError."""
     ip_addr = "127.0.0.1"
     # stub operating system to Linux
     setattr(platform, "system", stub_platform_linux)
     assert platform.system() == "Linux"
-    # build ssl.SSLContext
-    context = await create_ssl_context()
     sock = context.wrap_socket(
         socket.create_connection((ip_addr, 3307)),
         server_hostname=ip_addr,
-        do_handshake_on_connect=False,
     )
     # add active_directory_auth to kwargs
     kwargs["active_directory_auth"] = True
@@ -79,9 +71,10 @@ async def test_pytds_platform_error(kwargs: Any) -> None:
         connect(ip_addr, sock, **kwargs)
 
 
-@pytest.mark.usefixtures("server")
-@pytest.mark.asyncio
-async def test_pytds_windows_active_directory_auth(kwargs: Any) -> None:
+@pytest.mark.usefixtures("proxy_server")
+async def test_pytds_windows_active_directory_auth(
+    context: ssl.SSLContext, kwargs: Any
+) -> None:
     """
     Test to verify that pytds gets to connection call on Windows with
     active_directory_auth arg set.
@@ -90,12 +83,9 @@ async def test_pytds_windows_active_directory_auth(kwargs: Any) -> None:
     # stub operating system to Windows
     setattr(platform, "system", stub_platform_windows)
     assert platform.system() == "Windows"
-    # build ssl.SSLContext
-    context = await create_ssl_context()
     sock = context.wrap_socket(
         socket.create_connection((ip_addr, 3307)),
         server_hostname=ip_addr,
-        do_handshake_on_connect=False,
     )
     # add active_directory_auth and server_name to kwargs
     kwargs["active_directory_auth"] = True

@@ -1,4 +1,4 @@
-""""
+""" "
 Copyright 2022 Google LLC
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,6 +15,8 @@ limitations under the License.
 """
 
 # file containing all mocks used for Cloud SQL Python Connector unit tests
+
+from __future__ import annotations
 
 import datetime
 import json
@@ -184,28 +186,28 @@ def client_key_signed_cert(
         .not_valid_after(cert_expiration)  # type: ignore
     )
     return (
-        cert.sign(priv_key, hashes.SHA256(), default_backend())
+        cert.sign(priv_key, hashes.SHA256())
         .public_bytes(encoding=serialization.Encoding.PEM)
         .decode("UTF-8")
     )
 
 
-async def create_ssl_context() -> ssl.SSLContext:
+async def create_ssl_context(instance: FakeCSQLInstance) -> ssl.SSLContext:
     """Helper method to build an ssl.SSLContext for tests"""
-    # generate keys and certs for test
-    cert, private_key = generate_cert("my-project", "my-instance")
-    server_ca_cert = self_signed_cert(cert, private_key)
     client_private, client_bytes = await generate_keys()
     client_key: rsa.RSAPublicKey = serialization.load_pem_public_key(
-        client_bytes.encode("UTF-8"), default_backend()
+        client_bytes.encode("UTF-8"),
     )  # type: ignore
-    ephemeral_cert = client_key_signed_cert(cert, private_key, client_key)
-    # build default ssl.SSLContext
-    context = ssl.create_default_context()
+    ephemeral_cert = client_key_signed_cert(
+        instance.server_ca, instance.server_key, client_key
+    )
+    # create SSL/TLS context
+    context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+    context.check_hostname = False
     # load ssl.SSLContext with certs
     async with TemporaryDirectory() as tmpdir:
         ca_filename, cert_filename, key_filename = await write_to_file(
-            tmpdir, server_ca_cert, ephemeral_cert, client_private
+            tmpdir, instance.server_cert_pem, ephemeral_cert, client_private
         )
         context.load_cert_chain(cert_filename, keyfile=key_filename)
         context.load_verify_locations(cafile=ca_filename)
@@ -279,8 +281,8 @@ class FakeCSQLInstance:
         body = await request.json()
         pub_key = body["public_key"]
         client_key: rsa.RSAPublicKey = serialization.load_pem_public_key(
-            pub_key.encode("UTF-8"), default_backend()
-        )  # type: ignore
+            pub_key.encode("UTF-8"),
+        )
         ephemeral_cert = client_key_signed_cert(
             self.server_ca,
             self.server_key,
