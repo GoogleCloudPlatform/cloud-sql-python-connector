@@ -16,7 +16,7 @@ name: Schedule Reporter
 
 on:
   schedule:
-    - cron: '0 23 * * *'  # Runs at 4:00 PM PT (11:00 PM UTC) every day
+    - cron: '0 3 * * *'  # Runs at 12:00 AM PT everyday
 
 jobs:
   run_reporter:
