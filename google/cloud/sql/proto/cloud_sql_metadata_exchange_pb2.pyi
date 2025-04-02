@@ -28,7 +28,7 @@ class CloudSQLConnectRequest(_message.Message):
     __slots__ = ["protocol_type", "user_agent"]
 
     class ProtocolType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
-        __slots__ = []
+        __slots__ = []  # type: ignore
 
     PROTOCOL_TYPE_FIELD_NUMBER: _ClassVar[int]
     PROTOCOL_TYPE_UNSPECIFIED: CloudSQLConnectRequest.ProtocolType
@@ -49,7 +49,7 @@ class CloudSQLConnectResponse(_message.Message):
     __slots__ = ["error", "response_code"]
 
     class ResponseCode(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
-        __slots__ = []
+        __slots__ = []  # type: ignore
 
     ERROR: CloudSQLConnectResponse.ResponseCode
     ERROR_FIELD_NUMBER: _ClassVar[int]
