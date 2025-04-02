@@ -124,3 +124,6 @@ def test_lazy_pymysql_connection() -> None:
         curr_time = time[0]
         assert type(curr_time) is datetime
     connector.close()
+
+def test_broken_test_reportss() -> None:
+    assert 1 == 2
