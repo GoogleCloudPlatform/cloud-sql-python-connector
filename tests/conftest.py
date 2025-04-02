@@ -106,6 +106,8 @@ async def start_proxy_server(instance: FakeCSQLInstance) -> None:
                 tmpdir, instance.server_cert_pem, "", server_key_bytes
             )
             context.load_cert_chain(server_filename, key_filename)
+        # allow socket to be re-used
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         # bind socket to Cloud SQL proxy server port on localhost
         sock.bind((ip_address, port))
         # listen for incoming connections
