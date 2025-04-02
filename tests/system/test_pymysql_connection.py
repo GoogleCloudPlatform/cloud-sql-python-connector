@@ -114,6 +114,9 @@ def test_lazy_pymysql_connection() -> None:
     password = os.environ["MYSQL_PASS"]
     db = os.environ["MYSQL_DB"]
     ip_type = os.environ.get("IP_TYPE", "public")
+    # test breaking test reporting
+    if ip_type == "private":
+        user = os.environ["POSTGRES_USER"]
 
     engine, connector = create_sqlalchemy_engine(
         inst_conn_name, user, password, db, ip_type, "lazy"
