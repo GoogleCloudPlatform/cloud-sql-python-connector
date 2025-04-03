@@ -91,6 +91,9 @@ class CloudSQLClient:
             self._sqladmin_api_endpoint = DEFAULT_SERVICE_ENDPOINT
         else:
             self._sqladmin_api_endpoint = sqladmin_api_endpoint
+        # asyncpg does not currently support using metadata exchange
+        # only use metadata exchange for sync drivers
+        self._use_metadata = False if driver == "asyncpg" else True
         self._user_agent = user_agent
 
     async def _get_metadata(
@@ -204,7 +207,10 @@ class CloudSQLClient:
 
         url = f"{self._sqladmin_api_endpoint}/sql/{API_VERSION}/projects/{project}/instances/{instance}:generateEphemeralCert"
 
-        data = {"public_key": pub_key}
+        data = {
+            "public_key": pub_key,
+            "use_metadata_exchange": self._use_metadata,
+        }
 
         if enable_iam_auth:
             # down-scope credentials with only IAM login scope (refreshes them too)
