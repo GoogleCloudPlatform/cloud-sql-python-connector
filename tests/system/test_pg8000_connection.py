@@ -191,3 +191,22 @@ def test_custom_SAN_with_dns_pg8000_connection() -> None:
         curr_time = time[0]
         assert type(curr_time) is datetime
     connector.close()
+
+
+def test_MCP_pg8000_connection() -> None:
+    """Basic test to get time from database."""
+    inst_conn_name = os.environ["POSTGRES_MCP_CONNECTION_NAME"]
+    user = os.environ["POSTGRES_USER"]
+    password = os.environ["POSTGRES_MCP_PASS"]
+    db = os.environ["POSTGRES_DB"]
+    ip_type = os.environ.get("IP_TYPE", "public")
+
+    engine, connector = create_sqlalchemy_engine(
+        inst_conn_name, user, password, db, ip_type
+    )
+    with engine.connect() as conn:
+        time = conn.execute(sqlalchemy.text("SELECT NOW()")).fetchone()
+        conn.commit()
+        curr_time = time[0]
+        assert type(curr_time) is datetime
+    connector.close()
