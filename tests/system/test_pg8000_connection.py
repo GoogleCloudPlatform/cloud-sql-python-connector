@@ -194,7 +194,7 @@ def test_custom_SAN_with_dns_pg8000_connection() -> None:
 
 
 def test_MCP_pg8000_connection() -> None:
-    """Basic test to get time from database."""
+    """Basic test to get time from database using MCP enabled instance."""
     inst_conn_name = os.environ["POSTGRES_MCP_CONNECTION_NAME"]
     user = os.environ["POSTGRES_USER"]
     password = os.environ["POSTGRES_MCP_PASS"]

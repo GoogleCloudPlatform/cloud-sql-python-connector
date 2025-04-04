@@ -116,7 +116,7 @@ def test_lazy_pg8000_iam_authn_connection() -> None:
 
 
 def test_MCP_pg8000_iam_authn_connection() -> None:
-    """Basic test to get time from database."""
+    """Basic test to get time from database using MCP enabled instance."""
     inst_conn_name = os.environ["POSTGRES_MCP_CONNECTION_NAME"]
     user = os.environ["POSTGRES_IAM_USER"]
     db = os.environ["POSTGRES_DB"]
