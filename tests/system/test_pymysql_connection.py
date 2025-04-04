@@ -127,7 +127,7 @@ def test_lazy_pymysql_connection() -> None:
 
 
 def test_MCP_pymysql_connection() -> None:
-    """Basic test to get time from database."""
+    """Basic test to get time from database using MCP enabled instance."""
     inst_conn_name = os.environ["MYSQL_MCP_CONNECTION_NAME"]
     user = os.environ["MYSQL_USER"]
     password = os.environ["MYSQL_MCP_PASS"]
