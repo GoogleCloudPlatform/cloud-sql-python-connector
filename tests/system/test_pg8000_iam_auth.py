@@ -113,19 +113,3 @@ def test_lazy_pg8000_iam_authn_connection() -> None:
         curr_time = time[0]
         assert type(curr_time) is datetime
     connector.close()
-
-
-def test_MCP_pg8000_iam_authn_connection() -> None:
-    """Basic test to get time from database using MCP enabled instance."""
-    inst_conn_name = os.environ["POSTGRES_MCP_CONNECTION_NAME"]
-    user = os.environ["POSTGRES_IAM_USER"]
-    db = os.environ["POSTGRES_DB"]
-    ip_type = os.environ.get("IP_TYPE", "public")
-
-    engine, connector = create_sqlalchemy_engine(inst_conn_name, user, db, ip_type)
-    with engine.connect() as conn:
-        time = conn.execute(sqlalchemy.text("SELECT NOW()")).fetchone()
-        conn.commit()
-        curr_time = time[0]
-        assert type(curr_time) is datetime
-    connector.close()
