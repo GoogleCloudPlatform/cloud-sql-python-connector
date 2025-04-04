@@ -220,6 +220,25 @@ async def test_custom_SAN_with_dns_sqlalchemy_connection_with_asyncpg() -> None:
     await connector.close_async()
 
 
+async def test_MCP_sqlalchemy_connection_with_asyncpg() -> None:
+    """Basic test to get time from database using MCP enabled instance."""
+    inst_conn_name = os.environ["POSTGRES_MCP_CONNECTION_NAME"]
+    user = os.environ["POSTGRES_USER"]
+    password = os.environ["POSTGRES_MCP_PASS"]
+    db = os.environ["POSTGRES_DB"]
+    ip_type = os.environ.get("IP_TYPE", "public")
+
+    pool, connector = await create_sqlalchemy_engine(
+        inst_conn_name, user, password, db, ip_type
+    )
+
+    async with pool.connect() as conn:
+        res = (await conn.execute(sqlalchemy.text("SELECT 1"))).fetchone()
+        assert res[0] == 1
+
+    await connector.close_async()
+
+
 async def test_connection_with_asyncpg() -> None:
     """Basic test to get time from database."""
     inst_conn_name = os.environ["POSTGRES_CONNECTION_NAME"]
