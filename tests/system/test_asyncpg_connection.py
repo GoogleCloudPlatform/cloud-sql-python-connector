@@ -35,6 +35,7 @@ async def create_sqlalchemy_engine(
     ip_type: str = "public",
     refresh_strategy: str = "background",
     resolver: Union[type[DefaultResolver], type[DnsResolver]] = DefaultResolver,
+    **kwargs: Any,
 ) -> tuple[sqlalchemy.ext.asyncio.engine.AsyncEngine, Connector]:
     """Creates a connection pool for a Cloud SQL instance and returns the pool
     and the connector. Callers are responsible for closing the pool and the
@@ -92,6 +93,7 @@ async def create_sqlalchemy_engine(
             password=password,
             db=db,
             ip_type=ip_type,  # can be "public", "private" or "psc"
+            **kwargs,  # additional asyncpg connection args
         ),
         execution_options={"isolation_level": "AUTOCOMMIT"},
     )
@@ -229,7 +231,12 @@ async def test_MCP_sqlalchemy_connection_with_asyncpg() -> None:
     ip_type = os.environ.get("IP_TYPE", "public")
 
     pool, connector = await create_sqlalchemy_engine(
-        inst_conn_name, user, password, db, ip_type
+        inst_conn_name,
+        user,
+        password,
+        db,
+        ip_type,
+        statement_cache_size=0,
     )
 
     async with pool.connect() as conn:
