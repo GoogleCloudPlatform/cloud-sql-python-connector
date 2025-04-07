@@ -480,6 +480,8 @@ async def test_connect_async_closed_connector(
     ) as connector:
         connector._client = fake_client
         await connector.close_async()
+        # wait for close to complete
+        await asyncio.sleep(0.1)
         with pytest.raises(RuntimeError) as exc_info:
             await connector.connect_async(
                 "test-project:test-region:test-instance",
