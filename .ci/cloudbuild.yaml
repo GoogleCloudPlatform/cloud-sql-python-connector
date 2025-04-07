@@ -25,6 +25,8 @@ steps:
         "MYSQL_IAM_USER",
         "MYSQL_PASS",
         "MYSQL_DB",
+        "MYSQL_MCP_CONNECTION_NAME",
+        "MYSQL_MCP_PASS",
         "POSTGRES_CONNECTION_NAME",
         "POSTGRES_USER",
         "POSTGRES_IAM_USER",
@@ -59,6 +61,10 @@ availableSecrets:
       env: "MYSQL_PASS"
     - versionName: "projects/$PROJECT_ID/secrets/MYSQL_DB/versions/latest"
       env: "MYSQL_DB"
+    - versionName: "projects/$PROJECT_ID/secrets/MYSQL_MCP_CONNECTION_NAME/versions/latest"
+      env: "MYSQL_MCP_CONNECTION_NAME"
+    - versionName: "projects/$PROJECT_ID/secrets/MYSQL_MCP_PASS/versions/latest"
+      env: "MYSQL_MCP_PASS"
     - versionName: "projects/$PROJECT_ID/secrets/POSTGRES_CONNECTION_NAME/versions/latest"
       env: "POSTGRES_CONNECTION_NAME"
     - versionName: "projects/$PROJECT_ID/secrets/POSTGRES_USER/versions/latest"
