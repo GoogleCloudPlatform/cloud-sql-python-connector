@@ -16,6 +16,7 @@ limitations under the License.
 
 import asyncio
 import os
+import time
 from typing import Union
 
 from aiohttp import ClientResponseError
@@ -500,6 +501,7 @@ def test_connect_closed_connector(
     with Connector(credentials=fake_credentials) as connector:
         connector._client = fake_client
         connector.close()
+        time.sleep(0.1)
         with pytest.raises(RuntimeError) as exc_info:
             connector.connect(
                 "test-project:test-region:test-instance",
