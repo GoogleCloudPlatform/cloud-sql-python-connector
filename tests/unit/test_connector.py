@@ -1,19 +1,3 @@
-"""
-Copyright 2021 Google LLC
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-  https://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-"""
-
 import asyncio
 import os
 from typing import Union
@@ -468,3 +452,42 @@ def test_configured_quota_project_env_var(
         assert connector._quota_project == quota_project
     # unset env var
     del os.environ["GOOGLE_CLOUD_QUOTA_PROJECT"]
+
+
+@pytest.mark.asyncio
+async def test_connect_async_closed_connector(
+    fake_credentials: Credentials, fake_client: CloudSQLClient
+) -> None:
+    """Test that calling connect_async() on a closed connector raises an error."""
+    async with Connector(
+        credentials=fake_credentials, loop=asyncio.get_running_loop()
+    ) as connector:
+        connector._client = fake_client
+        await connector.close_async()
+        with pytest.raises(RuntimeError) as exc_info:
+            await connector.connect_async(
+                "test-project:test-region:test-instance",
+                "asyncpg",
+                user="my-user",
+                password="my-pass",
+                db="my-db",
+            )
+        assert exc_info.value.args[0] == "Cannot connect using a closed Connector."
+
+
+def test_connect_closed_connector(
+    fake_credentials: Credentials, fake_client: CloudSQLClient
+) -> None:
+    """Test that calling connect() on a closed connector raises an error."""
+    with Connector(credentials=fake_credentials) as connector:
+        connector._client = fake_client
+        connector.close()
+        with pytest.raises(RuntimeError) as exc_info:
+            connector.connect(
+                "test-project:test-region:test-instance",
+                "pg8000",
+                user="my-user",
+                password="my-pass",
+                db="my-db",
+            )
+        assert exc_info.value.args[0] == "Cannot connect using a closed Connector."
