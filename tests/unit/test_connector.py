@@ -16,6 +16,7 @@ limitations under the License.
 
 import asyncio
 import os
+import time
 from typing import Union
 
 from aiohttp import ClientResponseError
@@ -468,3 +469,45 @@ def test_configured_quota_project_env_var(
         assert connector._quota_project == quota_project
     # unset env var
     del os.environ["GOOGLE_CLOUD_QUOTA_PROJECT"]
+
+
+@pytest.mark.asyncio
+async def test_connect_async_closed_connector(
+    fake_credentials: Credentials, fake_client: CloudSQLClient
+) -> None:
+    """Test that calling connect_async() on a closed connector raises an error."""
+    async with Connector(
+        credentials=fake_credentials, loop=asyncio.get_running_loop()
+    ) as connector:
+        connector._client = fake_client
+        await connector.close_async()
+        # wait for close to complete
+        await asyncio.sleep(0.1)
+        with pytest.raises(RuntimeError) as exc_info:
+            await connector.connect_async(
+                "test-project:test-region:test-instance",
+                "asyncpg",
+                user="my-user",
+                password="my-pass",
+                db="my-db",
+            )
+        assert exc_info.value.args[0] == "Cannot connect using a closed Connector."
+
+
+def test_connect_closed_connector(
+    fake_credentials: Credentials, fake_client: CloudSQLClient
+) -> None:
+    """Test that calling connect() on a closed connector raises an error."""
+    with Connector(credentials=fake_credentials) as connector:
+        connector._client = fake_client
+        connector.close()
+        time.sleep(0.1)
+        with pytest.raises(RuntimeError) as exc_info:
+            connector.connect(
+                "test-project:test-region:test-instance",
+                "pg8000",
+                user="my-user",
+                password="my-pass",
+                db="my-db",
+            )
+        assert exc_info.value.args[0] == "Cannot connect using a closed Connector."
