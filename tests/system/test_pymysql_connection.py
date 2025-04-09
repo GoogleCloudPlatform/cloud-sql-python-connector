@@ -124,3 +124,8 @@ def test_lazy_pymysql_connection() -> None:
         curr_time = time[0]
         assert type(curr_time) is datetime
     connector.close()
+
+
+def test_broken_test_reports() -> None:
+    '''Expected to be failing but that's okay (testing schedule reporter)'''
+    assert 1 == 2
