@@ -146,5 +146,5 @@ def test_MCP_pymysql_connection() -> None:
 
 
 def test_broken_test_reports() -> None:
-    '''This test breaks but that's expected'''
+    """This test breaks but that's expected"""
     assert 1 == 2
