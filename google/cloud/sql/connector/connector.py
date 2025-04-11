@@ -21,9 +21,10 @@ from functools import partial
 import logging
 import os
 import socket
+import struct
 from threading import Thread
 from types import TracebackType
-from typing import Any, Callable, Optional, Union
+from typing import Any, Callable, Optional, TYPE_CHECKING, Union
 
 import google.auth
 from google.auth.credentials import Credentials
@@ -44,11 +45,17 @@ from google.cloud.sql.connector.resolver import DefaultResolver
 from google.cloud.sql.connector.resolver import DnsResolver
 from google.cloud.sql.connector.utils import format_database_user
 from google.cloud.sql.connector.utils import generate_keys
+import google.cloud.sql.proto.cloud_sql_metadata_exchange_pb2 as connectorspb
+
+if TYPE_CHECKING:
+    import ssl
 
 logger = logging.getLogger(name=__name__)
 
 ASYNC_DRIVERS = ["asyncpg"]
 SERVER_PROXY_PORT = 3307
+# the maximum amount of time to wait before aborting a metadata exchange
+IO_TIMEOUT = 30
 _DEFAULT_SCHEME = "https://"
 _DEFAULT_UNIVERSE_DOMAIN = "googleapis.com"
 _SQLADMIN_HOST_TEMPLATE = "sqladmin.{universe_domain}"
@@ -391,6 +398,9 @@ class Connector:
                 socket.create_connection((ip_address, SERVER_PROXY_PORT)),
                 server_hostname=ip_address,
             )
+            # Perform Metadata Exchange Protocol
+            metadata_partial = partial(self.metadata_exchange, sock)
+            sock = await self._loop.run_in_executor(None, metadata_partial)
             # If this connection was opened using a domain name, then store it
             # for later in case we need to forcibly close it on failover.
             if conn_info.conn_name.domain_name:
@@ -408,6 +418,86 @@ class Connector:
             # with any exception, we attempt a force refresh, then throw the error
             await monitored_cache.force_refresh()
             raise
+
+    def metadata_exchange(self, sock: ssl.SSLSocket) -> ssl.SSLSocket:
+        """
+        Sends metadata about the connection prior to the database
+        protocol taking over.
+        The exchange consists of four steps:
+        1. Prepare a CloudSQLConnectRequest including the socket protocol and
+           the user agent.
+        2. Write the size of the message as a big endian uint32 (4 bytes) to
+           the server followed by the serialized message. The length does not
+           include the initial four bytes.
+        3. Read a big endian uint32 (4 bytes) from the server. This is the
+           CloudSQLConnectResponse message length and does not include the
+           initial four bytes.
+        4. Parse the response using the message length in step 3. If the
+           response is not OK, return the response's error. If there is no error,
+           the metadata exchange has succeeded and the connection is complete.
+        Args:
+            sock (ssl.SSLSocket): The mTLS/SSL socket to perform metadata
+                exchange on.
+        Returns:
+            sock (ssl.SSLSocket): mTLS/SSL socket connected to Cloud SQL Proxy
+                server.
+        """
+        # form metadata exchange request
+        req = connectorspb.CloudSQLConnectRequest(
+            user_agent=f"{self._client._user_agent}",  # type: ignore
+            protocol_type=connectorspb.CloudSQLConnectRequest.TCP,
+        )
+
+        # set I/O timeout
+        sock.settimeout(IO_TIMEOUT)
+
+        # pack big-endian unsigned integer (4 bytes)
+        packed_len = struct.pack(">I", req.ByteSize())
+
+        # send metadata message length and request message
+        sock.sendall(packed_len + req.SerializeToString())
+
+        # form metadata exchange response
+        resp = connectorspb.CloudSQLConnectResponse()
+
+        # read metadata message length (4 bytes)
+        message_len_buffer_size = struct.Struct(">I").size
+        message_len_buffer = b""
+        while message_len_buffer_size > 0:
+            chunk = sock.recv(message_len_buffer_size)
+            if not chunk:
+                raise RuntimeError(
+                    "Connection closed while getting metadata exchange length!"
+                )
+            message_len_buffer += chunk
+            message_len_buffer_size -= len(chunk)
+
+        (message_len,) = struct.unpack(">I", message_len_buffer)
+
+        # read metadata exchange message
+        buffer = b""
+        while message_len > 0:
+            chunk = sock.recv(message_len)
+            if not chunk:
+                raise RuntimeError(
+                    "Connection closed while performing metadata exchange!"
+                )
+            buffer += chunk
+            message_len -= len(chunk)
+
+        # parse metadata exchange response from buffer
+        resp.ParseFromString(buffer)
+
+        # reset socket back to blocking mode
+        sock.setblocking(True)
+
+        # validate metadata exchange response
+        if resp.response_code != connectorspb.CloudSQLConnectResponse.OK:
+            raise ValueError(
+                f"Metadata Exchange request has failed with error: {resp.error}"
+            )
+
+        return sock
 
     async def _remove_cached(
         self, instance_connection_string: str, enable_iam_auth: bool

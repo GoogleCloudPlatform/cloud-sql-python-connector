@@ -257,6 +257,32 @@ def test_Connector_connect_bad_ip_type(
         )
 
 
+@pytest.mark.usefixtures("proxy_server_with_metadata")
+async def test_connect(
+    fake_credentials: Credentials, fake_client: CloudSQLClient
+) -> None:
+    """
+    Test that connector.connect returns connection object.
+    """
+    client = fake_client
+    async with Connector(
+        credentials=fake_credentials, loop=asyncio.get_running_loop()
+    ) as connector:
+        connector._client = client
+        # patch db connection creation
+        with patch("google.cloud.sql.connector.pg8000.connect") as mock_connect:
+            mock_connect.return_value = True
+            connection = await connector.connect_async(
+                "test-project:test-region:test-instance",
+                "pg8000",
+                user="my-user",
+                password="my-pass",
+                db="my-db",
+            )
+        # check connection is returned
+        assert connection is True
+
+
 @pytest.mark.asyncio
 async def test_Connector_connect_async(
     fake_credentials: Credentials, fake_client: CloudSQLClient

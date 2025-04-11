@@ -180,7 +180,7 @@ async def test_MonitoredCache_check_domain_name(
         # configure a local socket
         ip_addr = "127.0.0.1"
         sock = context.wrap_socket(
-            socket.create_connection((ip_addr, 3307)),
+            socket.create_connection((ip_addr, 3308)),
             server_hostname=ip_addr,
         )
         # verify socket is open
@@ -218,7 +218,7 @@ async def test_MonitoredCache_purge_closed_sockets(
     # configure a local socket
     ip_addr = "127.0.0.1"
     sock = context.wrap_socket(
-        socket.create_connection((ip_addr, 3307)),
+        socket.create_connection((ip_addr, 3308)),
         server_hostname=ip_addr,
     )
 
