@@ -467,7 +467,6 @@ class Connector:
                 self._loop.call_soon_threadsafe(self._loop.stop)
             # wait for thread to finish closing (i.e. loop to stop)
             self._thread.join()
-        self._closed = True
 
     async def close_async(self) -> None:
         """Helper function to cancel the cache's tasks
