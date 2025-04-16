@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.18.1](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v1.18.0...v1.18.1) (2025-04-16)
+
+
+### Bug Fixes
+
+* bump dependencies to latest ([#1283](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/1283)) ([f29b639](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/f29b6396f8eb4bed9070b3a67711fe6698ed0d51))
+
+
+### Documentation
+
+* use lambda over getconn func ([#1251](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/1251)) ([6ecf894](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/6ecf894759bd44c729a5a53f34f3f161923d1e33))
+
 ## [1.18.0](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v1.17.0...v1.18.0) (2025-03-21)
 
 
