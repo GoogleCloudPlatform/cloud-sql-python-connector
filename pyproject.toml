@@ -82,3 +82,9 @@ exclude = ['docs/*', 'samples/*']
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+
+[tool.ruff]
+line-length = 88
+
+[tool.ruff.format]
+quote-style = "double"

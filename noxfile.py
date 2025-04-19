@@ -20,8 +20,6 @@ import os
 
 import nox
 
-BLACK_VERSION = "black==24.10.0"
-ISORT_VERSION = "isort==5.13.2"
 
 LINT_PATHS = ["google", "tests", "noxfile.py"]
 
@@ -36,32 +34,16 @@ def lint(session):
     """
     session.install("-r", "requirements.txt")
     session.install(
-        "flake8",
-        "flake8-annotations",
+        "ruff",
         "mypy",
-        BLACK_VERSION,
-        ISORT_VERSION,
         "twine",
         "build",
         "importlib_metadata==7.2.1",
     )
     session.run(
-        "isort",
-        "--fss",
-        "--check-only",
-        "--diff",
-        "--profile=black",
-        "--force-single-line-imports",
-        "--dont-order-by-type",
-        "--single-line-exclusions=typing",
-        "-w=88",
-        *LINT_PATHS,
-    )
-    session.run("black", "--check", "--diff", *LINT_PATHS)
-    session.run(
-        "flake8",
-        "google",
-        "tests",
+        "ruff",
+        "check",
+        *LINT_PATHS, 
     )
     session.run(
         "mypy",
@@ -75,28 +57,19 @@ def lint(session):
     session.run("python", "-m", "build", "--sdist")
     session.run("twine", "check", "--strict", "dist/*")
 
-
 @nox.session()
 def format(session):
     """
-    Run isort to sort imports. Then run black
+    Run isort to sort imports. Then run black 
     to format code to uniform standard.
     """
-    session.install(BLACK_VERSION, ISORT_VERSION)
+    session.install("ruff")
     # Use the --fss option to sort imports using strict alphabetical order.
     # See https://pycqa.github.io/isort/docs/configuration/options.html#force-sort-within-sectionss
     session.run(
-        "isort",
-        "--fss",
-        "--profile=black",
-        "--force-single-line-imports",
-        "--dont-order-by-type",
-        "--single-line-exclusions=typing",
-        "-w=88",
-        *LINT_PATHS,
-    )
-    session.run(
-        "black",
+        "ruff",
+        "check",
+        "--fix",  
         *LINT_PATHS,
     )
 
