@@ -20,6 +20,9 @@ steps:
       - "IP_TYPE=${_IP_TYPE}"
     secretEnv:
       [
+        "MYSQL_PSA_CONNECTION_NAME",
+        "MYSQL_PSA_USER",
+        "MYSQL_PSA_PASS",
         "MYSQL_CONNECTION_NAME",
         "MYSQL_USER",
         "MYSQL_IAM_USER",
