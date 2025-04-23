@@ -96,9 +96,6 @@ def test_pymysql_connection() -> None:
     db = os.environ["MYSQL_DB"]
     ip_type = os.environ.get("IP_TYPE", "public")
 
-    if ip_type == "private":
-        ip_type = "psc"
-
     engine, connector = create_sqlalchemy_engine(
         inst_conn_name, user, password, db, ip_type
     )
@@ -117,9 +114,6 @@ def test_lazy_pymysql_connection() -> None:
     password = os.environ["MYSQL_PASS"]
     db = os.environ["MYSQL_DB"]
     ip_type = os.environ.get("IP_TYPE", "public")
-
-    if ip_type == "private":
-        ip_type = "psc"
 
     engine, connector = create_sqlalchemy_engine(
         inst_conn_name, user, password, db, ip_type, "lazy"

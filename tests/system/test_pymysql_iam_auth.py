@@ -88,9 +88,6 @@ def test_pymysql_iam_authn_connection() -> None:
     db = os.environ["MYSQL_DB"]
     ip_type = os.environ.get("IP_TYPE", "public")
 
-    if ip_type == "private":
-        ip_type = "psc"
-
     engine, connector = create_sqlalchemy_engine(inst_conn_name, user, db, ip_type)
     with engine.connect() as conn:
         time = conn.execute(sqlalchemy.text("SELECT NOW()")).fetchone()
@@ -106,9 +103,6 @@ def test_lazy_pymysql_iam_authn_connection() -> None:
     user = os.environ["MYSQL_IAM_USER"]
     db = os.environ["MYSQL_DB"]
     ip_type = os.environ.get("IP_TYPE", "public")
-
-    if ip_type == "private":
-        ip_type = "psc"
 
     engine, connector = create_sqlalchemy_engine(
         inst_conn_name, user, db, ip_type, "lazy"
