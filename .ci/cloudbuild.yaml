@@ -51,13 +51,13 @@ steps:
         nox -s system-${_VERSION}
 availableSecrets:
   secretManager:
-    - versionName: "projects/$PROJECT_ID/secrets/MYSQL_CONNECTION_NAME/versions/latest"
+    - versionName: "projects/$PROJECT_ID/secrets/MYSQL_PSA_CONNECTION_NAME/versions/latest"
       env: "MYSQL_CONNECTION_NAME"
-    - versionName: "projects/$PROJECT_ID/secrets/MYSQL_USER/versions/latest"
+    - versionName: "projects/$PROJECT_ID/secrets/MYSQL_PSA_USER/versions/latest"
       env: "MYSQL_USER"
     - versionName: "projects/$PROJECT_ID/secrets/CLOUD_BUILD_MYSQL_IAM_USER/versions/latest"
       env: "MYSQL_IAM_USER"
-    - versionName: "projects/$PROJECT_ID/secrets/MYSQL_PASS/versions/latest"
+    - versionName: "projects/$PROJECT_ID/secrets/MYSQL_PSA_PASS/versions/latest"
       env: "MYSQL_PASS"
     - versionName: "projects/$PROJECT_ID/secrets/MYSQL_DB/versions/latest"
       env: "MYSQL_DB"
