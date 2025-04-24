@@ -13,6 +13,17 @@
 # limitations under the License.
 
 steps:
+  - id: check the private DNS zone and the private connection
+    name: gcr.io/cloud-builders/git
+    entrypoint: bash
+    args:
+    - '-c'
+    - |
+        apt-get update
+        apt-get install dnsutils -y
+        echo "dig ${_DNS_NAME} ..."
+        dig ${_DNS_NAME}
+
   - id: run integration tests
     name: python:${_VERSION}
     entrypoint: bash
@@ -109,6 +120,7 @@ availableSecrets:
 substitutions:
   _VERSION: ${_VERSION}
   _IP_TYPE: ${_IP_TYPE}
+  _DNS_NAME: ${_DNS_NAME}
 
 options:
   dynamicSubstitutions: true
