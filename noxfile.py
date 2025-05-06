@@ -20,7 +20,6 @@ import os
 
 import nox
 
-
 LINT_PATHS = ["google", "tests", "noxfile.py"]
 
 TEST_PYTHON_VERSIONS = ["3.9", "3.10", "3.11", "3.12", "3.13"]
@@ -60,12 +59,9 @@ def lint(session):
 @nox.session()
 def format(session):
     """
-    Run isort to sort imports. Then run black 
-    to format code to uniform standard.
+    Run Ruff to automatically format code.
     """
     session.install("ruff")
-    # Use the --fss option to sort imports using strict alphabetical order.
-    # See https://pycqa.github.io/isort/docs/configuration/options.html#force-sort-within-sectionss
     session.run(
         "ruff",
         "check",
