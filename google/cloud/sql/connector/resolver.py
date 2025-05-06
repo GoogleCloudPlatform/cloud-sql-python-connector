@@ -14,11 +14,11 @@
 
 import dns.asyncresolver
 
+from google.cloud.sql.connector.connection_name import _is_valid_domain
+from google.cloud.sql.connector.connection_name import _parse_connection_name
 from google.cloud.sql.connector.connection_name import (
     _parse_connection_name_with_domain_name,
 )
-from google.cloud.sql.connector.connection_name import _is_valid_domain
-from google.cloud.sql.connector.connection_name import _parse_connection_name
 from google.cloud.sql.connector.connection_name import ConnectionName
 from google.cloud.sql.connector.exceptions import DnsResolutionError
 

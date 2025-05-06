@@ -22,9 +22,9 @@ from typing import Any, Optional, TYPE_CHECKING
 import aiohttp
 from cryptography.hazmat.backends import default_backend
 from cryptography.x509 import load_pem_x509_certificate
+
 from google.auth.credentials import TokenState
 from google.auth.transport import requests
-
 from google.cloud.sql.connector.connection_info import ConnectionInfo
 from google.cloud.sql.connector.connection_name import ConnectionName
 from google.cloud.sql.connector.exceptions import AutoIAMAuthNotSupported
