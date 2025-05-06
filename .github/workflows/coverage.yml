@@ -37,7 +37,7 @@ jobs:
 
       - name: Calculate base code coverage
         run: |
-          nox --sessions unit-3.10
+          nox --sessions unit-3.13
           coverage report --show-missing
           export CUR_COVER=$(coverage report | awk '$1 == "TOTAL" {print $NF+0}')
           echo "CUR_COVER=$CUR_COVER" >> $GITHUB_ENV
@@ -51,7 +51,7 @@ jobs:
 
       - name: Calculate PR code coverage
         run: |
-          nox --sessions unit-3.10
+          nox --sessions unit-3.13
           coverage report --show-missing
           export PR_COVER=$(coverage report | awk '$1 == "TOTAL" {print $NF+0}')
           echo "PR_COVER=$PR_COVER" >> $GITHUB_ENV
