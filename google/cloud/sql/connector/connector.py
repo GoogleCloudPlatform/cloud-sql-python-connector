@@ -28,7 +28,6 @@ from typing import Any, Callable, Optional, Union
 import google.auth
 from google.auth.credentials import Credentials
 from google.auth.credentials import with_scopes_if_required
-
 import google.cloud.sql.connector.asyncpg as asyncpg
 from google.cloud.sql.connector.client import CloudSQLClient
 from google.cloud.sql.connector.enums import DriverMapping

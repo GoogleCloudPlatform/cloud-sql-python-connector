@@ -19,10 +19,10 @@ import os
 from typing import Union
 
 from aiohttp import ClientResponseError
-from google.auth.credentials import Credentials
 from mock import patch
 import pytest  # noqa F401 Needed to run the tests
 
+from google.auth.credentials import Credentials
 from google.cloud.sql.connector import Connector
 from google.cloud.sql.connector import create_async_connector
 from google.cloud.sql.connector import IPTypes

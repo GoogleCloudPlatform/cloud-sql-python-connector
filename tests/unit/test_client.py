@@ -17,10 +17,10 @@ from typing import Optional
 
 from aiohttp import ClientResponseError
 from aioresponses import aioresponses
-from google.auth.credentials import Credentials
 from mocks import FakeCredentials
 import pytest
 
+from google.auth.credentials import Credentials
 from google.cloud.sql.connector.client import CloudSQLClient
 from google.cloud.sql.connector.utils import generate_keys
 from google.cloud.sql.connector.version import __version__ as version
