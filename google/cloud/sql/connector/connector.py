@@ -33,6 +33,7 @@ from google.cloud.sql.connector.client import CloudSQLClient
 from google.cloud.sql.connector.enums import DriverMapping
 from google.cloud.sql.connector.enums import IPTypes
 from google.cloud.sql.connector.enums import RefreshStrategy
+from google.cloud.sql.connector.exceptions import ClosedConnectorError
 from google.cloud.sql.connector.instance import RefreshAheadCache
 from google.cloud.sql.connector.lazy import LazyRefreshCache
 from google.cloud.sql.connector.monitored_cache import MonitoredCache
@@ -43,7 +44,6 @@ from google.cloud.sql.connector.resolver import DefaultResolver
 from google.cloud.sql.connector.resolver import DnsResolver
 from google.cloud.sql.connector.utils import format_database_user
 from google.cloud.sql.connector.utils import generate_keys
-from google.cloud.sql.connector.exceptions import ClosedConnectorError
 
 logger = logging.getLogger(name=__name__)
 

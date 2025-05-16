@@ -29,8 +29,8 @@ from google.cloud.sql.connector import IPTypes
 from google.cloud.sql.connector.client import CloudSQLClient
 from google.cloud.sql.connector.connection_name import ConnectionName
 from google.cloud.sql.connector.exceptions import CloudSQLIPTypeError
+from google.cloud.sql.connector.exceptions import ClosedConnectorError
 from google.cloud.sql.connector.exceptions import IncompatibleDriverError
-from google.cloud.sql.connector.exceptions import ClosedConnectionError
 from google.cloud.sql.connector.instance import RefreshAheadCache
 
 
@@ -481,7 +481,7 @@ async def test_connect_async_closed_connector(
     ) as connector:
         connector._client = fake_client
         await connector.close_async()
-        with pytest.raises(ClosedConnectionError) as exc_info:
+        with pytest.raises(ClosedConnectorError) as exc_info:
             await connector.connect_async(
                 "test-project:test-region:test-instance",
                 "asyncpg",
@@ -502,7 +502,7 @@ def test_connect_closed_connector(
     with Connector(credentials=fake_credentials) as connector:
         connector._client = fake_client
         connector.close()
-        with pytest.raises(ClosedConnectionError) as exc_info:
+        with pytest.raises(ClosedConnectorError) as exc_info:
             connector.connect(
                 "test-project:test-region:test-instance",
                 "pg8000",
