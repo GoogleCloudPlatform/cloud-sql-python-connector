@@ -43,6 +43,7 @@ from google.cloud.sql.connector.resolver import DefaultResolver
 from google.cloud.sql.connector.resolver import DnsResolver
 from google.cloud.sql.connector.utils import format_database_user
 from google.cloud.sql.connector.utils import generate_keys
+from google.cloud.sql.connector.exceptions import ClosedConnectorError
 
 logger = logging.getLogger(name=__name__)
 
@@ -243,8 +244,12 @@ class Connector:
         # connect runs sync database connections on background thread.
         # Async database connections should call 'connect_async' directly to
         # avoid hanging indefinitely.
+
+        # Check if the connector is closed before attempting to connect.
         if self._closed:
-            raise RuntimeError("Cannot connect using a closed Connector.")
+            raise ClosedConnectorError(
+                "Connection attempt failed because the connector has already been closed."
+            )
         connect_future = asyncio.run_coroutine_threadsafe(
             self.connect_async(instance_connection_string, driver, **kwargs),
             self._loop,
@@ -286,7 +291,9 @@ class Connector:
                 Connector.
         """
         if self._closed:
-            raise RuntimeError("Cannot connect using a closed Connector.")
+            raise ClosedConnectorError(
+                "Connection attempt failed because the connector has already been closed."
+            )
         if self._keys is None:
             self._keys = asyncio.create_task(generate_keys())
         if self._client is None:

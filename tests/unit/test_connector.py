@@ -16,7 +16,6 @@ limitations under the License.
 
 import asyncio
 import os
-import time
 from typing import Union
 
 from aiohttp import ClientResponseError
@@ -31,6 +30,7 @@ from google.cloud.sql.connector.client import CloudSQLClient
 from google.cloud.sql.connector.connection_name import ConnectionName
 from google.cloud.sql.connector.exceptions import CloudSQLIPTypeError
 from google.cloud.sql.connector.exceptions import IncompatibleDriverError
+from google.cloud.sql.connector.exceptions import ClosedConnectionError
 from google.cloud.sql.connector.instance import RefreshAheadCache
 
 
@@ -481,9 +481,7 @@ async def test_connect_async_closed_connector(
     ) as connector:
         connector._client = fake_client
         await connector.close_async()
-        # wait for close to complete
-        # await asyncio.sleep(0.1)
-        with pytest.raises(RuntimeError) as exc_info:
+        with pytest.raises(ClosedConnectionError) as exc_info:
             await connector.connect_async(
                 "test-project:test-region:test-instance",
                 "asyncpg",
@@ -491,7 +489,10 @@ async def test_connect_async_closed_connector(
                 password="my-pass",
                 db="my-db",
             )
-        assert exc_info.value.args[0] == "Cannot connect using a closed Connector."
+        assert (
+            exc_info.value.args[0]
+            == "Connection attempt failed because the connector has already been closed."
+        )
 
 
 def test_connect_closed_connector(
@@ -501,8 +502,7 @@ def test_connect_closed_connector(
     with Connector(credentials=fake_credentials) as connector:
         connector._client = fake_client
         connector.close()
-        # time.sleep(3.1)
-        with pytest.raises(RuntimeError) as exc_info:
+        with pytest.raises(ClosedConnectionError) as exc_info:
             connector.connect(
                 "test-project:test-region:test-instance",
                 "pg8000",
@@ -510,4 +510,7 @@ def test_connect_closed_connector(
                 password="my-pass",
                 db="my-db",
             )
-        assert exc_info.value.args[0] == "Cannot connect using a closed Connector."
+        assert (
+            exc_info.value.args[0]
+            == "Connection attempt failed because the connector has already been closed."
+        )
