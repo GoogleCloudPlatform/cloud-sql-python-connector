@@ -243,6 +243,8 @@ class Connector:
         # connect runs sync database connections on background thread.
         # Async database connections should call 'connect_async' directly to
         # avoid hanging indefinitely.
+        if self._closed:
+            raise RuntimeError("Cannot connect using a closed Connector.")
         connect_future = asyncio.run_coroutine_threadsafe(
             self.connect_async(instance_connection_string, driver, **kwargs),
             self._loop,
@@ -467,6 +469,7 @@ class Connector:
                 self._loop.call_soon_threadsafe(self._loop.stop)
             # wait for thread to finish closing (i.e. loop to stop)
             self._thread.join()
+        self._closed = True
 
     async def close_async(self) -> None:
         """Helper function to cancel the cache's tasks
