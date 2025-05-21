@@ -84,3 +84,10 @@ class CacheClosedError(Exception):
     Exception to be raised when a ConnectionInfoCache can not be accessed after
     it is closed.
     """
+
+
+class ClosedConnectorError(Exception):
+    """
+    Exception to be raised when a Connector is closed and connect method is
+    called on it.
+    """

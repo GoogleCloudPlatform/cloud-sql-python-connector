@@ -33,6 +33,7 @@ from google.cloud.sql.connector.client import CloudSQLClient
 from google.cloud.sql.connector.enums import DriverMapping
 from google.cloud.sql.connector.enums import IPTypes
 from google.cloud.sql.connector.enums import RefreshStrategy
+from google.cloud.sql.connector.exceptions import ClosedConnectorError
 from google.cloud.sql.connector.instance import RefreshAheadCache
 from google.cloud.sql.connector.lazy import LazyRefreshCache
 from google.cloud.sql.connector.monitored_cache import MonitoredCache
@@ -153,6 +154,7 @@ class Connector:
         # connection name string and enable_iam_auth boolean flag
         self._cache: dict[tuple[str, bool], MonitoredCache] = {}
         self._client: Optional[CloudSQLClient] = None
+        self._closed: bool = False
 
         # initialize credentials
         scopes = ["https://www.googleapis.com/auth/sqlservice.admin"]
@@ -242,6 +244,12 @@ class Connector:
         # connect runs sync database connections on background thread.
         # Async database connections should call 'connect_async' directly to
         # avoid hanging indefinitely.
+
+        # Check if the connector is closed before attempting to connect.
+        if self._closed:
+            raise ClosedConnectorError(
+                "Connection attempt failed because the connector has already been closed."
+            )
         connect_future = asyncio.run_coroutine_threadsafe(
             self.connect_async(instance_connection_string, driver, **kwargs),
             self._loop,
@@ -279,7 +287,13 @@ class Connector:
                 and then subsequent attempt with IAM database authentication.
             KeyError: Unsupported database driver Must be one of pymysql, asyncpg,
                 pg8000, and pytds.
+            RuntimeError: Connector has been closed. Cannot connect using a closed
+                Connector.
         """
+        if self._closed:
+            raise ClosedConnectorError(
+                "Connection attempt failed because the connector has already been closed."
+            )
         if self._keys is None:
             self._keys = asyncio.create_task(generate_keys())
         if self._client is None:
@@ -462,6 +476,7 @@ class Connector:
                 self._loop.call_soon_threadsafe(self._loop.stop)
             # wait for thread to finish closing (i.e. loop to stop)
             self._thread.join()
+        self._closed = True
 
     async def close_async(self) -> None:
         """Helper function to cancel the cache's tasks
@@ -469,6 +484,7 @@ class Connector:
         await asyncio.gather(*[cache.close() for cache in self._cache.values()])
         if self._client:
             await self._client.close()
+        self._closed = True
 
 
 async def create_async_connector(
