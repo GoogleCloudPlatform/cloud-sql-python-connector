@@ -566,7 +566,7 @@ from google.cloud.sql.connector import Connector, create_async_connector
 
 async def main():
     # initialize Connector object for connections to Cloud SQL
-    connector = create_async_connector()
+    connector = await create_async_connector()
 
     # creation function to generate asyncpg connections as the 'connect' arg
     async def getconn(instance_connection_name, **kwargs) -> asyncpg.Connection:
