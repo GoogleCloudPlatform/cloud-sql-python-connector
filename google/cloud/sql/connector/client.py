@@ -234,7 +234,14 @@ class CloudSQLClient:
         x509 = load_pem_x509_certificate(
             ephemeral_cert.encode("UTF-8"), default_backend()
         )
-        expiration = x509.not_valid_after_utc
+
+        if 'not_valid_after_utc' in x509:
+            expiration = x509.not_valid_after_utc
+        elif 'not_valid_after' in x509:
+            expiration = x509.not_valid_after
+        else:
+            expiration = datetime.MINYEAR
+
         # for IAM authentication OAuth2 token is embedded in cert so it
         # must still be valid for successful connection
         if enable_iam_auth:
