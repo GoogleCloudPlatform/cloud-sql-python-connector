@@ -15,6 +15,8 @@ limitations under the License.
 """
 
 import asyncio
+from asyncio import Server
+import logging
 import os
 import socket
 import ssl
@@ -36,6 +38,7 @@ from google.cloud.sql.connector.utils import generate_keys
 from google.cloud.sql.connector.utils import write_to_file
 
 SCOPES = ["https://www.googleapis.com/auth/sqlservice.admin"]
+logger = logging.getLogger(name=__name__)
 
 
 def pytest_addoption(parser: Any) -> None:
@@ -84,55 +87,138 @@ def fake_credentials() -> FakeCredentials:
     return FakeCredentials()
 
 
-async def start_proxy_server(instance: FakeCSQLInstance) -> None:
+async def start_proxy_server_async(
+    instance: FakeCSQLInstance, with_read_write: bool
+) -> Server:
     """Run local proxy server capable of performing mTLS"""
     ip_address = "127.0.0.1"
     port = 3307
-    # create socket
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-        # create SSL/TLS context
-        context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
-        context.minimum_version = ssl.TLSVersion.TLSv1_3
-        # tmpdir and its contents are automatically deleted after the CA cert
-        # and cert chain are loaded into the SSLcontext. The values
-        # need to be written to files in order to be loaded by the SSLContext
-        server_key_bytes = instance.server_key.private_bytes(
-            encoding=serialization.Encoding.PEM,
-            format=serialization.PrivateFormat.TraditionalOpenSSL,
-            encryption_algorithm=serialization.NoEncryption(),
-        )
-        async with TemporaryDirectory() as tmpdir:
-            server_filename, _, key_filename = await write_to_file(
-                tmpdir, instance.server_cert_pem, "", server_key_bytes
-            )
-            context.load_cert_chain(server_filename, key_filename)
-        # allow socket to be re-used
-        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        # bind socket to Cloud SQL proxy server port on localhost
-        sock.bind((ip_address, port))
-        # listen for incoming connections
-        sock.listen(5)
+    logger.debug("start_proxy_server_async started")
 
-        with context.wrap_socket(sock, server_side=True) as ssock:
-            while True:
-                conn, _ = ssock.accept()
-                conn.close()
-
-
-@pytest.fixture(scope="session")
-def proxy_server(fake_instance: FakeCSQLInstance) -> None:
-    """Run local proxy server capable of performing mTLS"""
-    thread = Thread(
-        target=asyncio.run,
-        args=(
-            start_proxy_server(
-                fake_instance,
-            ),
-        ),
-        daemon=True,
+    context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    context.minimum_version = ssl.TLSVersion.TLSv1_3
+    # tmpdir and its contents are automatically deleted after the CA cert
+    # and cert chain are loaded into the SSLcontext. The values
+    # need to be written to files in order to be loaded by the SSLContext
+    server_key_bytes = instance.server_key.private_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PrivateFormat.TraditionalOpenSSL,
+        encryption_algorithm=serialization.NoEncryption(),
     )
-    thread.start()
-    thread.join(1.0)  # add a delay to allow the proxy server to start
+
+    async with TemporaryDirectory() as tmpdir:
+        server_filename, _, key_filename = await write_to_file(
+            tmpdir, instance.server_cert_pem, "", server_key_bytes
+        )
+        context.load_cert_chain(server_filename, key_filename)
+
+    async def handler(reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
+        logger.debug("Received fake connection")
+        if with_read_write:
+            line = await reader.readline()
+            logger.debug(f"Received request {line}")
+            writer.write("world\n".encode("utf-8"))
+            await writer.drain()
+            logger.debug("Wrote response")
+            if writer.can_write_eof():
+                writer.write_eof()
+        logger.debug("Closing connection")
+        writer.close()
+        await writer.wait_closed()
+        logger.debug("Closed connection")
+
+    server = await asyncio.start_server(
+        handler, host=ip_address, port=port, ssl=context
+    )
+    logger.debug("Listening on 127.0.0.1:3307")
+    asyncio.create_task(server.serve_forever())
+    return server
+
+
+@pytest.fixture(scope="function")
+def proxy_server_async(fake_instance: FakeCSQLInstance):
+    # Create an event loop in a different thread for the server
+    loop = asyncio.new_event_loop()
+
+    def f(loop):
+        asyncio.set_event_loop(loop)
+        loop.run_forever()
+        logger.debug("exiting thread")
+
+    t = Thread(target=f, args=(loop,))
+    t.start()
+    t.join(1)
+
+    # Submit the server task to the thread
+    server_fut = asyncio.run_coroutine_threadsafe(
+        start_proxy_server_async(fake_instance, True), loop
+    )
+    while not server_fut.done():
+        t.join(0.1)
+    logger.debug("proxy_server_async server started")
+    yield
+    logger.debug("proxy_server_async fixture done")
+
+    logger.debug("proxy_server_async fixture cleanup")
+
+    # Stop the server after the test is complete
+    async def stop_server():
+        logger.debug("inside_cleanup closing server")
+        server_fut.result().close()
+        loop.shutdown_asyncgens()
+        loop.stop()
+        logger.debug("inside_cleanup end")
+
+    logger.debug("cleanup starting")
+    asyncio.run_coroutine_threadsafe(stop_server(), loop)
+    logger.debug("cleanup done")
+    while loop.is_running():
+        t.join(0.1)
+    logger.debug("loop is not running")
+    loop.close()
+    t.join(1)
+
+
+@pytest.fixture(scope="function")
+def proxy_server(fake_instance: FakeCSQLInstance):
+    # Create an event loop in a different thread for the server
+    loop = asyncio.new_event_loop()
+
+    def f(loop):
+        asyncio.set_event_loop(loop)
+        loop.run_forever()
+        logger.debug("exiting thread")
+
+    t = Thread(target=f, args=(loop,))
+    t.start()
+
+    # Submit the server task to the thread
+    server_fut = asyncio.run_coroutine_threadsafe(
+        start_proxy_server_async(fake_instance, False), loop
+    )
+    while not server_fut.done():
+        t.join(0.1)
+    logger.debug("proxy_server_async server started")
+    yield
+    logger.debug("proxy_server_async fixture done")
+
+    logger.debug("proxy_server_async fixture cleanup")
+
+    # Stop the server after the test is complete
+    async def stop_server():
+        logger.debug("inside_cleanup closing server")
+        server_fut.result().close()
+        loop.shutdown_asyncgens()
+        loop.stop()
+        logger.debug("inside_cleanup end")
+
+    logger.debug("cleanup starting")
+    asyncio.run_coroutine_threadsafe(stop_server(), loop)
+    logger.debug("cleanup done")
+    while loop.is_running():
+        t.join(0.1)
+    logger.debug("loop is not running")
+    loop.close()
 
 
 @pytest.fixture
@@ -191,3 +277,33 @@ async def cache(fake_client: CloudSQLClient) -> AsyncGenerator[RefreshAheadCache
     )
     yield cache
     await cache.close()
+
+
+@pytest.fixture
+def connected_socket_pair() -> tuple[socket.socket, socket.socket]:
+    """A fixture that provides a pair of connected sockets."""
+    server, client = socket.socketpair()
+    yield server, client
+    server.close()
+    client.close()
+
+
+@pytest.fixture
+async def echo_server() -> AsyncGenerator[tuple[str, int], None]:
+    """A fixture that starts an asyncio echo server."""
+
+    async def handle_echo(reader, writer):
+        while True:
+            data = await reader.read(100)
+            if not data:
+                break
+            writer.write(data)
+            await writer.drain()
+        writer.close()
+        await writer.wait_closed()
+
+    server = await asyncio.start_server(handle_echo, "127.0.0.1", 0)
+    addr = server.sockets[0].getsockname()
+    yield addr
+    server.close()
+    await server.wait_closed()
