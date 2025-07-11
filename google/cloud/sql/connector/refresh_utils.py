@@ -104,7 +104,7 @@ def _downscope_credentials(
         scoped_creds = copy.copy(credentials)
         # overwrite '_scopes' to down-scope user credentials
         # Cloud SDK reference: https://github.com/google-cloud-sdk-unofficial/google-cloud-sdk/blob/93920ccb6d2cce0fe6d1ce841e9e33410551d66b/lib/googlecloudsdk/command_lib/sql/generate_login_token_util.py#L116
-        scoped_creds._scopes = scopes
+        scoped_creds._scopes = scopes # type: ignore[attr-defined]
     # down-scoped credentials require refresh, are invalid after being re-scoped
     request = google.auth.transport.requests.Request()
     scoped_creds.refresh(request)
