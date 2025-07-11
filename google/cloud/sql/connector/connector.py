@@ -40,6 +40,7 @@ from google.cloud.sql.connector.instance import RefreshAheadCache
 from google.cloud.sql.connector.lazy import LazyRefreshCache
 from google.cloud.sql.connector.monitored_cache import MonitoredCache
 import google.cloud.sql.connector.pg8000 as pg8000
+import google.cloud.sql.connector.psycopg as psycopg
 import google.cloud.sql.connector.pymysql as pymysql
 import google.cloud.sql.connector.pytds as pytds
 from google.cloud.sql.connector.resolver import DefaultResolver
@@ -234,7 +235,7 @@ class Connector:
                 Example: "my-project:us-central1:my-instance"
 
             driver (str): A string representing the database driver to connect
-                with. Supported drivers are pymysql, pg8000, and pytds.
+                with. Supported drivers are pymysql, pg8000, psycopg, and pytds.
 
             **kwargs: Any driver-specific arguments to pass to the underlying
                 driver .connect call.
@@ -276,7 +277,8 @@ class Connector:
                 Example: "my-project:us-central1:my-instance"
 
             driver (str): A string representing the database driver to connect
-                with. Supported drivers are pymysql, asyncpg, pg8000, and pytds.
+                with. Supported drivers are pymysql, asyncpg, pg8000, psycopg, and
+                pytds.
 
             **kwargs: Any driver-specific arguments to pass to the underlying
                 driver .connect call.
@@ -288,7 +290,7 @@ class Connector:
             ValueError: Connection attempt with built-in database authentication
                 and then subsequent attempt with IAM database authentication.
             KeyError: Unsupported database driver Must be one of pymysql, asyncpg,
-                pg8000, and pytds.
+                pg8000, psycopg, and pytds.
             RuntimeError: Connector has been closed. Cannot connect using a closed
                 Connector.
         """
@@ -357,6 +359,7 @@ class Connector:
         connect_func = {
             "pymysql": pymysql.connect,
             "pg8000": pg8000.connect,
+            "psycopg": psycopg.connect,
             "asyncpg": asyncpg.connect,
             "pytds": pytds.connect,
         }
