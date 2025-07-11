@@ -7,6 +7,7 @@ sqlalchemy-pytds==1.0.2
 sqlalchemy-stubs==0.4
 PyMySQL==1.1.1
 pg8000==1.31.2
+psycopg[binary]==3.2.9
 asyncpg==0.30.0
 python-tds==1.16.1
 aioresponses==0.7.8
