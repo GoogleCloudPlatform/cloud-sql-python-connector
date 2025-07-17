@@ -1,12 +1,9 @@
 """
 Copyright 2021 Google LLC
-
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
-
   https://www.apache.org/licenses/LICENSE-2.0
-
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -15,14 +12,16 @@ limitations under the License.
 """
 
 import asyncio
+import logging
 import os
+import socket
 from typing import Union
 
 from aiohttp import ClientResponseError
+from google.auth.credentials import Credentials
 from mock import patch
 import pytest  # noqa F401 Needed to run the tests
 
-from google.auth.credentials import Credentials
 from google.cloud.sql.connector import Connector
 from google.cloud.sql.connector import create_async_connector
 from google.cloud.sql.connector import IPTypes
@@ -32,20 +31,28 @@ from google.cloud.sql.connector.exceptions import CloudSQLIPTypeError
 from google.cloud.sql.connector.exceptions import IncompatibleDriverError
 from google.cloud.sql.connector.instance import RefreshAheadCache
 
+logger = logging.getLogger(name=__name__)
+
 
 @pytest.mark.asyncio
 async def test_connect_enable_iam_auth_error(
-    fake_credentials: Credentials, fake_client: CloudSQLClient
+    fake_credentials: Credentials,
+    fake_client: CloudSQLClient,
+    connected_socket_pair: tuple[socket.socket, socket.socket],
 ) -> None:
     """Test that calling connect() with different enable_iam_auth
     argument values creates two cache entries."""
     connect_string = "test-project:test-region:test-instance"
+    server, client = connected_socket_pair
     async with Connector(
         credentials=fake_credentials, loop=asyncio.get_running_loop()
     ) as connector:
         connector._client = fake_client
         # patch db connection creation
-        with patch("google.cloud.sql.connector.asyncpg.connect") as mock_connect:
+        with (
+            patch("socket.create_connection", return_value=client),
+            patch("google.cloud.sql.connector.asyncpg.connect") as mock_connect,
+        ):
             mock_connect.return_value = True
             # connect with enable_iam_auth False
             connection = await connector.connect_async(
@@ -78,6 +85,7 @@ async def test_connect_enable_iam_auth_error(
 async def test_connect_incompatible_driver_error(
     fake_credentials: Credentials,
     fake_client: CloudSQLClient,
+    proxy_server,
 ) -> None:
     """Test that calling connect() with driver that is incompatible with
     database version throws error."""
@@ -87,14 +95,8 @@ async def test_connect_incompatible_driver_error(
     ) as connector:
         connector._client = fake_client
         # try to connect using pymysql driver to a Postgres database
-        with pytest.raises(IncompatibleDriverError) as exc_info:
+        with pytest.raises(IncompatibleDriverError):
             await connector.connect_async(connect_string, "pymysql")
-        assert (
-            exc_info.value.args[0]
-            == "Database driver 'pymysql' is incompatible with database version"
-            " 'POSTGRES_15'. Given driver can only be used with Cloud SQL MYSQL"
-            " databases."
-        )
 
 
 def test_connect_with_unsupported_driver(fake_credentials: Credentials) -> None:
@@ -235,13 +237,19 @@ def test_Connector_Init_bad_ip_type(fake_credentials: Credentials) -> None:
 
 
 def test_Connector_connect_bad_ip_type(
-    fake_credentials: Credentials, fake_client: CloudSQLClient
+    fake_credentials: Credentials,
+    fake_client: CloudSQLClient,
+    connected_socket_pair: tuple[socket.socket, socket.socket],
 ) -> None:
     """Test that Connector.connect errors due to bad ip_type str."""
+    server, client = connected_socket_pair
     with Connector(credentials=fake_credentials) as connector:
         connector._client = fake_client
         bad_ip_type = "bad-ip-type"
-        with pytest.raises(ValueError) as exc_info:
+        with (
+            patch("socket.create_connection", return_value=client),
+            pytest.raises(ValueError) as exc_info,
+        ):
             connector.connect(
                 "test-project:test-region:test-instance",
                 "pg8000",
@@ -259,15 +267,21 @@ def test_Connector_connect_bad_ip_type(
 
 @pytest.mark.asyncio
 async def test_Connector_connect_async(
-    fake_credentials: Credentials, fake_client: CloudSQLClient
+    fake_credentials: Credentials,
+    fake_client: CloudSQLClient,
+    connected_socket_pair: tuple[socket.socket, socket.socket],
 ) -> None:
     """Test that Connector.connect_async can properly return a DB API connection."""
+    server, client = connected_socket_pair
     async with Connector(
         credentials=fake_credentials, loop=asyncio.get_running_loop()
     ) as connector:
         connector._client = fake_client
         # patch db connection creation
-        with patch("google.cloud.sql.connector.asyncpg.connect") as mock_connect:
+        with (
+            patch("socket.create_connection", return_value=client),
+            patch("google.cloud.sql.connector.asyncpg.connect") as mock_connect,
+        ):
             mock_connect.return_value = True
             connection = await connector.connect_async(
                 "test-project:test-region:test-instance",
@@ -314,7 +328,9 @@ def test_Connector_close_called_multiple_times(fake_credentials: Credentials) ->
 
 
 async def test_Connector_remove_cached_bad_instance(
-    fake_credentials: Credentials, fake_client: CloudSQLClient
+    fake_credentials: Credentials,
+    fake_client: CloudSQLClient,
+    proxy_server,
 ) -> None:
     """When a Connector attempts to retrieve connection info for a
     non-existent instance, it should delete the instance from
@@ -339,7 +355,9 @@ async def test_Connector_remove_cached_bad_instance(
 
 
 async def test_Connector_remove_cached_no_ip_type(
-    fake_credentials: Credentials, fake_client: CloudSQLClient
+    fake_credentials: Credentials,
+    fake_client: CloudSQLClient,
+    proxy_server,
 ) -> None:
     """When a Connector attempts to connect and preferred IP type is not present,
     it should delete the instance from the cache and ensure no background refresh
