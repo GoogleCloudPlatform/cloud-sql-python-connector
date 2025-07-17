@@ -25,7 +25,10 @@ def start_local_proxy(
   ssl_sock,
   socket_path,
 ):
-  desired_path = Path(socket_path)
+  path_parts = socket_path.rsplit('/', 1)
+  parent_directory = '/'.join(path_parts[:-1])
+
+  desired_path = Path(parent_directory)
   desired_path.mkdir(parents=True, exist_ok=True)
 
   if os.path.exists(socket_path):
