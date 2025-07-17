@@ -18,10 +18,10 @@ import socket
 from typing import Union
 
 from aiohttp import ClientResponseError
-from google.auth.credentials import Credentials
 from mock import patch
 import pytest  # noqa F401 Needed to run the tests
 
+from google.auth.credentials import Credentials
 from google.cloud.sql.connector import Connector
 from google.cloud.sql.connector import create_async_connector
 from google.cloud.sql.connector import IPTypes
@@ -486,3 +486,121 @@ def test_configured_quota_project_env_var(
         assert connector._quota_project == quota_project
     # unset env var
     del os.environ["GOOGLE_CLOUD_QUOTA_PROJECT"]
+
+
+@pytest.mark.asyncio
+async def test_Connector_start_unix_socket_proxy_async(
+    fake_credentials: Credentials,
+    fake_client: CloudSQLClient,
+    proxy_server_async: None,
+) -> None:
+    """Test that Connector.connect_async can properly return a DB API connection."""
+    async with Connector(
+        credentials=fake_credentials, loop=asyncio.get_running_loop()
+    ) as connector:
+        connector._client = fake_client
+
+        # Open proxy connection
+        # start the proxy server
+        await connector.start_unix_socket_proxy_async(
+            "test-project:test-region:test-instance",
+            "/tmp/csql-python/proxytest/.s.PGSQL.5432",
+            driver="asyncpg",
+            user="my-user",
+            password="my-pass",
+            db="my-db",
+        )
+        # Wait for server to start
+        await asyncio.sleep(0.5)
+
+        reader, writer = await asyncio.open_unix_connection(
+            "/tmp/csql-python/proxytest/.s.PGSQL.5432"
+        )
+        writer.write("hello\n".encode())
+        await writer.drain()
+        await asyncio.sleep(0.5)
+        msg = await reader.readline()
+        assert msg.decode("utf-8") == "world\n"
+
+
+class TestProtocol(asyncio.Protocol):
+    """
+    A protocol to proxy data between two transports.
+    """
+
+    def __init__(self):
+        self._buffer = bytearray()
+        logger.debug(f"__init__  {self}")
+        self.received = bytearray()
+        self.connected = asyncio.Future()
+        self.future = asyncio.Future()
+
+    def data_received(self, data):
+        logger.debug("received {!r}".format(data))
+        self.received = data
+
+    def connection_made(self, transport):
+        logger.debug(f"connection_made called {self}")
+        self.transport = transport
+        if not self.connected.done():
+            self.connected.set_result(True)
+        # Write the request and EOF
+        transport.write("hello\n".encode())
+        # if transport.can_write_eof():
+        #   transport.write_eof()
+        logger.debug(f"connection_made done, wrote hello{self}")
+
+    def eof_received(self) -> bool | None:
+        logger.debug(f"eof_received {self}")
+        # If this has received data, then close.
+        if len(self.received) > 0:
+            self.transport.close()
+        if not self.connected.done():
+            self.connected.set_result(True)
+        if not self.future.done():
+            self.future.set_result(True)
+        return True
+
+    def connection_lost(self, exc: Exception | None) -> None:
+        logger.debug(f"connection_lost  {exc} {self}")
+        self.transport.abort()
+        if not self.connected.done():
+            self.connected.set_result(True)
+        if not self.future.done():
+            self.future.set_result(True)
+        super().connection_lost(exc)
+
+
+@pytest.mark.asyncio
+async def test_Connector_connect_socket_async(
+    fake_credentials: Credentials,
+    fake_client: CloudSQLClient,
+    proxy_server_async: None,
+) -> None:
+    """Test that Connector.connect_async can properly return a DB API connection."""
+    async with Connector(
+        credentials=fake_credentials, loop=asyncio.get_running_loop()
+    ) as connector:
+        logger.info("client socket opening")
+        connector._client = fake_client
+        p = TestProtocol()
+
+        # Open proxy connection
+        # start the proxy server
+        future = connector.connect_socket_async(
+            "test-project:test-region:test-instance",
+            lambda: p,
+            driver="asyncpg",
+            user="my-user",
+            password="my-pass",
+            db="my-db",
+        )
+        logger.info("client socket opening")
+        await future
+        logger.info("client socket opened")
+        await p.connected
+        logger.info("client socket connected")
+        await p.future
+        logger.info("client socket done")
+
+        assert p.received.decode() == "world\n"
