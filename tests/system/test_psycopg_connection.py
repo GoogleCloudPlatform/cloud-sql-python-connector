@@ -18,12 +18,84 @@ from datetime import datetime
 import os
 
 # [START cloud_sql_connector_postgres_psycopg]
+from typing import Union
+
+import sqlalchemy
 
 from google.cloud.sql.connector import Connector
 from google.cloud.sql.connector import DefaultResolver
+from google.cloud.sql.connector import DnsResolver
 
-from sqlalchemy.dialects.postgresql.base import PGDialect
-PGDialect._get_server_version_info = lambda *args: (9, 2)
+
+def create_sqlalchemy_engine(
+    instance_connection_name: str,
+    user: str,
+    password: str,
+    db: str,
+    ip_type: str = "public",
+    refresh_strategy: str = "background",
+    resolver: Union[type[DefaultResolver], type[DnsResolver]] = DefaultResolver,
+) -> tuple[sqlalchemy.engine.Engine, Connector]:
+    """Creates a connection pool for a Cloud SQL instance and returns the pool
+    and the connector. Callers are responsible for closing the pool and the
+    connector.
+
+    A sample invocation looks like:
+
+        engine, connector = create_sqlalchemy_engine(
+            inst_conn_name,
+            user,
+            password,
+            db,
+        )
+        with engine.connect() as conn:
+            time = conn.execute(sqlalchemy.text("SELECT NOW()")).fetchone()
+            conn.commit()
+            curr_time = time[0]
+            # do something with query result
+            connector.close()
+
+    Args:
+        instance_connection_name (str):
+            The instance connection name specifies the instance relative to the
+            project and region. For example: "my-project:my-region:my-instance"
+        user (str):
+            The database user name, e.g., root
+        password (str):
+            The database user's password, e.g., secret-password
+        db (str):
+            The name of the database, e.g., mydb
+        ip_type (str):
+            The IP type of the Cloud SQL instance to connect to. Can be one
+            of "public", "private", or "psc".
+        refresh_strategy (Optional[str]):
+            Refresh strategy for the Cloud SQL Connector. Can be one of "lazy"
+            or "background". For serverless environments use "lazy" to avoid
+            errors resulting from CPU being throttled.
+        resolver (Optional[google.cloud.sql.connector.DefaultResolver]):
+            Resolver class for resolving instance connection name. Use
+            google.cloud.sql.connector.DnsResolver when resolving DNS domain
+            names or google.cloud.sql.connector.DefaultResolver for regular
+            instance connection names ("my-project:my-region:my-instance").
+    """
+    connector = Connector(refresh_strategy=refresh_strategy, resolver=resolver)
+
+    # create SQLAlchemy connection pool
+    engine = sqlalchemy.create_engine(
+        "postgresql+psycopg://",
+        creator=lambda: connector.connect(
+            instance_connection_name,
+            "psycopg",
+            user=user,
+            password=password,
+            db=db,
+            local_socket_path="/tmp/conn",
+            ip_type=ip_type,  # can be "public", "private" or "psc"
+            autocommit=True,
+        ),
+    )
+    return engine, connector
+
 
 # [END cloud_sql_connector_postgres_psycopg]
 
@@ -36,25 +108,12 @@ def test_psycopg_connection() -> None:
     db = os.environ["POSTGRES_DB"]
     ip_type = os.environ.get("IP_TYPE", "public")
 
-    connector = Connector(refresh_strategy="background", resolver=DefaultResolver)
-
-    pool = connector.connect(
-        inst_conn_name,
-        "psycopg",
-        user=user,
-        password=password,
-        db=db,
-        ip_type=ip_type,  # can be "public", "private" or "psc"
+    engine, connector = create_sqlalchemy_engine(
+        inst_conn_name, user, password, db, ip_type
     )
-
-    with pool as conn:
-
-        # Open a cursor to perform database operations
-        with conn.cursor() as cur:
-
-            # Query the database and obtain data as Python objects.
-            cur.execute("SELECT NOW()")
-            curr_time = cur.fetchone()["now"]
-            assert type(curr_time) is datetime
-
-
+    with engine.connect() as conn:
+        time = conn.execute(sqlalchemy.text("SELECT NOW()")).fetchone()
+        conn.commit()
+        curr_time = time[0]
+        assert type(curr_time) is datetime
+    connector.close()

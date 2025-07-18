@@ -44,10 +44,12 @@ from google.cloud.sql.connector.resolver import DefaultResolver
 from google.cloud.sql.connector.resolver import DnsResolver
 from google.cloud.sql.connector.utils import format_database_user
 from google.cloud.sql.connector.utils import generate_keys
+from google.cloud.sql.connector.proxy import start_local_proxy
 
 logger = logging.getLogger(name=__name__)
 
 ASYNC_DRIVERS = ["asyncpg"]
+LOCAL_PROXY_DRIVERS = ["psycopg"]
 SERVER_PROXY_PORT = 3307
 _DEFAULT_SCHEME = "https://"
 _DEFAULT_UNIVERSE_DOMAIN = "googleapis.com"
@@ -383,7 +385,7 @@ class Connector:
             # async drivers are unblocking and can be awaited directly
             if driver in ASYNC_DRIVERS:
                 return await connector(
-                    ip_address,
+                    host,
                     await conn_info.create_ssl_context(enable_iam_auth),
                     **kwargs,
                 )
@@ -393,6 +395,18 @@ class Connector:
                 socket.create_connection((ip_address, SERVER_PROXY_PORT)),
                 server_hostname=ip_address,
             )
+
+            host = ip_address
+            # start local proxy if driver needs it
+            if driver in LOCAL_PROXY_DRIVERS:
+                local_socket_path = kwargs.pop("local_socket_path", "/tmp/connector-socket")
+                host = local_socket_path
+                start_local_proxy(
+                    sock,
+                    socket_path=f"{local_socket_path}/.s.PGSQL.{SERVER_PROXY_PORT}",
+                    loop=self._loop
+                )
+
             # If this connection was opened using a domain name, then store it
             # for later in case we need to forcibly close it on failover.
             if conn_info.conn_name.domain_name:
@@ -400,7 +414,7 @@ class Connector:
             # Synchronous drivers are blocking and run using executor
             connect_partial = partial(
                 connector,
-                ip_address,
+                host,
                 sock,
                 **kwargs,
             )

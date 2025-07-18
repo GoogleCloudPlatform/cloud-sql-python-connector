@@ -25,13 +25,12 @@ if TYPE_CHECKING:
 
 
 def connect(
-    ip_address: str, sock: ssl.SSLSocket, **kwargs: Any
+    host: str, sock: ssl.SSLSocket, **kwargs: Any
 ) -> "psycopg.Connection":
     """Helper function to create a psycopg DB-API connection object.
 
     Args:
-        ip_address (str): A string containing an IP address for the Cloud SQL
-            instance.
+        host (str): A string containing the socket path used by the local proxy.
         sock (ssl.SSLSocket): An SSLSocket object created from the Cloud SQL
             server CA cert and ephemeral cert.
         kwargs: Additional arguments to pass to the psycopg connect method.
@@ -44,10 +43,7 @@ def connect(
         ImportError: The psycopg module cannot be imported.
     """
     try:
-        from psycopg.rows import dict_row
         from psycopg import Connection
-        import threading
-        from google.cloud.sql.connector.proxy import start_local_proxy
     except ImportError:
         raise ImportError(
             'Unable to import module "psycopg." Please install and try again.'
@@ -59,14 +55,9 @@ def connect(
 
     kwargs.pop("timeout", None)
 
-    start_local_proxy(sock, f"/tmp/connector-socket/.s.PGSQL.3307")
-
     conn = Connection.connect(
-        f"host=/tmp/connector-socket port={SERVER_PROXY_PORT} dbname={db} user={user} password={passwd} sslmode=require",
-        autocommit=True,
-        row_factory=dict_row,
+        f"host={host} port={SERVER_PROXY_PORT} dbname={db} user={user} password={passwd} sslmode=require",
         **kwargs
     )
 
-    conn.autocommit = True
     return conn
