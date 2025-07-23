@@ -160,6 +160,7 @@ class Connector:
         self._cache: dict[tuple[str, bool], MonitoredCache] = {}
         self._client: Optional[CloudSQLClient] = None
         self._closed: bool = False
+        self._proxy: Optional[asyncio.Task] = None
 
         # initialize credentials
         scopes = ["https://www.googleapis.com/auth/sqlservice.admin"]
@@ -453,7 +454,7 @@ class Connector:
             if driver in LOCAL_PROXY_DRIVERS:
                 local_socket_path = kwargs.pop("local_socket_path", "/tmp/connector-socket")
                 host = local_socket_path
-                start_local_proxy(
+                self._proxy = start_local_proxy(
                     sock,
                     socket_path=f"{local_socket_path}/.s.PGSQL.{SERVER_PROXY_PORT}",
                     loop=self._loop
@@ -538,6 +539,13 @@ class Connector:
         self._closed = True
         if self._client:
             await self._client.close()
+        if self._proxy:
+            proxy_task = asyncio.gather(self._proxy)
+            try:
+                await asyncio.wait_for(proxy_task, timeout=0.1)
+            except TimeoutError:
+                # This task runs forever so it is expected to raise this exception
+                pass
         await asyncio.gather(*[cache.close() for cache in self._cache.values()])
 
 
