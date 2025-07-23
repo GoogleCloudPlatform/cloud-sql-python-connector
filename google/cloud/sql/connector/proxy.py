@@ -30,7 +30,7 @@ def start_local_proxy(
     ssl_sock: ssl.SSLSocket,
     socket_path: Optional[str] = "/tmp/connector-socket",
     loop: Optional[asyncio.AbstractEventLoop] = None,
-):
+) -> asyncio.Task:
     """Helper function to start a UNIX based local proxy for
     transport messages through the SSL Socket.
 
@@ -39,6 +39,9 @@ def start_local_proxy(
             server CA cert and ephemeral cert.
         socket_path: A system path that is going to be used to store the socket.
         loop (asyncio.AbstractEventLoop): Event loop to run asyncio tasks.
+
+    Returns:
+        asyncio.Task: The asyncio task containing the proxy server process.
 
     Raises:
         LocalProxyStartupError: Local UNIX socket based proxy was not able to
@@ -66,7 +69,7 @@ def start_local_proxy(
             'Local UNIX socket based proxy was not able to get started.'
         )
 
-    loop.create_task(local_communication(unix_socket, ssl_sock, socket_path, loop))
+    return loop.create_task(local_communication(unix_socket, ssl_sock, socket_path, loop))
 
 
 async def local_communication(
