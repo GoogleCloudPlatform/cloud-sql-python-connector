@@ -37,6 +37,7 @@ from google.cloud.sql.connector.instance import RefreshAheadCache
 from google.cloud.sql.connector.lazy import LazyRefreshCache
 from google.cloud.sql.connector.monitored_cache import MonitoredCache
 import google.cloud.sql.connector.pg8000 as pg8000
+from google.cloud.sql.connector.proxy import start_local_proxy
 import google.cloud.sql.connector.psycopg as psycopg
 import google.cloud.sql.connector.pymysql as pymysql
 import google.cloud.sql.connector.pytds as pytds
@@ -44,7 +45,6 @@ from google.cloud.sql.connector.resolver import DefaultResolver
 from google.cloud.sql.connector.resolver import DnsResolver
 from google.cloud.sql.connector.utils import format_database_user
 from google.cloud.sql.connector.utils import generate_keys
-from google.cloud.sql.connector.proxy import start_local_proxy
 
 logger = logging.getLogger(name=__name__)
 
@@ -156,6 +156,7 @@ class Connector:
         # connection name string and enable_iam_auth boolean flag
         self._cache: dict[tuple[str, bool], MonitoredCache] = {}
         self._client: Optional[CloudSQLClient] = None
+        self._proxy: Optional[asyncio.Task] = None
 
         # initialize credentials
         scopes = ["https://www.googleapis.com/auth/sqlservice.admin"]
@@ -385,7 +386,7 @@ class Connector:
             # async drivers are unblocking and can be awaited directly
             if driver in ASYNC_DRIVERS:
                 return await connector(
-                    host,
+                    ip_address,
                     await conn_info.create_ssl_context(enable_iam_auth),
                     **kwargs,
                 )
