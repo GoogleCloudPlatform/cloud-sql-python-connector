@@ -18,7 +18,8 @@ import socket
 import ssl
 from typing import Any
 
-from mock import patch, PropertyMock
+from mock import patch
+from mock import PropertyMock
 import pytest
 
 from google.cloud.sql.connector.psycopg import connect

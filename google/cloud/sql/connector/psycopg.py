@@ -16,7 +16,6 @@ limitations under the License.
 
 import ssl
 from typing import Any, TYPE_CHECKING
-import threading
 
 SERVER_PROXY_PORT = 3307
 
