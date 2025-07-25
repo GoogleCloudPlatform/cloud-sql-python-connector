@@ -33,7 +33,7 @@ async def test_psycopg(context: ssl.SSLContext, kwargs: Any) -> None:
         socket.create_connection((ip_addr, 3307)),
         server_hostname=ip_addr,
     )
-    with patch("psycopg.connect") as mock_connect:
+    with patch("psycopg.Connection.connect") as mock_connect:
         type(mock_connect.return_value).autocommit = PropertyMock(return_value=True)
         connection = connect(ip_addr, sock, **kwargs)
         assert connection.autocommit is True
