@@ -19,7 +19,6 @@ import os
 from pathlib import Path
 import socket
 import ssl
-from typing import Optional
 
 from google.cloud.sql.connector.exceptions import LocalProxyStartupError
 
@@ -28,8 +27,8 @@ LOCAL_PROXY_MAX_MESSAGE_SIZE = 10485760
 
 def start_local_proxy(
     ssl_sock: ssl.SSLSocket,
-    socket_path: Optional[str] = "/tmp/connector-socket",
-    loop: Optional[asyncio.AbstractEventLoop] = None,
+    socket_path: str,
+    loop: asyncio.AbstractEventLoop
 ) -> asyncio.Task:
     """Helper function to start a UNIX based local proxy for
     transport messages through the SSL Socket.
