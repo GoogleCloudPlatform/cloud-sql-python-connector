@@ -37,6 +37,8 @@ from google.cloud.sql.connector.instance import RefreshAheadCache
 from google.cloud.sql.connector.lazy import LazyRefreshCache
 from google.cloud.sql.connector.monitored_cache import MonitoredCache
 import google.cloud.sql.connector.pg8000 as pg8000
+import google.cloud.sql.connector.proxy as proxy
+import google.cloud.sql.connector.psycopg as psycopg
 import google.cloud.sql.connector.pymysql as pymysql
 import google.cloud.sql.connector.pytds as pytds
 from google.cloud.sql.connector.resolver import DefaultResolver
@@ -47,6 +49,7 @@ from google.cloud.sql.connector.utils import generate_keys
 logger = logging.getLogger(name=__name__)
 
 ASYNC_DRIVERS = ["asyncpg"]
+LOCAL_PROXY_DRIVERS = ["psycopg"]
 SERVER_PROXY_PORT = 3307
 _DEFAULT_SCHEME = "https://"
 _DEFAULT_UNIVERSE_DOMAIN = "googleapis.com"
@@ -153,6 +156,7 @@ class Connector:
         # connection name string and enable_iam_auth boolean flag
         self._cache: dict[tuple[str, bool], MonitoredCache] = {}
         self._client: Optional[CloudSQLClient] = None
+        self._proxy: Optional[asyncio.Task] = None
 
         # initialize credentials
         scopes = ["https://www.googleapis.com/auth/sqlservice.admin"]
@@ -230,7 +234,7 @@ class Connector:
                 Example: "my-project:us-central1:my-instance"
 
             driver (str): A string representing the database driver to connect
-                with. Supported drivers are pymysql, pg8000, and pytds.
+                with. Supported drivers are pymysql, pg8000, psycopg, and pytds.
 
             **kwargs: Any driver-specific arguments to pass to the underlying
                 driver .connect call.
@@ -266,7 +270,8 @@ class Connector:
                 Example: "my-project:us-central1:my-instance"
 
             driver (str): A string representing the database driver to connect
-                with. Supported drivers are pymysql, asyncpg, pg8000, and pytds.
+                with. Supported drivers are pymysql, asyncpg, pg8000, psycopg, and
+                pytds.
 
             **kwargs: Any driver-specific arguments to pass to the underlying
                 driver .connect call.
@@ -278,7 +283,7 @@ class Connector:
             ValueError: Connection attempt with built-in database authentication
                 and then subsequent attempt with IAM database authentication.
             KeyError: Unsupported database driver Must be one of pymysql, asyncpg,
-                pg8000, and pytds.
+                pg8000, psycopg, and pytds.
         """
         if self._keys is None:
             self._keys = asyncio.create_task(generate_keys())
@@ -332,6 +337,7 @@ class Connector:
         connect_func = {
             "pymysql": pymysql.connect,
             "pg8000": pg8000.connect,
+            "psycopg": psycopg.connect,
             "asyncpg": asyncpg.connect,
             "pytds": pytds.connect,
         }
@@ -390,6 +396,18 @@ class Connector:
                 socket.create_connection((ip_address, SERVER_PROXY_PORT)),
                 server_hostname=ip_address,
             )
+
+            host = ip_address
+            # start local proxy if driver needs it
+            if driver in LOCAL_PROXY_DRIVERS:
+                local_socket_path = kwargs.pop("local_socket_path", "/tmp/connector-socket")
+                host = local_socket_path
+                self._proxy = proxy.start_local_proxy(
+                    sock,
+                    socket_path=f"{local_socket_path}/.s.PGSQL.{SERVER_PROXY_PORT}",
+                    loop=self._loop
+                )
+
             # If this connection was opened using a domain name, then store it
             # for later in case we need to forcibly close it on failover.
             if conn_info.conn_name.domain_name:
@@ -397,7 +415,7 @@ class Connector:
             # Synchronous drivers are blocking and run using executor
             connect_partial = partial(
                 connector,
-                ip_address,
+                host,
                 sock,
                 **kwargs,
             )
@@ -469,6 +487,13 @@ class Connector:
         await asyncio.gather(*[cache.close() for cache in self._cache.values()])
         if self._client:
             await self._client.close()
+        if self._proxy:
+            proxy_task = asyncio.gather(self._proxy)
+            try:
+                await asyncio.wait_for(proxy_task, timeout=0.1)
+            except (asyncio.CancelledError, asyncio.TimeoutError, TimeoutError):
+                pass # This task runs forever so it is expected to throw this exception
+
 
 
 async def create_async_connector(
