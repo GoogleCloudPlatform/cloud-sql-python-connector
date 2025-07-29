@@ -537,17 +537,11 @@ class Connector:
         """Helper function to cancel the cache's tasks
         and close aiohttp.ClientSession."""
         self._closed = True
+        if self._proxies:
+            await asyncio.gather(*[proxy.close() for proxy in self._proxies])
         if self._client:
             await self._client.close()
-        if self._proxy:
-            proxy_task = asyncio.gather(self._proxy)
-            try:
-                await asyncio.wait_for(proxy_task, timeout=0.1)
-            except TimeoutError:
-                # This task runs forever so it is expected to raise this exception
-                pass
         await asyncio.gather(*[cache.close() for cache in self._cache.values()])
-
 
 async def create_async_connector(
     ip_type: str | IPTypes = IPTypes.PUBLIC,

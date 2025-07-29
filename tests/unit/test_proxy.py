@@ -44,7 +44,7 @@ async def test_proxy_creates_folder(context: ssl.SSLContext, kwargs: Any) -> Non
     proxy_task = asyncio.gather(task)
     try:
         await asyncio.wait_for(proxy_task, timeout=0.1)
-    except TimeoutError:
+    except (asyncio.CancelledError, asyncio.TimeoutError, TimeoutError):
         pass # This task runs forever so it is expected to throw this exception
 
 @pytest.mark.usefixtures("proxy_server")
