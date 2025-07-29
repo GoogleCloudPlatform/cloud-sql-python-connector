@@ -74,9 +74,9 @@ def start_local_proxy(
 async def local_communication(
   unix_socket, ssl_sock, socket_path, loop
 ):
+    client, _ = await loop.sock_accept(unix_socket)
+    
     try:
-        client, _ = await loop.sock_accept(unix_socket)
-
         while True:
             data = await loop.sock_recv(client, LOCAL_PROXY_MAX_MESSAGE_SIZE)
             if not data:
@@ -85,8 +85,6 @@ async def local_communication(
             ssl_sock.sendall(data)
             response = ssl_sock.recv(LOCAL_PROXY_MAX_MESSAGE_SIZE)
             await loop.sock_sendall(client, response)
-    except Exception:
-        pass
     finally:
         client.close()
         os.remove(socket_path) # Clean up the socket file
