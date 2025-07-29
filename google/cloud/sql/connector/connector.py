@@ -37,7 +37,7 @@ from google.cloud.sql.connector.instance import RefreshAheadCache
 from google.cloud.sql.connector.lazy import LazyRefreshCache
 from google.cloud.sql.connector.monitored_cache import MonitoredCache
 import google.cloud.sql.connector.pg8000 as pg8000
-from google.cloud.sql.connector.proxy import start_local_proxy
+import google.cloud.sql.connector.proxy as proxy
 import google.cloud.sql.connector.psycopg as psycopg
 import google.cloud.sql.connector.pymysql as pymysql
 import google.cloud.sql.connector.pytds as pytds
@@ -402,7 +402,7 @@ class Connector:
             if driver in LOCAL_PROXY_DRIVERS:
                 local_socket_path = kwargs.pop("local_socket_path", "/tmp/connector-socket")
                 host = local_socket_path
-                self._proxy = start_local_proxy(
+                self._proxy = proxy.start_local_proxy(
                     sock,
                     socket_path=f"{local_socket_path}/.s.PGSQL.{SERVER_PROXY_PORT}",
                     loop=self._loop

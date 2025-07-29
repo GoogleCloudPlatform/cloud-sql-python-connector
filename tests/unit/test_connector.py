@@ -16,6 +16,8 @@ limitations under the License.
 
 import asyncio
 import os
+import socket
+import ssl
 from typing import Union
 
 from aiohttp import ClientResponseError
@@ -31,6 +33,7 @@ from google.cloud.sql.connector.connection_name import ConnectionName
 from google.cloud.sql.connector.exceptions import CloudSQLIPTypeError
 from google.cloud.sql.connector.exceptions import IncompatibleDriverError
 from google.cloud.sql.connector.instance import RefreshAheadCache
+from google.cloud.sql.connector.proxy import start_local_proxy
 
 
 @pytest.mark.asyncio
@@ -278,6 +281,42 @@ async def test_Connector_connect_async(
             )
             # verify connector made connection call
             assert connection is True
+
+@pytest.mark.usefixtures("proxy_server")
+@pytest.mark.asyncio
+async def test_Connector_connect_local_proxy(
+    fake_credentials: Credentials, fake_client: CloudSQLClient, context: ssl.SSLContext
+) -> None:
+    """Test that Connector.connect can launch start_local_proxy."""
+    async with Connector(
+        credentials=fake_credentials, loop=asyncio.get_running_loop()
+    ) as connector:
+        connector._client = fake_client
+        socket_path = "/tmp/connector-socket/socket"
+        ip_addr = "127.0.0.1"
+        ssl_sock = context.wrap_socket(
+            socket.create_connection((ip_addr, 3307)),
+            server_hostname=ip_addr,
+        )
+        loop = asyncio.get_running_loop()
+        task = start_local_proxy(ssl_sock, socket_path, loop)
+        # patch db connection creation
+        with patch("google.cloud.sql.connector.proxy.start_local_proxy") as mock_proxy:
+            with patch("google.cloud.sql.connector.psycopg.connect") as mock_connect:
+                mock_connect.return_value = True
+                mock_proxy.return_value = task
+                connection = await connector.connect_async(
+                    "test-project:test-region:test-instance",
+                    "psycopg",
+                    user="my-user",
+                    password="my-pass",
+                    db="my-db",
+                    local_socket_path=socket_path,
+                )
+                # verify connector called local proxy
+                mock_connect.assert_called_once()
+                mock_proxy.assert_called_once()
+                assert connection is True
 
 
 @pytest.mark.asyncio
