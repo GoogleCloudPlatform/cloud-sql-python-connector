@@ -317,6 +317,12 @@ async def test_Connector_connect_local_proxy(
                 mock_connect.assert_called_once()
                 mock_proxy.assert_called_once()
                 assert connection is True
+    
+                proxy_task = asyncio.gather(task)
+                try:
+                    await asyncio.wait_for(proxy_task, timeout=0.1)
+                except (asyncio.CancelledError, asyncio.TimeoutError, TimeoutError):
+                    pass # This task runs forever so it is expected to throw this exception
 
 
 @pytest.mark.asyncio

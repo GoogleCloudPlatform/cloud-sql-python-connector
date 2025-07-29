@@ -491,7 +491,7 @@ class Connector:
             proxy_task = asyncio.gather(self._proxy)
             try:
                 await asyncio.wait_for(proxy_task, timeout=0.1)
-            except TimeoutError:
+            except (asyncio.CancelledError, asyncio.TimeoutError, TimeoutError):
                 pass # This task runs forever so it is expected to throw this exception
 
 
