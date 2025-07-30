@@ -126,21 +126,16 @@ import sqlalchemy
 # initialize Connector object
 connector = Connector()
 
-# function to return the database connection
-def getconn() -> pymysql.connections.Connection:
-    conn: pymysql.connections.Connection = connector.connect(
+# initialize SQLAlchemy connection pool with Connector
+pool = sqlalchemy.create_engine(
+    "mysql+pymysql://",
+    creator=lambda: connector.connect(
         "project:region:instance",
         "pymysql",
         user="my-user",
         password="my-password",
         db="my-db-name"
-    )
-    return conn
-
-# create connection pool
-pool = sqlalchemy.create_engine(
-    "mysql+pymysql://",
-    creator=getconn,
+    ),
 )
 ```
 
@@ -207,33 +202,21 @@ Connector as a context manager:
 
 ```python
 from google.cloud.sql.connector import Connector
-import pymysql
 import sqlalchemy
 
-# helper function to return SQLAlchemy connection pool
-def init_connection_pool(connector: Connector) -> sqlalchemy.engine.Engine:
-    # function used to generate database connection
-    def getconn() -> pymysql.connections.Connection:
-        conn = connector.connect(
+# initialize Cloud SQL Python Connector as context manager
+with Connector() as connector:
+    # initialize SQLAlchemy connection pool with Connector
+    pool = sqlalchemy.create_engine(
+        "mysql+pymysql://",
+        creator=lambda: connector.connect(
             "project:region:instance",
             "pymysql",
             user="my-user",
             password="my-password",
             db="my-db-name"
-        )
-        return conn
-
-    # create connection pool
-    pool = sqlalchemy.create_engine(
-        "mysql+pymysql://",
-        creator=getconn,
+        ),
     )
-    return pool
-
-# initialize Cloud SQL Python Connector as context manager
-with Connector() as connector:
-    # initialize connection pool
-    pool = init_connection_pool(connector)
     # insert statement
     insert_stmt = sqlalchemy.text(
         "INSERT INTO my_table (id, title) VALUES (:id, :title)",
@@ -365,6 +348,96 @@ conn = connector.connect(
 )
 ```
 
+### Using DNS domain names to identify instances
+
+The connector can be configured to use DNS to look up an instance. This would
+allow you to configure your application to connect to a database instance, and
+centrally configure which instance in your DNS zone.
+
+#### Configure your DNS Records
+
+Add a DNS TXT record for the Cloud SQL instance to a **private** DNS server
+or a private Google Cloud DNS Zone used by your application.
+
+> [!NOTE]
+>
+> You are strongly discouraged from adding DNS records for your
+> Cloud SQL instances to a public DNS server. This would allow anyone on the
+> internet to discover the Cloud SQL instance name.
+
+For example: suppose you wanted to use the domain name
+`prod-db.mycompany.example.com` to connect to your database instance
+`my-project:region:my-instance`. You would create the following DNS record:
+
+* Record type: `TXT`
+* Name: `prod-db.mycompany.example.com` – This is the domain name used by the application
+* Value: `my-project:my-region:my-instance` – This is the Cloud SQL instance connection name
+
+#### Configure the connector
+
+Configure the connector to resolve DNS names by initializing it with
+`resolver=DnsResolver` and replacing the instance connection name with the DNS
+name in `connector.connect`:
+
+```python
+from google.cloud.sql.connector import Connector, DnsResolver
+import pymysql
+import sqlalchemy
+
+# initialize Cloud SQL Python Connector with `resolver=DnsResolver`
+with Connector(resolver=DnsResolver) as connector:
+    # initialize SQLAlchemy connection pool with Connector
+    pool = sqlalchemy.create_engine(
+        "mysql+pymysql://",
+        creator=lambda: connector.connect(
+            "prod-db.mycompany.example.com",  # using DNS name
+            "pymysql",
+            user="my-user",
+            password="my-password",
+            db="my-db-name"
+        ),
+    )
+    # ... use SQLAlchemy engine normally
+```
+
+### Automatic failover using DNS domain names
+
+> [!NOTE]
+>
+> Usage of the `asyncpg` driver does not currently support automatic failover.
+
+When the connector is configured using a domain name, the connector will
+periodically check if the DNS record for an instance changes. When the connector
+detects that the domain name refers to a different instance, the connector will
+close all open connections to the old instance. Subsequent connection attempts
+will be directed to the new instance.
+
+For example: suppose application is configured to connect using the
+domain name `prod-db.mycompany.example.com`. Initially the private DNS
+zone has a TXT record with the value `my-project:region:my-instance`. The
+application establishes connections to the `my-project:region:my-instance`
+Cloud SQL instance.
+
+Then, to reconfigure the application to use a different database
+instance, change the value of the `prod-db.mycompany.example.com` DNS record
+from `my-project:region:my-instance` to `my-project:other-region:my-instance-2`
+
+The connector inside the application detects the change to this
+DNS record. Now, when the application connects to its database using the
+domain name `prod-db.mycompany.example.com`, it will connect to the
+`my-project:other-region:my-instance-2` Cloud SQL instance.
+
+The connector will automatically close all existing connections to
+`my-project:region:my-instance`. This will force the connection pools to
+establish new connections. Also, it may cause database queries in progress
+to fail.
+
+The connector will poll for changes to the DNS name every 30 seconds by default.
+You may configure the frequency of the connections using the Connector's
+`failover_period` argument (i.e. `Connector(failover_period=60`). When this is
+set to 0, the connector will disable polling and only check if the DNS record
+changed when it is creating a new connection.
+
 ### Using the Python Connector with Python Web Frameworks
 
 The Python Connector can be used alongside popular Python web frameworks such
@@ -400,9 +473,12 @@ from google.cloud.sql.connector import Connector
 # initialize Python Connector object
 connector = Connector()
 
-# Python Connector database connection function
-def getconn():
-    conn = connector.connect(
+app = Flask(__name__)
+
+# configure Flask-SQLAlchemy to use Python Connector
+app.config['SQLALCHEMY_DATABASE_URI'] = "postgresql+pg8000://"
+app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+    "creator": lambda: conn = connector.connect(
         "project:region:instance-name", # Cloud SQL Instance Connection Name
         "pg8000",
         user="my-user",
@@ -410,15 +486,6 @@ def getconn():
         db="my-database",
         ip_type="public"  # "private" for private IP
     )
-    return conn
-
-
-app = Flask(__name__)
-
-# configure Flask-SQLAlchemy to use Python Connector
-app.config['SQLALCHEMY_DATABASE_URI'] = "postgresql+pg8000://"
-app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
-    "creator": getconn
 }
 
 # initialize the app with the extension
@@ -439,38 +506,27 @@ your web application using [SQLAlchemy ORM](https://docs.sqlalchemy.org/en/14/or
 through the following:
 
 ```python
-from sqlalchemy import create_engine
-from sqlalchemy.engine import Engine
+import sqlalchemy
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from google.cloud.sql.connector import Connector
 
-# helper function to return SQLAlchemy connection pool
-def init_connection_pool(connector: Connector) -> Engine:
-    # Python Connector database connection function
-    def getconn():
-        conn = connector.connect(
-            "project:region:instance-name", # Cloud SQL Instance Connection Name
-            "pg8000",
-            user="my-user",
-            password="my-password",
-            db="my-database",
-            ip_type="public"  # "private" for private IP
-        )
-        return conn
-
-    SQLALCHEMY_DATABASE_URL = "postgresql+pg8000://"
-
-    engine = create_engine(
-        SQLALCHEMY_DATABASE_URL , creator=getconn
-    )
-    return engine
 
 # initialize Cloud SQL Python Connector
 connector = Connector()
 
 # create connection pool engine
-engine = init_connection_pool(connector)
+engine = sqlalchemy.create_engine(
+    "postgresql+pg8000://",
+    creator=lambda: connector.connect(
+        "project:region:instance-name", # Cloud SQL Instance Connection Name
+        "pg8000",
+        user="my-user",
+        password="my-password",
+        db="my-database",
+        ip_type="public"  # "private" for private IP
+    ),
+)
 
 # create SQLAlchemy ORM session
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -502,41 +558,66 @@ The `create_async_connector` allows all the same input arguments as the
 Once a `Connector` object is returned by `create_async_connector` you can call
 its `connect_async` method, just as you would the `connect` method:
 
+#### Asyncpg Connection Pool
+
 ```python
 import asyncpg
+from google.cloud.sql.connector import Connector, create_async_connector
 
+async def main():
+    # initialize Connector object for connections to Cloud SQL
+    connector = create_async_connector()
+
+    # creation function to generate asyncpg connections as the 'connect' arg
+    async def getconn(instance_connection_name, **kwargs) -> asyncpg.Connection:
+        return await connector.connect_async(
+            instance_connection_name,
+            "asyncpg",
+            user="my-user",
+            password="my-password",
+            db="my-db",
+            **kwargs, # ... additional asyncpg args
+        )
+
+    # initialize connection pool
+    pool = await asyncpg.create_pool(
+        "my-project:my-region:my-instance", connect=getconn
+    )
+
+    # acquire connection and query Cloud SQL database
+    async with pool.acquire() as conn:
+        res = await conn.fetch("SELECT NOW()")
+    
+    # close Connector
+    await connector.close_async()
+```
+
+#### SQLAlchemy Async Engine
+
+```python
 import sqlalchemy
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
 from google.cloud.sql.connector import Connector, create_async_connector
 
-async def init_connection_pool(connector: Connector) -> AsyncEngine:
+
+async def main():
     # initialize Connector object for connections to Cloud SQL
-    async def getconn() -> asyncpg.Connection:
-        conn: asyncpg.Connection = await connector.connect_async(
+    connector = await create_async_connector()
+
+    # The Cloud SQL Python Connector can be used along with SQLAlchemy using the
+    # 'async_creator' argument to 'create_async_engine'
+    pool = create_async_engine(
+        "postgresql+asyncpg://",
+        async_creator=lambda: connector.connect_async(
             "project:region:instance",  # Cloud SQL instance connection name
             "asyncpg",
             user="my-user",
             password="my-password",
             db="my-db-name"
             # ... additional database driver args
-        )
-        return conn
-
-    # The Cloud SQL Python Connector can be used along with SQLAlchemy using the
-    # 'async_creator' argument to 'create_async_engine'
-    pool = create_async_engine(
-        "postgresql+asyncpg://",
-        async_creator=getconn,
+        ),
     )
-    return pool
-
-async def main():
-    # initialize Connector object for connections to Cloud SQL
-    connector = await create_async_connector()
-
-    # initialize connection pool
-    pool = await init_connection_pool(connector)
 
     # example query
     async with pool.connect() as conn:
@@ -564,6 +645,40 @@ calls to `connector.close_async()` to cleanup resources.
 > This alternative requires that the running event loop be
 > passed in as the `loop` argument to `Connector()`.
 
+#### Asyncpg Connection Pool
+
+```python
+import asyncpg
+from google.cloud.sql.connector import Connector, create_async_connector
+
+async def main():
+    # initialize Connector object for connections to Cloud SQL
+    loop = asyncio.get_running_loop()
+    async with Connector(loop=loop) as connector:
+
+        # creation function to generate asyncpg connections as the 'connect' arg
+        async def getconn(instance_connection_name, **kwargs) -> asyncpg.Connection:
+            return await connector.connect_async(
+                instance_connection_name,
+                "asyncpg",
+                user="my-user",
+                password="my-password",
+                db="my-db",
+                **kwargs, # ... additional asyncpg args
+            )
+
+        # create connection pool
+        pool = await asyncpg.create_pool(
+            "my-project:my-region:my-instance", connect=getconn
+        )
+
+        # acquire connection and query Cloud SQL database
+        async with pool.acquire() as conn:
+            res = await conn.fetch("SELECT NOW()")
+```
+
+#### SQLAlchemy Async Engine
+
 ```python
 import asyncio
 import asyncpg
@@ -573,33 +688,24 @@ from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
 from google.cloud.sql.connector import Connector
 
-async def init_connection_pool(connector: Connector) -> AsyncEngine:
+
+async def main():
     # initialize Connector object for connections to Cloud SQL
-    async def getconn() -> asyncpg.Connection:
-            conn: asyncpg.Connection = await connector.connect_async(
+    loop = asyncio.get_running_loop()
+    async with Connector(loop=loop) as connector:
+        # The Cloud SQL Python Connector can be used along with SQLAlchemy using the
+        # 'async_creator' argument to 'create_async_engine'
+        pool = create_async_engine(
+            "postgresql+asyncpg://",
+            async_creator=lambda: connector.connect_async(
                 "project:region:instance",  # Cloud SQL instance connection name
                 "asyncpg",
                 user="my-user",
                 password="my-password",
                 db="my-db-name"
                 # ... additional database driver args
-            )
-            return conn
-
-    # The Cloud SQL Python Connector can be used along with SQLAlchemy using the
-    # 'async_creator' argument to 'create_async_engine'
-    pool = create_async_engine(
-        "postgresql+asyncpg://",
-        async_creator=getconn,
-    )
-    return pool
-
-async def main():
-    # initialize Connector object for connections to Cloud SQL
-    loop = asyncio.get_running_loop()
-    async with Connector(loop=loop) as connector:
-        # initialize connection pool
-        pool = await init_connection_pool(connector)
+            ),
+        )
 
         # example query
         async with pool.connect() as conn:

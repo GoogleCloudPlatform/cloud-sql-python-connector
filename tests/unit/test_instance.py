@@ -1,4 +1,4 @@
-""""
+"""
 Copyright 2019 Google LLC
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,12 +16,7 @@ limitations under the License.
 
 import asyncio
 import datetime
-from typing import Tuple
 
-from aiohttp import ClientResponseError
-from aiohttp import RequestInfo
-from aioresponses import aioresponses
-from google.auth.credentials import Credentials
 from mock import patch
 import mocks
 import pytest  # noqa F401 Needed to run the tests
@@ -29,9 +24,9 @@ import pytest  # noqa F401 Needed to run the tests
 from google.cloud.sql.connector import IPTypes
 from google.cloud.sql.connector.client import CloudSQLClient
 from google.cloud.sql.connector.connection_info import ConnectionInfo
+from google.cloud.sql.connector.connection_name import ConnectionName
 from google.cloud.sql.connector.exceptions import AutoIAMAuthNotSupported
 from google.cloud.sql.connector.exceptions import CloudSQLIPTypeError
-from google.cloud.sql.connector.instance import _parse_instance_connection_name
 from google.cloud.sql.connector.instance import RefreshAheadCache
 from google.cloud.sql.connector.rate_limiter import AsyncRateLimiter
 from google.cloud.sql.connector.refresh_utils import _is_valid
@@ -43,34 +38,6 @@ def test_rate_limiter() -> AsyncRateLimiter:
     return AsyncRateLimiter(max_capacity=1, rate=1 / 2)
 
 
-@pytest.mark.parametrize(
-    "connection_name, expected",
-    [
-        ("project:region:instance", ("project", "region", "instance")),
-        (
-            "domain-prefix:project:region:instance",
-            ("domain-prefix:project", "region", "instance"),
-        ),
-    ],
-)
-def test_parse_instance_connection_name(
-    connection_name: str, expected: Tuple[str, str, str]
-) -> None:
-    """
-    Test that _parse_instance_connection_name works correctly on
-    normal instance connection names and domain-scoped projects.
-    """
-    assert expected == _parse_instance_connection_name(connection_name)
-
-
-def test_parse_instance_connection_name_bad_conn_name() -> None:
-    """
-    Tests that ValueError is thrown for bad instance connection names.
-    """
-    with pytest.raises(ValueError):
-        _parse_instance_connection_name("project:instance")  # missing region
-
-
 @pytest.mark.asyncio
 async def test_Instance_init(
     cache: RefreshAheadCache,
@@ -80,9 +47,9 @@ async def test_Instance_init(
     can tell if the connection string that's passed in is formatted correctly.
     """
     assert (
-        cache._project == "test-project"
-        and cache._region == "test-region"
-        and cache._instance == "test-instance"
+        cache._conn_name.project == "test-project"
+        and cache._conn_name.region == "test-region"
+        and cache._conn_name.instance_name == "test-instance"
     )
     assert cache._enable_iam_auth is False
 
@@ -219,17 +186,18 @@ async def test_RefreshAheadCache_close(cache: RefreshAheadCache) -> None:
 @pytest.mark.asyncio
 async def test_perform_refresh(
     cache: RefreshAheadCache,
-    fake_instance: mocks.FakeCSQLInstance,
 ) -> None:
     """
     Test that _perform_refresh returns valid ConnectionInfo object.
     """
     instance_metadata = await cache._perform_refresh()
-
     # verify instance metadata object is returned
     assert isinstance(instance_metadata, ConnectionInfo)
     # verify instance metadata expiration
-    assert fake_instance.server_cert.not_valid_after_utc == instance_metadata.expiration
+    assert (
+        cache._client.instance.cert_expiration.replace(microsecond=0)
+        == instance_metadata.expiration
+    )
 
 
 @pytest.mark.asyncio
@@ -297,59 +265,6 @@ async def test_get_preferred_ip_CloudSQLIPTypeError(cache: RefreshAheadCache) ->
 
 
 @pytest.mark.asyncio
-async def test_ClientResponseError(
-    fake_credentials: Credentials,
-) -> None:
-    """
-    Test that detailed error message is applied to ClientResponseError.
-    """
-    # mock Cloud SQL Admin API calls with exceptions
-    keys = asyncio.create_task(generate_keys())
-    client = CloudSQLClient(
-        sqladmin_api_endpoint="https://sqladmin.googleapis.com",
-        quota_project=None,
-        credentials=fake_credentials,
-    )
-    get_url = "https://sqladmin.googleapis.com/sql/v1beta4/projects/my-project/instances/my-instance/connectSettings"
-    post_url = "https://sqladmin.googleapis.com/sql/v1beta4/projects/my-project/instances/my-instance:generateEphemeralCert"
-    with aioresponses() as mocked:
-        mocked.get(
-            get_url,
-            status=403,
-            exception=ClientResponseError(
-                RequestInfo(get_url, "GET", headers=[]), history=[], status=403  # type: ignore
-            ),
-            repeat=True,
-        )
-        mocked.post(
-            post_url,
-            status=403,
-            exception=ClientResponseError(
-                RequestInfo(post_url, "POST", headers=[]), history=[], status=403  # type: ignore
-            ),
-            repeat=True,
-        )
-        cache = RefreshAheadCache(
-            "my-project:my-region:my-instance",
-            client,
-            keys,
-        )
-        try:
-            await cache._current
-        except ClientResponseError as e:
-            assert e.status == 403
-            assert (
-                e.message == "Forbidden: Authenticated IAM principal does not "
-                "seeem authorized to make API request. Verify "
-                "'Cloud SQL Admin API' is enabled within your GCP project and "
-                "'Cloud SQL Client' role has been granted to IAM principal."
-            )
-        finally:
-            await cache.close()
-            await client.close()
-
-
-@pytest.mark.asyncio
 async def test_AutoIAMAuthNotSupportedError(fake_client: CloudSQLClient) -> None:
     """
     Test that AutoIAMAuthNotSupported exception is raised
@@ -358,7 +273,7 @@ async def test_AutoIAMAuthNotSupportedError(fake_client: CloudSQLClient) -> None
     # generate client key pair
     keys = asyncio.create_task(generate_keys())
     cache = RefreshAheadCache(
-        "test-project:test-region:sqlserver-instance",
+        ConnectionName("test-project", "test-region", "sqlserver-instance"),
         client=fake_client,
         keys=keys,
         enable_iam_auth=True,
@@ -367,14 +282,14 @@ async def test_AutoIAMAuthNotSupportedError(fake_client: CloudSQLClient) -> None
         await cache._current
 
 
-def test_ConnectionInfo_caches_sslcontext() -> None:
+async def test_ConnectionInfo_caches_sslcontext() -> None:
     info = ConnectionInfo(
-        "cert", "cert", "key".encode(), {}, "POSTGRES", datetime.datetime.now()
+        "", "cert", "cert", "key".encode(), {}, "POSTGRES", datetime.datetime.now()
     )
     # context should default to None
     assert info.context is None
     # cache a 'context'
     info.context = "context"
-    # caling create_ssl_context should no-op with an existing 'context'
-    info.create_ssl_context()
+    # calling create_ssl_context should no-op with an existing 'context'
+    await info.create_ssl_context()
     assert info.context == "context"

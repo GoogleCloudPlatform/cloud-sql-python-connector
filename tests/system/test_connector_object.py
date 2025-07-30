@@ -1,4 +1,4 @@
-""""
+"""
 Copyright 2021 Google LLC
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -20,7 +20,6 @@ import datetime
 import os
 from threading import Thread
 
-import google.auth
 import pymysql
 import pytest
 import sqlalchemy
@@ -39,6 +38,7 @@ def init_connection_engine(
             user=os.environ["MYSQL_USER"],
             password=os.environ["MYSQL_PASS"],
             db=os.environ["MYSQL_DB"],
+            ip_type=os.environ.get("IP_TYPE", "public"),
         )
         return conn
 
@@ -48,20 +48,6 @@ def init_connection_engine(
         execution_options={"isolation_level": "AUTOCOMMIT"},
     )
     return pool
-
-
-def test_connector_with_credentials() -> None:
-    """Test Connector object connection with credentials loaded from file."""
-    credentials, _ = google.auth.load_credentials_from_file(
-        os.environ["GOOGLE_APPLICATION_CREDENTIALS"]
-    )
-    with Connector(credentials=credentials) as connector:
-        pool = init_connection_engine(connector)
-
-        with pool.connect() as conn:
-            result = conn.execute(sqlalchemy.text("SELECT 1")).fetchone()
-            assert isinstance(result[0], int)
-            assert result[0] == 1
 
 
 def test_multiple_connectors() -> None:
@@ -79,11 +65,21 @@ def test_multiple_connectors() -> None:
             conn.execute(sqlalchemy.text("SELECT 1"))
 
         instance_connection_string = os.environ["MYSQL_CONNECTION_NAME"]
-        assert instance_connection_string in first_connector._cache
-        assert instance_connection_string in second_connector._cache
         assert (
-            first_connector._cache[instance_connection_string]
-            != second_connector._cache[instance_connection_string]
+            instance_connection_string,
+            first_connector._enable_iam_auth,
+        ) in first_connector._cache
+        assert (
+            instance_connection_string,
+            second_connector._enable_iam_auth,
+        ) in second_connector._cache
+        assert (
+            first_connector._cache[
+                (instance_connection_string, first_connector._enable_iam_auth)
+            ]
+            != second_connector._cache[
+                (instance_connection_string, second_connector._enable_iam_auth)
+            ]
         )
     except Exception:
         raise

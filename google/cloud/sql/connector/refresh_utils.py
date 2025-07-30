@@ -20,7 +20,10 @@ import asyncio
 import copy
 import datetime
 import logging
-from typing import List
+import random
+from typing import Any, Callable
+
+import aiohttp
 
 from google.auth.credentials import Credentials
 from google.auth.credentials import Scoped
@@ -42,8 +45,11 @@ def _seconds_until_refresh(
     Usually the duration will be half of the time until certificate
     expiration.
 
-    :rtype: int
-    :returns: Time in seconds to wait before performing next refresh.
+    Args:
+        expiration (datetime.datetime): The expiration time of the certificate.
+
+    Returns:
+        int: Time in seconds to wait before performing next refresh.
     """
 
     duration = int(
@@ -75,20 +81,18 @@ async def _is_valid(task: asyncio.Task) -> bool:
 
 def _downscope_credentials(
     credentials: Credentials,
-    scopes: List[str] = ["https://www.googleapis.com/auth/sqlservice.login"],
+    scopes: list[str] = ["https://www.googleapis.com/auth/sqlservice.login"],
 ) -> Credentials:
     """Generate a down-scoped credential.
 
-    :type credentials: google.auth.credentials.Credentials
-    :param credentials
-        Credentials object used to generate down-scoped credentials.
+    Args:
+        credentials (google.auth.credentials.Credentials):
+            Credentials object used to generate down-scoped credentials.
+        scopes (list[str]): List of Google scopes to
+            include in down-scoped credentials object.
 
-    :type scopes: List[str]
-    :param scopes
-        List of Google scopes to include in down-scoped credentials object.
-
-    :rtype: google.auth.credentials.Credentials
-    :returns: Down-scoped credentials object.
+    Returns:
+        google.auth.credentials.Credentials: Down-scoped credentials object.
     """
     # credentials sourced from a service account or metadata are children of
     # Scoped class and are capable of being re-scoped
@@ -100,8 +104,53 @@ def _downscope_credentials(
         scoped_creds = copy.copy(credentials)
         # overwrite '_scopes' to down-scope user credentials
         # Cloud SDK reference: https://github.com/google-cloud-sdk-unofficial/google-cloud-sdk/blob/93920ccb6d2cce0fe6d1ce841e9e33410551d66b/lib/googlecloudsdk/command_lib/sql/generate_login_token_util.py#L116
-        scoped_creds._scopes = scopes
+        scoped_creds._scopes = scopes # type: ignore[attr-defined]
     # down-scoped credentials require refresh, are invalid after being re-scoped
     request = google.auth.transport.requests.Request()
     scoped_creds.refresh(request)
     return scoped_creds
+
+
+def _exponential_backoff(attempt: int) -> float:
+    """Calculates a duration to backoff in milliseconds based on the attempt i.
+
+    The formula is:
+
+    base * multi^(attempt + 1 + random)
+
+    With base = 200ms and multi = 1.618, and random = [0.0, 1.0),
+    the backoff values would fall between the following low and high ends:
+
+    Attempt  Low (ms)  High (ms)
+
+    0         324	     524
+    1         524	     847
+    2         847	    1371
+    3        1371	    2218
+    4        2218	    3588
+
+    The theoretical worst case scenario would have a client wait 8.5s in total
+    for an API request to complete (with the first four attempts failing, and
+    the fifth succeeding).
+    """
+    base = 200
+    multi = 1.618
+    exp = attempt + 1 + random.random()
+    return base * pow(multi, exp)
+
+
+async def retry_50x(
+    request_coro: Callable, *args: Any, **kwargs: Any
+) -> aiohttp.ClientResponse:
+    """Retry any 50x HTTP response up to X number of times."""
+    max_retries = 5
+    for i in range(max_retries):
+        resp = await request_coro(*args, **kwargs)
+        # backoff for any 50X errors
+        if resp.status >= 500 and i < max_retries:
+            # calculate backoff time
+            backoff = _exponential_backoff(i)
+            await asyncio.sleep(backoff / 1000)
+        else:
+            break
+    return resp

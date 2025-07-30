@@ -14,19 +14,15 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-
 from __future__ import absolute_import
 
 import os
 
 import nox
 
-BLACK_VERSION = "black==23.12.1"
-ISORT_VERSION = "isort==5.13.2"
+LINT_PATHS = ["google", "tests", "noxfile.py"]
 
-LINT_PATHS = ["google", "tests", "noxfile.py", "setup.py"]
-
-TEST_PYTHON_VERSIONS = ["3.8", "3.9", "3.10", "3.11", "3.12"]
+TEST_PYTHON_VERSIONS = ["3.9", "3.10", "3.11", "3.12", "3.13"]
 
 
 @nox.session
@@ -37,27 +33,16 @@ def lint(session):
     """
     session.install("-r", "requirements.txt")
     session.install(
-        "flake8",
-        "flake8-annotations",
+        "ruff",
         "mypy",
-        BLACK_VERSION,
-        ISORT_VERSION,
         "twine",
         "build",
+        "importlib_metadata==7.2.1",
     )
     session.run(
-        "isort",
-        "--fss",
-        "--check-only",
-        "--diff",
-        "--profile=google",
-        *LINT_PATHS,
-    )
-    session.run("black", "--check", "--diff", *LINT_PATHS)
-    session.run(
-        "flake8",
-        "google",
-        "tests",
+        "ruff",
+        "check",
+        *LINT_PATHS, 
     )
     session.run(
         "mypy",
@@ -67,28 +52,20 @@ def lint(session):
         "--non-interactive",
         "--show-traceback",
     )
-    # verify that setup.py is valid
+    # verify that pyproject.toml is valid
     session.run("python", "-m", "build", "--sdist")
     session.run("twine", "check", "--strict", "dist/*")
-
 
 @nox.session()
 def format(session):
     """
-    Run isort to sort imports. Then run black
-    to format code to uniform standard.
+    Run Ruff to automatically format code.
     """
-    session.install(BLACK_VERSION, ISORT_VERSION)
-    # Use the --fss option to sort imports using strict alphabetical order.
-    # See https://pycqa.github.io/isort/docs/configuration/options.html#force-sort-within-sectionss
+    session.install("ruff")
     session.run(
-        "isort",
-        "--fss",
-        "--profile=google",
-        *LINT_PATHS,
-    )
-    session.run(
-        "black",
+        "ruff",
+        "check",
+        "--fix",  
         *LINT_PATHS,
     )
 

@@ -1,4 +1,4 @@
-""""
+"""
 Copyright 2021 Google LLC
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,41 +15,64 @@ limitations under the License.
 """
 
 import asyncio
+import os
 from typing import Union
 
-from google.auth.credentials import Credentials
+from aiohttp import ClientResponseError
 from mock import patch
 import pytest  # noqa F401 Needed to run the tests
 
+from google.auth.credentials import Credentials
 from google.cloud.sql.connector import Connector
 from google.cloud.sql.connector import create_async_connector
 from google.cloud.sql.connector import IPTypes
 from google.cloud.sql.connector.client import CloudSQLClient
-from google.cloud.sql.connector.exceptions import ConnectorLoopError
+from google.cloud.sql.connector.connection_name import ConnectionName
+from google.cloud.sql.connector.exceptions import CloudSQLIPTypeError
 from google.cloud.sql.connector.exceptions import IncompatibleDriverError
 from google.cloud.sql.connector.instance import RefreshAheadCache
 
 
-def test_connect_enable_iam_auth_error(
-    fake_credentials: Credentials, cache: RefreshAheadCache
+@pytest.mark.asyncio
+async def test_connect_enable_iam_auth_error(
+    fake_credentials: Credentials, fake_client: CloudSQLClient
 ) -> None:
     """Test that calling connect() with different enable_iam_auth
-    argument values throws error."""
+    argument values creates two cache entries."""
     connect_string = "test-project:test-region:test-instance"
-    connector = Connector(credentials=fake_credentials)
-    # set cache
-    connector._cache[connect_string] = cache
-    # try to connect using enable_iam_auth=True, should raise error
-    with pytest.raises(ValueError) as exc_info:
-        connector.connect(connect_string, "pg8000", enable_iam_auth=True)
-    assert (
-        exc_info.value.args[0] == "connect() called with 'enable_iam_auth=True', "
-        "but previously used 'enable_iam_auth=False'. "
-        "If you require both for your use case, please use a new "
-        "connector.Connector object."
-    )
-    # remove cache entry to avoid destructor warnings
-    connector._cache = {}
+    async with Connector(
+        credentials=fake_credentials, loop=asyncio.get_running_loop()
+    ) as connector:
+        connector._client = fake_client
+        # patch db connection creation
+        with patch("google.cloud.sql.connector.asyncpg.connect") as mock_connect:
+            mock_connect.return_value = True
+            # connect with enable_iam_auth False
+            connection = await connector.connect_async(
+                connect_string,
+                "asyncpg",
+                user="my-user",
+                password="my-pass",
+                db="my-db",
+                enable_iam_auth=False,
+            )
+            # verify connector made connection call
+            assert connection is True
+            # connect with enable_iam_auth True
+            connection = await connector.connect_async(
+                connect_string,
+                "asyncpg",
+                user="my-user",
+                password="my-pass",
+                db="my-db",
+                enable_iam_auth=True,
+            )
+            # verify connector made connection call
+            assert connection is True
+            # verify both cache entries for same instance exist
+            assert len(connector._cache) == 2
+            assert (connect_string, True) in connector._cache
+            assert (connect_string, False) in connector._cache
 
 
 async def test_connect_incompatible_driver_error(
@@ -84,21 +107,6 @@ def test_connect_with_unsupported_driver(fake_credentials: Credentials) -> None:
             )
         # assert custom error message for unsupported driver is present
         assert exc_info.value.args[0] == "Driver 'bad_driver' is not supported."
-
-
-@pytest.mark.asyncio
-async def test_connect_ConnectorLoopError(fake_credentials: Credentials) -> None:
-    """Test that ConnectorLoopError is thrown when Connector.connect
-    is called with event loop running in current thread."""
-    current_loop = asyncio.get_running_loop()
-    connector = Connector(credentials=fake_credentials, loop=current_loop)
-    # try to connect using current thread's loop, should raise error
-    pytest.raises(
-        ConnectorLoopError,
-        connector.connect,
-        "my-project:my-region:my-instance",
-        "pg8000",
-    )
 
 
 def test_Connector_Init(fake_credentials: Credentials) -> None:
@@ -305,6 +313,60 @@ def test_Connector_close_called_multiple_times(fake_credentials: Credentials) ->
     connector.close()
 
 
+async def test_Connector_remove_cached_bad_instance(
+    fake_credentials: Credentials, fake_client: CloudSQLClient
+) -> None:
+    """When a Connector attempts to retrieve connection info for a
+    non-existent instance, it should delete the instance from
+    the cache and ensure no background refresh happens (which would be
+    wasted cycles).
+    """
+    async with Connector(
+        credentials=fake_credentials, loop=asyncio.get_running_loop()
+    ) as connector:
+        conn_name = ConnectionName("bad-project", "bad-region", "bad-inst")
+        # populate cache
+        cache = RefreshAheadCache(conn_name, fake_client, connector._keys)
+        connector._cache[(str(conn_name), False)] = cache
+        # aiohttp client should throw a 404 ClientResponseError
+        with pytest.raises(ClientResponseError):
+            await connector.connect_async(
+                str(conn_name),
+                "pg8000",
+            )
+        # check that cache has been removed from dict
+        assert (str(conn_name), False) not in connector._cache
+
+
+async def test_Connector_remove_cached_no_ip_type(
+    fake_credentials: Credentials, fake_client: CloudSQLClient
+) -> None:
+    """When a Connector attempts to connect and preferred IP type is not present,
+    it should delete the instance from the cache and ensure no background refresh
+    happens (which would be wasted cycles).
+    """
+    # set instance to only have public IP
+    fake_client.instance.ip_addrs = {"PRIMARY": "127.0.0.1"}
+    async with Connector(
+        credentials=fake_credentials, loop=asyncio.get_running_loop()
+    ) as connector:
+        conn_name = ConnectionName("test-project", "test-region", "test-instance")
+        # populate cache
+        cache = RefreshAheadCache(conn_name, fake_client, connector._keys)
+        connector._cache[(str(conn_name), False)] = cache
+        # test instance does not have Private IP, thus should invalidate cache
+        with pytest.raises(CloudSQLIPTypeError):
+            await connector.connect_async(
+                str(conn_name),
+                "pg8000",
+                user="my-user",
+                password="my-pass",
+                ip_type="private",
+            )
+        # check that cache has been removed from dict
+        assert (str(conn_name), False) not in connector._cache
+
+
 def test_default_universe_domain(fake_credentials: Credentials) -> None:
     """Test that default universe domain and constructed service endpoint are
     formatted correctly.
@@ -367,3 +429,42 @@ def test_configured_universe_domain_mismatched_credentials(
         "is the default."
     )
     assert exc_info.value.args[0] == err_msg
+
+
+def test_configured_universe_domain_env_var(
+    fake_credentials: Credentials,
+) -> None:
+    """Test that configured universe domain succeeds with universe
+    domain set via GOOGLE_CLOUD_UNIVERSE_DOMAIN env var.
+    """
+    universe_domain = "test-universe.test"
+    # set fake credentials to be configured for the universe domain
+    fake_credentials._universe_domain = universe_domain
+    # set environment variable
+    os.environ["GOOGLE_CLOUD_UNIVERSE_DOMAIN"] = universe_domain
+    # Note: we are not passing universe_domain arg, env var should set it
+    with Connector(credentials=fake_credentials) as connector:
+        # test universe domain was configured
+        assert connector._universe_domain == universe_domain
+        # test property and service endpoint construction
+        assert connector.universe_domain == universe_domain
+        assert connector._sqladmin_api_endpoint == f"https://sqladmin.{universe_domain}"
+    # unset env var
+    del os.environ["GOOGLE_CLOUD_UNIVERSE_DOMAIN"]
+
+
+def test_configured_quota_project_env_var(
+    fake_credentials: Credentials,
+) -> None:
+    """Test that configured quota project succeeds with quota project
+    set via GOOGLE_CLOUD_QUOTA_PROJECT env var.
+    """
+    quota_project = "my-cool-project"
+    # set environment variable
+    os.environ["GOOGLE_CLOUD_QUOTA_PROJECT"] = quota_project
+    # Note: we are not passing quota_project arg, env var should set it
+    with Connector(credentials=fake_credentials) as connector:
+        # test quota project was configured
+        assert connector._quota_project == quota_project
+    # unset env var
+    del os.environ["GOOGLE_CLOUD_QUOTA_PROJECT"]

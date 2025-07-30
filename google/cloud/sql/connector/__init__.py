@@ -1,4 +1,4 @@
-""""
+"""
 Copyright 2019 Google LLC
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -18,12 +18,16 @@ from google.cloud.sql.connector.connector import Connector
 from google.cloud.sql.connector.connector import create_async_connector
 from google.cloud.sql.connector.enums import IPTypes
 from google.cloud.sql.connector.enums import RefreshStrategy
+from google.cloud.sql.connector.resolver import DefaultResolver
+from google.cloud.sql.connector.resolver import DnsResolver
 from google.cloud.sql.connector.version import __version__
 
 __all__ = [
     "__version__",
     "create_async_connector",
     "Connector",
+    "DefaultResolver",
+    "DnsResolver",
     "IPTypes",
     "RefreshStrategy",
 ]

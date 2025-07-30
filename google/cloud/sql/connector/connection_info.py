@@ -14,12 +14,15 @@
 
 from __future__ import annotations
 
+import abc
 from dataclasses import dataclass
 import logging
 import ssl
-from tempfile import TemporaryDirectory
-from typing import Any, Dict, Optional, TYPE_CHECKING
+from typing import Any, Optional, TYPE_CHECKING
 
+from aiofiles.tempfile import TemporaryDirectory
+
+from google.cloud.sql.connector.connection_name import ConnectionName
 from google.cloud.sql.connector.exceptions import CloudSQLIPTypeError
 from google.cloud.sql.connector.exceptions import TLSVersionError
 from google.cloud.sql.connector.utils import write_to_file
@@ -32,20 +35,42 @@ if TYPE_CHECKING:
 logger = logging.getLogger(name=__name__)
 
 
+class ConnectionInfoCache(abc.ABC):
+    """Abstract class for Connector connection info caches."""
+
+    @abc.abstractmethod
+    async def connect_info(self) -> ConnectionInfo:
+        pass
+
+    @abc.abstractmethod
+    async def force_refresh(self) -> None:
+        pass
+
+    @abc.abstractmethod
+    async def close(self) -> None:
+        pass
+
+    @property
+    @abc.abstractmethod
+    def closed(self) -> bool:
+        pass
+
+
 @dataclass
 class ConnectionInfo:
     """Contains all necessary information to connect securely to the
     server-side Proxy running on a Cloud SQL instance."""
 
+    conn_name: ConnectionName
     client_cert: str
     server_ca_cert: str
     private_key: bytes
-    ip_addrs: Dict[str, Any]
+    ip_addrs: dict[str, Any]
     database_version: str
     expiration: datetime.datetime
     context: Optional[ssl.SSLContext] = None
 
-    def create_ssl_context(self, enable_iam_auth: bool = False) -> ssl.SSLContext:
+    async def create_ssl_context(self, enable_iam_auth: bool = False) -> ssl.SSLContext:
         """Constructs a SSL/TLS context for the given connection info.
 
         Cache the SSL context to ensure we don't read from disk repeatedly when
@@ -83,8 +108,8 @@ class ConnectionInfo:
         # tmpdir and its contents are automatically deleted after the CA cert
         # and ephemeral cert are loaded into the SSLcontext. The values
         # need to be written to files in order to be loaded by the SSLContext
-        with TemporaryDirectory() as tmpdir:
-            ca_filename, cert_filename, key_filename = write_to_file(
+        async with TemporaryDirectory() as tmpdir:
+            ca_filename, cert_filename, key_filename = await write_to_file(
                 tmpdir, self.server_ca_cert, self.client_cert, self.private_key
             )
             context.load_cert_chain(cert_filename, keyfile=key_filename)
@@ -101,5 +126,5 @@ class ConnectionInfo:
             return self.ip_addrs[ip_type.value]
         raise CloudSQLIPTypeError(
             "Cloud SQL instance does not have any IP addresses matching "
-            f"preference: {ip_type.value})"
+            f"preference: {ip_type.value}"
         )

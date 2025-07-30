@@ -1,4 +1,4 @@
-""""
+"""
 Copyright 2021 Google LLC
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,84 +13,110 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
+
 import os
-from typing import Generator
-import uuid
 
 # [START cloud_sql_connector_mysql_pytds]
-import pytds
-import pytest
 import sqlalchemy
 
 from google.cloud.sql.connector import Connector
 
-# [END cloud_sql_connector_mysql_pytds]
 
-table_name = f"books_{uuid.uuid4().hex}"
+def create_sqlalchemy_engine(
+    instance_connection_name: str,
+    user: str,
+    password: str,
+    db: str,
+    ip_type: str = "public",
+    refresh_strategy: str = "background",
+) -> tuple[sqlalchemy.engine.Engine, Connector]:
+    """Creates a connection pool for a Cloud SQL instance and returns the pool
+    and the connector. Callers are responsible for closing the pool and the
+    connector.
 
+    A sample invocation looks like:
 
-# [START cloud_sql_connector_mysql_pytds]
-# The Cloud SQL Python Connector can be used along with SQLAlchemy using the
-# 'creator' argument to 'create_engine'. To use SQLAlchemy with pytds, include
-# 'sqlalchemy-pytds` in your dependencies
-def init_connection_engine() -> sqlalchemy.engine.Engine:
-    def getconn() -> pytds.Connection:
-        # initialize Connector object for connections to Cloud SQL
-        with Connector() as connector:
-            conn = connector.connect(
-                os.environ["SQLSERVER_CONNECTION_NAME"],
-                "pytds",
-                user=os.environ["SQLSERVER_USER"],
-                password=os.environ["SQLSERVER_PASS"],
-                db=os.environ["SQLSERVER_DB"],
-                ip_type="public",  # can also be "private" or "psc"
-            )
-            return conn
+        engine, connector = create_sqlalchemy_engine(
+            inst_conn_name,
+            user,
+            password,
+            db,
+        )
+        with engine.connect() as conn:
+            data = conn.execute(sqlalchemy.text("SELECT 1")).fetchone()
+            conn.commit()
+            # do something with query result
+            connector.close()
+
+    Args:
+        instance_connection_name (str):
+            The instance connection name specifies the instance relative to the
+            project and region. For example: "my-project:my-region:my-instance"
+        user (str):
+            The database user name, e.g., sqlserver
+        password (str):
+            The database user's password, e.g., secret-password
+        db (str):
+            The name of the database, e.g., mydb
+        ip_type (str):
+            The IP type of the Cloud SQL instance to connect to. Can be one
+            of "public", "private", or "psc".
+        refresh_strategy (Optional[str]):
+            Refresh strategy for the Cloud SQL Connector. Can be one of "lazy"
+            or "background". For serverless environments use "lazy" to avoid
+            errors resulting from CPU being throttled.
+    """
+    connector = Connector(refresh_strategy=refresh_strategy)
 
     # create SQLAlchemy connection pool
-    pool = sqlalchemy.create_engine(
+    engine = sqlalchemy.create_engine(
         "mssql+pytds://",
-        creator=getconn,
+        creator=lambda: connector.connect(
+            instance_connection_name,
+            "pytds",
+            user=user,
+            password=password,
+            db=db,
+            ip_type=ip_type,  # can be "public", "private" or "psc"
+        ),
     )
-    pool.dialect.description_encoding = None
-    return pool
+    return engine, connector
 
 
 # [END cloud_sql_connector_mysql_pytds]
 
 
-@pytest.fixture(name="pool")
-def setup() -> Generator:
-    pool = init_connection_engine()
+def test_pytds_connection() -> None:
+    """Basic test to get time from database."""
+    inst_conn_name = os.environ["SQLSERVER_CONNECTION_NAME"]
+    user = os.environ["SQLSERVER_USER"]
+    password = os.environ["SQLSERVER_PASS"]
+    db = os.environ["SQLSERVER_DB"]
+    ip_type = os.environ.get("IP_TYPE", "public")
 
-    with pool.connect() as conn:
-        conn.execute(
-            sqlalchemy.text(
-                f"CREATE TABLE {table_name}"
-                " ( id CHAR(20) NOT NULL, title TEXT NOT NULL );"
-            )
-        )
-        conn.commit()
-
-    yield pool
-
-    with pool.connect() as conn:
-        conn.execute(sqlalchemy.text(f"DROP TABLE {table_name}"))
-        conn.commit()
-
-
-def test_pooled_connection_with_pytds(pool: sqlalchemy.engine.Engine) -> None:
-    insert_stmt = sqlalchemy.text(
-        f"INSERT INTO {table_name} (id, title) VALUES (:id, :title)",
+    engine, connector = create_sqlalchemy_engine(
+        inst_conn_name, user, password, db, ip_type
     )
-    with pool.connect() as conn:
-        conn.execute(insert_stmt, parameters={"id": "book1", "title": "Book One"})
-        conn.execute(insert_stmt, parameters={"id": "book2", "title": "Book Two"})
+    with engine.connect() as conn:
+        res = conn.execute(sqlalchemy.text("SELECT 1")).fetchone()
         conn.commit()
+        assert res[0] == 1
+    connector.close()
 
-    select_stmt = sqlalchemy.text(f"SELECT title FROM {table_name} ORDER BY ID;")
-    with pool.connect() as conn:
-        rows = conn.execute(select_stmt).fetchall()
-        titles = [row[0] for row in rows]
 
-    assert titles == ["Book One", "Book Two"]
+def test_lazy_pytds_connection() -> None:
+    """Basic test to get time from database."""
+    inst_conn_name = os.environ["SQLSERVER_CONNECTION_NAME"]
+    user = os.environ["SQLSERVER_USER"]
+    password = os.environ["SQLSERVER_PASS"]
+    db = os.environ["SQLSERVER_DB"]
+    ip_type = os.environ.get("IP_TYPE", "public")
+
+    engine, connector = create_sqlalchemy_engine(
+        inst_conn_name, user, password, db, ip_type, "lazy"
+    )
+    with engine.connect() as conn:
+        res = conn.execute(sqlalchemy.text("SELECT 1")).fetchone()
+        conn.commit()
+        assert res[0] == 1
+    connector.close()

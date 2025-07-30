@@ -1,4 +1,4 @@
-""""
+"""
 Copyright 2019 Google LLC
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,6 +13,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
+
 import pytest  # noqa F401 Needed to run the tests
 
 from google.cloud.sql.connector import utils

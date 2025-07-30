@@ -13,32 +13,28 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
-from functools import partial
+
+import socket
+import ssl
 from typing import Any
 
 from mock import patch
-from mocks import create_ssl_context
 import pytest
 
 from google.cloud.sql.connector.pg8000 import connect
 
 
-@pytest.mark.usefixtures("server")
-@pytest.mark.asyncio
-async def test_pg8000(kwargs: Any) -> None:
+@pytest.mark.usefixtures("proxy_server")
+async def test_pg8000(context: ssl.SSLContext, kwargs: Any) -> None:
     """Test to verify that pg8000 gets to proper connection call."""
     ip_addr = "127.0.0.1"
-    # build ssl.SSLContext
-    context = await create_ssl_context()
-    # force all wrap_socket calls to have do_handshake_on_connect=False
-    setattr(
-        context,
-        "wrap_socket",
-        partial(context.wrap_socket, do_handshake_on_connect=False),
+    sock = context.wrap_socket(
+        socket.create_connection((ip_addr, 3307)),
+        server_hostname=ip_addr,
     )
     with patch("pg8000.dbapi.connect") as mock_connect:
         mock_connect.return_value = True
-        connection = connect(ip_addr, context, **kwargs)
+        connection = connect(ip_addr, sock, **kwargs)
         assert connection is True
         # verify that driver connection call would be made
         assert mock_connect.assert_called_once

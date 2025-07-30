@@ -21,13 +21,14 @@ from typing import Optional
 
 from google.cloud.sql.connector.client import CloudSQLClient
 from google.cloud.sql.connector.connection_info import ConnectionInfo
-from google.cloud.sql.connector.instance import _parse_instance_connection_name
+from google.cloud.sql.connector.connection_info import ConnectionInfoCache
+from google.cloud.sql.connector.connection_name import ConnectionName
 from google.cloud.sql.connector.refresh_utils import _refresh_buffer
 
 logger = logging.getLogger(name=__name__)
 
 
-class LazyRefreshCache:
+class LazyRefreshCache(ConnectionInfoCache):
     """Cache that refreshes connection info when a caller requests a connection.
 
     Only refreshes the cache when a new connection is requested and the current
@@ -38,7 +39,7 @@ class LazyRefreshCache:
 
     def __init__(
         self,
-        instance_connection_string: str,
+        conn_name: ConnectionName,
         client: CloudSQLClient,
         keys: asyncio.Future,
         enable_iam_auth: bool = False,
@@ -46,8 +47,8 @@ class LazyRefreshCache:
         """Initializes a LazyRefreshCache instance.
 
         Args:
-            instance_connection_string (str): The Cloud SQL Instance's
-                connection string (also known as an instance connection name).
+            conn_name (ConnectionName): The Cloud SQL instance's
+                connection name.
             client (CloudSQLClient): The Cloud SQL Client instance.
             keys (asyncio.Future): A future to the client's public-private key
                 pair.
@@ -55,18 +56,22 @@ class LazyRefreshCache:
                 (Postgres and MySQL) as the default authentication method for all
                 connections.
         """
-        # validate and parse instance connection name
-        self._project, self._region, self._instance = _parse_instance_connection_name(
-            instance_connection_string
-        )
-        self._instance_connection_string = instance_connection_string
-
+        self._conn_name = conn_name
         self._enable_iam_auth = enable_iam_auth
         self._keys = keys
         self._client = client
         self._lock = asyncio.Lock()
         self._cached: Optional[ConnectionInfo] = None
         self._needs_refresh = False
+        self._closed = False
+
+    @property
+    def conn_name(self) -> ConnectionName:
+        return self._conn_name
+
+    @property
+    def closed(self) -> bool:
+        return self._closed
 
     async def force_refresh(self) -> None:
         """
@@ -91,34 +96,31 @@ class LazyRefreshCache:
                 < (self._cached.expiration - timedelta(seconds=_refresh_buffer))
             ):
                 logger.debug(
-                    f"['{self._instance_connection_string}']: Connection info "
+                    f"['{self._conn_name}']: Connection info "
                     "is still valid, using cached info"
                 )
                 return self._cached
             logger.debug(
-                f"['{self._instance_connection_string}']: Connection info "
-                "refresh operation started"
+                f"['{self._conn_name}']: Connection info " "refresh operation started"
             )
             try:
                 conn_info = await self._client.get_connection_info(
-                    self._project,
-                    self._region,
-                    self._instance,
+                    self._conn_name,
                     self._keys,
                     self._enable_iam_auth,
                 )
             except Exception as e:
                 logger.debug(
-                    f"['{self._instance_connection_string}']: Connection info "
+                    f"['{self._conn_name}']: Connection info "
                     f"refresh operation failed: {str(e)}"
                 )
                 raise
             logger.debug(
-                f"['{self._instance_connection_string}']: Connection info "
+                f"['{self._conn_name}']: Connection info "
                 "refresh operation completed successfully"
             )
             logger.debug(
-                f"['{self._instance_connection_string}']: Current certificate "
+                f"['{self._conn_name}']: Current certificate "
                 f"expiration = {str(conn_info.expiration)}"
             )
             self._cached = conn_info
@@ -129,4 +131,5 @@ class LazyRefreshCache:
         """Close is a no-op and provided purely for a consistent interface with
         other cache types.
         """
-        pass
+        self._closed = True
+        return

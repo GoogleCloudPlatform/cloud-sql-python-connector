@@ -1,4 +1,4 @@
-""""
+"""
 Copyright 2022 Google LLC
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,12 +16,14 @@ limitations under the License.
 
 # file containing all mocks used for Cloud SQL Python Connector unit tests
 
+from __future__ import annotations
+
 import datetime
 import json
 import ssl
-from tempfile import TemporaryDirectory
-from typing import Any, Callable, Dict, Literal, Optional, Tuple
+from typing import Any, Callable, Literal, Optional
 
+from aiofiles.tempfile import TemporaryDirectory
 from aiohttp import web
 from cryptography import x509
 from cryptography.hazmat.backends import default_backend
@@ -29,10 +31,10 @@ from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.x509.oid import NameOID
+
 from google.auth import _helpers
 from google.auth.credentials import Credentials
 from google.auth.credentials import TokenState
-
 from google.cloud.sql.connector.connector import _DEFAULT_UNIVERSE_DOMAIN
 from google.cloud.sql.connector.utils import generate_keys
 from google.cloud.sql.connector.utils import write_to_file
@@ -113,7 +115,7 @@ def generate_cert(
     cert_before: datetime.datetime = datetime.datetime.now(datetime.timezone.utc),
     cert_after: datetime.datetime = datetime.datetime.now(datetime.timezone.utc)
     + datetime.timedelta(hours=1),
-) -> Tuple[x509.CertificateBuilder, rsa.RSAPrivateKey]:
+) -> tuple[x509.CertificateBuilder, rsa.RSAPrivateKey]:
     """
     Generate a private key and cert object to be used in testing.
     """
@@ -184,28 +186,28 @@ def client_key_signed_cert(
         .not_valid_after(cert_expiration)  # type: ignore
     )
     return (
-        cert.sign(priv_key, hashes.SHA256(), default_backend())
+        cert.sign(priv_key, hashes.SHA256())
         .public_bytes(encoding=serialization.Encoding.PEM)
         .decode("UTF-8")
     )
 
 
-async def create_ssl_context() -> ssl.SSLContext:
+async def create_ssl_context(instance: FakeCSQLInstance) -> ssl.SSLContext:
     """Helper method to build an ssl.SSLContext for tests"""
-    # generate keys and certs for test
-    cert, private_key = generate_cert("my-project", "my-instance")
-    server_ca_cert = self_signed_cert(cert, private_key)
     client_private, client_bytes = await generate_keys()
     client_key: rsa.RSAPublicKey = serialization.load_pem_public_key(
-        client_bytes.encode("UTF-8"), default_backend()
+        client_bytes.encode("UTF-8"),
     )  # type: ignore
-    ephemeral_cert = client_key_signed_cert(cert, private_key, client_key)
-    # build default ssl.SSLContext
-    context = ssl.create_default_context()
+    ephemeral_cert = client_key_signed_cert(
+        instance.server_ca, instance.server_key, client_key
+    )
+    # create SSL/TLS context
+    context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+    context.check_hostname = False
     # load ssl.SSLContext with certs
-    with TemporaryDirectory() as tmpdir:
-        ca_filename, cert_filename, key_filename = write_to_file(
-            tmpdir, server_ca_cert, ephemeral_cert, client_private
+    async with TemporaryDirectory() as tmpdir:
+        ca_filename, cert_filename, key_filename = await write_to_file(
+            tmpdir, instance.server_cert_pem, ephemeral_cert, client_private
         )
         context.load_cert_chain(cert_filename, keyfile=key_filename)
         context.load_verify_locations(cafile=ca_filename)
@@ -221,10 +223,11 @@ class FakeCSQLInstance:
         region: str = "test-region",
         name: str = "test-instance",
         db_version: str = "POSTGRES_15",
-        ip_addrs: Dict = {
+        ip_addrs: dict = {
             "PRIMARY": "127.0.0.1",
             "PRIVATE": "10.0.0.1",
         },
+        legacy_dns_name: bool = False,
         cert_before: datetime = datetime.datetime.now(datetime.timezone.utc),
         cert_expiration: datetime = datetime.datetime.now(datetime.timezone.utc)
         + datetime.timedelta(hours=1),
@@ -234,8 +237,10 @@ class FakeCSQLInstance:
         self.name = name
         self.db_version = db_version
         self.ip_addrs = ip_addrs
+        self.psc_enabled = False
         self.cert_before = cert_before
         self.cert_expiration = cert_expiration
+        self.legacy_dns_name = legacy_dns_name
         # create self signed CA cert
         self.server_ca, self.server_key = generate_cert(
             self.project, self.name, cert_before, cert_expiration
@@ -254,19 +259,30 @@ class FakeCSQLInstance:
                 "instance": self.name,
                 "expirationTime": str(self.cert_expiration),
             },
-            "dnsName": "abcde.12345.us-central1.sql.goog",
+            "pscEnabled": self.psc_enabled,
             "ipAddresses": ip_addrs,
             "region": self.region,
             "databaseVersion": self.db_version,
         }
+        if self.legacy_dns_name:
+            response["dnsName"] = "abcde.12345.us-central1.sql.goog"
+        else:
+            response["dnsNames"] = [
+                {
+                    "name": "abcde.12345.us-central1.sql.goog",
+                    "connectionType": "PRIVATE_SERVICE_CONNECT",
+                    "dnsScope": "INSTANCE",
+                }
+            ]
+
         return web.Response(content_type="application/json", body=json.dumps(response))
 
     async def generate_ephemeral(self, request: Any) -> web.Response:
         body = await request.json()
         pub_key = body["public_key"]
         client_key: rsa.RSAPublicKey = serialization.load_pem_public_key(
-            pub_key.encode("UTF-8"), default_backend()
-        )  # type: ignore
+            pub_key.encode("UTF-8"),
+        )
         ephemeral_cert = client_key_signed_cert(
             self.server_ca,
             self.server_key,

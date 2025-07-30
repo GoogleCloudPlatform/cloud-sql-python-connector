@@ -17,17 +17,19 @@ from __future__ import annotations
 import asyncio
 import datetime
 import logging
-from typing import Any, Dict, Optional, Tuple, TYPE_CHECKING
+from typing import Any, Optional, TYPE_CHECKING
 
 import aiohttp
 from cryptography.hazmat.backends import default_backend
 from cryptography.x509 import load_pem_x509_certificate
+
 from google.auth.credentials import TokenState
 from google.auth.transport import requests
-
 from google.cloud.sql.connector.connection_info import ConnectionInfo
+from google.cloud.sql.connector.connection_name import ConnectionName
 from google.cloud.sql.connector.exceptions import AutoIAMAuthNotSupported
 from google.cloud.sql.connector.refresh_utils import _downscope_credentials
+from google.cloud.sql.connector.refresh_utils import retry_50x
 from google.cloud.sql.connector.version import __version__ as version
 
 if TYPE_CHECKING:
@@ -57,8 +59,7 @@ class CloudSQLClient:
         driver: Optional[str] = None,
         user_agent: Optional[str] = None,
     ) -> None:
-        """
-        Establish the client to be used for Cloud SQL Admin API requests.
+        """Establishes the client to be used for Cloud SQL Admin API requests.
 
         Args:
             sqladmin_api_endpoint (str): Base URL to use when calling
@@ -97,25 +98,23 @@ class CloudSQLClient:
         project: str,
         region: str,
         instance: str,
-    ) -> Dict[str, Any]:
-        """Requests metadata from the Cloud SQL Instance
-        and returns a dictionary containing the IP addresses and certificate
-        authority of the Cloud SQL Instance.
+    ) -> dict[str, Any]:
+        """Requests metadata from the Cloud SQL Instance and returns a dictionary
+        containing the IP addresses and certificate authority of the Cloud SQL
+        Instance.
 
-        :type project: str
-        :param project:
-            A string representing the name of the project.
+        Args:
+            project (str): A string representing the name of the project.
+            region (str): A string representing the name of the region.
+            instance (str): A string representing the name of the instance.
 
-        :type region: str
-        :param region : A string representing the name of the region.
+        Returns:
+            A dictionary containing a dictionary of all IP addresses
+            and their type and a string representing the certificate authority.
 
-        :type instance: str
-        :param instance: A string representing the name of the instance.
-
-        :rtype: Dict[str: Union[Dict, str]]
-        :returns: Returns a dictionary containing a dictionary of all IP
-            addresses and their type and a string representing the
-            certificate authority.
+        Raises:
+            ValueError: Provided region does not match the region of the
+                Cloud SQL instance.
         """
 
         headers = {
@@ -124,8 +123,22 @@ class CloudSQLClient:
 
         url = f"{self._sqladmin_api_endpoint}/sql/{API_VERSION}/projects/{project}/instances/{instance}/connectSettings"
 
-        resp = await self._client.get(url, headers=headers, raise_for_status=True)
-        ret_dict = await resp.json()
+        resp = await self._client.get(url, headers=headers)
+        if resp.status >= 500:
+            resp = await retry_50x(self._client.get, url, headers=headers)
+        # try to get response json for better error message
+        try:
+            ret_dict = await resp.json()
+            if resp.status >= 400:
+                # if detailed error message is in json response, use as error message
+                message = ret_dict.get("error", {}).get("message")
+                if message:
+                    resp.reason = message
+        # skip, raise_for_status will catch all errors in finally block
+        except Exception:
+            pass
+        finally:
+            resp.raise_for_status()
 
         if ret_dict["region"] != region:
             raise ValueError(
@@ -137,8 +150,26 @@ class CloudSQLClient:
             if "ipAddresses" in ret_dict
             else {}
         )
-        if "dnsName" in ret_dict:
-            ip_addresses["PSC"] = ret_dict["dnsName"]
+        # resolve dnsName into IP address for PSC
+        # Note that we have to check for PSC enablement also because CAS
+        # instances also set the dnsName field.
+        if ret_dict.get("pscEnabled"):
+            # Find PSC instance DNS name in the dns_names field
+            psc_dns_names = [
+                d["name"]
+                for d in ret_dict.get("dnsNames", [])
+                if d["connectionType"] == "PRIVATE_SERVICE_CONNECT"
+                and d["dnsScope"] == "INSTANCE"
+            ]
+            dns_name = psc_dns_names[0] if psc_dns_names else None
+
+            # Fall back do dns_name field if dns_names is not set
+            if dns_name is None:
+                dns_name = ret_dict.get("dnsName", None)
+
+            # Remove trailing period from DNS name. Required for SSL in Python
+            if dns_name:
+                ip_addresses["PSC"] = dns_name.rstrip(".")
 
         return {
             "ip_addresses": ip_addresses,
@@ -152,26 +183,20 @@ class CloudSQLClient:
         instance: str,
         pub_key: str,
         enable_iam_auth: bool = False,
-    ) -> Tuple[str, datetime.datetime]:
+    ) -> tuple[str, datetime.datetime]:
         """Asynchronously requests an ephemeral certificate from the Cloud SQL Instance.
 
-        :type project: str
-        :param project : A string representing the name of the project.
+        Args:
+            project (str):  A string representing the name of the project.
+            instance (str):  string representing the name of the instance.
+            pub_key (str): A string representing PEM-encoded RSA public key.
+            enable_iam_auth (bool): Enables automatic IAM database
+                 authentication for Postgres or MySQL instances.
 
-        :type instance: str
-        :param instance: A string representing the name of the instance.
-
-        :type pub_key:
-        :param str: A string representing PEM-encoded RSA public key.
-
-        :type enable_iam_auth: bool
-        :param enable_iam_auth
-            Enables automatic IAM database authentication for Postgres or MySQL
-            instances.
-
-        :rtype: str
-        :returns: An ephemeral certificate from the Cloud SQL instance that allows
-            authorized connections to the instance.
+        Returns:
+            A tuple containing an ephemeral certificate from
+            the Cloud SQL instance as well as a datetime object
+            representing the expiration time of the certificate.
         """
         headers = {
             "Authorization": f"Bearer {self._credentials.token}",
@@ -186,11 +211,22 @@ class CloudSQLClient:
             login_creds = _downscope_credentials(self._credentials)
             data["access_token"] = login_creds.token
 
-        resp = await self._client.post(
-            url, headers=headers, json=data, raise_for_status=True
-        )
-
-        ret_dict = await resp.json()
+        resp = await self._client.post(url, headers=headers, json=data)
+        if resp.status >= 500:
+            resp = await retry_50x(self._client.post, url, headers=headers, json=data)
+        # try to get response json for better error message
+        try:
+            ret_dict = await resp.json()
+            if resp.status >= 400:
+                # if detailed error message is in json response, use as error message
+                message = ret_dict.get("error", {}).get("message")
+                if message:
+                    resp.reason = message
+        # skip, raise_for_status will catch all errors in finally block
+        except Exception:
+            pass
+        finally:
+            resp.raise_for_status()
 
         ephemeral_cert: str = ret_dict["ephemeralCert"]["cert"]
 
@@ -214,9 +250,7 @@ class CloudSQLClient:
 
     async def get_connection_info(
         self,
-        project: str,
-        region: str,
-        instance: str,
+        conn_name: ConnectionName,
         keys: asyncio.Future,
         enable_iam_auth: bool,
     ) -> ConnectionInfo:
@@ -224,10 +258,8 @@ class CloudSQLClient:
         Admin API.
 
         Args:
-            project (str): The name of the project the Cloud SQL instance is
-                located in.
-            region (str): The region the Cloud SQL instance is located in.
-            instance (str): Name of the Cloud SQL instance.
+            conn_name (ConnectionName): The Cloud SQL instance's
+                connection name.
             keys (asyncio.Future): A future to the client's public-private key
                 pair.
             enable_iam_auth (bool): Whether an automatic IAM database
@@ -247,16 +279,16 @@ class CloudSQLClient:
 
         metadata_task = asyncio.create_task(
             self._get_metadata(
-                project,
-                region,
-                instance,
+                conn_name.project,
+                conn_name.region,
+                conn_name.instance_name,
             )
         )
 
         ephemeral_task = asyncio.create_task(
             self._get_ephemeral(
-                project,
-                instance,
+                conn_name.project,
+                conn_name.instance_name,
                 pub_key,
                 enable_iam_auth,
             )
@@ -280,6 +312,7 @@ class CloudSQLClient:
         ephemeral_cert, expiration = await ephemeral_task
 
         return ConnectionInfo(
+            conn_name,
             ephemeral_cert,
             metadata["server_ca_cert"],
             priv_key,

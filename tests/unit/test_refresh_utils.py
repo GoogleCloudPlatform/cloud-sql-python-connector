@@ -14,21 +14,25 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
+from __future__ import annotations
+
 import asyncio
 import datetime
 
 from conftest import SCOPES  # type: ignore
-import google.auth
-from google.auth.credentials import Credentials
-from google.auth.credentials import TokenState
-import google.oauth2.credentials
 from mock import Mock
 from mock import patch
 import pytest  # noqa F401 Needed to run the tests
 
+import google.auth
+from google.auth.credentials import Credentials
+from google.auth.credentials import TokenState
 from google.cloud.sql.connector.refresh_utils import _downscope_credentials
+from google.cloud.sql.connector.refresh_utils import _exponential_backoff
 from google.cloud.sql.connector.refresh_utils import _is_valid
 from google.cloud.sql.connector.refresh_utils import _seconds_until_refresh
+from google.cloud.sql.connector.refresh_utils import retry_50x
+import google.oauth2.credentials
 
 
 @pytest.fixture
@@ -148,3 +152,50 @@ def test_seconds_until_refresh_under_4_mins() -> None:
         )
         == 0
     )
+
+
+@pytest.mark.parametrize(
+    "attempt, low, high",
+    [
+        (0, 324, 524),
+        (1, 524, 847),
+        (2, 847, 1371),
+        (3, 1371, 2218),
+        (4, 2218, 3588),
+    ],
+)
+def test_exponential_backoff(attempt: int, low: int, high: int) -> None:
+    """
+    Test _exponential_backoff produces times (in ms) in the proper range.
+    """
+    backoff = round(_exponential_backoff(attempt))
+    assert backoff >= low
+    assert backoff <= high
+
+
+class RetryClass:
+    def __init__(self) -> None:
+        self.attempts = 0
+
+    async def fake_request(self, status: int) -> RetryClass:
+        self.status = status
+        self.attempts += 1
+        return self
+
+
+async def test_retry_50x_with_503() -> None:
+    fake_client = RetryClass()
+    resp = await retry_50x(fake_client.fake_request, 503)
+    assert resp.attempts == 5
+
+
+async def test_retry_50x_with_200() -> None:
+    fake_client = RetryClass()
+    resp = await retry_50x(fake_client.fake_request, 200)
+    assert resp.attempts == 1
+
+
+async def test_retry_50x_with_400() -> None:
+    fake_client = RetryClass()
+    resp = await retry_50x(fake_client.fake_request, 400)
+    assert resp.attempts == 1
