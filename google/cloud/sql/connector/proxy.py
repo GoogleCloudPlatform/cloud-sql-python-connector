@@ -18,73 +18,125 @@ import asyncio
 import os
 from pathlib import Path
 import socket
+import selectors
 import ssl
 
+from google.cloud.sql.connector import Connector
 from google.cloud.sql.connector.exceptions import LocalProxyStartupError
 
 SERVER_PROXY_PORT = 3307
 LOCAL_PROXY_MAX_MESSAGE_SIZE = 10485760
 
-def start_local_proxy(
-    ssl_sock: ssl.SSLSocket,
-    socket_path: str,
-    loop: asyncio.AbstractEventLoop
-) -> asyncio.Task:
-    """Helper function to start a UNIX based local proxy for
-    transport messages through the SSL Socket.
 
-    Args:
-        ssl_sock (ssl.SSLSocket): An SSLSocket object created from the Cloud SQL
-            server CA cert and ephemeral cert.
-        socket_path: A system path that is going to be used to store the socket.
-        loop (asyncio.AbstractEventLoop): Event loop to run asyncio tasks.
+class Proxy:
+    """Creates an "accept loop" async task which will open the unix server socket and listen for new connections."""
 
-    Returns:
-        asyncio.Task: The asyncio task containing the proxy server process.
+    def __init__(
+        self,
+        connector: Connector,
+        instance_connection_string: str,
+        socket_path: str,
+        loop: asyncio.AbstractEventLoop,
+        **kwargs: Any
+    ) -> None:
+        """Keeps track of all the async tasks and starts the accept loop for new connections.
+        
+        Args:
+            connector (Connector): The instance where this Proxy class was created.
 
-    Raises:
-        LocalProxyStartupError: Local UNIX socket based proxy was not able to
-        get started.
-    """
-    unix_socket = None
+            instance_connection_string (str): The instance connection name of the
+                Cloud SQL instance to connect to. Takes the form of
+                "project-id:region:instance-name"
 
-    try:
-        path_parts = socket_path.rsplit('/', 1)
-        parent_directory = '/'.join(path_parts[:-1])
+                Example: "my-project:us-central1:my-instance"
 
-        desired_path = Path(parent_directory)
-        desired_path.mkdir(parents=True, exist_ok=True)
+            socket_path (str): A system path that is going to be used to store the socket.
 
-        if os.path.exists(socket_path):
-            os.remove(socket_path)
-        unix_socket = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+            loop (asyncio.AbstractEventLoop): Event loop to run asyncio tasks.
 
-        unix_socket.bind(socket_path)
-        unix_socket.listen(1)
-        unix_socket.setblocking(False)
-        os.chmod(socket_path, 0o600)
-    except Exception:
-        raise LocalProxyStartupError(
-            'Local UNIX socket based proxy was not able to get started.'
-        )
+            **kwargs: Any driver-specific arguments to pass to the underlying
+                driver .connect call.
+        """
+        self._connection_tasks = []
+        self._addr = instance_connection_string
+        self._kwargs = kwargs
+        self._connector = connector
+        self._task = loop.create_task(accept_loop(socket_path, loop, **kwargs))
 
-    return loop.create_task(local_communication(unix_socket, ssl_sock, socket_path, loop))
+    async def accept_loop(
+        self
+        socket_path: str,
+        loop: asyncio.AbstractEventLoop
+    ) -> asyncio.Task:
+        """Starts a UNIX based local proxy for transporting messages through
+        the SSL Socket, and waits until there is a new connection to accept, to register it
+        and keep track of it.
+        
+        Args:
+            socket_path: A system path that is going to be used to store the socket.
 
+            loop (asyncio.AbstractEventLoop): Event loop to run asyncio tasks.
 
-async def local_communication(
-  unix_socket, ssl_sock, socket_path, loop
-):
-    client, _ = await loop.sock_accept(unix_socket)
-    
-    try:
+        Raises:
+            LocalProxyStartupError: Local UNIX socket based proxy was not able to
+            get started.
+        """
+        unix_socket = None
+        sel = selectors.DefaultSelector()
+
+        try:
+            path_parts = socket_path.rsplit('/', 1)
+            parent_directory = '/'.join(path_parts[:-1])
+
+            desired_path = Path(parent_directory)
+            desired_path.mkdir(parents=True, exist_ok=True)
+
+            if os.path.exists(socket_path):
+                os.remove(socket_path)
+
+            unix_socket = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+
+            unix_socket.bind(socket_path)
+            unix_socket.listen(1)
+            unix_socket.setblocking(False)
+            os.chmod(socket_path, 0o600)
+            
+            sel.register(unix_socket, selectors.EVENT_READ, data=None)
+
+        except Exception:
+            raise LocalProxyStartupError(
+                'Local UNIX socket based proxy was not able to get started.'
+            )
+
         while True:
-            data = await loop.sock_recv(client, LOCAL_PROXY_MAX_MESSAGE_SIZE)
-            if not data:
-              client.close()
-              break
-            ssl_sock.sendall(data)
-            response = ssl_sock.recv(LOCAL_PROXY_MAX_MESSAGE_SIZE)
-            await loop.sock_sendall(client, response)
-    finally:
-        client.close()
-        os.remove(socket_path) # Clean up the socket file
+            client, _ = await loop.sock_accept(unix_socket)
+            self._connection_tasks.append(loop.create_task(self.client_socket(client, unix_socket, socket_path, loop))) 
+
+    async def close_async(self):
+        proxy_task = asyncio.gather(self._task)
+        try:
+            await asyncio.wait_for(proxy_task, timeout=0.1)
+        except (asyncio.CancelledError, asyncio.TimeoutError, TimeoutError):
+            pass # This task runs forever so it is expected to throw this exception
+
+
+    async def client_socket(
+        self, client, unix_socket, socket_path, loop
+    ):
+        try:
+            ssl_sock = self.connector.connect(
+                self._addr,
+                'local_unix_socket',
+                **self._kwargs
+            )
+            while True:
+                data = await loop.sock_recv(client, LOCAL_PROXY_MAX_MESSAGE_SIZE)
+                if not data:
+                    client.close()
+                    break
+                ssl_sock.sendall(data)
+                response = ssl_sock.recv(LOCAL_PROXY_MAX_MESSAGE_SIZE)
+                await loop.sock_sendall(client, response)
+        finally:
+            client.close()
+            os.remove(socket_path) # Clean up the socket file

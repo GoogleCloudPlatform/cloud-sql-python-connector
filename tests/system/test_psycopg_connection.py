@@ -20,6 +20,7 @@ import os
 # [START cloud_sql_connector_postgres_psycopg]
 from typing import Union
 
+from psycopg import Connection
 import sqlalchemy
 
 from google.cloud.sql.connector import Connector
@@ -79,21 +80,25 @@ def create_sqlalchemy_engine(
             instance connection names ("my-project:my-region:my-instance").
     """
     connector = Connector(refresh_strategy=refresh_strategy, resolver=resolver)
+    unix_socket_path = "/tmp/conn"
+    await connector.start_unix_socket_proxy_async(
+        instance_connection_name,
+        unix_socket_path,
+        ip_type=ip_type,  # can be "public", "private" or "psc"
+    )
 
     # create SQLAlchemy connection pool
     engine = sqlalchemy.create_engine(
         "postgresql+psycopg://",
-        creator=lambda: connector.connect(
-            instance_connection_name,
-            "psycopg",
+        creator=lambda: Connection.connect(
+            f"host={unix_socket_path} port={SERVER_PROXY_PORT} dbname={db} user={user} password={passwd} sslmode=require",
             user=user,
             password=password,
             db=db,
-            local_socket_path="/tmp/conn",
-            ip_type=ip_type,  # can be "public", "private" or "psc"
             autocommit=True,
-        ),
+        )
     )
+    
     return engine, connector
 
 

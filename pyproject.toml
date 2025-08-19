@@ -59,7 +59,6 @@ Changelog = "https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/b
 [project.optional-dependencies]
 pymysql = ["PyMySQL>=1.1.0"]
 pg8000 = ["pg8000>=1.31.1"]
-psycopg = ["psycopg>=3.2.9"]
 pytds = ["python-tds>=1.15.0"]
 asyncpg = ["asyncpg>=0.30.0"]
 
