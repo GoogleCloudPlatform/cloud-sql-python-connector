@@ -62,7 +62,7 @@ class DriverMapping(Enum):
 
     ASYNCPG = "POSTGRES"
     PG8000 = "POSTGRES"
-    PSYCOPG = "POSTGRES"
+    LOCAL_UNIX_SOCKET = "ANY"
     PYMYSQL = "MYSQL"
     PYTDS = "SQLSERVER"
 
@@ -79,7 +79,7 @@ class DriverMapping(Enum):
                 the given engine.
         """
         mapping = DriverMapping[driver.upper()]
-        if not engine_version.startswith(mapping.value):
+        if not mapping.value == "ANY" and not engine_version.startswith(mapping.value):
             raise IncompatibleDriverError(
                 f"Database driver '{driver}' is incompatible with database "
                 f"version '{engine_version}'. Given driver can "

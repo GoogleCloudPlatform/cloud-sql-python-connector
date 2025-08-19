@@ -35,10 +35,10 @@ from google.cloud.sql.connector.enums import IPTypes
 from google.cloud.sql.connector.enums import RefreshStrategy
 from google.cloud.sql.connector.instance import RefreshAheadCache
 from google.cloud.sql.connector.lazy import LazyRefreshCache
+import google.cloud.sql.connector.local_unix_socket as local_unix_socket
 from google.cloud.sql.connector.monitored_cache import MonitoredCache
 import google.cloud.sql.connector.pg8000 as pg8000
-import google.cloud.sql.connector.proxy as proxy
-import google.cloud.sql.connector.psycopg as psycopg
+from google.cloud.sql.connector.proxy import Proxy
 import google.cloud.sql.connector.pymysql as pymysql
 import google.cloud.sql.connector.pytds as pytds
 from google.cloud.sql.connector.resolver import DefaultResolver
@@ -49,7 +49,6 @@ from google.cloud.sql.connector.utils import generate_keys
 logger = logging.getLogger(name=__name__)
 
 ASYNC_DRIVERS = ["asyncpg"]
-LOCAL_PROXY_DRIVERS = ["psycopg"]
 SERVER_PROXY_PORT = 3307
 _DEFAULT_SCHEME = "https://"
 _DEFAULT_UNIVERSE_DOMAIN = "googleapis.com"
@@ -156,7 +155,7 @@ class Connector:
         # connection name string and enable_iam_auth boolean flag
         self._cache: dict[tuple[str, bool], MonitoredCache] = {}
         self._client: Optional[CloudSQLClient] = None
-        self._proxy: Optional[asyncio.Task] = None
+        self._proxies: Optional[Proxy] = None
 
         # initialize credentials
         scopes = ["https://www.googleapis.com/auth/sqlservice.admin"]
@@ -217,6 +216,29 @@ class Connector:
     def universe_domain(self) -> str:
         return self._universe_domain or _DEFAULT_UNIVERSE_DOMAIN
 
+    def start_unix_socket_proxy_async(
+        self,
+        instance_connection_name: str,
+        local_socket_path: str,
+        **kwargs: Any
+    ) -> None:
+        """Creates a new Proxy instance and stores it to properly disposal
+
+        Args:
+            instance_connection_string (str): The instance connection name of the
+                Cloud SQL instance to connect to. Takes the form of
+                "project-id:region:instance-name"
+
+                Example: "my-project:us-central1:my-instance"
+
+            local_socket_path (str): A string representing the location of the local socket.
+
+            **kwargs: Any driver-specific arguments to pass to the underlying
+                driver .connect call.
+        """
+        # TODO: validates the local socket path is not the same as other invocation
+        self._proxies.append(new Proxy(self, instance_connection_name, local_socket_path, self.loop, **kwargs))
+
     def connect(
         self, instance_connection_string: str, driver: str, **kwargs: Any
     ) -> Any:
@@ -234,7 +256,7 @@ class Connector:
                 Example: "my-project:us-central1:my-instance"
 
             driver (str): A string representing the database driver to connect
-                with. Supported drivers are pymysql, pg8000, psycopg, and pytds.
+                with. Supported drivers are pymysql, pg8000, local_unix_socket, and pytds.
 
             **kwargs: Any driver-specific arguments to pass to the underlying
                 driver .connect call.
@@ -270,7 +292,7 @@ class Connector:
                 Example: "my-project:us-central1:my-instance"
 
             driver (str): A string representing the database driver to connect
-                with. Supported drivers are pymysql, asyncpg, pg8000, psycopg, and
+                with. Supported drivers are pymysql, asyncpg, pg8000, local_unix_socket, and
                 pytds.
 
             **kwargs: Any driver-specific arguments to pass to the underlying
@@ -283,7 +305,7 @@ class Connector:
             ValueError: Connection attempt with built-in database authentication
                 and then subsequent attempt with IAM database authentication.
             KeyError: Unsupported database driver Must be one of pymysql, asyncpg,
-                pg8000, psycopg, and pytds.
+                pg8000, local_unix_socket, and pytds.
         """
         if self._keys is None:
             self._keys = asyncio.create_task(generate_keys())
@@ -337,7 +359,7 @@ class Connector:
         connect_func = {
             "pymysql": pymysql.connect,
             "pg8000": pg8000.connect,
-            "psycopg": psycopg.connect,
+            "local_unix_socket": local_unix_socket.connect,
             "asyncpg": asyncpg.connect,
             "pytds": pytds.connect,
         }
@@ -396,17 +418,6 @@ class Connector:
                 socket.create_connection((ip_address, SERVER_PROXY_PORT)),
                 server_hostname=ip_address,
             )
-
-            host = ip_address
-            # start local proxy if driver needs it
-            if driver in LOCAL_PROXY_DRIVERS:
-                local_socket_path = kwargs.pop("local_socket_path", "/tmp/connector-socket")
-                host = local_socket_path
-                self._proxy = proxy.start_local_proxy(
-                    sock,
-                    socket_path=f"{local_socket_path}/.s.PGSQL.{SERVER_PROXY_PORT}",
-                    loop=self._loop
-                )
 
             # If this connection was opened using a domain name, then store it
             # for later in case we need to forcibly close it on failover.
@@ -488,11 +499,7 @@ class Connector:
         if self._client:
             await self._client.close()
         if self._proxy:
-            proxy_task = asyncio.gather(self._proxy)
-            try:
-                await asyncio.wait_for(proxy_task, timeout=0.1)
-            except (asyncio.CancelledError, asyncio.TimeoutError, TimeoutError):
-                pass # This task runs forever so it is expected to throw this exception
+            await asyncio.wait_for([ proxy.close_async() for proxy in self._proxies])
 
 
 

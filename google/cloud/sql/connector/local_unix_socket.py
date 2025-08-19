@@ -19,44 +19,19 @@ from typing import Any, TYPE_CHECKING
 
 SERVER_PROXY_PORT = 3307
 
-if TYPE_CHECKING:
-    import psycopg
-
-
 def connect(
     host: str, sock: ssl.SSLSocket, **kwargs: Any
-) -> "psycopg.Connection":
-    """Helper function to create a psycopg DB-API connection object.
+) -> "ssl.SSLSocket":
+    """Helper function to retrieve the socket for local UNIX sockets.
 
     Args:
         host (str): A string containing the socket path used by the local proxy.
         sock (ssl.SSLSocket): An SSLSocket object created from the Cloud SQL
             server CA cert and ephemeral cert.
-        kwargs: Additional arguments to pass to the psycopg connect method.
+        kwargs: Additional arguments to pass to the local UNIX socket connect method.
 
     Returns:
-        psycopg.Connection: A psycopg connection to the Cloud SQL
-            instance.
-
-    Raises:
-        ImportError: The psycopg module cannot be imported.
+        ssl.SSLSocket: The same socket
     """
-    try:
-        from psycopg import Connection
-    except ImportError:
-        raise ImportError(
-            'Unable to import module "psycopg." Please install and try again.'
-        )
-
-    user = kwargs.pop("user")
-    db = kwargs.pop("db")
-    passwd = kwargs.pop("password", None)
-
-    kwargs.pop("timeout", None)
-
-    conn = Connection.connect(
-        f"host={host} port={SERVER_PROXY_PORT} dbname={db} user={user} password={passwd} sslmode=require",
-        **kwargs
-    )
-
-    return conn
+    
+    return sock

@@ -22,20 +22,16 @@ from mock import patch
 from mock import PropertyMock
 import pytest
 
-from google.cloud.sql.connector.psycopg import connect
+from google.cloud.sql.connector.local_unix_socket import connect
 
 
 @pytest.mark.usefixtures("proxy_server")
-async def test_psycopg(context: ssl.SSLContext, kwargs: Any) -> None:
-    """Test to verify that psycopg gets to proper connection call."""
+async def test_local_unix_socket(context: ssl.SSLContext, kwargs: Any) -> None:
+    """Test to verify that local_unix_socket gets to proper connection call."""
     ip_addr = "127.0.0.1"
     sock = context.wrap_socket(
         socket.create_connection((ip_addr, 3307)),
         server_hostname=ip_addr,
     )
-    with patch("psycopg.Connection.connect") as mock_connect:
-        type(mock_connect.return_value).autocommit = PropertyMock(return_value=True)
-        connection = connect(ip_addr, sock, **kwargs)
-        assert connection.autocommit is True
-        # verify that driver connection call would be made
-        assert mock_connect.assert_called_once
+    connection = connect(ip_addr, sock, **kwargs)
+    assert connection == sock
