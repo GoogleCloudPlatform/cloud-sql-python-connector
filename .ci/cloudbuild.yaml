@@ -14,7 +14,7 @@
 
 steps:
   - id: run integration tests
-    name: python:${_VERSION}
+    name: python:3.13
     entrypoint: bash
     env:
       - "IP_TYPE=${_IP_TYPE}"
@@ -107,11 +107,10 @@ availableSecrets:
     - versionName: "projects/$PROJECT_ID/secrets/SQLSERVER_DB/versions/latest"
       env: "SQLSERVER_DB"
 substitutions:
-  _VERSION: ${_VERSION}
   _IP_TYPE: ${_IP_TYPE}
 
 options:
   dynamicSubstitutions: true
   pool:
-    name: ${_POOL_NAME}
+    name: ${_POOL_NAME_2}
   logging: CLOUD_LOGGING_ONLY
