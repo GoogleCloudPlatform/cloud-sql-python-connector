@@ -82,3 +82,15 @@ exclude = ['docs/*', 'samples/*']
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+
+[tool.ruff.lint]
+extend-select = ["I"]
+
+[tool.ruff.lint.isort]
+force-single-line = true
+force-sort-within-sections = true
+order-by-type = false
+single-line-exclusions = ["typing"]
+
+[tool.ruff.format]
+quote-style = "double"

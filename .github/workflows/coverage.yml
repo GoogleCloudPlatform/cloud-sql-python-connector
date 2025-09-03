@@ -24,34 +24,34 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Setup Python
-        uses: actions/setup-python@42375524e23c412d93fb67b49958b491fce71c38 # v5.4.0
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
-          python-version: "3.10"
+          python-version: "3.13"
 
       - run: pip install nox coverage
 
       - name: Checkout base branch
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           ref: ${{ github.base_ref }}
 
       - name: Calculate base code coverage
         run: |
-          nox --sessions unit-3.10
+          nox --sessions unit-3.13
           coverage report --show-missing
           export CUR_COVER=$(coverage report | awk '$1 == "TOTAL" {print $NF+0}')
           echo "CUR_COVER=$CUR_COVER" >> $GITHUB_ENV
           coverage erase
 
       - name: Checkout PR branch
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           repository: ${{ github.event.pull_request.head.repo.full_name }}
 
       - name: Calculate PR code coverage
         run: |
-          nox --sessions unit-3.10
+          nox --sessions unit-3.13
           coverage report --show-missing
           export PR_COVER=$(coverage report | awk '$1 == "TOTAL" {print $NF+0}')
           echo "PR_COVER=$PR_COVER" >> $GITHUB_ENV
