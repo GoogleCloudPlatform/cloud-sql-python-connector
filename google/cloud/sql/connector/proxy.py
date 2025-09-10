@@ -21,10 +21,8 @@ import socket
 import selectors
 import ssl
 
-from google.cloud.sql.connector import Connector
 from google.cloud.sql.connector.exceptions import LocalProxyStartupError
 
-SERVER_PROXY_PORT = 3307
 LOCAL_PROXY_MAX_MESSAGE_SIZE = 10485760
 
 
@@ -33,11 +31,11 @@ class Proxy:
 
     def __init__(
         self,
-        connector: Connector,
+        connector,
         instance_connection_string: str,
         socket_path: str,
         loop: asyncio.AbstractEventLoop,
-        **kwargs: Any
+        **kwargs
     ) -> None:
         """Keeps track of all the async tasks and starts the accept loop for new connections.
         
@@ -61,28 +59,8 @@ class Proxy:
         self._addr = instance_connection_string
         self._kwargs = kwargs
         self._connector = connector
-        self._task = loop.create_task(accept_loop(socket_path, loop, **kwargs))
 
-    async def accept_loop(
-        self
-        socket_path: str,
-        loop: asyncio.AbstractEventLoop
-    ) -> asyncio.Task:
-        """Starts a UNIX based local proxy for transporting messages through
-        the SSL Socket, and waits until there is a new connection to accept, to register it
-        and keep track of it.
-        
-        Args:
-            socket_path: A system path that is going to be used to store the socket.
-
-            loop (asyncio.AbstractEventLoop): Event loop to run asyncio tasks.
-
-        Raises:
-            LocalProxyStartupError: Local UNIX socket based proxy was not able to
-            get started.
-        """
         unix_socket = None
-        sel = selectors.DefaultSelector()
 
         try:
             path_parts = socket_path.rsplit('/', 1)
@@ -100,14 +78,34 @@ class Proxy:
             unix_socket.listen(1)
             unix_socket.setblocking(False)
             os.chmod(socket_path, 0o600)
-            
-            sel.register(unix_socket, selectors.EVENT_READ, data=None)
+
+            self._task = loop.create_task(self.accept_loop(unix_socket, socket_path, loop))
 
         except Exception:
             raise LocalProxyStartupError(
                 'Local UNIX socket based proxy was not able to get started.'
             )
 
+    async def accept_loop(
+        self,
+        unix_socket,
+        socket_path: str,
+        loop: asyncio.AbstractEventLoop
+    ) -> asyncio.Task:
+        """Starts a UNIX based local proxy for transporting messages through
+        the SSL Socket, and waits until there is a new connection to accept, to register it
+        and keep track of it.
+        
+        Args:
+            socket_path: A system path that is going to be used to store the socket.
+
+            loop (asyncio.AbstractEventLoop): Event loop to run asyncio tasks.
+
+        Raises:
+            LocalProxyStartupError: Local UNIX socket based proxy was not able to
+            get started.
+        """
+        print("on accept loop")
         while True:
             client, _ = await loop.sock_accept(unix_socket)
             self._connection_tasks.append(loop.create_task(self.client_socket(client, unix_socket, socket_path, loop))) 
@@ -124,7 +122,7 @@ class Proxy:
         self, client, unix_socket, socket_path, loop
     ):
         try:
-            ssl_sock = self.connector.connect(
+            ssl_sock = self._connector.connect(
                 self._addr,
                 'local_unix_socket',
                 **self._kwargs
