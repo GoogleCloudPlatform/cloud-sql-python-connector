@@ -17,8 +17,6 @@ limitations under the License.
 import ssl
 from typing import Any, TYPE_CHECKING
 
-SERVER_PROXY_PORT = 3307
-
 def connect(
     host: str, sock: ssl.SSLSocket, **kwargs: Any
 ) -> "ssl.SSLSocket":

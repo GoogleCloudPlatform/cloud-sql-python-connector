@@ -27,6 +27,7 @@ from google.cloud.sql.connector import Connector
 from google.cloud.sql.connector import DefaultResolver
 from google.cloud.sql.connector import DnsResolver
 
+SERVER_PROXY_PORT = 3307
 
 def create_sqlalchemy_engine(
     instance_connection_name: str,
@@ -80,8 +81,9 @@ def create_sqlalchemy_engine(
             instance connection names ("my-project:my-region:my-instance").
     """
     connector = Connector(refresh_strategy=refresh_strategy, resolver=resolver)
-    unix_socket_path = "/tmp/conn"
-    await connector.start_unix_socket_proxy_async(
+    unix_socket_folder = "/tmp/conn"
+    unix_socket_path = f"{unix_socket_folder}/.s.PGSQL.3307"
+    connector.start_unix_socket_proxy_async(
         instance_connection_name,
         unix_socket_path,
         ip_type=ip_type,  # can be "public", "private" or "psc"
@@ -91,10 +93,10 @@ def create_sqlalchemy_engine(
     engine = sqlalchemy.create_engine(
         "postgresql+psycopg://",
         creator=lambda: Connection.connect(
-            f"host={unix_socket_path} port={SERVER_PROXY_PORT} dbname={db} user={user} password={passwd} sslmode=require",
+            f"host={unix_socket_folder} port={SERVER_PROXY_PORT} dbname={db} user={user} password={password} sslmode=require",
             user=user,
             password=password,
-            db=db,
+            dbname=db,
             autocommit=True,
         )
     )

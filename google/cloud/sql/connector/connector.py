@@ -155,7 +155,7 @@ class Connector:
         # connection name string and enable_iam_auth boolean flag
         self._cache: dict[tuple[str, bool], MonitoredCache] = {}
         self._client: Optional[CloudSQLClient] = None
-        self._proxies: Optional[Proxy] = None
+        self._proxies: list[proxy.Proxy] = []
 
         # initialize credentials
         scopes = ["https://www.googleapis.com/auth/sqlservice.admin"]
@@ -215,29 +215,6 @@ class Connector:
     @property
     def universe_domain(self) -> str:
         return self._universe_domain or _DEFAULT_UNIVERSE_DOMAIN
-
-    def start_unix_socket_proxy_async(
-        self,
-        instance_connection_name: str,
-        local_socket_path: str,
-        **kwargs: Any
-    ) -> None:
-        """Creates a new Proxy instance and stores it to properly disposal
-
-        Args:
-            instance_connection_string (str): The instance connection name of the
-                Cloud SQL instance to connect to. Takes the form of
-                "project-id:region:instance-name"
-
-                Example: "my-project:us-central1:my-instance"
-
-            local_socket_path (str): A string representing the location of the local socket.
-
-            **kwargs: Any driver-specific arguments to pass to the underlying
-                driver .connect call.
-        """
-        # TODO: validates the local socket path is not the same as other invocation
-        self._proxies.append(new Proxy(self, instance_connection_name, local_socket_path, self.loop, **kwargs))
 
     def connect(
         self, instance_connection_string: str, driver: str, **kwargs: Any
@@ -426,7 +403,7 @@ class Connector:
             # Synchronous drivers are blocking and run using executor
             connect_partial = partial(
                 connector,
-                host,
+                ip_address,
                 sock,
                 **kwargs,
             )
@@ -437,6 +414,42 @@ class Connector:
             await monitored_cache.force_refresh()
             raise
 
+    async def start_unix_socket_proxy_async(
+        self, instance_connection_string: str, local_socket_path: str, **kwargs: Any
+    ) -> None:
+        """Starts a local Unix socket proxy for a Cloud SQL instance.
+
+        Args:
+            instance_connection_string (str): The instance connection name of the
+                Cloud SQL instance to connect to.
+            local_socket_path (str): The path to the local Unix socket.
+            driver (str): The database driver name.
+            **kwargs: Keyword arguments to pass to the underlying database
+                driver.
+        """
+        if "driver" in kwargs:
+            driver = kwargs["driver"]
+        else:
+            driver = "proxy"
+
+        self._init_client(driver)
+
+        # check if a proxy is already running for this socket path
+        for p in self._proxies:
+            if p.unix_socket_path == local_socket_path:
+                raise ValueError(
+                    f"Proxy for socket path {local_socket_path} already exists."
+                )
+
+        # Create a new proxy instance
+        proxy_instance = proxy.Proxy(
+            local_socket_path,
+            ConnectorSocketFactory(self, instance_connection_string, **kwargs),
+            self._loop
+        )
+        await proxy_instance.start()
+        self._proxies.append(proxy_instance)
+        
     async def _remove_cached(
         self, instance_connection_string: str, enable_iam_auth: bool
     ) -> None:
@@ -496,10 +509,9 @@ class Connector:
         """Helper function to cancel the cache's tasks
         and close aiohttp.ClientSession."""
         await asyncio.gather(*[cache.close() for cache in self._cache.values()])
+        await asyncio.wait_for(asyncio.gather(*[ proxy.close_async() for proxy in self._proxies]), timeout=2.0)
         if self._client:
             await self._client.close()
-        if self._proxy:
-            await asyncio.wait_for([ proxy.close_async() for proxy in self._proxies])
 
 
 
