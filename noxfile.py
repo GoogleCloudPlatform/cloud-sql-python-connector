@@ -69,6 +69,15 @@ def format(session):
         *LINT_PATHS,
     )
 
+@nox.session()
+def build(session):
+    """
+    Just run the default tools to install requirements.
+    """
+    # Install all test dependencies, then install this package in-place.
+    session.install("-r", "requirements-test.txt")
+    session.install("-e", ".")
+    session.install("-r", "requirements.txt")
 
 def default(session, path):
     # Install all test dependencies, then install this package in-place.
