@@ -8,3 +8,5 @@ dist/
 .idea
 .coverage
 sponge_log.xml
+.envrc
+*.iml

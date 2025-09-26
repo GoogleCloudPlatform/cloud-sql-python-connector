@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.18.4](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v1.18.3...v1.18.4) (2025-08-12)
+
+
+### Bug Fixes
+
+* bump dependencies to latest ([#1317](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/1317)) ([6ebfac6](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/6ebfac67199b44ab517af7ab57027c64c784f1a1))
+
+## [1.18.3](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v1.18.2...v1.18.3) (2025-07-11)
+
+
+### Bug Fixes
+
+* suppress lint check for _scopes property ([#1308](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/1308)) ([821245c](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/821245c1911fb970e3409b3e249698937a8b7867))
+
 ## [1.18.2](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v1.18.1...v1.18.2) (2025-05-20)
 
 
