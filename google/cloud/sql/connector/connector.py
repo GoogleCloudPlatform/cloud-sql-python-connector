@@ -34,6 +34,7 @@ from google.cloud.sql.connector.client import CloudSQLClient
 from google.cloud.sql.connector.enums import DriverMapping
 from google.cloud.sql.connector.enums import IPTypes
 from google.cloud.sql.connector.enums import RefreshStrategy
+from google.cloud.sql.connector.exceptions import ConnectorLoopError
 from google.cloud.sql.connector.instance import RefreshAheadCache
 from google.cloud.sql.connector.lazy import LazyRefreshCache
 from google.cloud.sql.connector.monitored_cache import MonitoredCache
@@ -281,6 +282,15 @@ class Connector:
             KeyError: Unsupported database driver Must be one of pymysql, asyncpg,
                 pg8000, and pytds.
         """
+        # check if event loop is running in current thread
+        if self._loop != asyncio.get_running_loop():
+            raise ConnectorLoopError(
+                "Running event loop does not match 'connector._loop'. "
+                "Connector.connect_async() must be called from the event loop "
+                "the Connector was initialized with. If you need to connect "
+                "across event loops, please use a new Connector object."
+            )
+
         if self._keys is None:
             self._keys = asyncio.create_task(generate_keys())
         if self._client is None:
