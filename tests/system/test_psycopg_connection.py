@@ -29,7 +29,7 @@ from google.cloud.sql.connector import DnsResolver
 
 SERVER_PROXY_PORT = 3307
 
-def create_sqlalchemy_engine(
+async def create_sqlalchemy_engine(
     instance_connection_name: str,
     user: str,
     password: str,
@@ -83,7 +83,7 @@ def create_sqlalchemy_engine(
     connector = Connector(refresh_strategy=refresh_strategy, resolver=resolver)
     unix_socket_folder = "/tmp/conn"
     unix_socket_path = f"{unix_socket_folder}/.s.PGSQL.3307"
-    connector.start_unix_socket_proxy_async(
+    await connector.start_unix_socket_proxy_async(
         instance_connection_name,
         unix_socket_path,
         ip_type=ip_type,  # can be "public", "private" or "psc"
@@ -107,7 +107,7 @@ def create_sqlalchemy_engine(
 # [END cloud_sql_connector_postgres_psycopg]
 
 
-def test_psycopg_connection() -> None:
+async def test_psycopg_connection() -> None:
     """Basic test to get time from database."""
     inst_conn_name = os.environ["POSTGRES_CONNECTION_NAME"]
     user = os.environ["POSTGRES_USER"]
@@ -115,7 +115,7 @@ def test_psycopg_connection() -> None:
     db = os.environ["POSTGRES_DB"]
     ip_type = os.environ.get("IP_TYPE", "public")
 
-    engine, connector = create_sqlalchemy_engine(
+    engine, connector = await create_sqlalchemy_engine(
         inst_conn_name, user, password, db, ip_type
     )
     with engine.connect() as conn:
