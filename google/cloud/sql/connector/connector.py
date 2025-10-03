@@ -27,11 +27,13 @@ from typing import Any, Callable, Optional, Union
 import google.auth
 from google.auth.credentials import Credentials
 from google.auth.credentials import with_scopes_if_required
+
 import google.cloud.sql.connector.asyncpg as asyncpg
 from google.cloud.sql.connector.client import CloudSQLClient
 from google.cloud.sql.connector.enums import DriverMapping
 from google.cloud.sql.connector.enums import IPTypes
 from google.cloud.sql.connector.enums import RefreshStrategy
+from google.cloud.sql.connector.exceptions import ConnectorLoopError
 from google.cloud.sql.connector.instance import RefreshAheadCache
 from google.cloud.sql.connector.lazy import LazyRefreshCache
 from google.cloud.sql.connector.monitored_cache import MonitoredCache
@@ -397,6 +399,63 @@ class Connector:
                 pg8000, psycopg, and pytds.
         """
         self._init_client(driver)
+        # check if event loop is running in current thread
+        if self._loop != asyncio.get_running_loop():
+            raise ConnectorLoopError(
+                "Running event loop does not match 'connector._loop'. "
+                "Connector.connect_async() must be called from the event loop "
+                "the Connector was initialized with. If you need to connect "
+                "across event loops, please use a new Connector object."
+            )
+
+        if self._keys is None:
+            self._keys = asyncio.create_task(generate_keys())
+        if self._client is None:
+            # lazy init client as it has to be initialized in async context
+            self._client = CloudSQLClient(
+                self._sqladmin_api_endpoint,
+                self._quota_project,
+                self._credentials,
+                user_agent=self._user_agent,
+                driver=driver,
+            )
+        enable_iam_auth = kwargs.pop("enable_iam_auth", self._enable_iam_auth)
+
+        conn_name = await self._resolver.resolve(instance_connection_string)
+        # Cache entry must exist and not be closed
+        if (str(conn_name), enable_iam_auth) in self._cache and not self._cache[
+            (str(conn_name), enable_iam_auth)
+        ].closed:
+            monitored_cache = self._cache[(str(conn_name), enable_iam_auth)]
+        else:
+            if self._refresh_strategy == RefreshStrategy.LAZY:
+                logger.debug(
+                    f"['{conn_name}']: Refresh strategy is set to lazy refresh"
+                )
+                cache: Union[LazyRefreshCache, RefreshAheadCache] = LazyRefreshCache(
+                    conn_name,
+                    self._client,
+                    self._keys,
+                    enable_iam_auth,
+                )
+            else:
+                logger.debug(
+                    f"['{conn_name}']: Refresh strategy is set to backgound refresh"
+                )
+                cache = RefreshAheadCache(
+                    conn_name,
+                    self._client,
+                    self._keys,
+                    enable_iam_auth,
+                )
+            # wrap cache as a MonitoredCache
+            monitored_cache = MonitoredCache(
+                cache,
+                self._failover_period,
+                self._resolver,
+            )
+            logger.debug(f"['{conn_name}']: Connection info added to cache")
+            self._cache[(str(conn_name), enable_iam_auth)] = monitored_cache
 
         # Map drivers to connect functions
         connect_func = {
