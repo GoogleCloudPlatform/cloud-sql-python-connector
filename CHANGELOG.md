@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.18.5](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v1.18.4...v1.18.5) (2025-10-09)
+
+
+### Bug Fixes
+
+* error on connect_async() event loop mismatch ([#1113](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/1113)) ([3030b82](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/3030b824c899c56861832c0254df3c87585d3fcb))
+
 ## [1.18.4](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v1.18.3...v1.18.4) (2025-08-12)
 
 
