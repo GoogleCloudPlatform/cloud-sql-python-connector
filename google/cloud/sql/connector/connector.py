@@ -20,6 +20,7 @@ import asyncio
 from functools import partial
 import logging
 import os
+import socket
 from threading import Thread
 from types import TracebackType
 from typing import Any, Callable, Optional, Union
@@ -514,7 +515,11 @@ class Connector:
                     instance_connection_string, asyncio.Protocol, **kwargs
                 )
                 # See https://docs.python.org/3/library/asyncio-protocol.html#asyncio.BaseTransport.get_extra_info
-                sock = tx.get_extra_info("ssl_object")
+                ctx = tx.get_extra_info("sslcontext")
+                sock = ctx.wrap_socket(
+                    socket.create_connection((ip_address, SERVER_PROXY_PORT)),
+                    server_hostname=ip_address,
+                )
                 connect_partial = partial(connector, ip_address, sock, **kwargs)
                 return await self._loop.run_in_executor(None, connect_partial)
 
