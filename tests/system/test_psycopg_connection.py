@@ -58,10 +58,6 @@ async def test_psycopg_connection() -> None:
         await connector.start_unix_socket_proxy_async(
             instance_connection_name,
             unix_socket_path,
-            driver="psycopg",
-            user=user,
-            password=password,
-            db=db,
             ip_type=ip_type,  # can be "public", "private" or "psc"
         )
         
