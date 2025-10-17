@@ -363,6 +363,7 @@ class Connector:
                 self._credentials,
                 user_agent=self._user_agent,
                 driver=driver,
+                loop=self._loop
             )
         return self._client
 
@@ -419,6 +420,7 @@ class Connector:
                 self._credentials,
                 user_agent=self._user_agent,
                 driver=driver,
+                loop=self._loop
             )
         enable_iam_auth = kwargs.pop("enable_iam_auth", self._enable_iam_auth)
 
