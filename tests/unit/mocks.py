@@ -31,10 +31,10 @@ from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.x509.oid import NameOID
-
 from google.auth import _helpers
 from google.auth.credentials import Credentials
 from google.auth.credentials import TokenState
+
 from google.cloud.sql.connector.connector import _DEFAULT_UNIVERSE_DOMAIN
 from google.cloud.sql.connector.utils import generate_keys
 from google.cloud.sql.connector.utils import write_to_file

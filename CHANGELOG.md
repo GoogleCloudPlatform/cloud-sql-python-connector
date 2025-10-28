@@ -1,5 +1,33 @@
 # Changelog
 
+## [1.18.5](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v1.18.4...v1.18.5) (2025-10-09)
+
+
+### Bug Fixes
+
+* error on connect_async() event loop mismatch ([#1113](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/1113)) ([3030b82](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/3030b824c899c56861832c0254df3c87585d3fcb))
+
+## [1.18.4](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v1.18.3...v1.18.4) (2025-08-12)
+
+
+### Bug Fixes
+
+* bump dependencies to latest ([#1317](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/1317)) ([6ebfac6](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/6ebfac67199b44ab517af7ab57027c64c784f1a1))
+
+## [1.18.3](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v1.18.2...v1.18.3) (2025-07-11)
+
+
+### Bug Fixes
+
+* suppress lint check for _scopes property ([#1308](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/1308)) ([821245c](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/821245c1911fb970e3409b3e249698937a8b7867))
+
+## [1.18.2](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v1.18.1...v1.18.2) (2025-05-20)
+
+
+### Bug Fixes
+
+* bump dependencies to latest ([#1295](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/1295)) ([dc907ef](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/dc907ef18905959b5116032f66fff78b9cddc13d))
+
 ## [1.18.1](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v1.18.0...v1.18.1) (2025-04-16)
 
 

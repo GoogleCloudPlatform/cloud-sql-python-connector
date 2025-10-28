@@ -44,10 +44,10 @@ jobs:
       pull-requests: write
     steps:
       - name: Checkout code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
 
       - name: Setup Python ${{ matrix.python-version }}
-        uses: actions/setup-python@8d9ed9ac5c53483de85588cdf95a591a75ab9f55 # v5.5.0
+        uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6.0.0
         with:
           python-version: ${{ matrix.python-version }}
 
@@ -56,7 +56,7 @@ jobs:
 
       - id: auth
         name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@71f986410dfbc7added4569d411d040a91dc6935 # v2.1.8
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
         with:
           workload_identity_provider: ${{ vars.PROVIDER_NAME }}
           service_account: ${{ vars.SERVICE_ACCOUNT }}
@@ -64,7 +64,7 @@ jobs:
 
       - id: secrets
         name: Get secrets
-        uses: google-github-actions/get-secretmanager-secrets@a8440875e1c2892062aef9061228d4f1af8f919b # v2.2.3
+        uses: google-github-actions/get-secretmanager-secrets@bc9c54b29fdffb8a47776820a7d26e77b379d262 # v3.0.0
         with:
           secrets: |-
             MYSQL_CONNECTION_NAME:${{ vars.GOOGLE_CLOUD_PROJECT }}/MYSQL_CONNECTION_NAME
@@ -153,10 +153,10 @@ jobs:
       pull-requests: write
     steps:
       - name: Checkout code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
 
       - name: Setup Python ${{ matrix.python-version }}
-        uses: actions/setup-python@8d9ed9ac5c53483de85588cdf95a591a75ab9f55 # v5.5.0
+        uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6.0.0
         with:
           python-version: ${{ matrix.python-version }}
 
@@ -167,7 +167,7 @@ jobs:
         name: Authenticate to Google Cloud
         # only needed for Flakybot on periodic (schedule) and continuous (push) events
         if: ${{ github.event_name == 'schedule' || github.event_name == 'push' }}
-        uses: google-github-actions/auth@71f986410dfbc7added4569d411d040a91dc6935 # v2.1.8
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
         with:
           workload_identity_provider: ${{ vars.PROVIDER_NAME }}
           service_account: ${{ vars.SERVICE_ACCOUNT }}
