@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.18.6](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v1.18.5...v1.18.6) (2025-11-05)
+
+
+### Documentation
+
+* Update documentation to describe how to use Advanced DR write endpoint. ([#1332](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/1332)) ([2e1ed21](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/2e1ed211cad6dd63a76fa8c80df6c1d09d112778))
+
 ## [1.18.5](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v1.18.4...v1.18.5) (2025-10-09)
 
 
