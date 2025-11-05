@@ -84,3 +84,9 @@ class CacheClosedError(Exception):
     Exception to be raised when a ConnectionInfoCache can not be accessed after
     it is closed.
     """
+
+
+class LocalProxyStartupError(Exception):
+    """
+    Exception to be raised when a the local UNIX-socket based proxy can not be started.
+    """
