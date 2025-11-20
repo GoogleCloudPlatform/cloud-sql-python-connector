@@ -1,0 +1,5 @@
+cloud-sql-python-connector[pg8000]
+sqlalchemy
+Flask
+gunicorn
+google-cloud-secret-manager
