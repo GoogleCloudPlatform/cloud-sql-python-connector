@@ -60,6 +60,16 @@ For IAM authentication to work, you must ensure two things:
     ```
     Replace `SERVICE_ACCOUNT_EMAIL` with the same service account email and `INSTANCE_NAME` with your Cloud SQL instance name.
 
+For Password-based authentication to work:
+
+1.  **The Cloud Run service's service account has the `Secret Accessor` role.** You can grant this role with the following command:
+    ```bash
+    gcloud projects add-iam-policy-binding PROJECT_ID \
+        --member="serviceAccount:SERVICE_ACCOUNT_EMAIL" \
+        --role="roles/secretmanager.secretAccessor"
+    ```
+    Replace `PROJECT_ID` with your Google Cloud project ID and `SERVICE_ACCOUNT_EMAIL` with the email of the service account your Cloud Run service is using.
+
 ## Deploy the Application to Cloud Run
 
 Follow these steps to deploy the application to Cloud Run.
@@ -113,7 +123,7 @@ Deploy the container image to Cloud Run using the `gcloud run deploy` command.
 *   `DB_USER`: `my-db-user` (for password-based authentication)
 *   `DB_IAM_USER`: `my-service-account@my-gcp-project-id.iam.gserviceaccount.com` (for IAM-based authentication)
 *   `DB_NAME`: `my-db-name`
-*   `DB_SECRET_NAME`: `projects/my-gcp-project-id/secrets/my-db-secret/versions/latest`
+*   `DB_PASSWORD`: `my-user-pass-secret-name`
 *   `VPC_NETWORK`: `my-vpc-network`
 *   `SUBNET_NAME`: `my-vpc-subnet`
 
@@ -125,7 +135,8 @@ gcloud run deploy SERVICE_NAME \
   --image=REGION-docker.pkg.dev/PROJECT_ID/REPO_NAME/IMAGE_NAME \
   --add-cloudsql-instances=INSTANCE_CONNECTION_NAME \
   --set-env-vars=DB_USER=DB_USER,DB_IAM_USER=DB_IAM_USER,DB_NAME=DB_NAME,DB_SECRET_NAME=DB_SECRET_NAME,INSTANCE_CONNECTION_NAME=INSTANCE_CONNECTION_NAME \
-  --region=REGION
+  --region=REGION \
+  --update-secrets=DB_PASSWORD=DB_PASSWORD:latest 
 ```
 
 **For MySQL and PostgreSQL (Private IP):**
@@ -138,7 +149,8 @@ gcloud run deploy SERVICE_NAME \
   --network=VPC_NETWORK \
   --subnet=SUBNET_NAME \
   --vpc-egress=private-ranges-only \
-  --region=REGION
+  --region=REGION \
+  --update-secrets=DB_PASSWORD=DB_PASSWORD:latest 
 ```
 
 **For SQL Server (Public IP):**
@@ -148,7 +160,8 @@ gcloud run deploy SERVICE_NAME \
   --image=REGION-docker.pkg.dev/PROJECT_ID/REPO_NAME/IMAGE_NAME \
   --add-cloudsql-instances=INSTANCE_CONNECTION_NAME \
   --set-env-vars=DB_USER=DB_USER,DB_NAME=DB_NAME,DB_SECRET_NAME=DB_SECRET_NAME,INSTANCE_CONNECTION_NAME=INSTANCE_CONNECTION_NAME \
-  --region=REGION
+  --region=REGION \
+  --update-secrets=DB_PASSWORD=DB_PASSWORD:latest 
 ```
 
 **For SQL Server (Private IP):**
@@ -161,7 +174,8 @@ gcloud run deploy SERVICE_NAME \
   --network=VPC_NETWORK \
   --subnet=SUBNET_NAME \
   --vpc-egress=private-ranges-only \
-  --region=REGION
+  --region=REGION \
+  --update-secrets=DB_PASSWORD=DB_PASSWORD:latest 
 ```
 
 > [!NOTE]

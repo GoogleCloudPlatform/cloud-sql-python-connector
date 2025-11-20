@@ -18,7 +18,6 @@ import os
 import sqlalchemy
 from flask import Flask
 from google.cloud.sql.connector import Connector, IPTypes
-from google.cloud import secretmanager
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -45,14 +44,9 @@ def get_connection() -> sqlalchemy.engine.base.Connection:
     instance_connection_name = os.environ["INSTANCE_CONNECTION_NAME"]
     db_user = os.environ["DB_USER"]
     db_name = os.environ["DB_NAME"]
-    db_secret_name = os.environ["DB_SECRET_NAME"]
+    db_password = os.environ["DB_PASSWORD"]
     ip_type_str = os.environ.get("IP_TYPE", "PUBLIC")
     ip_type = IPTypes[ip_type_str]
-
-    # Get the database password from Secret Manager
-    secret_client = secretmanager.SecretManagerServiceClient()
-    secret_response = secret_client.access_secret_version(name=db_secret_name)
-    db_password = secret_response.payload.data.decode("UTF-8")
 
     # Connect to the database
     conn = connector.connect(

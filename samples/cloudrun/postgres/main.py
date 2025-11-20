@@ -18,7 +18,6 @@ import os
 import sqlalchemy
 from flask import Flask
 from google.cloud.sql.connector import Connector, IPTypes
-from google.cloud import secretmanager
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -36,7 +35,6 @@ app = Flask(__name__)
 connector = None
 iam_engine = None
 password_engine = None
-secret_client = secretmanager.SecretManagerServiceClient()
 
 
 # Function to create a database connection using IAM authentication
@@ -65,12 +63,10 @@ def get_password_connection() -> sqlalchemy.engine.base.Connection:
     instance_connection_name = os.environ["INSTANCE_CONNECTION_NAME"]
     db_user = os.environ["DB_USER"]  # Database username
     db_name = os.environ["DB_NAME"]
-    db_secret_name = os.environ["DB_SECRET_NAME"]
+    db_password = os.environ["DB_PASSWORD"]
     ip_type_str = os.environ.get("IP_TYPE", "PUBLIC")
     ip_type = IPTypes[ip_type_str]
 
-    secret_response = secret_client.access_secret_version(name=db_secret_name)
-    db_password = secret_response.payload.data.decode("UTF-8")
 
     conn = connector.connect(
         instance_connection_name,
