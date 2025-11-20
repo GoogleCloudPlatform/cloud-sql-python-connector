@@ -1,0 +1,5 @@
+cloud-sql-python-connector[pytds]
+sqlalchemy-pytds
+google-cloud-secret-manager
+Flask
+gunicorn
