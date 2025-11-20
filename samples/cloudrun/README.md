@@ -27,6 +27,18 @@ This file contains the core application logic for connecting to a Cloud SQL for 
 >
 > The sample code in all three `main.py` files initializes the `Connector` with `refresh_strategy=lazy`. This is a recommended approach to avoid connection errors and optimize cost by preventing background processes from running when the CPU is throttled.
 
+## Global Variables and Lazy Instantiation
+
+In a Cloud Run service, global variables are initialized when the container instance starts up. The application instance then handles subsequent requests until the container is spun down.
+
+The `Connector` and SQLAlchemy `Engine` objects are defined as global variables (initially set to `None`) and are lazily instantiated (created only when needed) inside the request handlers.
+
+This approach offers several benefits:
+
+1.  **Faster Startup:** By deferring initialization until the first request, the Cloud Run service can start listening for requests almost immediately, reducing cold start latency.
+2.  **Resource Efficiency:** Expensive operations, like establishing background connections or fetching secrets, are only performed when actually required.
+3.  **Connection Reuse:** Once initialized, the global `Connector` and `Engine` instances are reused for all subsequent requests to that container instance. This prevents the overhead of creating new connections for every request and avoids hitting connection limits.
+
 ## IAM Authentication Prerequisites
 
 

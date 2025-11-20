@@ -23,8 +23,19 @@ from google.cloud import secretmanager
 # Initialize Flask app
 app = Flask(__name__)
 
-# Initialize the Connector object with lazy refresh
-connector = Connector(refresh_strategy="lazy")
+# Connector and SQLAlchemy engine are initialized as None to allow for lazy instantiation.
+#
+# The Connector object is a global variable to ensure that the same connector
+# instance is used across all requests. This prevents the unnecessary creation
+# of new Connector instances, which is inefficient and can lead to connection
+# limits being reached.
+#
+# Lazy instantiation (initializing the Connector and Engine only when needed)
+# allows the Cloud Run service to start up faster, as it avoids performing
+# initialization tasks (like fetching secrets or metadata) during startup.
+connector = None
+engine = None
+
 
 def get_connection() -> sqlalchemy.engine.base.Connection:
     """
@@ -54,16 +65,27 @@ def get_connection() -> sqlalchemy.engine.base.Connection:
     )
     return conn
 
-# Create the SQLAlchemy engine
-engine = sqlalchemy.create_engine(
-    "mssql+pytds://",
-    creator=get_connection,
-)
+
+def connect_to_db() -> sqlalchemy.engine.base.Connection:
+    """Initializes the connector and engine if necessary, then returns a connection."""
+    global connector, engine
+
+    if connector is None:
+        connector = Connector(refresh_strategy="lazy")
+
+    if engine is None:
+        engine = sqlalchemy.create_engine(
+            "mssql+pytds://",
+            creator=get_connection,
+        )
+
+    return engine.connect()
+
 
 @app.route("/")
 def index():
     try:
-        with engine.connect() as conn:
+        with connect_to_db() as conn:
             result = conn.execute(sqlalchemy.text("SELECT 1")).fetchall()
             return f"Database connection successful, result: {result}"
     except Exception as e:
