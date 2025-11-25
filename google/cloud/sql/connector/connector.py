@@ -39,6 +39,7 @@ from google.cloud.sql.connector.instance import RefreshAheadCache
 from google.cloud.sql.connector.lazy import LazyRefreshCache
 from google.cloud.sql.connector.monitored_cache import MonitoredCache
 import google.cloud.sql.connector.pg8000 as pg8000
+import google.cloud.sql.connector.proxy as proxy
 import google.cloud.sql.connector.pymysql as pymysql
 import google.cloud.sql.connector.pytds as pytds
 from google.cloud.sql.connector.resolver import DefaultResolver
@@ -155,6 +156,7 @@ class Connector:
         # connection name string and enable_iam_auth boolean flag
         self._cache: dict[tuple[str, bool], MonitoredCache] = {}
         self._client: Optional[CloudSQLClient] = None
+        self._proxies: list[proxy.Proxy] = []
 
         # initialize credentials
         scopes = ["https://www.googleapis.com/auth/sqlservice.admin"]
@@ -215,6 +217,108 @@ class Connector:
     def universe_domain(self) -> str:
         return self._universe_domain or _DEFAULT_UNIVERSE_DOMAIN
 
+    async def _get_cache(
+        self,
+        instance_connection_string: str,
+        enable_iam_auth: bool,
+        ip_type: IPTypes,
+        driver: str | None,
+    ) -> MonitoredCache:
+        """Helper function to get instance's cache from Connector cache."""
+
+        # resolve instance connection name
+        conn_name = await self._resolver.resolve(instance_connection_string)
+        cache_key = (str(conn_name), enable_iam_auth)
+
+        # if cache entry doesn't exist or is closed, create it
+        if cache_key not in self._cache or self._cache[cache_key].closed:
+            # if lazy refresh, init keys now
+            if self._refresh_strategy == RefreshStrategy.LAZY and self._keys is None:
+                self._keys = asyncio.create_task(generate_keys())
+            # create cache
+            if self._refresh_strategy == RefreshStrategy.LAZY:
+                logger.debug(
+                    f"['{conn_name}']: Refresh strategy is set to lazy refresh"
+                )
+                cache: Union[LazyRefreshCache, RefreshAheadCache] = LazyRefreshCache(
+                    conn_name,
+                    self._init_client(driver),
+                    self._keys,  # type: ignore
+                    enable_iam_auth,
+                )
+            else:
+                logger.debug(
+                    f"['{conn_name}']: Refresh strategy is set to background refresh"
+                )
+                cache = RefreshAheadCache(
+                    conn_name,
+                    self._init_client(driver),
+                    self._keys,  # type: ignore
+                    enable_iam_auth,
+                )
+            # wrap cache as a MonitoredCache
+            monitored_cache = MonitoredCache(
+                cache,
+                self._failover_period,
+                self._resolver,
+            )
+            logger.debug(f"['{conn_name}']: Connection info added to cache")
+            self._cache[cache_key] = monitored_cache
+
+        monitored_cache = self._cache[(str(conn_name), enable_iam_auth)]
+
+        # Check that the information is valid and matches the driver and db type
+        try:
+            conn_info = await monitored_cache.connect_info()
+            # validate driver matches intended database engine
+            if driver:
+                DriverMapping.validate_engine(driver, conn_info.database_version)
+            if ip_type:
+                conn_info.get_preferred_ip(ip_type)
+        except Exception:
+            await self._remove_cached(str(conn_name), enable_iam_auth)
+            raise
+
+        return monitored_cache
+
+    async def connect_socket_async(
+        self,
+        instance_connection_string: str,
+        protocol_fn: Callable[[], asyncio.Protocol],
+        **kwargs: Any,
+    ) -> tuple[asyncio.Transport, asyncio.Protocol]:
+        """Helper function to connect to a Cloud SQL instance and return a socket."""
+
+        enable_iam_auth = kwargs.pop("enable_iam_auth", self._enable_iam_auth)
+        ip_type = kwargs.pop("ip_type", self._ip_type)
+        driver = kwargs.pop("driver", None)
+        # if ip_type is str, convert to IPTypes enum
+        if isinstance(ip_type, str):
+            ip_type = IPTypes._from_str(ip_type)
+
+        monitored_cache = await self._get_cache(
+            instance_connection_string, enable_iam_auth, ip_type, driver
+        )
+
+        try:
+            conn_info = await monitored_cache.connect_info()
+            ctx = await conn_info.create_ssl_context(enable_iam_auth)
+            ip_address = conn_info.get_preferred_ip(ip_type)
+            tx, p = await self._loop.create_connection(
+                protocol_fn, host=ip_address, port=3307, ssl=ctx
+            )
+        except Exception as ex:
+            logger.exception("exception starting tls protocol", exc_info=ex)
+            # with an error from Cloud SQL Admin API call or IP type, invalidate
+            # the cache and re-raise the error
+            await self._remove_cached(
+                instance_connection_string,
+                enable_iam_auth,
+            )
+            raise
+
+        return tx, p
+
     def connect(
         self, instance_connection_string: str, driver: str, **kwargs: Any
     ) -> Any:
@@ -232,7 +336,7 @@ class Connector:
                 Example: "my-project:us-central1:my-instance"
 
             driver (str): A string representing the database driver to connect
-                with. Supported drivers are pymysql, pg8000, and pytds.
+                with. Supported drivers are pymysql, pg8000, psycopg, and pytds.
 
             **kwargs: Any driver-specific arguments to pass to the underlying
                 driver .connect call.
@@ -249,6 +353,19 @@ class Connector:
             self._loop,
         )
         return connect_future.result()
+
+    def _init_client(self, driver: Optional[str]) -> CloudSQLClient:
+        """Lazy initialize the client, setting the driver name in the user agent string."""
+        if self._client is None:
+            self._client = CloudSQLClient(
+                self._sqladmin_api_endpoint,
+                self._quota_project,
+                self._credentials,
+                user_agent=self._user_agent,
+                driver=driver,
+                loop=self._loop
+            )
+        return self._client
 
     async def connect_async(
         self, instance_connection_string: str, driver: str, **kwargs: Any
@@ -268,7 +385,8 @@ class Connector:
                 Example: "my-project:us-central1:my-instance"
 
             driver (str): A string representing the database driver to connect
-                with. Supported drivers are pymysql, asyncpg, pg8000, and pytds.
+                with. Supported drivers are pymysql, asyncpg, pg8000, psycopg, and
+                pytds.
 
             **kwargs: Any driver-specific arguments to pass to the underlying
                 driver .connect call.
@@ -280,8 +398,9 @@ class Connector:
             ValueError: Connection attempt with built-in database authentication
                 and then subsequent attempt with IAM database authentication.
             KeyError: Unsupported database driver Must be one of pymysql, asyncpg,
-                pg8000, and pytds.
+                pg8000, psycopg, and pytds.
         """
+        self._init_client(driver)
         # check if event loop is running in current thread
         if self._loop != asyncio.get_running_loop():
             raise ConnectorLoopError(
@@ -301,6 +420,7 @@ class Connector:
                 self._credentials,
                 user_agent=self._user_agent,
                 driver=driver,
+                loop=self._loop
             )
         enable_iam_auth = kwargs.pop("enable_iam_auth", self._enable_iam_auth)
 
@@ -340,6 +460,7 @@ class Connector:
             logger.debug(f"['{conn_name}']: Connection info added to cache")
             self._cache[(str(conn_name), enable_iam_auth)] = monitored_cache
 
+        # Map drivers to connect functions
         connect_func = {
             "pymysql": pymysql.connect,
             "pg8000": pg8000.connect,
@@ -347,7 +468,7 @@ class Connector:
             "pytds": pytds.connect,
         }
 
-        # only accept supported database drivers
+        # Only accept supported database drivers
         try:
             connector: Callable = connect_func[driver]  # type: ignore
         except KeyError:
@@ -357,6 +478,7 @@ class Connector:
         # if ip_type is str, convert to IPTypes enum
         if isinstance(ip_type, str):
             ip_type = IPTypes._from_str(ip_type)
+        enable_iam_auth = kwargs.pop("enable_iam_auth", self._enable_iam_auth)
         kwargs["timeout"] = kwargs.get("timeout", self._timeout)
 
         # Host and ssl options come from the certificates and metadata, so we don't
@@ -365,59 +487,87 @@ class Connector:
         kwargs.pop("ssl", None)
         kwargs.pop("port", None)
 
-        # attempt to get connection info for Cloud SQL instance
+        monitored_cache = await self._get_cache(
+            instance_connection_string, enable_iam_auth, ip_type, driver
+        )
+        conn_info = await monitored_cache.connect_info()
+        ip_address = conn_info.get_preferred_ip(ip_type)
+
         try:
-            conn_info = await monitored_cache.connect_info()
-            # validate driver matches intended database engine
-            DriverMapping.validate_engine(driver, conn_info.database_version)
-            ip_address = conn_info.get_preferred_ip(ip_type)
-        except Exception:
-            # with an error from Cloud SQL Admin API call or IP type, invalidate
-            # the cache and re-raise the error
-            await self._remove_cached(str(conn_name), enable_iam_auth)
-            raise
-        logger.debug(f"['{conn_info.conn_name}']: Connecting to {ip_address}:3307")
-        # format `user` param for automatic IAM database authn
-        if enable_iam_auth:
-            formatted_user = format_database_user(
-                conn_info.database_version, kwargs["user"]
-            )
-            if formatted_user != kwargs["user"]:
-                logger.debug(
-                    f"['{instance_connection_string}']: Truncated IAM database username from {kwargs['user']} to {formatted_user}"
+            # format `user` param for automatic IAM database authn
+            if enable_iam_auth:
+                formatted_user = format_database_user(
+                    conn_info.database_version, kwargs["user"]
                 )
-                kwargs["user"] = formatted_user
-        try:
+                if formatted_user != kwargs["user"]:
+                    logger.debug(
+                        f"['{instance_connection_string}']: "
+                        "Truncated IAM database username from "
+                        f"{kwargs['user']} to {formatted_user}"
+                    )
+                    kwargs["user"] = formatted_user
+
+            ctx = await conn_info.create_ssl_context(enable_iam_auth)
             # async drivers are unblocking and can be awaited directly
             if driver in ASYNC_DRIVERS:
-                return await connector(
-                    ip_address,
-                    await conn_info.create_ssl_context(enable_iam_auth),
-                    **kwargs,
+                return await connector(ip_address, ctx, **kwargs)
+            else:
+                # Synchronous drivers are blocking and run using executor
+                tx, _ = await self.connect_socket_async(
+                    instance_connection_string, asyncio.Protocol, **kwargs
                 )
-            # Create socket with SSLContext for sync drivers
-            ctx = await conn_info.create_ssl_context(enable_iam_auth)
-            sock = ctx.wrap_socket(
-                socket.create_connection((ip_address, SERVER_PROXY_PORT)),
-                server_hostname=ip_address,
-            )
-            # If this connection was opened using a domain name, then store it
-            # for later in case we need to forcibly close it on failover.
-            if conn_info.conn_name.domain_name:
-                monitored_cache.sockets.append(sock)
-            # Synchronous drivers are blocking and run using executor
-            connect_partial = partial(
-                connector,
-                ip_address,
-                sock,
-                **kwargs,
-            )
-            return await self._loop.run_in_executor(None, connect_partial)
+                # See https://docs.python.org/3/library/asyncio-protocol.html#asyncio.BaseTransport.get_extra_info
+                ctx = tx.get_extra_info("sslcontext")
+                sock = ctx.wrap_socket(
+                    socket.create_connection((ip_address, SERVER_PROXY_PORT)),
+                    server_hostname=ip_address,
+                )
+                connect_partial = partial(connector, ip_address, sock, **kwargs)
+                return await self._loop.run_in_executor(None, connect_partial)
 
         except Exception:
             # with any exception, we attempt a force refresh, then throw the error
+            monitored_cache = await self._get_cache(
+                instance_connection_string, enable_iam_auth, ip_type, driver
+            )
             await monitored_cache.force_refresh()
             raise
+
+    async def start_unix_socket_proxy_async(
+        self, instance_connection_string: str, local_socket_path: str, **kwargs: Any
+    ) -> None:
+        """Starts a local Unix socket proxy for a Cloud SQL instance.
+
+        Args:
+            instance_connection_string (str): The instance connection name of the
+                Cloud SQL instance to connect to.
+            local_socket_path (str): The path to the local Unix socket.
+            driver (str): The database driver name.
+            **kwargs: Keyword arguments to pass to the underlying database
+                driver.
+        """
+        if "driver" in kwargs:
+            driver = kwargs["driver"]
+        else:
+            driver = "proxy"
+
+        self._init_client(driver)
+
+        # check if a proxy is already running for this socket path
+        for p in self._proxies:
+            if p.unix_socket_path == local_socket_path:
+                raise ValueError(
+                    f"Proxy for socket path {local_socket_path} already exists."
+                )
+
+        # Create a new proxy instance
+        proxy_instance = proxy.Proxy(
+            local_socket_path,
+            ConnectorSocketFactory(self, instance_connection_string, **kwargs),
+            self._loop
+        )
+        await proxy_instance.start()
+        self._proxies.append(proxy_instance)
 
     async def _remove_cached(
         self, instance_connection_string: str, enable_iam_auth: bool
@@ -477,6 +627,9 @@ class Connector:
     async def close_async(self) -> None:
         """Helper function to cancel the cache's tasks
         and close aiohttp.ClientSession."""
+        # close all proxies
+        if self._proxies:
+            await asyncio.gather(*[proxy.close() for proxy in self._proxies])
         await asyncio.gather(*[cache.close() for cache in self._cache.values()])
         if self._client:
             await self._client.close()
@@ -571,3 +724,13 @@ async def create_async_connector(
         resolver=resolver,
         failover_period=failover_period,
     )
+
+
+class ConnectorSocketFactory(proxy.ServerConnectionFactory):
+    def __init__(self, connector:Connector, instance_connection_string:str, **kwargs):
+        self._connector = connector
+        self._instance_connection_string = instance_connection_string
+        self._connect_args=kwargs
+
+    async def connect(self, protocol_fn: Callable[[], asyncio.Protocol]):
+        await self._connector.connect_socket_async(self._instance_connection_string, protocol_fn, **self._connect_args)
