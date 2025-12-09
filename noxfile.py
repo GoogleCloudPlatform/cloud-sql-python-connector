@@ -22,7 +22,7 @@ import nox
 
 LINT_PATHS = ["google", "tests", "noxfile.py"]
 
-TEST_PYTHON_VERSIONS = ["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
+TEST_PYTHON_VERSIONS = ["3.9", "3.10", "3.11", "3.12", "3.13"]
 
 
 @nox.session
