@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.19.0](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v1.18.5...v1.19.0) (2025-12-09)
+
+
+### Features
+
+* Add python 3.14 and remove python 3.9 support  ([#1339](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/1339)) ([a2e8c4d](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/a2e8c4d30deeeb73475caf3367acadc58193228f))
+
+
+### Documentation
+
+* Add sample Cloud Run example application ([#1335](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/1335)) ([adc25f6](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/adc25f683059a3f0fe3865d648374dce087cdaaa))
+* Update documentation to describe how to use Advanced DR write endpoint. ([#1332](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/1332)) ([2e1ed21](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/2e1ed211cad6dd63a76fa8c80df6c1d09d112778))
+
 ## [1.18.5](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v1.18.4...v1.18.5) (2025-10-09)
 
 
