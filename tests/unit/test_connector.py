@@ -29,6 +29,7 @@ from google.cloud.sql.connector import create_async_connector
 from google.cloud.sql.connector import IPTypes
 from google.cloud.sql.connector.client import CloudSQLClient
 from google.cloud.sql.connector.connection_name import ConnectionName
+from google.cloud.sql.connector.exceptions import ClosedConnectorError
 from google.cloud.sql.connector.exceptions import CloudSQLIPTypeError
 from google.cloud.sql.connector.exceptions import ConnectorLoopError
 from google.cloud.sql.connector.exceptions import IncompatibleDriverError
@@ -502,3 +503,48 @@ def test_configured_quota_project_env_var(
         assert connector._quota_project == quota_project
     # unset env var
     del os.environ["GOOGLE_CLOUD_QUOTA_PROJECT"]
+
+
+@pytest.mark.asyncio
+async def test_connect_async_closed_connector(
+    fake_credentials: Credentials, fake_client: CloudSQLClient
+) -> None:
+    """Test that calling connect_async() on a closed connector raises an error."""
+    async with Connector(
+        credentials=fake_credentials, loop=asyncio.get_running_loop()
+    ) as connector:
+        connector._client = fake_client
+        await connector.close_async()
+        with pytest.raises(ClosedConnectorError) as exc_info:
+            await connector.connect_async(
+                "test-project:test-region:test-instance",
+                "asyncpg",
+                user="my-user",
+                password="my-pass",
+                db="my-db",
+            )
+        assert (
+            exc_info.value.args[0]
+            == "Connection attempt failed because the connector has already been closed."
+        )
+
+
+def test_connect_closed_connector(
+    fake_credentials: Credentials, fake_client: CloudSQLClient
+) -> None:
+    """Test that calling connect() on a closed connector raises an error."""
+    with Connector(credentials=fake_credentials) as connector:
+        connector._client = fake_client
+        connector.close()
+        with pytest.raises(ClosedConnectorError) as exc_info:
+            connector.connect(
+                "test-project:test-region:test-instance",
+                "pg8000",
+                user="my-user",
+                password="my-pass",
+                db="my-db",
+            )
+        assert (
+            exc_info.value.args[0]
+            == "Connection attempt failed because the connector has already been closed."
+        )
