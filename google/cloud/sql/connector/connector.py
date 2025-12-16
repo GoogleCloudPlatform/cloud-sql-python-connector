@@ -487,15 +487,14 @@ class Connector:
                 self._loop.call_soon_threadsafe(self._loop.stop)
             # wait for thread to finish closing (i.e. loop to stop)
             self._thread.join()
-        self._closed = True
 
     async def close_async(self) -> None:
         """Helper function to cancel the cache's tasks
         and close aiohttp.ClientSession."""
-        await asyncio.gather(*[cache.close() for cache in self._cache.values()])
+        self._closed = True
         if self._client:
             await self._client.close()
-        self._closed = True
+        await asyncio.gather(*[cache.close() for cache in self._cache.values()])
 
 
 async def create_async_connector(
