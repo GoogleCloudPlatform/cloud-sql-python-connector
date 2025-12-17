@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from typing import List
+
 import dns.asyncresolver
 
 from google.cloud.sql.connector.connection_name import _is_valid_domain
@@ -52,6 +54,16 @@ class DnsResolver(dns.asyncresolver.Resolver):
                     f"name, got {dns}."
                 )
         return conn_name
+
+    async def resolve_a_record(self, dns: str) -> List[str]:
+        try:
+            # Attempt to query the A records.
+            records = await super().resolve(dns, "A", raise_on_no_answer=True)
+            # return IP addresses as strings
+            return [record.to_text() for record in records]
+        except Exception:
+            # On any error, return empty list
+            return []
 
     async def query_dns(self, dns: str) -> ConnectionName:
         try:

@@ -28,6 +28,7 @@ if [[ ! -d venv ]] ; then
   echo "./venv not found. Setting up venv"
   python3 -m venv "$PWD/venv"
 fi
+
 source "$PWD/venv/bin/activate"
 
 if which pip3 ; then
@@ -135,6 +136,10 @@ function write_e2e_env(){
     val=$(gcloud secrets versions access latest --project "$TEST_PROJECT" --secret="$secret_name")
     echo "export $env_var_name='$val'"
   done
+  # Aliases for python e2e tests
+  echo "export POSTGRES_CUSTOMER_CAS_PASS_VALID_DOMAIN_NAME=\"\$POSTGRES_CUSTOMER_CAS_DOMAIN_NAME\""
+  echo "export POSTGRES_IAM_USER=\"\$POSTGRES_USER_IAM\""
+  echo "export MYSQL_IAM_USER=\"\$MYSQL_USER_IAM\""
   } > "$1"
 
 }
