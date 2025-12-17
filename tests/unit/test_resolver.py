@@ -129,3 +129,40 @@ async def test_DnsResolver_with_bad_dns_name() -> None:
     with pytest.raises(DnsResolutionError) as exc_info:
         await resolver.resolve("bad.dns.com")
     assert exc_info.value.args[0] == "Unable to resolve TXT record for `bad.dns.com`"
+
+
+a_record_query_text = """id 1234
+opcode QUERY
+rcode NOERROR
+flags QR AA RD RA
+;QUESTION
+db.example.com. IN A
+;ANSWER
+db.example.com. 0 IN A 127.0.0.1
+;AUTHORITY
+;ADDITIONAL
+"""
+
+
+async def test_DnsResolver_resolve_a_record() -> None:
+    """Test DnsResolver resolves A record into IP address."""
+    with patch("dns.asyncresolver.Resolver.resolve") as mock_resolve:
+        answer = dns.resolver.Answer(
+            "db.example.com",
+            dns.rdatatype.A,
+            dns.rdataclass.IN,
+            dns.message.from_text(a_record_query_text),
+        )
+        mock_resolve.return_value = answer
+        resolver = DnsResolver()
+        result = await resolver.resolve_a_record("db.example.com")
+        assert result == ["127.0.0.1"]
+
+
+async def test_DnsResolver_resolve_a_record_empty() -> None:
+    """Test DnsResolver resolves A record but gets error."""
+    with patch("dns.asyncresolver.Resolver.resolve") as mock_resolve:
+        mock_resolve.side_effect = Exception("DNS Error")
+        resolver = DnsResolver()
+        result = await resolver.resolve_a_record("db.example.com")
+        assert result == []

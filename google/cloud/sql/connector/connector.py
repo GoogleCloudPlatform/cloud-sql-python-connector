@@ -390,6 +390,33 @@ class Connector:
             # the cache and re-raise the error
             await self._remove_cached(str(conn_name), enable_iam_auth)
             raise
+
+        # If the connector is configured with a custom DNS name, attempt to use
+        # that DNS name to connect to the instance. Fall back to the metadata IP
+        # address if the DNS name does not resolve to an IP address.
+        if conn_info.conn_name.domain_name and isinstance(self._resolver, DnsResolver):
+            try:
+                ips = await self._resolver.resolve_a_record(conn_info.conn_name.domain_name)
+                if ips:
+                    ip_address = ips[0]
+                    logger.debug(
+                        f"['{instance_connection_string}']: Custom DNS name "
+                        f"'{conn_info.conn_name.domain_name}' resolved to '{ip_address}', "
+                        "using it to connect"
+                    )
+                else:
+                    logger.debug(
+                        f"['{instance_connection_string}']: Custom DNS name "
+                        f"'{conn_info.conn_name.domain_name}' resolved but returned no "
+                        f"entries, using '{ip_address}' from instance metadata"
+                    )
+            except Exception as e:
+                logger.debug(
+                    f"['{instance_connection_string}']: Custom DNS name "
+                    f"'{conn_info.conn_name.domain_name}' did not resolve to an IP "
+                    f"address: {e}, using '{ip_address}' from instance metadata"
+                )
+
         logger.debug(f"['{conn_info.conn_name}']: Connecting to {ip_address}:3307")
         # format `user` param for automatic IAM database authn
         if enable_iam_auth:

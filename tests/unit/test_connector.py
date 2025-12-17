@@ -34,6 +34,7 @@ from google.cloud.sql.connector.exceptions import CloudSQLIPTypeError
 from google.cloud.sql.connector.exceptions import ConnectorLoopError
 from google.cloud.sql.connector.exceptions import IncompatibleDriverError
 from google.cloud.sql.connector.instance import RefreshAheadCache
+from google.cloud.sql.connector.resolver import DnsResolver
 
 
 @pytest.mark.asyncio
@@ -548,3 +549,113 @@ def test_connect_closed_connector(
             exc_info.value.args[0]
             == "Connection attempt failed because the connector has already been closed."
         )
+
+
+@pytest.mark.asyncio
+async def test_Connector_connect_async_custom_dns_resolver(
+    fake_credentials: Credentials, fake_client: CloudSQLClient
+) -> None:
+    """Test that Connector.connect_async uses custom DNS name resolution."""
+
+    # Create a mock DnsResolver that returns a fixed IP
+    with patch(
+        "google.cloud.sql.connector.resolver.DnsResolver.resolve_a_record"
+    ) as mock_resolve_a:
+        mock_resolve_a.return_value = ["1.2.3.4"]
+
+        # We also need to patch resolve because DnsResolver.resolve does DNS lookup for TXT
+        # But we can patch DnsResolver.resolve to return a ConnectionName with domain name
+        with patch(
+            "google.cloud.sql.connector.resolver.DnsResolver.resolve"
+        ) as mock_resolve:
+            # This must return a ConnectionName object with domain_name set
+            conn_name_with_domain = ConnectionName(
+                "test-project", "test-region", "test-instance", "db.example.com"
+            )
+            mock_resolve.return_value = conn_name_with_domain
+
+            async with Connector(
+                credentials=fake_credentials,
+                loop=asyncio.get_running_loop(),
+                resolver=DnsResolver,
+            ) as connector:
+                connector._client = fake_client
+
+                # patch db connection creation
+                with patch(
+                    "google.cloud.sql.connector.asyncpg.connect"
+                ) as mock_connect:
+                    mock_connect.return_value = True
+
+                    # Call connect_async
+                    # Use "db.example.com" as instance connection string (resolver will handle it)
+                    connection = await connector.connect_async(
+                        "db.example.com",
+                        "asyncpg",
+                        user="my-user",
+                        password="my-pass",
+                        db="my-db",
+                    )
+
+                    # Verify mock_connect was called with resolved IP "1.2.3.4"
+                    # The first arg to mock_connect (which patches connector call) is ip_address
+                    args, _ = mock_connect.call_args
+                    assert args[0] == "1.2.3.4"
+                    assert connection is True
+
+
+@pytest.mark.asyncio
+async def test_Connector_connect_async_custom_dns_resolver_fallback(
+    fake_credentials: Credentials, fake_client: CloudSQLClient
+) -> None:
+    """Test that Connector.connect_async falls back if DNS resolution fails."""
+
+    # Create a mock DnsResolver that returns empty list (failure)
+    with patch(
+        "google.cloud.sql.connector.resolver.DnsResolver.resolve_a_record"
+    ) as mock_resolve_a:
+        mock_resolve_a.return_value = []
+
+        with patch(
+            "google.cloud.sql.connector.resolver.DnsResolver.resolve"
+        ) as mock_resolve:
+            conn_name_with_domain = ConnectionName(
+                "test-project", "test-region", "test-instance", "db.example.com"
+            )
+            mock_resolve.return_value = conn_name_with_domain
+
+            async with Connector(
+                credentials=fake_credentials,
+                loop=asyncio.get_running_loop(),
+                resolver=DnsResolver,
+            ) as connector:
+                connector._client = fake_client
+
+                # Save original IPs to restore later (fake_instance is session-scoped)
+                original_ips = fake_client.instance.ip_addrs
+                # Set metadata IP to something specific
+                fake_client.instance.ip_addrs = {"PRIMARY": "5.6.7.8"}
+
+                try:
+                    with patch(
+                        "google.cloud.sql.connector.asyncpg.connect"
+                    ) as mock_connect:
+                        mock_connect.return_value = True
+
+                        connection = await connector.connect_async(
+                            "db.example.com",
+                            "asyncpg",
+                            user="my-user",
+                            password="my-pass",
+                            db="my-db",
+                        )
+
+                        # Verify mock_connect was called with metadata IP "5.6.7.8"
+                        args, _ = mock_connect.call_args
+                        assert args[0] == "5.6.7.8"
+                        assert connection is True
+                finally:
+                    # Restore original IPs
+                    fake_client.instance.ip_addrs = original_ips
+
+
