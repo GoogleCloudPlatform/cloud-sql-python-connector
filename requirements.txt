@@ -1,5 +1,5 @@
 aiofiles==25.1.0
-aiohttp==3.13.2
+aiohttp==3.13.3
 cryptography==46.0.3
 dnspython==2.8.0
 Requests==2.32.5
