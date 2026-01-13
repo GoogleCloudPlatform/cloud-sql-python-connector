@@ -40,7 +40,7 @@ else
   exit 1
 fi
 if ! which nox ; then
-  $PIP_CMD install nox
+  python3 -m pip install nox
 fi
 
 
