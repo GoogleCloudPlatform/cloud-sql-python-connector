@@ -54,11 +54,13 @@ function clean() {
 
 ## build - Builds the project without running tests.
 function build() {
+  python3 -m pip install -r requirements-test.txt
   nox --sessions build
 }
 
 ## test - Runs local unit tests.
 function test() {
+  python3 -m pip install -r requirements-test.txt
   nox --sessions unit --python=3.13
 }
 
