@@ -85,8 +85,12 @@ function lint() {
 
 ## deps - updates project dependencies to latest
 function deps() {
-  echo "Todo: deps"
-  exit 1
+  if ! which pip-review ; then 
+    python3 -m pip install pip-review
+  fi
+  pip-review --auto -r requirements.txt
+  pip-review --auto -r requirements-test.txt
+  echo "Dependencies updated successfully."
 }
 
 # write_e2e_env - Loads secrets from the gcloud project and writes
