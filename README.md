@@ -41,7 +41,7 @@ providing the following benefits:
 The Cloud SQL Python Connector is a package to be used alongside a database driver.
 Currently supported drivers are:
  - [`pymysql`](https://github.com/PyMySQL/PyMySQL) (MySQL)
- - [`pg8000`](https://github.com/tlocke/pg8000) (PostgreSQL)
+ - [`pg8000`](https://codeberg.org/tlocke/pg8000) (PostgreSQL)
  - [`asyncpg`](https://github.com/MagicStack/asyncpg) (PostgreSQL)
  - [`pytds`](https://github.com/denisenkom/pytds) (SQL Server)
 
