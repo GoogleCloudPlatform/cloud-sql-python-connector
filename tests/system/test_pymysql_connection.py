@@ -90,11 +90,16 @@ def create_sqlalchemy_engine(
 
 def test_pymysql_connection() -> None:
     """Basic test to get time from database."""
-    inst_conn_name = os.environ["MYSQL_CONNECTION_NAME"]
-    user = os.environ["MYSQL_USER"]
-    password = os.environ["MYSQL_PASS"]
+    inst_conn_name = os.environ.get(
+        "MYSQL_PSA_CONNECTION_NAME", os.environ["MYSQL_CONNECTION_NAME"]
+    )
+    user = os.environ.get("MYSQL_PSA_USER", os.environ["MYSQL_USER"])
+    password = os.environ.get("MYSQL_PSA_PASS", os.environ["MYSQL_PASS"])
     db = os.environ["MYSQL_DB"]
     ip_type = os.environ.get("IP_TYPE", "public")
+
+    if ip_type == "private":
+        ip_type = "PSC"
 
     engine, connector = create_sqlalchemy_engine(
         inst_conn_name, user, password, db, ip_type
