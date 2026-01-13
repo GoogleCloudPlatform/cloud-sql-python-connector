@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.20.0](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v1.19.0...v1.20.0) (2026-01-13)
+
+
+### Features
+
+* Use configured DNS name to lookup instance IP address ([#1363](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/1363)) ([18eddc4](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/18eddc49c905f3caf02b9682c3594b5939b3f9f3)), closes [#1362](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/1362)
+
+
+### Dependencies
+
+* Update project dependencies to latest ([#1369](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/1369)) ([8cb6745](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/8cb674531a9dd23520824ac136e4dce7e8ce39b4))
+
 ## [1.19.0](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v1.18.5...v1.19.0) (2025-12-09)
 
 
