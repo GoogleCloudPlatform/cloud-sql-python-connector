@@ -33,6 +33,9 @@ fi
 source "$PWD/venv/bin/activate"
 python --version
 
+# Add PyPI as an extra index to find packages missing from the internal mirror
+export PIP_EXTRA_INDEX_URL=https://pypi.org/simple
+
 if which pip3 ; then
   PIP_CMD=pip3
 elif which pip ; then
