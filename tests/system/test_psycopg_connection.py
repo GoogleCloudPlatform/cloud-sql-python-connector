@@ -16,19 +16,16 @@ limitations under the License.
 
 import asyncio
 from datetime import datetime
+import logging
 import os
 
 # [START cloud_sql_connector_postgres_psycopg]
-from typing import Union
-
 from psycopg import Connection
 import pytest
-import logging
 import sqlalchemy
 
 from google.cloud.sql.connector import Connector
 from google.cloud.sql.connector import DefaultResolver
-from google.cloud.sql.connector import DnsResolver
 
 SERVER_PROXY_PORT = 3307
 

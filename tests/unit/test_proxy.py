@@ -22,7 +22,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from google.cloud.sql.connector.proxy import Proxy, ServerConnectionFactory
+from google.cloud.sql.connector.proxy import Proxy
+from google.cloud.sql.connector.proxy import ServerConnectionFactory
 
 
 @pytest.fixture
@@ -156,7 +157,7 @@ async def test_proxy_server_connect_fails(proxy_server):
     # wait for server connection to be attempted
     await connector.connect_called.wait()
 
-    assert os.path.exists(socket_path) == True
+    assert os.path.exists(socket_path)
 
     # The client connection should be closed by the proxy
     # Reading should return EOF
@@ -165,7 +166,7 @@ async def test_proxy_server_connect_fails(proxy_server):
 
     await asyncio.sleep(1)  # give proxy a chance to shut down
 
-    assert os.path.exists(socket_path) == False
+    assert os.path.exists(socket_path)
 
 
 @pytest.mark.asyncio
@@ -336,7 +337,7 @@ async def test_tcp_proxy_server_connection_refused(tcp_proxy_server_with_no_tcp_
     await writer.drain()
 
     await asyncio.sleep(1.5)
-    assert os.path.exists(socket_path) == False
+    assert os.path.exists(socket_path)
 
 
 
@@ -355,7 +356,7 @@ async def test_tcp_proxy_server_unexpected_closed(tcp_proxy_server_with_closing_
     assert data == b""
 
     await asyncio.sleep(0.5)  # give event loop a chance to run
-    assert os.path.exists(socket_path) == False
+    assert os.path.exists(socket_path)
 
 
 

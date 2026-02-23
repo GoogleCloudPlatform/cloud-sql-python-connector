@@ -15,7 +15,8 @@ limitations under the License.
 """
 
 import ssl
-from typing import Any, TYPE_CHECKING
+from typing import Any
+
 
 def connect(
     host: str, sock: ssl.SSLSocket, **kwargs: Any

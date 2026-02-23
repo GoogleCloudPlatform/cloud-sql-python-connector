@@ -503,59 +503,52 @@ class Connector:
         monitored_cache = await self._get_cache(
             instance_connection_string, enable_iam_auth, ip_type, driver
         )
-        conn_info = await monitored_cache.connect_info()
-        ip_address = conn_info.get_preferred_ip(ip_type)
 
         try:
             conn_info = await monitored_cache.connect_info()
             # validate driver matches intended database engine
             DriverMapping.validate_engine(driver, conn_info.database_version)
             ip_address = conn_info.get_preferred_ip(ip_type)
-        except Exception:
-            # with an error from Cloud SQL Admin API call or IP type, invalidate
-            # the cache and re-raise the error
-            await self._remove_cached(str(conn_name), enable_iam_auth)
-            raise
 
-        # If the connector is configured with a custom DNS name, attempt to use
-        # that DNS name to connect to the instance. Fall back to the metadata IP
-        # address if the DNS name does not resolve to an IP address.
-        if conn_info.conn_name.domain_name and isinstance(self._resolver, DnsResolver):
-            try:
-                ips = await self._resolver.resolve_a_record(conn_info.conn_name.domain_name)
-                if ips:
-                    ip_address = ips[0]
+            # If the connector is configured with a custom DNS name, attempt to use
+            # that DNS name to connect to the instance. Fall back to the metadata IP
+            # address if the DNS name does not resolve to an IP address.
+            if conn_info.conn_name.domain_name and isinstance(self._resolver, DnsResolver):
+                try:
+                    ips = await self._resolver.resolve_a_record(conn_info.conn_name.domain_name)
+                    if ips:
+                        ip_address = ips[0]
+                        logger.debug(
+                            f"['{instance_connection_string}']: Custom DNS name "
+                            f"'{conn_info.conn_name.domain_name}' resolved to '{ip_address}', "
+                            "using it to connect"
+                        )
+                    else:
+                        logger.debug(
+                            f"['{instance_connection_string}']: Custom DNS name "
+                            f"'{conn_info.conn_name.domain_name}' resolved but returned no "
+                            f"entries, using '{ip_address}' from instance metadata"
+                        )
+                except Exception as e:
                     logger.debug(
                         f"['{instance_connection_string}']: Custom DNS name "
-                        f"'{conn_info.conn_name.domain_name}' resolved to '{ip_address}', "
-                        "using it to connect"
+                        f"'{conn_info.conn_name.domain_name}' did not resolve to an IP "
+                        f"address: {e}, using '{ip_address}' from instance metadata"
                     )
-                else:
-                    logger.debug(
-                        f"['{instance_connection_string}']: Custom DNS name "
-                        f"'{conn_info.conn_name.domain_name}' resolved but returned no "
-                        f"entries, using '{ip_address}' from instance metadata"
-                    )
-            except Exception as e:
-                logger.debug(
-                    f"['{instance_connection_string}']: Custom DNS name "
-                    f"'{conn_info.conn_name.domain_name}' did not resolve to an IP "
-                    f"address: {e}, using '{ip_address}' from instance metadata"
-                )
 
-        logger.debug(f"['{conn_info.conn_name}']: Connecting to {ip_address}:3307")
-        # format `user` param for automatic IAM database authn
-        if enable_iam_auth:
-            formatted_user = format_database_user(
-                conn_info.database_version, kwargs["user"]
-            )
-            if formatted_user != kwargs["user"]:
-                logger.debug(
-                    f"['{instance_connection_string}']: "
-                    "Truncated IAM database username from "
-                    f"{kwargs['user']} to {formatted_user}"
+            logger.debug(f"['{conn_info.conn_name}']: Connecting to {ip_address}:3307")
+            # format `user` param for automatic IAM database authn
+            if enable_iam_auth:
+                formatted_user = format_database_user(
+                    conn_info.database_version, kwargs["user"]
                 )
-                kwargs["user"] = formatted_user
+                if formatted_user != kwargs["user"]:
+                    logger.debug(
+                        f"['{instance_connection_string}']: "
+                        "Truncated IAM database username from "
+                        f"{kwargs['user']} to {formatted_user}"
+                    )
+                    kwargs["user"] = formatted_user
 
             ctx = await conn_info.create_ssl_context(enable_iam_auth)
             # async drivers are unblocking and can be awaited directly
@@ -576,11 +569,9 @@ class Connector:
                 return await self._loop.run_in_executor(None, connect_partial)
 
         except Exception:
-            # with any exception, we attempt a force refresh, then throw the error
-            monitored_cache = await self._get_cache(
-                instance_connection_string, enable_iam_auth, ip_type, driver
-            )
-            await monitored_cache.force_refresh()
+            # with an error from Cloud SQL Admin API call or connection, invalidate
+            # the cache and re-raise the error
+            await self._remove_cached(str(conn_name), enable_iam_auth)
             raise
 
     async def start_unix_socket_proxy_async(

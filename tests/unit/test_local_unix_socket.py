@@ -18,8 +18,6 @@ import socket
 import ssl
 from typing import Any
 
-from mock import patch
-from mock import PropertyMock
 import pytest
 
 from google.cloud.sql.connector.local_unix_socket import connect

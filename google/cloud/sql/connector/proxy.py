@@ -224,7 +224,7 @@ class Proxy:
         
         :return: None
         """
-        logger.debug(f"Closing proxy server due to lost connection")
+        logger.debug("Closing proxy server due to lost connection")
         self._loop.create_task(self.close())
 
     async def _create_db_instance_connection(self, conn: ProxyClientConnection) -> None:

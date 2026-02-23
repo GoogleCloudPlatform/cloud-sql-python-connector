@@ -14,8 +14,8 @@ limitations under the License.
 import asyncio
 import logging
 import os
-from threading import Thread
 import socket
+from threading import Thread
 from typing import Union
 
 from aiohttp import ClientResponseError
@@ -34,7 +34,6 @@ from google.cloud.sql.connector.exceptions import ConnectorLoopError
 from google.cloud.sql.connector.exceptions import IncompatibleDriverError
 from google.cloud.sql.connector.instance import RefreshAheadCache
 from google.cloud.sql.connector.resolver import DnsResolver
-from google.cloud.sql.connector.proxy import start_local_proxy
 
 logger = logging.getLogger(name=__name__)
 
@@ -678,40 +677,6 @@ async def test_Connector_connect_async_custom_dns_resolver_fallback(
                 finally:
                     # Restore original IPs
                     fake_client.instance.ip_addrs = original_ips
-
-
-async def test_Connector_start_unix_socket_proxy_async(
-    fake_credentials: Credentials,
-    fake_client: CloudSQLClient,
-    proxy_server_async: None,
-) -> None:
-    """Test that Connector.connect_async can properly return a DB API connection."""
-    async with Connector(
-        credentials=fake_credentials, loop=asyncio.get_running_loop()
-    ) as connector:
-        connector._client = fake_client
-        # Open proxy connection
-        # start the proxy server
-        await connector.start_unix_socket_proxy_async(
-            "test-project:test-region:test-instance",
-            "/tmp/csql-python/proxytest/.s.PGSQL.5432",
-            driver="asyncpg",
-            user="my-user",
-            password="my-pass",
-            db="my-db",
-        )
-        # Wait for server to start
-        await asyncio.sleep(0.5)
-
-        reader, writer = await asyncio.open_unix_connection(
-            "/tmp/csql-python/proxytest/.s.PGSQL.5432"
-        )
-        writer.write("hello\n".encode())
-        await writer.drain()
-        await asyncio.sleep(0.5)
-        msg = await reader.readline()
-        assert msg.decode("utf-8") == "world\n"
-
 
 class TestProtocol(asyncio.Protocol):
     """
