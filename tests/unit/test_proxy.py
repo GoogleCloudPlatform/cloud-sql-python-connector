@@ -166,7 +166,7 @@ async def test_proxy_server_connect_fails(proxy_server):
 
     await asyncio.sleep(1)  # give proxy a chance to shut down
 
-    assert os.path.exists(socket_path)
+    assert not os.path.exists(socket_path)
 
 
 @pytest.mark.asyncio
@@ -337,7 +337,7 @@ async def test_tcp_proxy_server_connection_refused(tcp_proxy_server_with_no_tcp_
     await writer.drain()
 
     await asyncio.sleep(1.5)
-    assert os.path.exists(socket_path)
+    assert not os.path.exists(socket_path)
 
 
 
@@ -356,7 +356,7 @@ async def test_tcp_proxy_server_unexpected_closed(tcp_proxy_server_with_closing_
     assert data == b""
 
     await asyncio.sleep(0.5)  # give event loop a chance to run
-    assert os.path.exists(socket_path)
+    assert not os.path.exists(socket_path)
 
 
 
