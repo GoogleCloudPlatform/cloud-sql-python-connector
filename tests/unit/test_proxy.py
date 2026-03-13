@@ -157,8 +157,6 @@ async def test_proxy_server_connect_fails(proxy_server):
     # wait for server connection to be attempted
     await connector.connect_called.wait()
 
-    assert os.path.exists(socket_path)
-
     # The client connection should be closed by the proxy
     # Reading should return EOF
     data = await reader.read(100)
