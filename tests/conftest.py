@@ -131,7 +131,8 @@ async def start_proxy_server_async(
         handler, host=ip_address, port=port, ssl=context
     )
     logger.debug("Listening on 127.0.0.1:3307")
-    asyncio.create_task(server.serve_forever())
+    # Start accepting connections without creating a long-running serve_forever task.
+    await server.start_serving()
     return server
 
 
@@ -164,8 +165,10 @@ def proxy_server_async(fake_instance: FakeCSQLInstance):
     # Stop the server after the test is complete
     async def stop_server():
         logger.debug("inside_cleanup closing server")
-        server_fut.result().close()
-        loop.shutdown_asyncgens()
+        server = server_fut.result()
+        server.close()
+        await server.wait_closed()
+        await loop.shutdown_asyncgens()
         loop.stop()
         logger.debug("inside_cleanup end")
 
@@ -207,8 +210,10 @@ def proxy_server(fake_instance: FakeCSQLInstance):
     # Stop the server after the test is complete
     async def stop_server():
         logger.debug("inside_cleanup closing server")
-        server_fut.result().close()
-        loop.shutdown_asyncgens()
+        server = server_fut.result()
+        server.close()
+        await server.wait_closed()
+        await loop.shutdown_asyncgens()
         loop.stop()
         logger.debug("inside_cleanup end")
 
