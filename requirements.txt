@@ -23,7 +23,7 @@ packaging==26.0
 pip-review==1.3.0
 platformdirs==4.5.1
 propcache==0.4.1
-pyasn1==0.6.2
+pyasn1==0.6.3
 pyasn1_modules==0.4.2
 pycparser==3.0
 requests==2.32.5
