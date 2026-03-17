@@ -29,5 +29,5 @@ pycparser==3.0
 requests==2.32.5
 rsa==4.9.1
 urllib3==2.6.3
-virtualenv==20.36.1
+virtualenv==21.2.0
 yarl==1.23.0
