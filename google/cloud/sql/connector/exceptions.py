@@ -91,3 +91,9 @@ class ClosedConnectorError(Exception):
     Exception to be raised when a Connector is closed and connect method is
     called on it.
     """
+
+
+class LocalProxyStartupError(Exception):
+    """
+    Exception to be raised when a the local UNIX-socket based proxy can not be started.
+    """

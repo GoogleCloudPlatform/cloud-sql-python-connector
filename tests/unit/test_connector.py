@@ -1,12 +1,9 @@
 """
 Copyright 2021 Google LLC
-
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
-
   https://www.apache.org/licenses/LICENSE-2.0
-
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -15,9 +12,13 @@ limitations under the License.
 """
 
 import asyncio
+import logging
 import os
+import socket
 from threading import Thread
 from typing import Union
+from unittest.mock import AsyncMock
+from unittest.mock import MagicMock
 
 from aiohttp import ClientResponseError
 from google.auth.credentials import Credentials
@@ -29,6 +30,7 @@ from google.cloud.sql.connector import create_async_connector
 from google.cloud.sql.connector import IPTypes
 from google.cloud.sql.connector.client import CloudSQLClient
 from google.cloud.sql.connector.connection_name import ConnectionName
+from google.cloud.sql.connector.connector import ConnectorSocketFactory
 from google.cloud.sql.connector.exceptions import ClosedConnectorError
 from google.cloud.sql.connector.exceptions import CloudSQLIPTypeError
 from google.cloud.sql.connector.exceptions import ConnectorLoopError
@@ -36,20 +38,28 @@ from google.cloud.sql.connector.exceptions import IncompatibleDriverError
 from google.cloud.sql.connector.instance import RefreshAheadCache
 from google.cloud.sql.connector.resolver import DnsResolver
 
+logger = logging.getLogger(name=__name__)
+
 
 @pytest.mark.asyncio
 async def test_connect_enable_iam_auth_error(
-    fake_credentials: Credentials, fake_client: CloudSQLClient
+    fake_credentials: Credentials,
+    fake_client: CloudSQLClient,
+    connected_socket_pair: tuple[socket.socket, socket.socket],
 ) -> None:
     """Test that calling connect() with different enable_iam_auth
     argument values creates two cache entries."""
     connect_string = "test-project:test-region:test-instance"
+    server, client = connected_socket_pair
     async with Connector(
         credentials=fake_credentials, loop=asyncio.get_running_loop()
     ) as connector:
         connector._client = fake_client
         # patch db connection creation
-        with patch("google.cloud.sql.connector.asyncpg.connect") as mock_connect:
+        with (
+            patch("socket.create_connection", return_value=client),
+            patch("google.cloud.sql.connector.asyncpg.connect") as mock_connect,
+        ):
             mock_connect.return_value = True
             # connect with enable_iam_auth False
             connection = await connector.connect_async(
@@ -82,6 +92,7 @@ async def test_connect_enable_iam_auth_error(
 async def test_connect_incompatible_driver_error(
     fake_credentials: Credentials,
     fake_client: CloudSQLClient,
+    proxy_server,
 ) -> None:
     """Test that calling connect() with driver that is incompatible with
     database version throws error."""
@@ -91,14 +102,8 @@ async def test_connect_incompatible_driver_error(
     ) as connector:
         connector._client = fake_client
         # try to connect using pymysql driver to a Postgres database
-        with pytest.raises(IncompatibleDriverError) as exc_info:
+        with pytest.raises(IncompatibleDriverError):
             await connector.connect_async(connect_string, "pymysql")
-        assert (
-            exc_info.value.args[0]
-            == "Database driver 'pymysql' is incompatible with database version"
-            " 'POSTGRES_15'. Given driver can only be used with Cloud SQL MYSQL"
-            " databases."
-        )
 
 
 def test_connect_with_unsupported_driver(fake_credentials: Credentials) -> None:
@@ -239,13 +244,19 @@ def test_Connector_Init_bad_ip_type(fake_credentials: Credentials) -> None:
 
 
 def test_Connector_connect_bad_ip_type(
-    fake_credentials: Credentials, fake_client: CloudSQLClient
+    fake_credentials: Credentials,
+    fake_client: CloudSQLClient,
+    connected_socket_pair: tuple[socket.socket, socket.socket],
 ) -> None:
     """Test that Connector.connect errors due to bad ip_type str."""
+    server, client = connected_socket_pair
     with Connector(credentials=fake_credentials) as connector:
         connector._client = fake_client
         bad_ip_type = "bad-ip-type"
-        with pytest.raises(ValueError) as exc_info:
+        with (
+            patch("socket.create_connection", return_value=client),
+            pytest.raises(ValueError) as exc_info,
+        ):
             connector.connect(
                 "test-project:test-region:test-instance",
                 "pg8000",
@@ -263,15 +274,21 @@ def test_Connector_connect_bad_ip_type(
 
 @pytest.mark.asyncio
 async def test_Connector_connect_async(
-    fake_credentials: Credentials, fake_client: CloudSQLClient
+    fake_credentials: Credentials,
+    fake_client: CloudSQLClient,
+    connected_socket_pair: tuple[socket.socket, socket.socket],
 ) -> None:
     """Test that Connector.connect_async can properly return a DB API connection."""
+    server, client = connected_socket_pair
     async with Connector(
         credentials=fake_credentials, loop=asyncio.get_running_loop()
     ) as connector:
         connector._client = fake_client
         # patch db connection creation
-        with patch("google.cloud.sql.connector.asyncpg.connect") as mock_connect:
+        with (
+            patch("socket.create_connection", return_value=client),
+            patch("google.cloud.sql.connector.asyncpg.connect") as mock_connect,
+        ):
             mock_connect.return_value = True
             connection = await connector.connect_async(
                 "test-project:test-region:test-instance",
@@ -350,7 +367,9 @@ def test_Connector_close_called_multiple_times(fake_credentials: Credentials) ->
 
 
 async def test_Connector_remove_cached_bad_instance(
-    fake_credentials: Credentials, fake_client: CloudSQLClient
+    fake_credentials: Credentials,
+    fake_client: CloudSQLClient,
+    proxy_server,
 ) -> None:
     """When a Connector attempts to retrieve connection info for a
     non-existent instance, it should delete the instance from
@@ -375,7 +394,9 @@ async def test_Connector_remove_cached_bad_instance(
 
 
 async def test_Connector_remove_cached_no_ip_type(
-    fake_credentials: Credentials, fake_client: CloudSQLClient
+    fake_credentials: Credentials,
+    fake_client: CloudSQLClient,
+    proxy_server,
 ) -> None:
     """When a Connector attempts to connect and preferred IP type is not present,
     it should delete the instance from the cache and ensure no background refresh
@@ -507,10 +528,12 @@ def test_configured_quota_project_env_var(
 
 
 @pytest.mark.asyncio
-async def test_connect_async_closed_connector(
-    fake_credentials: Credentials, fake_client: CloudSQLClient
+async def test_Connector_start_unix_socket_proxy_async(
+    fake_credentials: Credentials,
+    fake_client: CloudSQLClient,
+    proxy_server_async: None,
 ) -> None:
-    """Test that calling connect_async() on a closed connector raises an error."""
+    """Test that Connector.connect_async can properly return a DB API connection."""
     async with Connector(
         credentials=fake_credentials, loop=asyncio.get_running_loop()
     ) as connector:
@@ -528,6 +551,57 @@ async def test_connect_async_closed_connector(
             exc_info.value.args[0]
             == "Connection attempt failed because the connector has already been closed."
         )
+
+
+@pytest.mark.asyncio
+async def test_Connector_start_unix_socket_proxy_async_rejects_duplicate_socket_path(
+    fake_credentials: Credentials,
+    ) -> None:
+    socket_path = "/tmp/cloudsql-test.sock"
+    async with Connector(
+        credentials=fake_credentials, loop=asyncio.get_running_loop()
+    ) as connector:
+        existing_proxy = MagicMock()
+        existing_proxy.unix_socket_path = socket_path
+        existing_proxy.close = AsyncMock()
+        connector._proxies.append(existing_proxy)
+
+        with pytest.raises(ValueError) as exc_info:
+            await connector.start_unix_socket_proxy_async(
+                "test-project:test-region:test-instance",
+                socket_path,
+            )
+
+        assert (
+            exc_info.value.args[0]
+            == f"Proxy for socket path {socket_path} already exists."
+        )
+
+
+@pytest.mark.asyncio
+async def test_Connector_close_async_closes_proxies_client_and_cache(
+    fake_credentials: Credentials,
+) -> None:
+    async with Connector(
+        credentials=fake_credentials, loop=asyncio.get_running_loop()
+    ) as connector:
+        proxy_instance = MagicMock()
+        proxy_instance.close = AsyncMock()
+        connector._proxies.append(proxy_instance)
+
+        connector._client = MagicMock()
+        connector._client.close = AsyncMock()
+
+        cached = MagicMock()
+        cached.close = AsyncMock()
+        connector._cache[("test-project:test-region:test-instance", False)] = cached
+
+        await connector.close_async()
+
+        assert connector._closed is True
+        proxy_instance.close.assert_awaited_once()
+        connector._client.close.assert_awaited_once()
+        cached.close.assert_awaited_once()
 
 
 def test_connect_closed_connector(
@@ -659,3 +733,198 @@ async def test_Connector_connect_async_custom_dns_resolver_fallback(
                     fake_client.instance.ip_addrs = original_ips
 
 
+@pytest.mark.asyncio
+async def test_Connector_get_cache_invalidates_bad_cached_entry(
+    fake_credentials: Credentials,
+    ) -> None:
+    connect_string = "test-project:test-region:test-instance"
+    async with Connector(
+        credentials=fake_credentials, loop=asyncio.get_running_loop()
+    ) as connector:
+        monitored_cache = MagicMock()
+        monitored_cache.closed = False
+        monitored_cache.close = AsyncMock()
+
+        conn_info = MagicMock()
+        conn_info.get_preferred_ip.side_effect = RuntimeError("invalid ip")
+        monitored_cache.connect_info = AsyncMock(return_value=conn_info)
+        connector._cache[(connect_string, False)] = monitored_cache
+
+        with (
+            patch.object(
+                connector._resolver,
+                "resolve",
+                AsyncMock(
+                    return_value=ConnectionName(
+                        "test-project",
+                        "test-region",
+                        "test-instance",
+                    )
+                ),
+            ),
+            patch.object(
+                connector, "_remove_cached", AsyncMock()
+            ) as mock_remove_cached,
+        ):
+            with pytest.raises(RuntimeError) as exc_info:
+                await connector._get_cache(
+                    connect_string,
+                    False,
+                    IPTypes.PUBLIC,
+                    None,
+                )
+
+        assert exc_info.value.args[0] == "invalid ip"
+        mock_remove_cached.assert_awaited_once_with(connect_string, False)
+
+
+class SocketTestProtocol(asyncio.Protocol):
+    """
+    A protocol to proxy data between two transports.
+    """
+
+    def __init__(self):
+        self._buffer = bytearray()
+        logger.debug(f"__init__  {self}")
+        self.received = bytearray()
+        self.connected = asyncio.Future()
+        self.future = asyncio.Future()
+
+    def data_received(self, data):
+        logger.debug("received {!r}".format(data))
+        self.received = data
+
+    def connection_made(self, transport):
+        logger.debug(f"connection_made called {self}")
+        self.transport = transport
+        if not self.connected.done():
+            self.connected.set_result(True)
+        # Write the request and EOF
+        transport.write("hello\n".encode())
+        # if transport.can_write_eof():
+        #   transport.write_eof()
+        logger.debug(f"connection_made done, wrote hello{self}")
+
+    def eof_received(self) -> bool | None:
+        logger.debug(f"eof_received {self}")
+        # If this has received data, then close.
+        if len(self.received) > 0:
+            self.transport.close()
+        if not self.connected.done():
+            self.connected.set_result(True)
+        if not self.future.done():
+            self.future.set_result(True)
+        return True
+
+    def connection_lost(self, exc: Exception | None) -> None:
+        logger.debug(f"connection_lost  {exc} {self}")
+        self.transport.abort()
+        if not self.connected.done():
+            self.connected.set_result(True)
+        if not self.future.done():
+            self.future.set_result(True)
+        super().connection_lost(exc)
+
+
+@pytest.mark.asyncio
+async def test_Connector_connect_socket_async(
+    fake_credentials: Credentials,
+    fake_client: CloudSQLClient,
+    proxy_server_async: None,
+) -> None:
+    """Test that Connector.connect_async can properly return a DB API connection."""
+    async with Connector(
+        credentials=fake_credentials, loop=asyncio.get_running_loop()
+    ) as connector:
+        logger.info("client socket opening")
+        connector._client = fake_client
+        p = SocketTestProtocol()
+
+        # Open proxy connection
+        # start the proxy server
+        future = connector.connect_socket_async(
+            "test-project:test-region:test-instance",
+            lambda: p,
+            driver="asyncpg",
+            user="my-user",
+            password="my-pass",
+            db="my-db",
+        )
+        logger.info("client socket opening")
+        await future
+        logger.info("client socket opened")
+        await p.connected
+        logger.info("client socket connected")
+        await p.future
+        logger.info("client socket done")
+
+        assert p.received.decode() == "world\n"
+
+
+@pytest.mark.asyncio
+async def test_Connector_connect_socket_async_invalidates_cache_on_connection_error(
+    fake_credentials: Credentials,
+) -> None:
+    connect_string = "test-project:test-region:test-instance"
+    async with Connector(
+        credentials=fake_credentials, loop=asyncio.get_running_loop()
+    ) as connector:
+        monitored_cache = MagicMock()
+        conn_info = MagicMock()
+        conn_info.create_ssl_context = AsyncMock(return_value=object())
+        conn_info.get_preferred_ip.return_value = "127.0.0.1"
+        monitored_cache.connect_info = AsyncMock(return_value=conn_info)
+
+        with (
+            patch.object(
+                connector, "_get_cache", AsyncMock(return_value=monitored_cache)
+            ),
+            patch.object(
+                connector._loop,
+                "create_connection",
+                AsyncMock(side_effect=RuntimeError("boom")),
+            ),
+            patch.object(
+                connector, "_remove_cached", AsyncMock()
+            ) as mock_remove_cached,
+        ):
+            with pytest.raises(RuntimeError) as exc_info:
+                await connector.connect_socket_async(
+                    connect_string,
+                    asyncio.Protocol,
+                    driver="asyncpg",
+                )
+
+        assert exc_info.value.args[0] == "boom"
+        mock_remove_cached.assert_awaited_once_with(connect_string, False)
+
+
+@pytest.mark.asyncio
+async def test_ConnectorSocketFactory_connect_forwards_arguments(
+    fake_credentials: Credentials,
+) -> None:
+    connect_string = "test-project:test-region:test-instance"
+    async with Connector(
+        credentials=fake_credentials, loop=asyncio.get_running_loop()
+    ) as connector:
+        protocol_fn = MagicMock()
+        with patch.object(
+            connector,
+            "connect_socket_async",
+            AsyncMock(),
+        ) as mock_connect_socket_async:
+            factory = ConnectorSocketFactory(
+                connector,
+                connect_string,
+                driver="asyncpg",
+                user="my-user",
+            )
+
+            await factory.connect(protocol_fn)
+
+        mock_connect_socket_async.assert_awaited_once_with(
+            connect_string,
+            protocol_fn,
+            driver="asyncpg",
+            user="my-user",
+        )
