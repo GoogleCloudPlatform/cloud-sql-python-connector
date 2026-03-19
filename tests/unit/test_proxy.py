@@ -22,7 +22,10 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from google.cloud.sql.connector.proxy import BaseProxyProtocol
+from google.cloud.sql.connector.proxy import ClientToServerProtocol
 from google.cloud.sql.connector.proxy import Proxy
+from google.cloud.sql.connector.proxy import ProxyClientConnection
 from google.cloud.sql.connector.proxy import ServerConnectionFactory
 
 
@@ -48,6 +51,70 @@ async def test_proxy_creates_folder_and_socket(short_tmpdir):
     assert os.path.exists(socket_path)
 
     await proxy.close()
+
+
+def test_base_proxy_protocol_flushes_cached_data_when_target_is_set():
+    protocol = BaseProxyProtocol(MagicMock())
+    target = MagicMock(spec=asyncio.Transport)
+
+    protocol.data_received(b"hello")
+    protocol.data_received(b"world")
+    protocol.set_target(target)
+
+    target.writelines.assert_called_once_with([b"hello", b"world"])
+    assert protocol._cached == []
+
+
+def test_base_proxy_protocol_forwards_eof_and_close_to_target():
+    protocol = BaseProxyProtocol(MagicMock())
+    target = MagicMock(spec=asyncio.Transport)
+    protocol.set_target(target)
+
+    protocol.eof_received()
+    protocol.connection_lost(None)
+
+    target.write_eof.assert_called_once()
+    target.close.assert_called_once()
+
+
+def test_proxy_client_connection_close_prefers_write_eof():
+    client_transport = MagicMock(spec=asyncio.Transport)
+    client_transport.is_closing.return_value = False
+    client_transport.can_write_eof.return_value = True
+
+    server_transport = MagicMock(spec=asyncio.Transport)
+    server_transport.is_closing.return_value = False
+    server_transport.can_write_eof.return_value = True
+
+    connection = ProxyClientConnection(client_transport, MagicMock())
+    connection.server_transport = server_transport
+
+    connection.close()
+
+    client_transport.write_eof.assert_called_once()
+    server_transport.write_eof.assert_called_once()
+
+
+def test_proxy_client_connection_close_falls_back_to_close():
+    client_transport = MagicMock(spec=asyncio.Transport)
+    client_transport.is_closing.return_value = False
+    client_transport.can_write_eof.return_value = False
+
+    connection = ProxyClientConnection(client_transport, MagicMock())
+
+    connection.close()
+
+    client_transport.close.assert_called_once()
+
+
+def test_client_to_server_protocol_opens_backend_connection_on_accept():
+    proxy = MagicMock()
+    protocol = ClientToServerProtocol(proxy)
+    transport = MagicMock(spec=asyncio.Transport)
+
+    protocol.connection_made(transport)
+
+    proxy._handle_client_connection.assert_called_once_with(transport, protocol)
 
 
 # A mock ServerConnectionFactory for testing purposes.

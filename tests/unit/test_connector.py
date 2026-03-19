@@ -17,6 +17,8 @@ import os
 import socket
 from threading import Thread
 from typing import Union
+from unittest.mock import AsyncMock
+from unittest.mock import MagicMock
 
 from aiohttp import ClientResponseError
 from google.auth.credentials import Credentials
@@ -28,6 +30,7 @@ from google.cloud.sql.connector import create_async_connector
 from google.cloud.sql.connector import IPTypes
 from google.cloud.sql.connector.client import CloudSQLClient
 from google.cloud.sql.connector.connection_name import ConnectionName
+from google.cloud.sql.connector.connector import ConnectorSocketFactory
 from google.cloud.sql.connector.exceptions import ClosedConnectorError
 from google.cloud.sql.connector.exceptions import CloudSQLIPTypeError
 from google.cloud.sql.connector.exceptions import ConnectorLoopError
@@ -550,6 +553,57 @@ async def test_Connector_start_unix_socket_proxy_async(
         )
 
 
+@pytest.mark.asyncio
+async def test_Connector_start_unix_socket_proxy_async_rejects_duplicate_socket_path(
+    fake_credentials: Credentials,
+    ) -> None:
+    socket_path = "/tmp/cloudsql-test.sock"
+    async with Connector(
+        credentials=fake_credentials, loop=asyncio.get_running_loop()
+    ) as connector:
+        existing_proxy = MagicMock()
+        existing_proxy.unix_socket_path = socket_path
+        existing_proxy.close = AsyncMock()
+        connector._proxies.append(existing_proxy)
+
+        with pytest.raises(ValueError) as exc_info:
+            await connector.start_unix_socket_proxy_async(
+                "test-project:test-region:test-instance",
+                socket_path,
+            )
+
+        assert (
+            exc_info.value.args[0]
+            == f"Proxy for socket path {socket_path} already exists."
+        )
+
+
+@pytest.mark.asyncio
+async def test_Connector_close_async_closes_proxies_client_and_cache(
+    fake_credentials: Credentials,
+) -> None:
+    async with Connector(
+        credentials=fake_credentials, loop=asyncio.get_running_loop()
+    ) as connector:
+        proxy_instance = MagicMock()
+        proxy_instance.close = AsyncMock()
+        connector._proxies.append(proxy_instance)
+
+        connector._client = MagicMock()
+        connector._client.close = AsyncMock()
+
+        cached = MagicMock()
+        cached.close = AsyncMock()
+        connector._cache[("test-project:test-region:test-instance", False)] = cached
+
+        await connector.close_async()
+
+        assert connector._closed is True
+        proxy_instance.close.assert_awaited_once()
+        connector._client.close.assert_awaited_once()
+        cached.close.assert_awaited_once()
+
+
 def test_connect_closed_connector(
     fake_credentials: Credentials, fake_client: CloudSQLClient
 ) -> None:
@@ -678,7 +732,53 @@ async def test_Connector_connect_async_custom_dns_resolver_fallback(
                     # Restore original IPs
                     fake_client.instance.ip_addrs = original_ips
 
-class TestProtocol(asyncio.Protocol):
+
+@pytest.mark.asyncio
+async def test_Connector_get_cache_invalidates_bad_cached_entry(
+    fake_credentials: Credentials,
+    ) -> None:
+    connect_string = "test-project:test-region:test-instance"
+    async with Connector(
+        credentials=fake_credentials, loop=asyncio.get_running_loop()
+    ) as connector:
+        monitored_cache = MagicMock()
+        monitored_cache.closed = False
+        monitored_cache.close = AsyncMock()
+
+        conn_info = MagicMock()
+        conn_info.get_preferred_ip.side_effect = RuntimeError("invalid ip")
+        monitored_cache.connect_info = AsyncMock(return_value=conn_info)
+        connector._cache[(connect_string, False)] = monitored_cache
+
+        with (
+            patch.object(
+                connector._resolver,
+                "resolve",
+                AsyncMock(
+                    return_value=ConnectionName(
+                        "test-project",
+                        "test-region",
+                        "test-instance",
+                    )
+                ),
+            ),
+            patch.object(
+                connector, "_remove_cached", AsyncMock()
+            ) as mock_remove_cached,
+        ):
+            with pytest.raises(RuntimeError) as exc_info:
+                await connector._get_cache(
+                    connect_string,
+                    False,
+                    IPTypes.PUBLIC,
+                    None,
+                )
+
+        assert exc_info.value.args[0] == "invalid ip"
+        mock_remove_cached.assert_awaited_once_with(connect_string, False)
+
+
+class SocketTestProtocol(asyncio.Protocol):
     """
     A protocol to proxy data between two transports.
     """
@@ -738,7 +838,7 @@ async def test_Connector_connect_socket_async(
     ) as connector:
         logger.info("client socket opening")
         connector._client = fake_client
-        p = TestProtocol()
+        p = SocketTestProtocol()
 
         # Open proxy connection
         # start the proxy server
@@ -759,3 +859,72 @@ async def test_Connector_connect_socket_async(
         logger.info("client socket done")
 
         assert p.received.decode() == "world\n"
+
+
+@pytest.mark.asyncio
+async def test_Connector_connect_socket_async_invalidates_cache_on_connection_error(
+    fake_credentials: Credentials,
+) -> None:
+    connect_string = "test-project:test-region:test-instance"
+    async with Connector(
+        credentials=fake_credentials, loop=asyncio.get_running_loop()
+    ) as connector:
+        monitored_cache = MagicMock()
+        conn_info = MagicMock()
+        conn_info.create_ssl_context = AsyncMock(return_value=object())
+        conn_info.get_preferred_ip.return_value = "127.0.0.1"
+        monitored_cache.connect_info = AsyncMock(return_value=conn_info)
+
+        with (
+            patch.object(
+                connector, "_get_cache", AsyncMock(return_value=monitored_cache)
+            ),
+            patch.object(
+                connector._loop,
+                "create_connection",
+                AsyncMock(side_effect=RuntimeError("boom")),
+            ),
+            patch.object(
+                connector, "_remove_cached", AsyncMock()
+            ) as mock_remove_cached,
+        ):
+            with pytest.raises(RuntimeError) as exc_info:
+                await connector.connect_socket_async(
+                    connect_string,
+                    asyncio.Protocol,
+                    driver="asyncpg",
+                )
+
+        assert exc_info.value.args[0] == "boom"
+        mock_remove_cached.assert_awaited_once_with(connect_string, False)
+
+
+@pytest.mark.asyncio
+async def test_ConnectorSocketFactory_connect_forwards_arguments(
+    fake_credentials: Credentials,
+) -> None:
+    connect_string = "test-project:test-region:test-instance"
+    async with Connector(
+        credentials=fake_credentials, loop=asyncio.get_running_loop()
+    ) as connector:
+        protocol_fn = MagicMock()
+        with patch.object(
+            connector,
+            "connect_socket_async",
+            AsyncMock(),
+        ) as mock_connect_socket_async:
+            factory = ConnectorSocketFactory(
+                connector,
+                connect_string,
+                driver="asyncpg",
+                user="my-user",
+            )
+
+            await factory.connect(protocol_fn)
+
+        mock_connect_socket_async.assert_awaited_once_with(
+            connect_string,
+            protocol_fn,
+            driver="asyncpg",
+            user="my-user",
+        )
