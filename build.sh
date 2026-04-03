@@ -23,6 +23,7 @@ SCRIPT_FILE="${SCRIPT_DIR}/$(basename "$0")"
 ##
 ## These functions should be used to run the local development process
 ##
+function init_venv() {
 
 if [[ ! -d venv ]] ; then
   echo "./venv not found. Setting up venv"
@@ -30,6 +31,10 @@ if [[ ! -d venv ]] ; then
 fi
 
 source "$PWD/venv/bin/activate"
+python --version
+
+# Add PyPI as an extra index to find packages missing from the internal mirror
+export PIP_EXTRA_INDEX_URL=https://pypi.org/simple
 
 if which pip3 ; then
   PIP_CMD=pip3
@@ -39,10 +44,12 @@ else
   echo "pip not found. Please add pip to your path."
   exit 1
 fi
+
 if ! which nox ; then
-  python3 -m pip install nox
+  $PIP_CMD install nox
 fi
 
+}
 
 
 ## clean - Cleans the build output
@@ -130,6 +137,7 @@ function write_e2e_env(){
     echo "the e2e test suite secrets."
     exit 1
   fi
+  local_user=$(gcloud auth list --format 'value(account)' | grep '@google.com' | tr -d '\n')
 
   echo "Getting test secrets from $TEST_PROJECT into $1"
   {
@@ -140,10 +148,15 @@ function write_e2e_env(){
     val=$(gcloud secrets versions access latest --project "$TEST_PROJECT" --secret="$secret_name")
     echo "export $env_var_name='$val'"
   done
+
+  # Set IAM User env vars to the local gcloud user
+  echo "export MYSQL_IAM_USER='${local_user%%@*}'"
+  echo "export MYSQL_USER_IAM='${local_user%%@*}'"
+  echo "export POSTGRES_IAM_USER='$local_user'"
+  echo "export POSTGRES_USER_IAM='$local_user'"
+
   # Aliases for python e2e tests
   echo "export POSTGRES_CUSTOMER_CAS_PASS_VALID_DOMAIN_NAME=\"\$POSTGRES_CUSTOMER_CAS_DOMAIN_NAME\""
-  echo "export POSTGRES_IAM_USER=\"\$POSTGRES_USER_IAM\""
-  echo "export MYSQL_IAM_USER=\"\$MYSQL_USER_IAM\""
   } > "$1"
 
 }
@@ -172,6 +185,7 @@ if [[ "$#" -lt 1 ]] ; then
 fi
 
 cd "$SCRIPT_DIR"
+init_venv
 
 "$@"
 
