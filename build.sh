@@ -85,11 +85,12 @@ function lint() {
 
 ## deps - updates project dependencies to latest
 function deps() {
+  set -x
   if ! which pip-review ; then 
     python3 -m pip install pip-review
   fi
-  pip-review --auto -r requirements.txt
-  pip-review --auto -r requirements-test.txt
+  export PIP_INDEX_URL=https://pypi.org/simple
+  nox --sessions deps
   echo "Dependencies updated successfully."
 }
 
