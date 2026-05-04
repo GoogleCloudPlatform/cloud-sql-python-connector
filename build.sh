@@ -30,6 +30,7 @@ if [[ ! -d venv ]] ; then
 fi
 
 source "$PWD/venv/bin/activate"
+export PIP_INDEX_URL=https://pypi.org/simple
 
 if which pip3 ; then
   PIP_CMD=pip3

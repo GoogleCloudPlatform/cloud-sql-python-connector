@@ -26,6 +26,23 @@ TEST_PYTHON_VERSIONS = ["3.10", "3.11", "3.12", "3.13", "3.14"]
 
 
 @nox.session
+def deps(session):
+    """Run linters.
+    Returns a failure if the linters find linting errors or sufficiently
+    serious code quality issues.
+    """
+    session.install("-r", "requirements-test.txt")
+    session.install("-e", ".")
+    session.install("-r", "requirements.txt")
+    session.install(
+        "pip-review",
+    )
+    session.run(
+        "pip-review","--auto","--freeze-outdated-packages",
+    )
+
+
+@nox.session
 def lint(session):
     """Run linters.
     Returns a failure if the linters find linting errors or sufficiently
