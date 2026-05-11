@@ -28,6 +28,6 @@ pyasn1_modules==0.4.2
 pycparser==3.0
 requests==2.33.1
 rsa==4.9.1
-urllib3==2.6.3
+urllib3==2.7.0
 virtualenv==21.2.4
 yarl==1.23.0
