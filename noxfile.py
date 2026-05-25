@@ -38,7 +38,7 @@ def deps(session):
         "pip-review",
     )
     session.run(
-        "pip-review","--auto","--freeze-outdated-packages",
+        "pip-review", "--auto",
     )
 
 
