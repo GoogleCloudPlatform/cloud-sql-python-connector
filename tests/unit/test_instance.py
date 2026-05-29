@@ -249,13 +249,13 @@ async def test_get_preferred_ip_CloudSQLIPTypeError(cache: RefreshAheadCache) ->
     when missing Public or Private IP addresses.
     """
     instance_metadata: ConnectionInfo = await cache._current
-    instance_metadata.ip_addrs = {"PRIVATE": "1.1.1.1"}
+    instance_metadata.ip_addrs = {"PRIVATE": ["1.1.1.1"]}
     # test error when Public IP is missing
     with pytest.raises(CloudSQLIPTypeError):
         instance_metadata.get_preferred_ip(IPTypes.PUBLIC)
 
     # test error when Private IP is missing
-    instance_metadata.ip_addrs = {"PRIMARY": "0.0.0.0"}
+    instance_metadata.ip_addrs = {"PRIMARY": ["0.0.0.0"]}
     with pytest.raises(CloudSQLIPTypeError):
         instance_metadata.get_preferred_ip(IPTypes.PRIVATE)
 

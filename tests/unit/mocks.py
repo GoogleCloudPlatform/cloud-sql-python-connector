@@ -227,6 +227,7 @@ class FakeCSQLInstance:
             "PRIMARY": "127.0.0.1",
             "PRIVATE": "10.0.0.1",
         },
+        dns_names: list = ["abcde.12345.us-central1.sql.goog"],
         legacy_dns_name: bool = False,
         cert_before: datetime = datetime.datetime.now(datetime.timezone.utc),
         cert_expiration: datetime = datetime.datetime.now(datetime.timezone.utc)
@@ -237,6 +238,7 @@ class FakeCSQLInstance:
         self.name = name
         self.db_version = db_version
         self.ip_addrs = ip_addrs
+        self.dns_names = dns_names
         self.psc_enabled = False
         self.cert_before = cert_before
         self.cert_expiration = cert_expiration
@@ -265,14 +267,15 @@ class FakeCSQLInstance:
             "databaseVersion": self.db_version,
         }
         if self.legacy_dns_name:
-            response["dnsName"] = "abcde.12345.us-central1.sql.goog"
+            response["dnsName"] = self.dns_names[0] if self.dns_names else None
         else:
             response["dnsNames"] = [
                 {
-                    "name": "abcde.12345.us-central1.sql.goog",
+                    "name": name,
                     "connectionType": "PRIVATE_SERVICE_CONNECT",
                     "dnsScope": "INSTANCE",
                 }
+                for name in self.dns_names
             ]
 
         return web.Response(content_type="application/json", body=json.dumps(response))

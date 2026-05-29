@@ -10,3 +10,7 @@ dist/
 sponge_log.xml
 .envrc
 *.iml
+.mypy_cache/
+.nox/
+.pytest_cache/
+.ruff_cache/

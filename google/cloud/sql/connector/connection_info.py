@@ -122,6 +122,17 @@ class ConnectionInfo:
         supplied by ip_type. If no IP addressess with the given preference are found,
         an error is raised."""
         if ip_type.value in self.ip_addrs:
+            return self.ip_addrs[ip_type.value][0]
+        raise CloudSQLIPTypeError(
+            "Cloud SQL instance does not have any IP addresses matching "
+            f"preference: {ip_type.value}"
+        )
+
+    def get_preferred_ips(self, ip_type: IPTypes) -> list[str]:
+        """Returns all IP addresses for the instance, according to the preference
+        supplied by ip_type. If no IP addressess with the given preference are found,
+        an error is raised."""
+        if ip_type.value in self.ip_addrs:
             return self.ip_addrs[ip_type.value]
         raise CloudSQLIPTypeError(
             "Cloud SQL instance does not have any IP addresses matching "

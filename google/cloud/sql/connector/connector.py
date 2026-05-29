@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import asyncio
 from functools import partial
+import ipaddress
 import logging
 import os
 import socket
@@ -48,6 +49,27 @@ from google.cloud.sql.connector.utils import format_database_user
 from google.cloud.sql.connector.utils import generate_keys
 
 logger = logging.getLogger(name=__name__)
+
+
+def _is_ip_address(ip: str) -> bool:
+    try:
+        ipaddress.ip_address(ip)
+        return True
+    except ValueError:
+        return False
+
+
+def _get_fallback_ips(
+    current_ips: list[str], ip_addresses: dict[str, list[str]]
+) -> list[str]:
+    if not current_ips:
+        return current_ips
+    if _is_ip_address(current_ips[0]):
+        return current_ips
+    fallback = ip_addresses.get("PRIVATE")
+    if not fallback:
+        fallback = ip_addresses.get("PRIMARY")
+    return fallback if fallback else current_ips
 
 ASYNC_DRIVERS = ["asyncpg"]
 SERVER_PROXY_PORT = 3307
@@ -316,6 +338,8 @@ class Connector:
                 user_agent=self._user_agent,
                 driver=driver,
             )
+            if hasattr(self._resolver, "set_client"):
+                self._resolver.set_client(self._client)
         enable_iam_auth = kwargs.pop("enable_iam_auth", self._enable_iam_auth)
 
         conn_name = await self._resolver.resolve(instance_connection_string)
@@ -384,13 +408,14 @@ class Connector:
             conn_info = await monitored_cache.connect_info()
             # validate driver matches intended database engine
             DriverMapping.validate_engine(driver, conn_info.database_version)
-            ip_address = conn_info.get_preferred_ip(ip_type)
+            preferred_ips = conn_info.get_preferred_ips(ip_type)
         except Exception:
             # with an error from Cloud SQL Admin API call or IP type, invalidate
             # the cache and re-raise the error
             await self._remove_cached(str(conn_name), enable_iam_auth)
             raise
 
+        targets = []
         # If the connector is configured with a custom DNS name, attempt to use
         # that DNS name to connect to the instance. Fall back to the metadata IP
         # address if the DNS name does not resolve to an IP address.
@@ -398,26 +423,35 @@ class Connector:
             try:
                 ips = await self._resolver.resolve_a_record(conn_info.conn_name.domain_name)
                 if ips:
-                    ip_address = ips[0]
+                    targets.extend(ips)
                     logger.debug(
                         f"['{instance_connection_string}']: Custom DNS name "
-                        f"'{conn_info.conn_name.domain_name}' resolved to '{ip_address}', "
+                        f"'{conn_info.conn_name.domain_name}' resolved to '{ips}', "
                         "using it to connect"
                     )
                 else:
+                    fallback_ips = _get_fallback_ips(
+                        preferred_ips, conn_info.ip_addrs
+                    )
                     logger.debug(
                         f"['{instance_connection_string}']: Custom DNS name "
                         f"'{conn_info.conn_name.domain_name}' resolved but returned no "
-                        f"entries, using '{ip_address}' from instance metadata"
+                        f"entries, using '{fallback_ips[0]}' from instance metadata"
                     )
+                    targets.extend(fallback_ips)
             except Exception as e:
+                fallback_ips = _get_fallback_ips(
+                    preferred_ips, conn_info.ip_addrs
+                )
                 logger.debug(
                     f"['{instance_connection_string}']: Custom DNS name "
                     f"'{conn_info.conn_name.domain_name}' did not resolve to an IP "
-                    f"address: {e}, using '{ip_address}' from instance metadata"
+                    f"address: {e}, using '{fallback_ips[0]}' from instance metadata"
                 )
+                targets.extend(fallback_ips)
+        else:
+            targets.extend(preferred_ips)
 
-        logger.debug(f"['{conn_info.conn_name}']: Connecting to {ip_address}:3307")
         # format `user` param for automatic IAM database authn
         if enable_iam_auth:
             formatted_user = format_database_user(
@@ -428,32 +462,56 @@ class Connector:
                     f"['{instance_connection_string}']: Truncated IAM database username from {kwargs['user']} to {formatted_user}"
                 )
                 kwargs["user"] = formatted_user
+
         try:
-            # async drivers are unblocking and can be awaited directly
-            if driver in ASYNC_DRIVERS:
-                return await connector(
-                    ip_address,
-                    await conn_info.create_ssl_context(enable_iam_auth),
-                    **kwargs,
-                )
-            # Create socket with SSLContext for sync drivers
-            ctx = await conn_info.create_ssl_context(enable_iam_auth)
-            sock = ctx.wrap_socket(
-                socket.create_connection((ip_address, SERVER_PROXY_PORT)),
-                server_hostname=ip_address,
-            )
-            # If this connection was opened using a domain name, then store it
-            # for later in case we need to forcibly close it on failover.
-            if conn_info.conn_name.domain_name:
-                monitored_cache.sockets.append(sock)
-            # Synchronous drivers are blocking and run using executor
-            connect_partial = partial(
-                connector,
-                ip_address,
-                sock,
-                **kwargs,
-            )
-            return await self._loop.run_in_executor(None, connect_partial)
+            last_ex = None
+            for target_ip in targets:
+                logger.debug(f"['{conn_info.conn_name}']: Connecting to {target_ip}:3307")
+                try:
+                    # async drivers are unblocking and can be awaited directly
+                    if driver in ASYNC_DRIVERS:
+                        conn = await connector(
+                            target_ip,
+                            await conn_info.create_ssl_context(enable_iam_auth),
+                            **kwargs,
+                        )
+                        last_ex = None
+                        return conn
+
+                    # Create socket with SSLContext for sync drivers
+                    ctx = await conn_info.create_ssl_context(enable_iam_auth)
+                    raw_sock = socket.create_connection((target_ip, SERVER_PROXY_PORT))
+                    try:
+                        sock = ctx.wrap_socket(
+                            raw_sock,
+                            server_hostname=target_ip,
+                        )
+                    except Exception:
+                        raw_sock.close()
+                        raise
+
+                    # If this connection was opened using a domain name, then store it
+                    # for later in case we need to forcibly close it on failover.
+                    if conn_info.conn_name.domain_name:
+                        monitored_cache.sockets.append(sock)
+                    # Synchronous drivers are blocking and run using executor
+                    connect_partial = partial(
+                        connector,
+                        target_ip,
+                        sock,
+                        **kwargs,
+                    )
+                    conn = await self._loop.run_in_executor(None, connect_partial)
+                    last_ex = None
+                    return conn
+                except Exception as e:
+                    logger.debug(
+                        f"['{conn_info.conn_name}']: Connection to {target_ip} failed: {e}"
+                    )
+                    last_ex = e
+
+            if last_ex:
+                raise last_ex
 
         except Exception:
             # with any exception, we attempt a force refresh, then throw the error

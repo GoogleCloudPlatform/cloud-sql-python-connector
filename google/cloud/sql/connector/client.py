@@ -146,7 +146,7 @@ class CloudSQLClient:
             )
 
         ip_addresses = (
-            {ip["type"]: ip["ipAddress"] for ip in ret_dict["ipAddresses"]}
+            {ip["type"]: [ip["ipAddress"]] for ip in ret_dict["ipAddresses"]}
             if "ipAddresses" in ret_dict
             else {}
         )
@@ -156,26 +156,69 @@ class CloudSQLClient:
         if ret_dict.get("pscEnabled"):
             # Find PSC instance DNS name in the dns_names field
             psc_dns_names = [
-                d["name"]
+                d["name"].rstrip(".")
                 for d in ret_dict.get("dnsNames", [])
                 if d["connectionType"] == "PRIVATE_SERVICE_CONNECT"
                 and d["dnsScope"] == "INSTANCE"
             ]
-            dns_name = psc_dns_names[0] if psc_dns_names else None
+            # Sort: .sql-psc.goog first
+            psc_dns_names.sort(key=lambda x: x.endswith(".sql-psc.goog"), reverse=True)
 
             # Fall back do dns_name field if dns_names is not set
-            if dns_name is None:
+            if not psc_dns_names:
                 dns_name = ret_dict.get("dnsName", None)
+                if dns_name:
+                    psc_dns_names = [dns_name.rstrip(".")]
 
-            # Remove trailing period from DNS name. Required for SSL in Python
-            if dns_name:
-                ip_addresses["PSC"] = dns_name.rstrip(".")
+            if psc_dns_names:
+                ip_addresses["PSC"] = psc_dns_names
 
         return {
             "ip_addresses": ip_addresses,
             "server_ca_cert": ret_dict["serverCaCert"]["cert"],
             "database_version": ret_dict["databaseVersion"],
         }
+
+    async def resolve_connect_settings(
+        self,
+        dns_name: str,
+        location: str,
+    ) -> dict[str, Any]:
+        """Asynchronously calls the resolveConnectSettings endpoint to resolve a
+        PSC DNS name to a connection name.
+
+        Args:
+            dns_name (str): The DNS name of the Cloud SQL instance.
+            location (str): The region/location of the instance.
+
+        Returns:
+            A dictionary containing the resolve response (e.g. connectionName).
+        """
+        # before making Cloud SQL Admin API calls, refresh creds if required
+        if not self._credentials.token_state == TokenState.FRESH:
+            self._credentials.refresh(requests.Request())
+
+        headers = {
+            "Authorization": f"Bearer {self._credentials.token}",
+        }
+
+        url = f"{self._sqladmin_api_endpoint}/sql/{API_VERSION}/locations/{location}/dns/{dns_name}:resolveConnectSettings"
+
+        resp = await self._client.get(url, headers=headers)
+        if resp.status >= 500:
+            resp = await retry_50x(self._client.get, url, headers=headers)
+        try:
+            ret_dict = await resp.json()
+            if resp.status >= 400:
+                message = ret_dict.get("error", {}).get("message")
+                if message:
+                    resp.reason = message
+        except Exception:
+            pass
+        finally:
+            resp.raise_for_status()
+
+        return ret_dict
 
     async def _get_ephemeral(
         self,
