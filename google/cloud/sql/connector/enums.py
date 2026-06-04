@@ -41,6 +41,7 @@ class IPTypes(Enum):
     PUBLIC = "PRIMARY"
     PRIVATE = "PRIVATE"
     PSC = "PSC"
+    SQL_DATA = "SQL_DATA"
 
     @classmethod
     def _missing_(cls, value: object) -> None:

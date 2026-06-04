@@ -1,0 +1,264 @@
+// Copyright 2026 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//	https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+package google.cloud.sql.v1beta4;
+
+option go_package = "internal/sqldata";
+option java_package = "com.google.cloud.sql.v1beta4";
+option java_outer_classname = "CloudSqlDataProto";
+option java_multiple_files = true;
+
+import "google/rpc/status.proto";
+
+// Service for streaming data to and from Cloud SQL instances.
+service SqlDataService {
+  // `StreamSqlData` establishes a bidirectional stream to a Cloud SQL instance,
+  // and then streams data to and from the instance.
+  //
+  // The first message from the client MUST be a `StreamSqlDataRequest` request
+  // with configuration settings, including required values for the
+  // `connection_settings` field. Subsequent messages from the client may
+  // contain the `payload` field.
+  //
+  // Messages from the server may contain the `payload` field.
+  //
+  // The `payload` fields of the request and response streams contain the raw
+  // data of the database's native wire protocol (e.g., PostgreSQL wire
+  // protocol). The database client is responsible for generating and parsing
+  // this data.
+  //
+  // Any errors on initial connection (e.g., connection failure, authorization
+  // issues, network problems) will result in the stream being terminated with
+  // an appropriate RPC status exception.
+  //
+  // After a successful connection is made, if an error occurs, then the server
+  // terminates connection and returns the appropriate RPC status exception.
+  rpc StreamSqlData(stream StreamSqlDataRequest)
+    returns (stream StreamSqlDataResponse) {}
+}
+
+// Message sent from the client to `SqlDataService`.
+message StreamSqlDataRequest {
+  // Deprecated: Use `StartSession.location_id` or `ContinueSession.location_id`
+  // instead. `location_id` is used to route the request to a specific region.
+  // Use the same region which was used to create the instance. Use the format
+  // `locations/{location}`, for example: `locations/us-central1`.
+  string location_id = 1;
+
+  // Deprecated: Use the `message` oneof instead. The type of message sent
+  // within the stream.
+  oneof message_type {
+    // Deprecated: Use `start_session` or `continue_session` instead.
+    // Parameters for establishing the connection. MUST be sent as the first
+    // message on the stream.
+    ConnectionSettings connection_settings = 2;
+
+    // Deprecated: Use `DataPacket` instead.
+    // Data to be forwarded to the database.
+    ClientPayload payload = 3;
+  }
+
+  // Acknowledges data received by the client.
+  Ack ack = 4;
+
+  // The message to the server.
+  oneof message {
+    // Starts a new session. When starting a new session, this is the first
+    // message the client sends.
+    StartSession start_session = 5;
+    // Continues an existing session. When starting a new session, this is the
+    // first message the client sends.
+    ContinueSession continue_session = 6;
+    // Database data.
+    DataPacket data = 7;
+    // Terminates the session. This closes the connection to the database.
+    TerminateSession terminate_session = 8;
+  }
+}
+
+// Deprecated:  New schema structure. Initial connection parameters.
+message ConnectionSettings {
+  option deprecated = true;
+
+  // The target of the connection.
+  oneof target {
+    // The identifier of the Cloud SQL instance.
+    InstanceId instance_id = 1;
+  }
+}
+
+// Start a new session. The client must send this as the first message to the
+// server to start a new session. The client may immediately send Data messages
+// without waiting for a reply from the server.
+message StartSession {
+  //`location_id` is used to route the
+  // request to a specific region. Use the same region which was used to create
+  // the instance. Use the format `locations/{location}`, for example:
+  // `locations/us-central1`.
+  string location_id = 1;
+  // The Cloud SQL instance resource name, for example:
+  // projects/example-project/instances/example-instance
+  string instance_id = 2;
+  // The session id, chosen by the client. This should be an unguessable string.
+  // If the client does not intend to reconnect to this session, the client may
+  // leave session_id unset.
+  string session_id = 3;
+}
+
+// Reconnects to an existing session. The client must send this as the first
+// message to the server to reconnect to an existing session. The client may
+// immediately send Data messages without waiting for a reply from the server.
+message ContinueSession {
+  //`location_id` is used to route the
+  // request to a specific region. Use the same region which was used to create
+  // the instance. Use the format `locations/{location}`, for example:
+  // `locations/us-central1`.
+  string location_id = 1;
+
+  // The Cloud SQL instance resource name, for example:
+  // projects/example-project/instances/example-instance
+  string instance_id = 2;
+
+  // The id of the session to reconnect.
+  string session_id = 3;
+}
+
+// Deprecated:  New schema structure. The identifier of the Cloud SQL instance.
+message InstanceId {
+  option deprecated = true;
+
+  // Full resource name of the Cloud SQL instance, in the form:
+  // `projects/{project}/instances/{instance}`, for example:
+  // `projects/foo-project/instances/bar-instance`.
+  string instance = 1;
+}
+
+// Deprecated:  New schema structure. Wrapper for data being sent to the
+// database.
+message ClientPayload {
+  option deprecated = true;
+
+  // Raw data to be sent to the database. See the documentation for
+  // `StreamSqlData` for details on the expected wire format.
+  bytes data = 1;
+}
+
+// Message sent from SqlDataService back to the client.
+message StreamSqlDataResponse {
+  // Deprecated:  New schema structure. The type of the message received from
+  // `SqlDataService`.
+  oneof type {
+    // Raw data received from the database.
+    ServerPayload payload = 1;
+  }
+
+  // Acknowledges data received by the server.
+  Ack ack = 2;
+  // A message from the server to the client.
+  oneof message {
+    // The first message from the server to the client, containing metadata
+    // about this session.
+    SessionMetadata session_metadata = 3;
+    // Data from the database.
+    DataPacket data = 4;
+    // Terminates the session. This indicates that the database connection
+    // is closed. When the client receives this message, it should not
+    // attempt to reconnect.
+    TerminateSession terminate_session = 5;
+  }
+}
+
+// Deprecated:  New schema structure. Wrapper for data being received from the
+// database.
+message ServerPayload {
+  option deprecated = true;
+
+  // Raw data received from the database. See the documentation for
+  // `StreamSqlData` for details on the expected wire format.
+  bytes data = 1;
+}
+// Metadata from the server to the client about the session. The server will
+// always send this as the first message
+message SessionMetadata {
+  // The features supported by the server for this session. This field is used
+  // by the client to determine which features are available on the server.
+  // The features supported by the server for this session.
+  repeated SqlDataFeature supported_features = 1;
+}
+
+// Contains data being sent or received by the database.
+message DataPacket {
+  // The absolute byte offset of the first byte in this payload.
+  // 0 for new connections or resumed connections that hasn't acked any bytes
+  // from server. Non-zero for resumed connections
+  int64 first_byte_offset = 1;
+  // Raw data being sent or received by the database.
+  bytes data = 2;
+}
+// Acknowledges data received by the client or server.
+message Ack {
+  // The absolute number of bytes processed in the session.
+  int64 received_offset = 1;
+}
+// Indicates that the session is permanently ended.
+message TerminateSession {
+  // The session termination status.
+  google.rpc.Status status = 1;
+}
+
+// Error reasons for `StreamSqlData`.
+// Typically used with standard error codes, with the error info/reason field
+// set to the string representation of the enum value.
+enum StreamSqlDataErrorReason {
+  // Indicates that the error reason is unknown.
+  STREAM_SQL_DATA_ERROR_REASON_UNKNOWN = 0;
+
+  // Indicates that the operation is not supported for given instance type.
+  // Used with status code `google.rpc.Code.FAILED_PRECONDITION`.
+  STREAM_SQL_DATA_ERROR_REASON_UNSUPPORTED_INSTANCE_TYPE = 1;
+
+  // Indicates that reconnect failed and should not be retried.
+  // Used with status code `google.rpc.Code.INTERNAL`.
+  STREAM_SQL_DATA_ERROR_REASON_RECONNECT_FAILED = 3;
+
+  // Indicates that the database client closed its connection normally.
+  // Used with status code `google.rpc.Code.CANCELED`.
+  STREAM_SQL_DATA_ERROR_REASON_DB_CLIENT_CLOSED = 4;
+
+  // Indicates that the database server closed its connection normally.
+  // Used with status code `google.rpc.Code.CANCELED`.
+  STREAM_SQL_DATA_ERROR_REASON_DB_SERVER_CLOSED = 5;
+
+  // Indicates that the peer sent an ACK message that was not within an
+  // acceptable range. Used with the status code
+  // `google.rpc.Code.FAILED_PRECONDITION`.
+  STREAM_SQL_DATA_ERROR_REASON_INVALID_ACK = 6;
+
+  // Indicates that the SqlDataService lost its connection to the
+  // database instance. This is a retryable error.
+  // Used with status code `google.rpc.Code.ABORTED`.
+  STREAM_SQL_DATA_ERROR_REASON_DISCONNECTED = 7;
+}
+
+// The session features. The server must send the supported features in its
+// first message to the client.
+enum SqlDataFeature {
+  // The feature is not specified. This value should not be used.
+  SQL_DATA_FEATURE_UNSPECIFIED = 0;
+  // The server supports reconnecting to the session. If this feature is not
+  // present, the client should not attempt to reconnect to the session.
+  SQL_DATA_FEATURE_RECONNECT = 1;
+}
