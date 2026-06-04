@@ -62,7 +62,7 @@ class ConnectionInfo:
 
     conn_name: ConnectionName
     client_cert: str
-    server_ca_cert: str
+    server_ca_cert: str | None
     private_key: bytes
     ip_addrs: dict[str, Any]
     database_version: str
@@ -78,6 +78,10 @@ class ConnectionInfo:
         # if SSL context is cached, use it
         if self.context is not None:
             return self.context
+        
+        if self.server_ca_cert is None:
+            raise ValueError("Cannot create SSL context: server CA certificate is missing.")
+
         context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
 
         # update ssl.PROTOCOL_TLS_CLIENT default

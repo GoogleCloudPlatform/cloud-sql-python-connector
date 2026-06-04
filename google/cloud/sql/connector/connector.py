@@ -34,6 +34,7 @@ from google.cloud.sql.connector import pg8000
 from google.cloud.sql.connector import pymysql
 from google.cloud.sql.connector import pytds
 from google.cloud.sql.connector.client import CloudSQLClient
+from google.cloud.sql.connector.connection_name import ConnectionName
 from google.cloud.sql.connector.enums import DriverMapping
 from google.cloud.sql.connector.enums import IPTypes
 from google.cloud.sql.connector.enums import RefreshStrategy
@@ -44,6 +45,8 @@ from google.cloud.sql.connector.lazy import LazyRefreshCache
 from google.cloud.sql.connector.monitored_cache import MonitoredCache
 from google.cloud.sql.connector.resolver import DefaultResolver
 from google.cloud.sql.connector.resolver import DnsResolver
+from google.cloud.sql.connector.sqldata_client import FallbackSocket
+from google.cloud.sql.connector.sqldata_client import SqlDataClient
 from google.cloud.sql.connector.utils import format_database_user
 from google.cloud.sql.connector.utils import generate_keys
 
@@ -73,6 +76,8 @@ class Connector:
         refresh_strategy: str | RefreshStrategy = RefreshStrategy.BACKGROUND,
         resolver: type[DefaultResolver | DnsResolver] = DefaultResolver,
         failover_period: int = 30,
+        sql_data_endpoint: str = "sqladmin.googleapis.com",
+        sql_data_stream_timeout: int = 7200,
     ) -> None:
         """Initializes a Connector instance.
 
@@ -213,6 +218,12 @@ class Connector:
                 "configured the universe domain explicitly, `googleapis.com` "
                 "is the default."
             )
+        self._sql_data_endpoint = sql_data_endpoint
+        self._sql_data_stream_timeout = sql_data_stream_timeout
+        self._sql_data_fallback_cache: set[str] = set()
+        self._sqldata_clients: list[SqlDataClient] = []
+
+
 
     @property
     def universe_domain(self) -> str:
@@ -258,6 +269,49 @@ class Connector:
             self._loop,
         )
         return connect_future.result()
+
+    def _get_or_create_cache(
+        self,
+        conn_name: ConnectionName,
+        enable_iam_auth: bool,
+    ) -> MonitoredCache:
+        assert self._client is not None, "client must be initialized before creating cache"
+        assert self._keys is not None, "keys must be initialized before creating cache"
+        assert self._resolver is not None, "resolver must be initialized before creating cache"
+        if (str(conn_name), enable_iam_auth) in self._cache and not self._cache[
+            (str(conn_name), enable_iam_auth)
+        ].closed:
+            return self._cache[(str(conn_name), enable_iam_auth)]
+
+        if self._refresh_strategy == RefreshStrategy.LAZY:
+            logger.debug(
+                f"['{conn_name}']: Refresh strategy is set to lazy refresh"
+            )
+            cache: LazyRefreshCache | RefreshAheadCache = LazyRefreshCache(
+                conn_name,
+                self._client,
+                self._keys,
+                enable_iam_auth,
+            )
+        else:
+            logger.debug(
+                f"['{conn_name}']: Refresh strategy is set to backgound refresh"
+            )
+            cache = RefreshAheadCache(
+                conn_name,
+                self._client,
+                self._keys,
+                enable_iam_auth,
+            )
+        # wrap cache as a MonitoredCache
+        monitored_cache = MonitoredCache(
+            cache,
+            self._failover_period,
+            self._resolver,
+        )
+        logger.debug(f"['{conn_name}']: Connection info added to cache")
+        self._cache[(str(conn_name), enable_iam_auth)] = monitored_cache
+        return monitored_cache
 
     async def connect_async(
         self, instance_connection_string: str, driver: str, **kwargs: Any
@@ -320,42 +374,13 @@ class Connector:
         if self._resolver is None:
             self._resolver = self._resolver_cls(client=self._client)
         enable_iam_auth = kwargs.pop("enable_iam_auth", self._enable_iam_auth)
+        ip_type = kwargs.pop("ip_type", self._ip_type)
+        if isinstance(ip_type, str):
+            ip_type = IPTypes._from_str(ip_type)
 
         conn_name = await self._resolver.resolve(instance_connection_string)
-        # Cache entry must exist and not be closed
-        if (str(conn_name), enable_iam_auth) in self._cache and not self._cache[
-            (str(conn_name), enable_iam_auth)
-        ].closed:
-            monitored_cache = self._cache[(str(conn_name), enable_iam_auth)]
-        else:
-            if self._refresh_strategy == RefreshStrategy.LAZY:
-                logger.debug(
-                    f"['{conn_name}']: Refresh strategy is set to lazy refresh"
-                )
-                cache: LazyRefreshCache | RefreshAheadCache = LazyRefreshCache(
-                    conn_name,
-                    self._client,
-                    self._keys,
-                    enable_iam_auth,
-                )
-            else:
-                logger.debug(
-                    f"['{conn_name}']: Refresh strategy is set to backgound refresh"
-                )
-                cache = RefreshAheadCache(
-                    conn_name,
-                    self._client,
-                    self._keys,
-                    enable_iam_auth,
-                )
-            # wrap cache as a MonitoredCache
-            monitored_cache = MonitoredCache(
-                cache,
-                self._failover_period,
-                self._resolver,
-            )
-            logger.debug(f"['{conn_name}']: Connection info added to cache")
-            self._cache[(str(conn_name), enable_iam_auth)] = monitored_cache
+        if ip_type != IPTypes.SQL_DATA:
+            monitored_cache = self._get_or_create_cache(conn_name, enable_iam_auth)
 
         connect_func = {
             "pymysql": pymysql.connect,
@@ -369,11 +394,6 @@ class Connector:
             connector: Callable = connect_func[driver]  # type: ignore
         except KeyError:
             raise KeyError(f"Driver '{driver}' is not supported.")
-
-        ip_type = kwargs.pop("ip_type", self._ip_type)
-        # if ip_type is str, convert to IPTypes enum
-        if isinstance(ip_type, str):
-            ip_type = IPTypes._from_str(ip_type)
         kwargs["timeout"] = kwargs.get("timeout", self._timeout)
 
         # Host and ssl options come from the certificates and metadata, so we don't
@@ -382,113 +402,178 @@ class Connector:
         kwargs.pop("ssl", None)
         kwargs.pop("port", None)
 
-        # attempt to get connection info for Cloud SQL instance
+        # attempt to establish connection
         try:
-            conn_info = await monitored_cache.connect_info()
-            # validate driver matches intended database engine
-            DriverMapping.validate_engine(driver, conn_info.database_version)
-            preferred_ips = conn_info.get_preferred_ips(ip_type)
-        except Exception:
-            # with an error from Cloud SQL Admin API call or IP type, invalidate
-            # the cache and re-raise the error
-            await self._remove_cached(str(conn_name), enable_iam_auth)
-            raise
-
-        targets = []
-        # If the connector is configured with a custom DNS name, attempt to use
-        # that DNS name to connect to the instance. Fall back to the metadata IP
-        # address if the DNS name does not resolve to an IP address.
-        if conn_info.conn_name.domain_name and isinstance(self._resolver, DnsResolver):
-            try:
-                ips = await self._resolver.resolve_a_record(conn_info.conn_name.domain_name)
-                if ips:
-                    targets.extend(ips)
-                    logger.debug(
-                        f"['{instance_connection_string}']: Custom DNS name "
-                        f"'{conn_info.conn_name.domain_name}' resolved to '{ips}', "
-                        "using it to connect"
+            if ip_type == IPTypes.SQL_DATA:
+                logger.debug(f"['{conn_name}']: Connecting via SQL Data Service tunnel")
+                if enable_iam_auth:
+                    engine = DriverMapping[driver].value
+                    formatted_user = format_database_user(
+                        engine, kwargs["user"]
                     )
-                else:
-                    logger.debug(
-                        f"['{instance_connection_string}']: Custom DNS name "
-                        f"'{conn_info.conn_name.domain_name}' resolved but returned no "
-                        f"entries, using '{preferred_ips}' from instance metadata"
-                    )
-                    targets.extend(preferred_ips)
-            except Exception as e:  # noqa: BLE001
-                logger.debug(
-                    f"['{instance_connection_string}']: Custom DNS name "
-                    f"'{conn_info.conn_name.domain_name}' did not resolve to an IP "
-                    f"address: {e}, using '{preferred_ips}' from instance metadata"
-                )
-                targets.extend(preferred_ips)
-        else:
-            targets.extend(preferred_ips)
-
-        # format `user` param for automatic IAM database authn
-        if enable_iam_auth:
-            formatted_user = format_database_user(
-                conn_info.database_version, kwargs["user"]
-            )
-            if formatted_user != kwargs["user"]:
-                logger.debug(
-                    f"['{instance_connection_string}']: Truncated IAM database username from {kwargs['user']} to {formatted_user}"
-                )
-                kwargs["user"] = formatted_user
-
-        try:
-            last_ex = None
-            for target_ip in targets:
-                logger.debug(f"['{conn_info.conn_name}']: Connecting to {target_ip}:3307")
-                try:
-                    # async drivers are unblocking and can be awaited directly
-                    if driver in ASYNC_DRIVERS:
-                        conn = await connector(
-                            target_ip,
-                            await conn_info.create_ssl_context(enable_iam_auth),
-                            **kwargs,
+                    if formatted_user != kwargs["user"]:
+                        logger.debug(
+                            f"['{instance_connection_string}']: Truncated IAM database username from {kwargs['user']} to {formatted_user}"
                         )
-                        last_ex = None
-                        return conn
+                        kwargs["user"] = formatted_user
 
-                    # Create socket with SSLContext for sync drivers
-                    ctx = await conn_info.create_ssl_context(enable_iam_auth)
-                    raw_sock = socket.create_connection((target_ip, SERVER_PROXY_PORT))
-                    try:
-                        sock = ctx.wrap_socket(
-                            raw_sock,
-                            server_hostname=target_ip,
-                        )
-                    except Exception:
-                        raw_sock.close()
-                        raise
+                sqldata_client = SqlDataClient(
+                    endpoint=self._sql_data_endpoint,
+                    credentials=self._credentials,
+                    quota_project=self._quota_project,
+                    timeout=self._sql_data_stream_timeout,
+                )
+                self._sqldata_clients.append(sqldata_client)
 
-                    # If this connection was opened using a domain name, then store it
-                    # for later in case we need to forcibly close it on failover.
-                    if conn_info.conn_name.domain_name:
-                        monitored_cache.sockets.append(sock)
-                    # Synchronous drivers are blocking and run using executor
-                    connect_partial = partial(
-                        connector,
-                        target_ip,
-                        sock,
+                def on_fallback(name):
+                    self._sql_data_fallback_cache.add(name)
+
+                def is_fallback_cached(name):
+                    return name in self._sql_data_fallback_cache
+
+                # Defer cache creation and connect_info call
+                async def get_conn_info():
+                    cache = self._get_or_create_cache(conn_name, enable_iam_auth)
+                    return await cache.connect_info()
+
+                tunnel_port = await sqldata_client.connect_tunnel(
+                    instance_connection_name=str(conn_name),
+                    region=conn_name.region,
+                    project=conn_name.project,
+                    get_conn_info=get_conn_info,
+                    enable_iam_auth=enable_iam_auth,
+                    on_fallback=on_fallback,
+                    is_fallback_cached=is_fallback_cached,
+                )
+
+                if driver in ASYNC_DRIVERS:
+                    return await connector(
+                        "127.0.0.1",
+                        None,
+                        port=tunnel_port,
                         **kwargs,
                     )
-                    conn = await self._loop.run_in_executor(None, connect_partial)
-                    last_ex = None
-                    return conn
-                except Exception as e:  # noqa: BLE001
-                    logger.debug(
-                        f"['{conn_info.conn_name}']: Connection to {target_ip} failed: {e}"
-                    )
-                    last_ex = e
+                else:
+                    raw_sock = socket.create_connection(("127.0.0.1", tunnel_port))
+                    fd = raw_sock.detach()
+                    fallback_sock = FallbackSocket(fileno=fd)
 
-            if last_ex:
-                raise last_ex
+                    if conn_name.domain_name:
+                        cache = self._get_or_create_cache(conn_name, enable_iam_auth)
+                        cache.sockets.append(fallback_sock)
+
+                    connect_partial = partial(
+                        connector,
+                        "127.0.0.1",
+                        fallback_sock,
+                        **kwargs,
+                    )
+                    return await self._loop.run_in_executor(None, connect_partial)
+            else:
+                try:
+                    conn_info = await monitored_cache.connect_info()
+                    # validate driver matches intended database engine
+                    DriverMapping.validate_engine(driver, conn_info.database_version)
+                    preferred_ips = conn_info.get_preferred_ips(ip_type)
+                except Exception:
+                    # with an error from Cloud SQL Admin API call or IP type, invalidate
+                    # the cache and re-raise the error
+                    await self._remove_cached(str(conn_name), enable_iam_auth)
+                    raise
+
+                targets = []
+                if conn_info.conn_name.domain_name and isinstance(self._resolver, DnsResolver):
+                    try:
+                        ips = await self._resolver.resolve_a_record(conn_info.conn_name.domain_name)
+                        if ips:
+                            targets.extend(ips)
+                            logger.debug(
+                                f"['{instance_connection_string}']: Custom DNS name "
+                                f"'{conn_info.conn_name.domain_name}' resolved to '{ips}', "
+                                "using it to connect"
+                            )
+                        else:
+                            logger.debug(
+                                f"['{instance_connection_string}']: Custom DNS name "
+                                f"'{conn_info.conn_name.domain_name}' resolved but returned no "
+                                f"entries, using '{preferred_ips}' from instance metadata"
+                            )
+                            targets.extend(preferred_ips)
+                    except Exception as e:  # noqa: BLE001
+                        logger.debug(
+                            f"['{instance_connection_string}']: Custom DNS name "
+                            f"'{conn_info.conn_name.domain_name}' did not resolve to an IP "
+                            f"address: {e}, using '{preferred_ips}' from instance metadata"
+                        )
+                        targets.extend(preferred_ips)
+                else:
+                    targets.extend(preferred_ips)
+
+                # format `user` param for automatic IAM database authn
+                if enable_iam_auth:
+                    formatted_user = format_database_user(
+                        conn_info.database_version, kwargs["user"]
+                    )
+                    if formatted_user != kwargs["user"]:
+                        logger.debug(
+                            f"['{instance_connection_string}']: Truncated IAM database username from {kwargs['user']} to {formatted_user}"
+                        )
+                        kwargs["user"] = formatted_user
+
+                last_ex = None
+                for target_ip in targets:
+                    logger.debug(f"['{conn_info.conn_name}']: Connecting to {target_ip}:3307")
+                    try:
+                        # async drivers are unblocking and can be awaited directly
+                        if driver in ASYNC_DRIVERS:
+                            conn = await connector(
+                                target_ip,
+                                await conn_info.create_ssl_context(enable_iam_auth),
+                                **kwargs,
+                            )
+                            last_ex = None
+                            return conn
+
+                        # Create socket with SSLContext for sync drivers
+                        ctx = await conn_info.create_ssl_context(enable_iam_auth)
+                        raw_sock = socket.create_connection((target_ip, SERVER_PROXY_PORT))
+                        try:
+                            sock = ctx.wrap_socket(
+                                raw_sock,
+                                server_hostname=target_ip,
+                            )
+                        except Exception:
+                            raw_sock.close()
+                            raise
+
+                        # If this connection was opened using a domain name, then store it
+                        # for later in case we need to forcibly close it on failover.
+                        if conn_info.conn_name.domain_name:
+                            monitored_cache.sockets.append(sock)
+                        # Synchronous drivers are blocking and run using executor
+                        connect_partial = partial(
+                            connector,
+                            target_ip,
+                            sock,
+                            **kwargs,
+                        )
+                        conn = await self._loop.run_in_executor(None, connect_partial)
+                        last_ex = None
+                        return conn
+                    except Exception as e:  # noqa: BLE001
+                        logger.debug(
+                            f"['{conn_info.conn_name}']: Connection to {target_ip} failed: {e}"
+                        )
+                        last_ex = e
+
+                if last_ex:
+                    raise last_ex
 
         except Exception:
             # with any exception, we attempt a force refresh, then throw the error
-            await monitored_cache.force_refresh()
+            cached_entry = self._cache.get((str(conn_name), enable_iam_auth))
+            if cached_entry:
+                await cached_entry.force_refresh()
             raise
 
     async def _remove_cached(
@@ -536,8 +621,11 @@ class Connector:
             close_future = asyncio.run_coroutine_threadsafe(
                 self.close_async(), loop=self._loop
             )
-            # Will attempt to safely shut down tasks for 3s
-            close_future.result(timeout=3)
+            try:
+                # Will attempt to safely shut down tasks for 3s
+                close_future.result(timeout=3)
+            except Exception as e:  # noqa: BLE001
+                logger.error(f"Error during close_async: {e}")
         # if background thread exists for Connector, clean it up
         if self._thread:
             if self._loop.is_running():
@@ -552,7 +640,10 @@ class Connector:
         self._closed = True
         if self._client:
             await self._client.close()
-        await asyncio.gather(*[cache.close() for cache in self._cache.values()])
+        await asyncio.gather(
+            *[cache.close() for cache in self._cache.values()],
+            *[client.close() for client in self._sqldata_clients],
+        )
 
 
 async def create_async_connector(

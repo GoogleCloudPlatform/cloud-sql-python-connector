@@ -234,7 +234,7 @@ def test_Connector_Init_bad_ip_type(fake_credentials: Credentials) -> None:
     assert (
         exc_info.value.args[0]
         == f"Incorrect value for ip_type, got '{bad_ip_type.upper()}'. "
-        "Want one of: 'PRIMARY', 'PRIVATE', 'PSC', 'PUBLIC'."
+        "Want one of: 'PRIMARY', 'PRIVATE', 'PSC', 'SQL_DATA', 'PUBLIC'."
     )
 
 
@@ -257,7 +257,7 @@ def test_Connector_connect_bad_ip_type(
         assert (
             exc_info.value.args[0]
             == f"Incorrect value for ip_type, got '{bad_ip_type.upper()}'. "
-            "Want one of: 'PRIMARY', 'PRIVATE', 'PSC', 'PUBLIC'."
+            "Want one of: 'PRIMARY', 'PRIVATE', 'PSC', 'SQL_DATA', 'PUBLIC'."
         )
 
 
