@@ -1,5 +1,5 @@
 certifi==2026.5.20
-cryptography==48.0.0
+cryptography==49.0.0
 filelock==3.29.0
 google-auth==2.53.0
 idna==3.16
