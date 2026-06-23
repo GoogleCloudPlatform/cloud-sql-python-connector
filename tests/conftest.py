@@ -21,7 +21,6 @@ import ssl
 from threading import Thread
 from typing import Any, AsyncGenerator
 
-from aiofiles.tempfile import TemporaryDirectory
 from aiohttp import web
 from cryptography.hazmat.primitives import serialization
 import pytest  # noqa F401 Needed to run the tests
@@ -32,6 +31,7 @@ from unit.mocks import FakeCSQLInstance  # type: ignore
 from google.cloud.sql.connector.client import CloudSQLClient
 from google.cloud.sql.connector.connection_name import ConnectionName
 from google.cloud.sql.connector.instance import RefreshAheadCache
+from google.cloud.sql.connector.utils import AsyncTemporaryDirectory
 from google.cloud.sql.connector.utils import generate_keys
 from google.cloud.sql.connector.utils import write_to_file
 
@@ -101,7 +101,7 @@ async def start_proxy_server(instance: FakeCSQLInstance) -> None:
             format=serialization.PrivateFormat.TraditionalOpenSSL,
             encryption_algorithm=serialization.NoEncryption(),
         )
-        async with TemporaryDirectory() as tmpdir:
+        async with AsyncTemporaryDirectory() as tmpdir:
             server_filename, _, key_filename = await write_to_file(
                 tmpdir, instance.server_cert_pem, "", server_key_bytes
             )

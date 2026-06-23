@@ -14,7 +14,9 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-import aiofiles
+import asyncio
+import tempfile
+
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
@@ -57,6 +59,33 @@ async def generate_keys() -> tuple[bytes, str]:
     return priv_key, pub_key
 
 
+class AsyncTemporaryDirectory:
+    """Async context manager wrapper around tempfile.TemporaryDirectory."""
+
+    async def __aenter__(self) -> str:
+        self.temp_dir = await asyncio.to_thread(tempfile.TemporaryDirectory)
+        return self.temp_dir.name
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
+        await asyncio.to_thread(self.temp_dir.cleanup)
+
+
+def _write_files(
+    ca_filename: str,
+    serverCaCert: str,
+    cert_filename: str,
+    ephemeralCert: str,
+    key_filename: str,
+    priv_key: bytes,
+) -> None:
+    with open(ca_filename, "w+") as ca_out:
+        ca_out.write(serverCaCert)
+    with open(cert_filename, "w+") as ephemeral_out:
+        ephemeral_out.write(ephemeralCert)
+    with open(key_filename, "wb") as priv_out:
+        priv_out.write(priv_key)
+
+
 async def write_to_file(
     dir_path: str, serverCaCert: str, ephemeralCert: str, priv_key: bytes
 ) -> tuple[str, str, str]:
@@ -68,12 +97,15 @@ async def write_to_file(
     cert_filename = f"{dir_path}/cert.pem"
     key_filename = f"{dir_path}/priv.pem"
 
-    async with aiofiles.open(ca_filename, "w+") as ca_out:
-        await ca_out.write(serverCaCert)
-    async with aiofiles.open(cert_filename, "w+") as ephemeral_out:
-        await ephemeral_out.write(ephemeralCert)
-    async with aiofiles.open(key_filename, "wb") as priv_out:
-        await priv_out.write(priv_key)
+    await asyncio.to_thread(
+        _write_files,
+        ca_filename,
+        serverCaCert,
+        cert_filename,
+        ephemeralCert,
+        key_filename,
+        priv_key,
+    )
 
     return (ca_filename, cert_filename, key_filename)
 
