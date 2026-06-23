@@ -41,7 +41,7 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 dependencies = [
-    "aiohttp",
+    "aiohttp<3.14",
     "cryptography>=42.0.0",
     "dnspython>=2.0.0",
     "Requests",
