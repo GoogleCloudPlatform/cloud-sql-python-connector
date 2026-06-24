@@ -15,12 +15,14 @@ limitations under the License.
 """
 
 import asyncio
+import inspect
 import os
 import socket
 import ssl
 from threading import Thread
 from typing import Any, AsyncGenerator
 
+import aiohttp
 from aiohttp import web
 from cryptography.hazmat.primitives import serialization
 import pytest  # noqa F401 Needed to run the tests
@@ -34,6 +36,19 @@ from google.cloud.sql.connector.instance import RefreshAheadCache
 from google.cloud.sql.connector.utils import AsyncTemporaryDirectory
 from google.cloud.sql.connector.utils import generate_keys
 from google.cloud.sql.connector.utils import write_to_file
+
+# Monkeypatch aiohttp.ClientResponse.__init__ to support aioresponses with aiohttp >= 3.11/3.14
+_original_client_response_init = aiohttp.ClientResponse.__init__
+
+
+def _patched_client_response_init(self, *args, **kwargs):
+    sig = inspect.signature(_original_client_response_init)
+    if "stream_writer" in sig.parameters and "stream_writer" not in kwargs:
+        kwargs["stream_writer"] = kwargs.get("writer", None)
+    return _original_client_response_init(self, *args, **kwargs)
+
+
+aiohttp.ClientResponse.__init__ = _patched_client_response_init
 
 SCOPES = ["https://www.googleapis.com/auth/sqlservice.admin"]
 
