@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.20.4](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v1.20.3...v1.20.4) (2026-06-26)
+
+
+### Bug Fixes
+
+* update dependencies to latest ([#1438](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/1438)) ([34be60c](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/34be60cd6b16360050975dd136fb314ff77506ce))
+
 ## [1.20.3](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v1.20.2...v1.20.3) (2026-05-26)
 
 
