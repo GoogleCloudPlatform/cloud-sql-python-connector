@@ -58,6 +58,7 @@ class CloudSQLClient:
         client: Optional[aiohttp.ClientSession] = None,
         driver: Optional[str] = None,
         user_agent: Optional[str] = None,
+        loop: Optional[asyncio.AbstractEventLoop] = None,
     ) -> None:
         """Establishes the client to be used for Cloud SQL Admin API requests.
 
@@ -84,8 +85,7 @@ class CloudSQLClient:
         }
         if quota_project:
             headers["x-goog-user-project"] = quota_project
-
-        self._client = client if client else aiohttp.ClientSession(headers=headers)
+        self._client = client if client else aiohttp.ClientSession(headers=headers, loop=loop)
         self._credentials = credentials
         if sqladmin_api_endpoint is None:
             self._sqladmin_api_endpoint = DEFAULT_SERVICE_ENDPOINT
