@@ -25,6 +25,7 @@ from typing import Any, AsyncGenerator
 import aiohttp
 from aiohttp import web
 from cryptography.hazmat.primitives import serialization
+from unittest.mock import Mock
 import pytest  # noqa F401 Needed to run the tests
 from unit.mocks import create_ssl_context  # type: ignore
 from unit.mocks import FakeCredentials  # type: ignore
@@ -44,7 +45,7 @@ _original_client_response_init = aiohttp.ClientResponse.__init__
 def _patched_client_response_init(self, *args, **kwargs):
     sig = inspect.signature(_original_client_response_init)
     if "stream_writer" in sig.parameters and "stream_writer" not in kwargs:
-        kwargs["stream_writer"] = kwargs.get("writer", None)
+        kwargs["stream_writer"] = Mock(output_size=0)
     return _original_client_response_init(self, *args, **kwargs)
 
 
