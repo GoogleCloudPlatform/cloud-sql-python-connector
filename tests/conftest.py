@@ -21,11 +21,11 @@ import socket
 import ssl
 from threading import Thread
 from typing import Any, AsyncGenerator
+from unittest.mock import Mock
 
 import aiohttp
 from aiohttp import web
 from cryptography.hazmat.primitives import serialization
-from unittest.mock import Mock
 import pytest  # noqa F401 Needed to run the tests
 from unit.mocks import create_ssl_context  # type: ignore
 from unit.mocks import FakeCredentials  # type: ignore
