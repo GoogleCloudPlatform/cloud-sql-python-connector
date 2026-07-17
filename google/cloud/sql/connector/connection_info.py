@@ -20,11 +20,10 @@ import logging
 import ssl
 from typing import Any, Optional, TYPE_CHECKING
 
-from aiofiles.tempfile import TemporaryDirectory
-
 from google.cloud.sql.connector.connection_name import ConnectionName
 from google.cloud.sql.connector.exceptions import CloudSQLIPTypeError
 from google.cloud.sql.connector.exceptions import TLSVersionError
+from google.cloud.sql.connector.utils import AsyncTemporaryDirectory
 from google.cloud.sql.connector.utils import write_to_file
 
 if TYPE_CHECKING:
@@ -108,7 +107,7 @@ class ConnectionInfo:
         # tmpdir and its contents are automatically deleted after the CA cert
         # and ephemeral cert are loaded into the SSLcontext. The values
         # need to be written to files in order to be loaded by the SSLContext
-        async with TemporaryDirectory() as tmpdir:
+        async with AsyncTemporaryDirectory() as tmpdir:
             ca_filename, cert_filename, key_filename = await write_to_file(
                 tmpdir, self.server_ca_cert, self.client_cert, self.private_key
             )

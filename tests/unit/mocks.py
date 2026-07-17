@@ -23,7 +23,6 @@ import json
 import ssl
 from typing import Any, Callable, Literal, Optional
 
-from aiofiles.tempfile import TemporaryDirectory
 from aiohttp import web
 from cryptography import x509
 from cryptography.hazmat.backends import default_backend
@@ -36,6 +35,7 @@ from google.auth.credentials import Credentials
 from google.auth.credentials import TokenState
 
 from google.cloud.sql.connector.connector import _DEFAULT_UNIVERSE_DOMAIN
+from google.cloud.sql.connector.utils import AsyncTemporaryDirectory
 from google.cloud.sql.connector.utils import generate_keys
 from google.cloud.sql.connector.utils import write_to_file
 
@@ -205,7 +205,7 @@ async def create_ssl_context(instance: FakeCSQLInstance) -> ssl.SSLContext:
     context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
     context.check_hostname = False
     # load ssl.SSLContext with certs
-    async with TemporaryDirectory() as tmpdir:
+    async with AsyncTemporaryDirectory() as tmpdir:
         ca_filename, cert_filename, key_filename = await write_to_file(
             tmpdir, instance.server_cert_pem, ephemeral_cert, client_private
         )

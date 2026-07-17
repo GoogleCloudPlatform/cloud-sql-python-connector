@@ -15,13 +15,15 @@ limitations under the License.
 """
 
 import asyncio
+import inspect
 import os
 import socket
 import ssl
 from threading import Thread
 from typing import Any, AsyncGenerator
+from unittest.mock import Mock
 
-from aiofiles.tempfile import TemporaryDirectory
+import aiohttp
 from aiohttp import web
 from cryptography.hazmat.primitives import serialization
 import pytest  # noqa F401 Needed to run the tests
@@ -32,8 +34,22 @@ from unit.mocks import FakeCSQLInstance  # type: ignore
 from google.cloud.sql.connector.client import CloudSQLClient
 from google.cloud.sql.connector.connection_name import ConnectionName
 from google.cloud.sql.connector.instance import RefreshAheadCache
+from google.cloud.sql.connector.utils import AsyncTemporaryDirectory
 from google.cloud.sql.connector.utils import generate_keys
 from google.cloud.sql.connector.utils import write_to_file
+
+# Monkeypatch aiohttp.ClientResponse.__init__ to support aioresponses with aiohttp >= 3.11/3.14
+_original_client_response_init = aiohttp.ClientResponse.__init__
+
+
+def _patched_client_response_init(self, *args, **kwargs):
+    sig = inspect.signature(_original_client_response_init)
+    if "stream_writer" in sig.parameters and "stream_writer" not in kwargs:
+        kwargs["stream_writer"] = Mock(output_size=0)
+    return _original_client_response_init(self, *args, **kwargs)
+
+
+aiohttp.ClientResponse.__init__ = _patched_client_response_init
 
 SCOPES = ["https://www.googleapis.com/auth/sqlservice.admin"]
 
@@ -101,7 +117,7 @@ async def start_proxy_server(instance: FakeCSQLInstance) -> None:
             format=serialization.PrivateFormat.TraditionalOpenSSL,
             encryption_algorithm=serialization.NoEncryption(),
         )
-        async with TemporaryDirectory() as tmpdir:
+        async with AsyncTemporaryDirectory() as tmpdir:
             server_filename, _, key_filename = await write_to_file(
                 tmpdir, instance.server_cert_pem, "", server_key_bytes
             )
