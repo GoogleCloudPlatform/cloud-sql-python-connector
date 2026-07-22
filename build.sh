@@ -150,6 +150,11 @@ function write_e2e_env(){
 
 }
 
+## with_venv - runs a command with the venv activated
+function with_venv() {
+  "$@"
+}
+
 ## help - prints the help details
 ##
 function help() {
