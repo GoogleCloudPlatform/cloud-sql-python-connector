@@ -13,12 +13,12 @@
 # limitations under the License.
 
 from unittest.mock import AsyncMock
+from unittest.mock import patch
 
 import dns.message
 import dns.rdataclass
 import dns.rdatatype
 import dns.resolver
-from mock import patch
 import pytest
 
 from google.cloud.sql.connector.connection_name import ConnectionName
@@ -183,8 +183,7 @@ async def test_DnsResolver_with_direct_psc_dns_name() -> None:
         "connectionName": "my-project:europe-north2:my-instance"
     }
 
-    resolver = DnsResolver()
-    resolver.set_client(mock_client)
+    resolver = DnsResolver(client=mock_client)
 
     result = await resolver.resolve(dns_name)
 
@@ -208,8 +207,7 @@ async def test_DnsResolver_with_cname_resolving_to_psc_dns_name() -> None:
         "connectionName": "my-project:europe-north2:my-instance"
     }
 
-    resolver = DnsResolver()
-    resolver.set_client(mock_client)
+    resolver = DnsResolver(client=mock_client)
 
     # Patch resolver CNAME and TXT methods
     with patch.object(
@@ -240,8 +238,7 @@ async def test_DnsResolver_with_recursive_cnames_to_psc_dns_name() -> None:
         "connectionName": "my-project:europe-north2:my-instance"
     }
 
-    resolver = DnsResolver()
-    resolver.set_client(mock_client)
+    resolver = DnsResolver(client=mock_client)
 
     # Mock Lookup CNAME sequence
     cname_mock = AsyncMock(
@@ -285,18 +282,15 @@ async def test_DnsResolver_global_region_skips_direct_resolution() -> None:
     dns_name = "0123456789ab.fedcba9876543.global.sql-psc.goog"
 
     mock_client = AsyncMock()
-    resolver = DnsResolver()
-    resolver.set_client(mock_client)
+    resolver = DnsResolver(client=mock_client)
 
     # Patch CNAME and TXT to fail, so it eventually raises DnsResolutionError
     with patch.object(
         resolver, "resolve_cname", AsyncMock(side_effect=DnsResolutionError("No CNAME"))
     ), patch.object(
         resolver, "resolve_txt", AsyncMock(side_effect=DnsResolutionError("No TXT"))
-    ):
-
-        with pytest.raises(DnsResolutionError):
-            await resolver.resolve(dns_name)
+    ), pytest.raises(DnsResolutionError):
+        await resolver.resolve(dns_name)
 
     # Verify mock_client was NOT called because direct resolution was skipped
     mock_client.resolve_connect_settings.assert_not_called()

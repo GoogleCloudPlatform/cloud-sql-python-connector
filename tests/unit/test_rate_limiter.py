@@ -16,7 +16,7 @@ limitations under the License.
 
 import asyncio
 
-import pytest  # noqa F401 Needed to run the tests
+import pytest
 
 from google.cloud.sql.connector.rate_limiter import AsyncRateLimiter
 

@@ -21,7 +21,7 @@ from __future__ import annotations
 import datetime
 import json
 import ssl
-from typing import Any, Callable, Literal, Optional
+from typing import Any, Callable, Literal
 
 from aiohttp import web
 from cryptography import x509
@@ -42,7 +42,7 @@ from google.cloud.sql.connector.utils import write_to_file
 
 class FakeCredentials:
     def __init__(
-        self, token: Optional[str] = None, expiry: Optional[datetime.datetime] = None
+        self, token: str | None = None, expiry: datetime.datetime | None = None
     ) -> None:
         self.token = token
         self.expiry = expiry
@@ -70,9 +70,7 @@ class FakeCredentials:
         """
         if self.expiry is None:
             return False
-        if self.expiry > datetime.datetime.now(datetime.timezone.utc):
-            return False
-        return True
+        return not self.expiry > datetime.datetime.now(datetime.timezone.utc)
 
     @property
     def universe_domain(self) -> str:
@@ -112,13 +110,16 @@ class FakeCredentials:
 def generate_cert(
     project: str,
     name: str,
-    cert_before: datetime.datetime = datetime.datetime.now(datetime.timezone.utc),
-    cert_after: datetime.datetime = datetime.datetime.now(datetime.timezone.utc)
-    + datetime.timedelta(hours=1),
+    cert_before: datetime.datetime | None = None,
+    cert_after: datetime.datetime | None = None,
 ) -> tuple[x509.CertificateBuilder, rsa.RSAPrivateKey]:
     """
     Generate a private key and cert object to be used in testing.
     """
+    if cert_before is None:
+        cert_before = datetime.datetime.now(datetime.timezone.utc)
+    if cert_after is None:
+        cert_after = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=1)
     # generate private key
     key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
     common_name = f"{project}:{name}"
@@ -160,13 +161,16 @@ def client_key_signed_cert(
     cert: x509.CertificateBuilder,
     priv_key: rsa.RSAPrivateKey,
     client_key: rsa.RSAPublicKey,
-    cert_before: datetime.datetime = datetime.datetime.now(datetime.timezone.utc),
-    cert_expiration: datetime.datetime = datetime.datetime.now(datetime.timezone.utc)
-    + datetime.timedelta(hours=1),
+    cert_before: datetime.datetime | None = None,
+    cert_expiration: datetime.datetime | None = None,
 ) -> str:
     """
     Create a PEM encoded certificate that is signed by given public key.
     """
+    if cert_before is None:
+        cert_before = datetime.datetime.now(datetime.timezone.utc)
+    if cert_expiration is None:
+        cert_expiration = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=1)
     # configure cert subject
     subject = issuer = x509.Name(
         [
@@ -223,16 +227,20 @@ class FakeCSQLInstance:
         region: str = "test-region",
         name: str = "test-instance",
         db_version: str = "POSTGRES_15",
-        ip_addrs: dict = {
-            "PRIMARY": "127.0.0.1",
-            "PRIVATE": "10.0.0.1",
-        },
-        dns_names: list = ["abcde.12345.us-central1.sql.goog"],
+        ip_addrs: dict | None = None,
+        dns_names: list | None = None,
         legacy_dns_name: bool = False,
-        cert_before: datetime = datetime.datetime.now(datetime.timezone.utc),
-        cert_expiration: datetime = datetime.datetime.now(datetime.timezone.utc)
-        + datetime.timedelta(hours=1),
+        cert_before: datetime.datetime | None = None,
+        cert_expiration: datetime.datetime | None = None,
     ) -> None:
+        if cert_before is None:
+            cert_before = datetime.datetime.now(datetime.timezone.utc)
+        if cert_expiration is None:
+            cert_expiration = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=1)
+        if dns_names is None:
+            dns_names = ["abcde.12345.us-central1.sql.goog"]
+        if ip_addrs is None:
+            ip_addrs = {"PRIMARY": "127.0.0.1", "PRIVATE": "10.0.0.1"}
         self.project = project
         self.region = region
         self.name = name

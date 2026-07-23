@@ -18,7 +18,7 @@ import abc
 from dataclasses import dataclass
 import logging
 import ssl
-from typing import Any, Optional, TYPE_CHECKING
+from typing import Any, TYPE_CHECKING
 
 from google.cloud.sql.connector.connection_name import ConnectionName
 from google.cloud.sql.connector.exceptions import CloudSQLIPTypeError
@@ -67,7 +67,7 @@ class ConnectionInfo:
     ip_addrs: dict[str, Any]
     database_version: str
     expiration: datetime.datetime
-    context: Optional[ssl.SSLContext] = None
+    context: ssl.SSLContext | None = None
 
     async def create_ssl_context(self, enable_iam_auth: bool = False) -> ssl.SSLContext:
         """Constructs a SSL/TLS context for the given connection info.

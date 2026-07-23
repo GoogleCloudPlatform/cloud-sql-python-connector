@@ -13,16 +13,16 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
+from __future__ import annotations
 
 import asyncio
 import os
 from threading import Thread
-from typing import Union
+from unittest.mock import patch
 
 from aiohttp import ClientResponseError
 from google.auth.credentials import Credentials
-from mock import patch
-import pytest  # noqa F401 Needed to run the tests
+import pytest
 
 from google.cloud.sql.connector import Connector
 from google.cloud.sql.connector import create_async_connector
@@ -215,7 +215,7 @@ async def test_Connector_Init_async_context_manager(
     ],
 )
 def test_Connector_init_ip_type(
-    ip_type: Union[str, IPTypes], expected: IPTypes, fake_credentials: Credentials
+    ip_type: str | IPTypes, expected: IPTypes, fake_credentials: Credentials
 ) -> None:
     """
     Test to check whether the __init__ method of Connector

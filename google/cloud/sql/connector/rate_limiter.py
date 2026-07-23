@@ -13,12 +13,12 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
+from __future__ import annotations
 
 import asyncio
-from typing import Optional
 
 
-class AsyncRateLimiter(object):
+class AsyncRateLimiter:
     """An asyncio-compatible rate limiter which uses the Token Bucket algorithm
     (https://en.wikipedia.org/wiki/Token_bucket) to limit the number
     of function calls over a time interval using an event queue.
@@ -35,7 +35,7 @@ class AsyncRateLimiter(object):
         self,
         max_capacity: int = 1,
         rate: float = 1 / 60,
-        loop: Optional[asyncio.AbstractEventLoop] = None,
+        loop: asyncio.AbstractEventLoop | None = None,
     ) -> None:
         self.rate = rate
         self.max_capacity = max_capacity

@@ -72,7 +72,7 @@ async def _is_valid(task: asyncio.Task) -> bool:
         # only valid if now is before the cert expires
         if datetime.datetime.now(datetime.timezone.utc) < metadata.expiration:
             return True
-    except Exception:
+    except Exception:  # noqa: BLE001
         # supress any errors from task
         logger.debug("Current instance metadata is invalid.")
     return False
@@ -80,7 +80,7 @@ async def _is_valid(task: asyncio.Task) -> bool:
 
 def _downscope_credentials(
     credentials: Credentials,
-    scopes: list[str] = ["https://www.googleapis.com/auth/sqlservice.login"],
+    scopes: list[str] | None = None,
 ) -> Credentials:
     """Generate a down-scoped credential.
 
@@ -95,6 +95,8 @@ def _downscope_credentials(
     """
     # credentials sourced from a service account or metadata are children of
     # Scoped class and are capable of being re-scoped
+    if scopes is None:
+        scopes = ["https://www.googleapis.com/auth/sqlservice.login"]
     if isinstance(credentials, Scoped):
         scoped_creds = credentials.with_scopes(scopes=scopes)
     # authenticated user credentials can not be re-scoped

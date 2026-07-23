@@ -47,7 +47,7 @@ def connect(
         )
 
     # allow automatic IAM database authentication to not require password
-    kwargs["password"] = kwargs["password"] if "password" in kwargs else None
+    kwargs["password"] = kwargs.get("password", None)
 
     # pop timeout as timeout arg is called 'connect_timeout' for pymysql
     timeout = kwargs.pop("timeout")

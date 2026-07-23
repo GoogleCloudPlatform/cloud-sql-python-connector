@@ -17,7 +17,7 @@ from __future__ import annotations
 import asyncio
 import datetime
 import logging
-from typing import Any, Optional, TYPE_CHECKING
+from typing import Any, TYPE_CHECKING
 
 import aiohttp
 from cryptography.hazmat.backends import default_backend
@@ -42,7 +42,7 @@ DEFAULT_SERVICE_ENDPOINT: str = "https://sqladmin.googleapis.com"
 logger = logging.getLogger(name=__name__)
 
 
-def _format_user_agent(driver: Optional[str], custom: Optional[str]) -> str:
+def _format_user_agent(driver: str | None, custom: str | None) -> str:
     agent = f"{USER_AGENT}+{driver}" if driver else USER_AGENT
     if custom and isinstance(custom, str):
         agent = f"{agent} {custom}"
@@ -52,12 +52,12 @@ def _format_user_agent(driver: Optional[str], custom: Optional[str]) -> str:
 class CloudSQLClient:
     def __init__(
         self,
-        sqladmin_api_endpoint: Optional[str],
-        quota_project: Optional[str],
+        sqladmin_api_endpoint: str | None,
+        quota_project: str | None,
         credentials: Credentials,
-        client: Optional[aiohttp.ClientSession] = None,
-        driver: Optional[str] = None,
-        user_agent: Optional[str] = None,
+        client: aiohttp.ClientSession | None = None,
+        driver: str | None = None,
+        user_agent: str | None = None,
     ) -> None:
         """Establishes the client to be used for Cloud SQL Admin API requests.
 
@@ -135,7 +135,7 @@ class CloudSQLClient:
                 if message:
                     resp.reason = message
         # skip, raise_for_status will catch all errors in finally block
-        except Exception:
+        except Exception:  # noqa: BLE001, S110
             pass
         finally:
             resp.raise_for_status()
@@ -195,7 +195,7 @@ class CloudSQLClient:
             A dictionary containing the resolve response (e.g. connectionName).
         """
         # before making Cloud SQL Admin API calls, refresh creds if required
-        if not self._credentials.token_state == TokenState.FRESH:
+        if self._credentials.token_state != TokenState.FRESH:
             self._credentials.refresh(requests.Request())
 
         headers = {
@@ -213,7 +213,7 @@ class CloudSQLClient:
                 message = ret_dict.get("error", {}).get("message")
                 if message:
                     resp.reason = message
-        except Exception:
+        except Exception:  # noqa: BLE001, S110
             pass
         finally:
             resp.raise_for_status()
@@ -266,7 +266,7 @@ class CloudSQLClient:
                 if message:
                     resp.reason = message
         # skip, raise_for_status will catch all errors in finally block
-        except Exception:
+        except Exception:  # noqa: BLE001, S110
             pass
         finally:
             resp.raise_for_status()
@@ -287,8 +287,7 @@ class CloudSQLClient:
             # Ref: https://github.com/googleapis/google-auth-library-python/blob/49a5ff7411a2ae4d32a7d11700f9f961c55406a9/google/auth/_helpers.py#L93-L99
             token_expiration = token_expiration.replace(tzinfo=datetime.timezone.utc)
 
-            if expiration > token_expiration:
-                expiration = token_expiration
+            expiration = min(expiration, token_expiration)
         return ephemeral_cert, expiration
 
     async def get_connection_info(
@@ -317,7 +316,7 @@ class CloudSQLClient:
         """
         priv_key, pub_key = await keys
         # before making Cloud SQL Admin API calls, refresh creds if required
-        if not self._credentials.token_state == TokenState.FRESH:
+        if self._credentials.token_state != TokenState.FRESH:
             self._credentials.refresh(requests.Request())
 
         metadata_task = asyncio.create_task(

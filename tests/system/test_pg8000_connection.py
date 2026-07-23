@@ -13,13 +13,12 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
+from __future__ import annotations
 
 from datetime import datetime
 import os
 
 # [START cloud_sql_connector_postgres_pg8000]
-from typing import Union
-
 import sqlalchemy
 
 from google.cloud.sql.connector import Connector
@@ -34,7 +33,7 @@ def create_sqlalchemy_engine(
     db: str,
     ip_type: str = "public",
     refresh_strategy: str = "background",
-    resolver: Union[type[DefaultResolver], type[DnsResolver]] = DefaultResolver,
+    resolver: type[DefaultResolver | DnsResolver] = DefaultResolver,
 ) -> tuple[sqlalchemy.engine.Engine, Connector]:
     """Creates a connection pool for a Cloud SQL instance and returns the pool
     and the connector. Callers are responsible for closing the pool and the

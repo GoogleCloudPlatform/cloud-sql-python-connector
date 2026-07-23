@@ -12,8 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import annotations
+
 import re
-from typing import Any, List
+from typing import Any
 
 import dns.asyncresolver
 
@@ -33,6 +35,9 @@ PSC_DNS_PATTERN = re.compile(
 class DefaultResolver:
     """DefaultResolver simply validates and parses instance connection name."""
 
+    def __init__(self, *args: Any, client: Any | None = None, **kwargs: Any) -> None:
+        pass
+
     async def resolve(self, connection_name: str) -> ConnectionName:
         return _parse_connection_name(connection_name)
 
@@ -43,11 +48,8 @@ class DnsResolver(dns.asyncresolver.Resolver):
     TXT records in DNS.
     """
 
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
+    def __init__(self, *args: Any, client: Any | None = None, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
-        self._client: Any = None
-
-    def set_client(self, client: Any) -> None:
         self._client = client
 
     async def resolve(self, dns: str) -> ConnectionName:  # type: ignore
@@ -119,7 +121,7 @@ class DnsResolver(dns.asyncresolver.Resolver):
                         record, dns
                     )
                     return conn_name
-                except Exception:
+                except Exception:  # noqa: BLE001, S112
                     continue
 
             raise DnsResolutionError(
@@ -141,7 +143,7 @@ class DnsResolver(dns.asyncresolver.Resolver):
                 f"Unable to resolve CNAME record for `{dns}`"
             ) from e
 
-    async def resolve_txt(self, dns: str) -> List[str]:
+    async def resolve_txt(self, dns: str) -> list[str]:
         try:
             answers = await super().resolve(dns, "TXT", raise_on_no_answer=True)
             return [record.to_text().strip('"') for record in answers]
@@ -150,9 +152,9 @@ class DnsResolver(dns.asyncresolver.Resolver):
                 f"Unable to resolve TXT record for `{dns}`"
             ) from e
 
-    async def resolve_a_record(self, dns: str) -> List[str]:
+    async def resolve_a_record(self, dns: str) -> list[str]:
         try:
             records = await super().resolve(dns, "A", raise_on_no_answer=True)
             return [record.to_text() for record in records]
-        except Exception:
+        except Exception:  # noqa: BLE001
             return []

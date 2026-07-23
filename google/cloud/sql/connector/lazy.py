@@ -12,12 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import annotations
+
 import asyncio
 from datetime import datetime
 from datetime import timedelta
 from datetime import timezone
 import logging
-from typing import Optional
 
 from google.cloud.sql.connector.client import CloudSQLClient
 from google.cloud.sql.connector.connection_info import ConnectionInfo
@@ -61,7 +62,7 @@ class LazyRefreshCache(ConnectionInfoCache):
         self._keys = keys
         self._client = client
         self._lock = asyncio.Lock()
-        self._cached: Optional[ConnectionInfo] = None
+        self._cached: ConnectionInfo | None = None
         self._needs_refresh = False
         self._closed = False
 
@@ -112,7 +113,7 @@ class LazyRefreshCache(ConnectionInfoCache):
             except Exception as e:
                 logger.debug(
                     f"['{self._conn_name}']: Connection info "
-                    f"refresh operation failed: {str(e)}"
+                    f"refresh operation failed: {e!s}"
                 )
                 raise
             logger.debug(
@@ -121,7 +122,7 @@ class LazyRefreshCache(ConnectionInfoCache):
             )
             logger.debug(
                 f"['{self._conn_name}']: Current certificate "
-                f"expiration = {str(conn_info.expiration)}"
+                f"expiration = {conn_info.expiration!s}"
             )
             self._cached = conn_info
             self._needs_refresh = False
@@ -132,4 +133,3 @@ class LazyRefreshCache(ConnectionInfoCache):
         other cache types.
         """
         self._closed = True
-        return

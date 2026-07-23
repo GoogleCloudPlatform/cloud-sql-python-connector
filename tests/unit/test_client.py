@@ -12,8 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import annotations
+
 import datetime
-from typing import Optional
 
 from aiohttp import ClientResponseError
 from aioresponses import aioresponses
@@ -148,7 +149,7 @@ async def test_CloudSQLClient_init_custom_user_agent(
 )
 @pytest.mark.asyncio
 async def test_CloudSQLClient_user_agent(
-    driver: Optional[str], fake_credentials: FakeCredentials
+    driver: str | None, fake_credentials: FakeCredentials
 ) -> None:
     """
     Test to check whether the __init__ method of CloudSQLClient
