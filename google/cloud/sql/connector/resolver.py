@@ -69,19 +69,20 @@ class DnsResolver(dns.asyncresolver.Resolver):
             match = PSC_DNS_PATTERN.match(dns_normalized.lower())
             if match:
                 region = match.group(3)
-                if self._client is None:
-                    raise ValueError(
-                        "SQLAdmin client is not configured in the resolver."
-                    )
+                if region != "global":
+                    if self._client is None:
+                        raise ValueError(
+                            "SQLAdmin client is not configured in the resolver."
+                        )
 
-                dns_name_with_dot = dns_normalized + "."
-                resp = await self._client.resolve_connect_settings(
-                    dns_name_with_dot, region
-                )
-                resolved_conn_name = resp["connectionName"]
-                return _parse_connection_name_with_domain_name(
-                    resolved_conn_name, dns
-                )
+                    dns_name_with_dot = dns_normalized + "."
+                    resp = await self._client.resolve_connect_settings(
+                        dns_name_with_dot, region
+                    )
+                    resolved_conn_name = resp["connectionName"]
+                    return _parse_connection_name_with_domain_name(
+                        resolved_conn_name, dns
+                    )
 
             if not _is_valid_domain(current):
                 raise ValueError(

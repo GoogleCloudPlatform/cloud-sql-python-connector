@@ -660,10 +660,10 @@ async def test_Connector_connect_async_custom_dns_resolver_fallback(
 
 
 @pytest.mark.asyncio
-async def test_Connector_connect_async_custom_dns_resolver_fallback_psc_to_private_ip(
+async def test_Connector_connect_async_custom_dns_resolver_no_fallback_psc_to_private_ip(
     fake_credentials: Credentials, fake_client: CloudSQLClient
 ) -> None:
-    """Test that Connector.connect_async falls back to Private IP if CNAME/PSC DNS resolution fails."""
+    """Test that Connector.connect_async does not fall back to Private IP if CNAME/PSC DNS resolution fails."""
 
     with patch(
         "google.cloud.sql.connector.resolver.DnsResolver.resolve_a_record"
@@ -688,8 +688,10 @@ async def test_Connector_connect_async_custom_dns_resolver_fallback_psc_to_priva
                 connector._client = fake_client
 
                 original_ips = fake_client.instance.ip_addrs
-                # Configure instance to be PSC enabled, but also have a PRIVATE IP fallback!
+                original_dns_names = fake_client.instance.dns_names
+                # Configure instance to be PSC enabled, but also have a PRIVATE IP!
                 fake_client.instance.psc_enabled = True
+                fake_client.instance.dns_names = ["1ad3b5d73f10.3oxon2yfo9tob.us-east1.sql.goog"]
                 fake_client.instance.ip_addrs = {
                     "PSC": "1ad3b5d73f10.3oxon2yfo9tob.us-east1.sql.goog",
                     "PRIVATE": "10.0.0.1",
@@ -709,13 +711,14 @@ async def test_Connector_connect_async_custom_dns_resolver_fallback_psc_to_priva
                             db="my-db",
                         )
 
-                        # Verify mock_connect fell back to PRIVATE IP "10.0.0.1"!
+                        # Verify mock_connect used PSC DNS instead of falling back to PRIVATE IP "10.0.0.1"!
                         args, _ = mock_connect.call_args
-                        assert args[0] == "10.0.0.1"
+                        assert args[0] == "1ad3b5d73f10.3oxon2yfo9tob.us-east1.sql.goog"
                         assert connection is True
                 finally:
-                    # Restore original IPs
+                    # Restore original IPs and DNS names
                     fake_client.instance.ip_addrs = original_ips
+                    fake_client.instance.dns_names = original_dns_names
                     fake_client.instance.psc_enabled = False
 
 

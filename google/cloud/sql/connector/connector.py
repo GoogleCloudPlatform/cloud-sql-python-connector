@@ -18,7 +18,6 @@ from __future__ import annotations
 
 import asyncio
 from functools import partial
-import ipaddress
 import logging
 import os
 import socket
@@ -49,27 +48,6 @@ from google.cloud.sql.connector.utils import format_database_user
 from google.cloud.sql.connector.utils import generate_keys
 
 logger = logging.getLogger(name=__name__)
-
-
-def _is_ip_address(ip: str) -> bool:
-    try:
-        ipaddress.ip_address(ip)
-        return True
-    except ValueError:
-        return False
-
-
-def _get_fallback_ips(
-    current_ips: list[str], ip_addresses: dict[str, list[str]]
-) -> list[str]:
-    if not current_ips:
-        return current_ips
-    if _is_ip_address(current_ips[0]):
-        return current_ips
-    fallback = ip_addresses.get("PRIVATE")
-    if not fallback:
-        fallback = ip_addresses.get("PRIMARY")
-    return fallback if fallback else current_ips
 
 ASYNC_DRIVERS = ["asyncpg"]
 SERVER_PROXY_PORT = 3307
@@ -430,25 +408,19 @@ class Connector:
                         "using it to connect"
                     )
                 else:
-                    fallback_ips = _get_fallback_ips(
-                        preferred_ips, conn_info.ip_addrs
-                    )
                     logger.debug(
                         f"['{instance_connection_string}']: Custom DNS name "
                         f"'{conn_info.conn_name.domain_name}' resolved but returned no "
-                        f"entries, using '{fallback_ips[0]}' from instance metadata"
+                        f"entries, using '{preferred_ips}' from instance metadata"
                     )
-                    targets.extend(fallback_ips)
+                    targets.extend(preferred_ips)
             except Exception as e:
-                fallback_ips = _get_fallback_ips(
-                    preferred_ips, conn_info.ip_addrs
-                )
                 logger.debug(
                     f"['{instance_connection_string}']: Custom DNS name "
                     f"'{conn_info.conn_name.domain_name}' did not resolve to an IP "
-                    f"address: {e}, using '{fallback_ips[0]}' from instance metadata"
+                    f"address: {e}, using '{preferred_ips}' from instance metadata"
                 )
-                targets.extend(fallback_ips)
+                targets.extend(preferred_ips)
         else:
             targets.extend(preferred_ips)
 

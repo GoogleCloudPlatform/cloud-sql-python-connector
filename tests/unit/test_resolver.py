@@ -278,3 +278,25 @@ async def test_DnsResolver_cname_loop_throws_error() -> None:
         with pytest.raises(DnsResolutionError) as exc_info:
             await resolver.resolve(dns_name)
         assert "CNAME loop detected" in str(exc_info.value)
+
+
+async def test_DnsResolver_global_region_skips_direct_resolution() -> None:
+    """Test DnsResolver skips direct resolution if the PSC DNS name has a global region."""
+    dns_name = "0123456789ab.fedcba9876543.global.sql-psc.goog"
+
+    mock_client = AsyncMock()
+    resolver = DnsResolver()
+    resolver.set_client(mock_client)
+
+    # Patch CNAME and TXT to fail, so it eventually raises DnsResolutionError
+    with patch.object(
+        resolver, "resolve_cname", AsyncMock(side_effect=DnsResolutionError("No CNAME"))
+    ), patch.object(
+        resolver, "resolve_txt", AsyncMock(side_effect=DnsResolutionError("No TXT"))
+    ):
+
+        with pytest.raises(DnsResolutionError):
+            await resolver.resolve(dns_name)
+
+    # Verify mock_client was NOT called because direct resolution was skipped
+    mock_client.resolve_connect_settings.assert_not_called()
