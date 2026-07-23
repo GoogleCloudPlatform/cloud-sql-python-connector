@@ -18,7 +18,7 @@ import abc
 from dataclasses import dataclass
 import logging
 import ssl
-from typing import Any, Optional, TYPE_CHECKING
+from typing import Any, TYPE_CHECKING
 
 from google.cloud.sql.connector.connection_name import ConnectionName
 from google.cloud.sql.connector.exceptions import CloudSQLIPTypeError
@@ -67,7 +67,7 @@ class ConnectionInfo:
     ip_addrs: dict[str, Any]
     database_version: str
     expiration: datetime.datetime
-    context: Optional[ssl.SSLContext] = None
+    context: ssl.SSLContext | None = None
 
     async def create_ssl_context(self, enable_iam_auth: bool = False) -> ssl.SSLContext:
         """Constructs a SSL/TLS context for the given connection info.
@@ -119,6 +119,17 @@ class ConnectionInfo:
 
     def get_preferred_ip(self, ip_type: IPTypes) -> str:
         """Returns the first IP address for the instance, according to the preference
+        supplied by ip_type. If no IP addressess with the given preference are found,
+        an error is raised."""
+        if ip_type.value in self.ip_addrs:
+            return self.ip_addrs[ip_type.value][0]
+        raise CloudSQLIPTypeError(
+            "Cloud SQL instance does not have any IP addresses matching "
+            f"preference: {ip_type.value}"
+        )
+
+    def get_preferred_ips(self, ip_type: IPTypes) -> list[str]:
+        """Returns all IP addresses for the instance, according to the preference
         supplied by ip_type. If no IP addressess with the given preference are found,
         an error is raised."""
         if ip_type.value in self.ip_addrs:

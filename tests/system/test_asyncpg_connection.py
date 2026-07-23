@@ -13,10 +13,11 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
+from __future__ import annotations
 
 import asyncio
 import os
-from typing import Any, Union
+from typing import Any
 
 import asyncpg
 import sqlalchemy
@@ -34,7 +35,7 @@ async def create_sqlalchemy_engine(
     db: str,
     ip_type: str = "public",
     refresh_strategy: str = "background",
-    resolver: Union[type[DefaultResolver], type[DnsResolver]] = DefaultResolver,
+    resolver: type[DefaultResolver | DnsResolver] = DefaultResolver,
     **kwargs: Any,
 ) -> tuple[sqlalchemy.ext.asyncio.engine.AsyncEngine, Connector]:
     """Creates a connection pool for a Cloud SQL instance and returns the pool

@@ -12,8 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import annotations
+
 import datetime
-from typing import Optional
 
 from aiohttp import ClientResponseError
 from aioresponses import aioresponses
@@ -38,8 +39,8 @@ async def test_get_metadata_no_psc(fake_client: CloudSQLClient) -> None:
     )
     assert resp["database_version"] == "POSTGRES_15"
     assert resp["ip_addresses"] == {
-        "PRIMARY": "127.0.0.1",
-        "PRIVATE": "10.0.0.1",
+        "PRIMARY": ["127.0.0.1"],
+        "PRIVATE": ["10.0.0.1"],
     }
     assert isinstance(resp["server_ca_cert"], str)
 
@@ -58,9 +59,9 @@ async def test_get_metadata_with_psc(fake_client: CloudSQLClient) -> None:
     )
     assert resp["database_version"] == "POSTGRES_15"
     assert resp["ip_addresses"] == {
-        "PRIMARY": "127.0.0.1",
-        "PRIVATE": "10.0.0.1",
-        "PSC": "abcde.12345.us-central1.sql.goog",
+        "PRIMARY": ["127.0.0.1"],
+        "PRIVATE": ["10.0.0.1"],
+        "PSC": ["abcde.12345.us-central1.sql.goog"],
     }
     assert isinstance(resp["server_ca_cert"], str)
 
@@ -80,9 +81,9 @@ async def test_get_metadata_legacy_dns_with_psc(fake_client: CloudSQLClient) -> 
     )
     assert resp["database_version"] == "POSTGRES_15"
     assert resp["ip_addresses"] == {
-        "PRIMARY": "127.0.0.1",
-        "PRIVATE": "10.0.0.1",
-        "PSC": "abcde.12345.us-central1.sql.goog",
+        "PRIMARY": ["127.0.0.1"],
+        "PRIVATE": ["10.0.0.1"],
+        "PSC": ["abcde.12345.us-central1.sql.goog"],
     }
     assert isinstance(resp["server_ca_cert"], str)
 
@@ -148,7 +149,7 @@ async def test_CloudSQLClient_init_custom_user_agent(
 )
 @pytest.mark.asyncio
 async def test_CloudSQLClient_user_agent(
-    driver: Optional[str], fake_credentials: FakeCredentials
+    driver: str | None, fake_credentials: FakeCredentials
 ) -> None:
     """
     Test to check whether the __init__ method of CloudSQLClient
@@ -290,3 +291,35 @@ async def test_get_ephemeral_error_parsing_json(
         assert exc_info.value.status == 404
         assert exc_info.value.message == "Not Found"
         await client.close()
+
+
+@pytest.mark.asyncio
+async def test_get_metadata_multiple_psc_dns_sorted(fake_client: CloudSQLClient) -> None:
+    """
+    Test _get_metadata returns successfully with multiple PSC IP types sorted.
+    """
+    fake_client.instance.psc_enabled = True
+    fake_client.instance.legacy_dns_name = False
+    fake_client.instance.dns_names = [
+        "dns1.sql.goog",
+        "dns2.sql-psc.goog",
+        "dns3.sql.goog",
+    ]
+    try:
+        resp = await fake_client._get_metadata(
+            "test-project",
+            "test-region",
+            "test-instance",
+        )
+        assert resp["database_version"] == "POSTGRES_15"
+        assert resp["ip_addresses"] == {
+            "PRIMARY": ["127.0.0.1"],
+            "PRIVATE": ["10.0.0.1"],
+            "PSC": ["dns2.sql-psc.goog", "dns1.sql.goog", "dns3.sql.goog"],
+        }
+        assert isinstance(resp["server_ca_cert"], str)
+    finally:
+        fake_client.instance.psc_enabled = False
+        fake_client.instance.legacy_dns_name = False
+        fake_client.instance.dns_names = ["abcde.12345.us-central1.sql.goog"]
+

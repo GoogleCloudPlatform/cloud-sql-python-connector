@@ -16,10 +16,10 @@ limitations under the License.
 
 import asyncio
 import datetime
+from unittest.mock import patch
 
-from mock import patch
 import mocks
-import pytest  # noqa F401 Needed to run the tests
+import pytest
 
 from google.cloud.sql.connector import IPTypes
 from google.cloud.sql.connector.client import CloudSQLClient
@@ -109,7 +109,7 @@ async def test_schedule_refresh_replaces_invalid_result(
     a valid one
     """
     # allow more frequent refreshes for tests
-    setattr(cache, "_refresh_rate_limiter", test_rate_limiter)
+    cache._refresh_rate_limiter = test_rate_limiter
     # set certificate to be expired
     cache._client.instance.cert_expiration = datetime.datetime.now(
         datetime.timezone.utc
@@ -147,7 +147,7 @@ async def test_force_refresh_cancels_pending_refresh(
     Test that force_refresh cancels pending task if refresh_in_progress event is not set.
     """
     # allow more frequent refreshes for tests
-    setattr(cache, "_refresh_rate_limiter", test_rate_limiter)
+    cache._refresh_rate_limiter = test_rate_limiter
     # make sure initial refresh is finished
     await cache._current
     # since the pending refresh isn't for another 55 min, the refresh_in_progress event
@@ -215,7 +215,7 @@ async def test_perform_refresh_expiration(
         minutes=1
     )
     credentials = mocks.FakeCredentials(token="my-token", expiry=expiration)
-    setattr(cache, "_enable_iam_auth", True)
+    cache._enable_iam_auth = True
     # set downscoped credential to mock
     with patch("google.cloud.sql.connector.client._downscope_credentials") as mock_auth:
         mock_auth.return_value = credentials
@@ -249,13 +249,13 @@ async def test_get_preferred_ip_CloudSQLIPTypeError(cache: RefreshAheadCache) ->
     when missing Public or Private IP addresses.
     """
     instance_metadata: ConnectionInfo = await cache._current
-    instance_metadata.ip_addrs = {"PRIVATE": "1.1.1.1"}
+    instance_metadata.ip_addrs = {"PRIVATE": ["1.1.1.1"]}
     # test error when Public IP is missing
     with pytest.raises(CloudSQLIPTypeError):
         instance_metadata.get_preferred_ip(IPTypes.PUBLIC)
 
     # test error when Private IP is missing
-    instance_metadata.ip_addrs = {"PRIMARY": "0.0.0.0"}
+    instance_metadata.ip_addrs = {"PRIMARY": ["0.0.0.0"]}
     with pytest.raises(CloudSQLIPTypeError):
         instance_metadata.get_preferred_ip(IPTypes.PRIVATE)
 
@@ -284,7 +284,7 @@ async def test_AutoIAMAuthNotSupportedError(fake_client: CloudSQLClient) -> None
 
 async def test_ConnectionInfo_caches_sslcontext() -> None:
     info = ConnectionInfo(
-        "", "cert", "cert", "key".encode(), {}, "POSTGRES", datetime.datetime.now()
+        "", "cert", "cert", b"key", {}, "POSTGRES", datetime.datetime.now(datetime.timezone.utc)
     )
     # context should default to None
     assert info.context is None

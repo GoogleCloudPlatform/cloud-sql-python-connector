@@ -23,11 +23,11 @@ from google.cloud.sql.connector.resolver import DnsResolver
 from google.cloud.sql.connector.version import __version__
 
 __all__ = [
-    "__version__",
-    "create_async_connector",
     "Connector",
     "DefaultResolver",
     "DnsResolver",
     "IPTypes",
     "RefreshStrategy",
+    "__version__",
+    "create_async_connector",
 ]

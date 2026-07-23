@@ -12,11 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from unittest.mock import AsyncMock
+from unittest.mock import patch
+
 import dns.message
 import dns.rdataclass
 import dns.rdatatype
 import dns.resolver
-from mock import patch
 import pytest
 
 from google.cloud.sql.connector.connection_name import ConnectionName
@@ -166,3 +168,129 @@ async def test_DnsResolver_resolve_a_record_empty() -> None:
         resolver = DnsResolver()
         result = await resolver.resolve_a_record("db.example.com")
         assert result == []
+
+
+
+async def test_DnsResolver_with_direct_psc_dns_name() -> None:
+    """Test DnsResolver resolves direct PSC DNS name using resolve_connect_settings."""
+    dns_name = "0123456789ab.fedcba9876543.europe-north2.sql-psc.goog"
+    real_conn_name = ConnectionName(
+        "my-project", "europe-north2", "my-instance", dns_name
+    )
+
+    mock_client = AsyncMock()
+    mock_client.resolve_connect_settings.return_value = {
+        "connectionName": "my-project:europe-north2:my-instance"
+    }
+
+    resolver = DnsResolver(client=mock_client)
+
+    result = await resolver.resolve(dns_name)
+
+    assert result == real_conn_name
+    # Verify mock_client was called with correct trailing dot DNS name!
+    mock_client.resolve_connect_settings.assert_awaited_once_with(
+        dns_name + ".", "europe-north2"
+    )
+
+
+async def test_DnsResolver_with_cname_resolving_to_psc_dns_name() -> None:
+    """Test DnsResolver resolves CNAME to PSC DNS and returns proper connection name."""
+    dns_name = "db.example.com"
+    cname_target = "0123456789ab.fedcba9876543.europe-north2.sql-psc.goog"
+    real_conn_name = ConnectionName(
+        "my-project", "europe-north2", "my-instance", dns_name
+    )
+
+    mock_client = AsyncMock()
+    mock_client.resolve_connect_settings.return_value = {
+        "connectionName": "my-project:europe-north2:my-instance"
+    }
+
+    resolver = DnsResolver(client=mock_client)
+
+    # Patch resolver CNAME and TXT methods
+    with patch.object(
+        resolver, "resolve_cname", AsyncMock(return_value=cname_target)
+    ), patch.object(
+        resolver, "resolve_txt", AsyncMock(side_effect=Exception("No TXT"))
+    ):
+
+        result = await resolver.resolve(dns_name)
+
+    assert result == real_conn_name
+    mock_client.resolve_connect_settings.assert_awaited_once_with(
+        cname_target + ".", "europe-north2"
+    )
+
+
+async def test_DnsResolver_with_recursive_cnames_to_psc_dns_name() -> None:
+    """Test DnsResolver resolves recursive CNAMEs to PSC DNS successfully."""
+    dns_name = "name1.example.com"
+    cname2 = "name2.example.com"
+    cname_target = "0123456789ab.fedcba9876543.europe-north2.sql-psc.goog"
+    real_conn_name = ConnectionName(
+        "my-project", "europe-north2", "my-instance", dns_name
+    )
+
+    mock_client = AsyncMock()
+    mock_client.resolve_connect_settings.return_value = {
+        "connectionName": "my-project:europe-north2:my-instance"
+    }
+
+    resolver = DnsResolver(client=mock_client)
+
+    # Mock Lookup CNAME sequence
+    cname_mock = AsyncMock(
+        side_effect=lambda name: cname2 if name == dns_name else cname_target
+    )
+
+    with patch.object(resolver, "resolve_cname", cname_mock), patch.object(
+        resolver, "resolve_txt", AsyncMock(side_effect=Exception("No TXT"))
+    ):
+
+        result = await resolver.resolve(dns_name)
+
+    assert result == real_conn_name
+    mock_client.resolve_connect_settings.assert_awaited_once_with(
+        cname_target + ".", "europe-north2"
+    )
+
+
+async def test_DnsResolver_cname_loop_throws_error() -> None:
+    """Test DnsResolver throws error if a CNAME loop is detected."""
+    dns_name = "name1.example.com"
+    cname2 = "name2.example.com"
+
+    resolver = DnsResolver()
+
+    cname_mock = AsyncMock(
+        side_effect=lambda name: cname2 if name == dns_name else dns_name
+    )
+
+    with patch.object(resolver, "resolve_cname", cname_mock), patch.object(
+        resolver, "resolve_txt", AsyncMock(side_effect=Exception("No TXT"))
+    ):
+
+        with pytest.raises(DnsResolutionError) as exc_info:
+            await resolver.resolve(dns_name)
+        assert "CNAME loop detected" in str(exc_info.value)
+
+
+async def test_DnsResolver_global_region_skips_direct_resolution() -> None:
+    """Test DnsResolver skips direct resolution if the PSC DNS name has a global region."""
+    dns_name = "0123456789ab.fedcba9876543.global.sql-psc.goog"
+
+    mock_client = AsyncMock()
+    resolver = DnsResolver(client=mock_client)
+
+    # Patch CNAME and TXT to fail, so it eventually raises DnsResolutionError
+    with patch.object(
+        resolver, "resolve_cname", AsyncMock(side_effect=DnsResolutionError("No CNAME"))
+    ), patch.object(
+        resolver, "resolve_txt", AsyncMock(side_effect=DnsResolutionError("No TXT"))
+    ), pytest.raises(DnsResolutionError):
+        await resolver.resolve(dns_name)
+
+    # Verify mock_client was NOT called because direct resolution was skipped
+    mock_client.resolve_connect_settings.assert_not_called()

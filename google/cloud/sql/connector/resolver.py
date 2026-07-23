@@ -12,7 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import List
+from __future__ import annotations
+
+import re
+from typing import Any
 
 import dns.asyncresolver
 
@@ -24,9 +27,16 @@ from google.cloud.sql.connector.connection_name import (
 from google.cloud.sql.connector.connection_name import ConnectionName
 from google.cloud.sql.connector.exceptions import DnsResolutionError
 
+PSC_DNS_PATTERN = re.compile(
+    r"^([a-f0-9]{12})\.([^.]+)\.([a-z0-9]+-[a-z0-9]+)\.(sql|sql-psa|sql-psc)\.goog\.?$"
+)
+
 
 class DefaultResolver:
     """DefaultResolver simply validates and parses instance connection name."""
+
+    def __init__(self, *args: Any, client: Any | None = None, **kwargs: Any) -> None:
+        pass
 
     async def resolve(self, connection_name: str) -> ConnectionName:
         return _parse_connection_name(connection_name)
@@ -38,54 +48,113 @@ class DnsResolver(dns.asyncresolver.Resolver):
     TXT records in DNS.
     """
 
+    def __init__(self, *args: Any, client: Any | None = None, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self._client = client
+
     async def resolve(self, dns: str) -> ConnectionName:  # type: ignore
-        try:
-            conn_name = _parse_connection_name(dns)
-        except ValueError:
-            # The connection name was not project:region:instance format.
-            # Check if connection name is a valid DNS domain name
-            if _is_valid_domain(dns):
-                # Attempt to query a TXT record to get connection name.
-                conn_name = await self.query_dns(dns)
-            else:
+        current = dns
+        visited = {current}
+
+        # Max 10 iterations to prevent infinite CNAME loops
+        for _ in range(10):
+            try:
+                domain_val = dns if current != dns else ""
+                conn_name = _parse_connection_name_with_domain_name(
+                    current, domain_val
+                )
+                return conn_name
+            except ValueError:
+                pass
+
+            dns_normalized = current.rstrip(".")
+            match = PSC_DNS_PATTERN.match(dns_normalized.lower())
+            if match:
+                region = match.group(3)
+                if region != "global":
+                    if self._client is None:
+                        raise ValueError(
+                            "SQLAdmin client is not configured in the resolver."
+                        )
+
+                    dns_name_with_dot = dns_normalized + "."
+                    resp = await self._client.resolve_connect_settings(
+                        dns_name_with_dot, region
+                    )
+                    resolved_conn_name = resp["connectionName"]
+                    return _parse_connection_name_with_domain_name(
+                        resolved_conn_name, dns
+                    )
+
+            if not _is_valid_domain(current):
                 raise ValueError(
                     "Arg `instance_connection_string` must have "
                     "format: PROJECT:REGION:INSTANCE or be a valid DNS domain "
                     f"name, got {dns}."
                 )
-        return conn_name
 
-    async def resolve_a_record(self, dns: str) -> List[str]:
-        try:
-            # Attempt to query the A records.
-            records = await super().resolve(dns, "A", raise_on_no_answer=True)
-            # return IP addresses as strings
-            return [record.to_text() for record in records]
-        except Exception:
-            # On any error, return empty list
-            return []
+            cname_found = False
+            try:
+                cname = await self.resolve_cname(current)
+                cname_found = True
+            except DnsResolutionError:
+                pass
 
-    async def query_dns(self, dns: str) -> ConnectionName:
-        try:
-            # Attempt to query the TXT records.
-            records = await super().resolve(dns, "TXT", raise_on_no_answer=True)
-            # Sort the TXT record values alphabetically, strip quotes as record
-            # values can be returned as raw strings
-            rdata = [record.to_text().strip('"') for record in records]
+            if cname_found:
+                if cname in visited:
+                    raise DnsResolutionError(f"CNAME loop detected for `{dns}`")
+                visited.add(cname)
+                current = cname
+                continue
+
+            try:
+                rdata = await self.resolve_txt(current)
+            except DnsResolutionError as e:
+                raise DnsResolutionError(
+                    f"Unable to resolve TXT record for `{dns}`"
+                ) from e
+
             rdata.sort()
-            # Attempt to parse records, returning the first valid record.
             for record in rdata:
                 try:
-                    conn_name = _parse_connection_name_with_domain_name(record, dns)
+                    conn_name = _parse_connection_name_with_domain_name(
+                        record, dns
+                    )
                     return conn_name
-                except Exception:
+                except Exception:  # noqa: BLE001, S112
                     continue
-            # If all records failed to parse, throw error
+
             raise DnsResolutionError(
-                f"Unable to parse TXT record for `{dns}` -> `{rdata[0]}`"
+                f"Unable to parse TXT record for `{current}` -> `{rdata[0]}`"
+                if rdata
+                else f"Unable to resolve TXT record for `{current}`"
             )
-        # Don't override above DnsResolutionError
-        except DnsResolutionError:
-            raise
+
+        raise DnsResolutionError(
+            f"CNAME loop detected or max resolution depth reached for `{dns}`"
+        )
+
+    async def resolve_cname(self, dns: str) -> str:
+        try:
+            answers = await super().resolve(dns, "CNAME", raise_on_no_answer=True)
+            return str(answers[0].target).rstrip(".")
         except Exception as e:
-            raise DnsResolutionError(f"Unable to resolve TXT record for `{dns}`") from e
+            raise DnsResolutionError(
+                f"Unable to resolve CNAME record for `{dns}`"
+            ) from e
+
+    async def resolve_txt(self, dns: str) -> list[str]:
+        try:
+            answers = await super().resolve(dns, "TXT", raise_on_no_answer=True)
+            return [record.to_text().strip('"') for record in answers]
+        except Exception as e:
+            raise DnsResolutionError(
+                f"Unable to resolve TXT record for `{dns}`"
+            ) from e
+
+    async def resolve_a_record(self, dns: str) -> list[str]:
+        try:
+            records = await super().resolve(dns, "A", raise_on_no_answer=True)
+            return [record.to_text() for record in records]
+        except Exception:  # noqa: BLE001
+            return []

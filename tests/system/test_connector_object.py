@@ -81,8 +81,6 @@ def test_multiple_connectors() -> None:
                 (instance_connection_string, second_connector._enable_iam_auth)
             ]
         )
-    except Exception:
-        raise
     finally:
         # close connectors
         first_connector.close()
@@ -136,9 +134,10 @@ def test_connector_sqlserver_iam_auth_error() -> None:
     Test that connecting with enable_iam_auth set to True
     for SQL Server raises exception.
     """
-    with pytest.raises(AutoIAMAuthNotSupported):
-        with Connector(enable_iam_auth=True) as connector:
-            connector.connect(
+    with pytest.raises(AutoIAMAuthNotSupported), Connector(
+        enable_iam_auth=True
+    ) as connector:
+        connector.connect(
                 os.environ["SQLSERVER_CONNECTION_NAME"],
                 "pytds",
                 user="my-user",

@@ -61,7 +61,7 @@ class DriverMapping(Enum):
     """Maps a given database driver to it's corresponding database engine."""
 
     ASYNCPG = "POSTGRES"
-    PG8000 = "POSTGRES"
+    PG8000 = "POSTGRES"  # noqa: PIE796
     PYMYSQL = "MYSQL"
     PYTDS = "SQLSERVER"
 

@@ -123,7 +123,7 @@ def format_database_user(database_version: str, user: str) -> str:
     # remove suffix for Postgres service accounts
     if database_version.startswith("POSTGRES"):
         suffix = ".gserviceaccount.com"
-        user = user[: -len(suffix)] if user.endswith(suffix) else user
+        user = user.removesuffix(suffix)
         return user
 
     # remove everything after and including the @ for MySQL

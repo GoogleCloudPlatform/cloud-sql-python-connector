@@ -17,8 +17,8 @@ limitations under the License.
 import socket
 import ssl
 from typing import Any
+from unittest.mock import patch
 
-from mock import patch
 import pytest
 
 from google.cloud.sql.connector.pymysql import connect as pymysql_connect

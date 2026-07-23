@@ -18,7 +18,7 @@ import re
 # Instance connection name is the format <PROJECT>:<REGION>:<INSTANCE_NAME>
 # Additionally, we have to support legacy "domain-scoped" projects
 # (e.g. "google.com:PROJECT")
-CONN_NAME_REGEX = re.compile(("([^:]+(:[^:]+)?):([^:]+):([^:]+)"))
+CONN_NAME_REGEX = re.compile("([^:]+(:[^:]+)?):([^:]+):([^:]+)")
 # The domain name pattern in accordance with RFC 1035, RFC 1123 and RFC 2181.
 DOMAIN_NAME_REGEX = re.compile(
     r"^(?:[_a-z0-9](?:[_a-z0-9-]{0,61}[a-z0-9])?\.)+(?:[a-z](?:[a-z0-9-]{0,61}[a-z0-9])?)?$"
@@ -48,9 +48,7 @@ class ConnectionName:
 
 
 def _is_valid_domain(domain_name: str) -> bool:
-    if DOMAIN_NAME_REGEX.fullmatch(domain_name) is None:
-        return False
-    return True
+    return DOMAIN_NAME_REGEX.fullmatch(domain_name) is not None
 
 
 def _parse_connection_name(connection_name: str) -> ConnectionName:

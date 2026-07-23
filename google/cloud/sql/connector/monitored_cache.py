@@ -12,10 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import annotations
+
 import asyncio
 import logging
 import ssl
-from typing import Any, Callable, Optional, Union
+from typing import Any, Callable
 
 from google.cloud.sql.connector.connection_info import ConnectionInfo
 from google.cloud.sql.connector.connection_info import ConnectionInfoCache
@@ -31,13 +33,13 @@ logger = logging.getLogger(name=__name__)
 class MonitoredCache(ConnectionInfoCache):
     def __init__(
         self,
-        cache: Union[RefreshAheadCache, LazyRefreshCache],
+        cache: RefreshAheadCache | LazyRefreshCache,
         failover_period: int,
-        resolver: Union[DefaultResolver, DnsResolver],
+        resolver: DefaultResolver | DnsResolver,
     ) -> None:
         self.resolver = resolver
         self.cache = cache
-        self.domain_name_ticker: Optional[asyncio.Task] = None
+        self.domain_name_ticker: asyncio.Task | None = None
         self.sockets: list[ssl.SSLSocket] = []
 
         # If domain name is configured for instance and failover period is set,
@@ -87,7 +89,7 @@ class MonitoredCache(ConnectionInfoCache):
                 )
                 await self.close()
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             # Domain name checks should not be fatal, log error and continue.
             logger.debug(
                 f"['{self.cache.conn_name}']: Unable to check domain name, "

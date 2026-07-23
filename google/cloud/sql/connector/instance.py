@@ -130,7 +130,7 @@ class RefreshAheadCache(ConnectionInfoCache):
         except Exception as e:
             logger.debug(
                 f"['{self._conn_name}']: Connection info "
-                f"refresh operation failed: {str(e)}"
+                f"refresh operation failed: {e!s}"
             )
             raise
 

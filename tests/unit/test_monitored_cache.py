@@ -15,12 +15,12 @@
 import asyncio
 import socket
 import ssl
+from unittest.mock import patch
 
 import dns.message
 import dns.rdataclass
 import dns.rdatatype
 import dns.resolver
-from mock import patch
 import pytest
 
 from google.cloud.sql.connector.client import CloudSQLClient

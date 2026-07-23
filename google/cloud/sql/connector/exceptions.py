@@ -21,7 +21,6 @@ class ConnectorLoopError(Exception):
     in an invalid state (event loop in current thread).
     """
 
-    pass
 
 
 class TLSVersionError(Exception):
@@ -29,7 +28,6 @@ class TLSVersionError(Exception):
     Raised when the required TLS protocol version is not supported.
     """
 
-    pass
 
 
 class CloudSQLIPTypeError(Exception):
@@ -37,7 +35,6 @@ class CloudSQLIPTypeError(Exception):
     Raised when IP address for the preferred IP type is not found.
     """
 
-    pass
 
 
 class PlatformNotSupportedError(Exception):
@@ -45,7 +42,6 @@ class PlatformNotSupportedError(Exception):
     Raised when a feature is not supported on the current platform.
     """
 
-    pass
 
 
 class AutoIAMAuthNotSupported(Exception):
@@ -54,7 +50,6 @@ class AutoIAMAuthNotSupported(Exception):
     supported with database engine version.
     """
 
-    pass
 
 
 class RefreshNotValidError(Exception):
@@ -62,7 +57,6 @@ class RefreshNotValidError(Exception):
     Exception to be raised when the task returned from refresh is not valid.
     """
 
-    pass
 
 
 class IncompatibleDriverError(Exception):

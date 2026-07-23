@@ -13,16 +13,16 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
+from __future__ import annotations
 
 import asyncio
 import os
 from threading import Thread
-from typing import Union
+from unittest.mock import patch
 
 from aiohttp import ClientResponseError
 from google.auth.credentials import Credentials
-from mock import patch
-import pytest  # noqa F401 Needed to run the tests
+import pytest
 
 from google.cloud.sql.connector import Connector
 from google.cloud.sql.connector import create_async_connector
@@ -215,7 +215,7 @@ async def test_Connector_Init_async_context_manager(
     ],
 )
 def test_Connector_init_ip_type(
-    ip_type: Union[str, IPTypes], expected: IPTypes, fake_credentials: Credentials
+    ip_type: str | IPTypes, expected: IPTypes, fake_credentials: Credentials
 ) -> None:
     """
     Test to check whether the __init__ method of Connector
@@ -657,5 +657,68 @@ async def test_Connector_connect_async_custom_dns_resolver_fallback(
                 finally:
                     # Restore original IPs
                     fake_client.instance.ip_addrs = original_ips
+
+
+@pytest.mark.asyncio
+async def test_Connector_connect_async_custom_dns_resolver_no_fallback_psc_to_private_ip(
+    fake_credentials: Credentials, fake_client: CloudSQLClient
+) -> None:
+    """Test that Connector.connect_async does not fall back to Private IP if CNAME/PSC DNS resolution fails."""
+
+    with patch(
+        "google.cloud.sql.connector.resolver.DnsResolver.resolve_a_record"
+    ) as mock_resolve_a:
+        # DNS resolution fails
+        mock_resolve_a.return_value = []
+
+        with patch(
+            "google.cloud.sql.connector.resolver.DnsResolver.resolve"
+        ) as mock_resolve:
+            conn_name_with_domain = ConnectionName(
+                "test-project", "test-region", "test-instance", "db.example.com"
+            )
+            mock_resolve.return_value = conn_name_with_domain
+
+            async with Connector(
+                credentials=fake_credentials,
+                loop=asyncio.get_running_loop(),
+                resolver=DnsResolver,
+                ip_type="PSC",  # Use PSC IP type
+            ) as connector:
+                connector._client = fake_client
+
+                original_ips = fake_client.instance.ip_addrs
+                original_dns_names = fake_client.instance.dns_names
+                # Configure instance to be PSC enabled, but also have a PRIVATE IP!
+                fake_client.instance.psc_enabled = True
+                fake_client.instance.dns_names = ["1ad3b5d73f10.3oxon2yfo9tob.us-east1.sql.goog"]
+                fake_client.instance.ip_addrs = {
+                    "PSC": "1ad3b5d73f10.3oxon2yfo9tob.us-east1.sql.goog",
+                    "PRIVATE": "10.0.0.1",
+                }
+
+                try:
+                    with patch(
+                        "google.cloud.sql.connector.asyncpg.connect"
+                    ) as mock_connect:
+                        mock_connect.return_value = True
+
+                        connection = await connector.connect_async(
+                            "db.example.com",
+                            "asyncpg",
+                            user="my-user",
+                            password="my-pass",
+                            db="my-db",
+                        )
+
+                        # Verify mock_connect used PSC DNS instead of falling back to PRIVATE IP "10.0.0.1"!
+                        args, _ = mock_connect.call_args
+                        assert args[0] == "1ad3b5d73f10.3oxon2yfo9tob.us-east1.sql.goog"
+                        assert connection is True
+                finally:
+                    # Restore original IPs and DNS names
+                    fake_client.instance.ip_addrs = original_ips
+                    fake_client.instance.dns_names = original_dns_names
+                    fake_client.instance.psc_enabled = False
 
 

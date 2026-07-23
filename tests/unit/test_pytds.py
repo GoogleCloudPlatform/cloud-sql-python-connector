@@ -18,8 +18,8 @@ import platform
 import socket
 import ssl
 from typing import Any
+from unittest.mock import patch
 
-from mock import patch
 import pytest
 
 from google.cloud.sql.connector.exceptions import PlatformNotSupportedError
@@ -58,7 +58,7 @@ async def test_pytds_platform_error(context: ssl.SSLContext, kwargs: Any) -> Non
     """Test to verify that pytds.connect throws proper PlatformNotSupportedError."""
     ip_addr = "127.0.0.1"
     # stub operating system to Linux
-    setattr(platform, "system", stub_platform_linux)
+    platform.system = stub_platform_linux
     assert platform.system() == "Linux"
     sock = context.wrap_socket(
         socket.create_connection((ip_addr, 3307)),
@@ -81,7 +81,7 @@ async def test_pytds_windows_active_directory_auth(
     """
     ip_addr = "127.0.0.1"
     # stub operating system to Windows
-    setattr(platform, "system", stub_platform_windows)
+    platform.system = stub_platform_windows
     assert platform.system() == "Windows"
     sock = context.wrap_socket(
         socket.create_connection((ip_addr, 3307)),

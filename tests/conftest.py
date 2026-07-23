@@ -15,18 +15,19 @@ limitations under the License.
 """
 
 import asyncio
+from collections.abc import AsyncGenerator
 import inspect
 import os
 import socket
 import ssl
 from threading import Thread
-from typing import Any, AsyncGenerator
+from typing import Any
 from unittest.mock import Mock
 
 import aiohttp
 from aiohttp import web
 from cryptography.hazmat.primitives import serialization
-import pytest  # noqa F401 Needed to run the tests
+import pytest
 from unit.mocks import create_ssl_context  # type: ignore
 from unit.mocks import FakeCredentials  # type: ignore
 from unit.mocks import FakeCSQLInstance  # type: ignore

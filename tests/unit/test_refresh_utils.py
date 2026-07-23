@@ -18,15 +18,15 @@ from __future__ import annotations
 
 import asyncio
 import datetime
+from unittest.mock import Mock
+from unittest.mock import patch
 
 from conftest import SCOPES  # type: ignore
 import google.auth
 from google.auth.credentials import Credentials
 from google.auth.credentials import TokenState
 import google.oauth2.credentials
-from mock import Mock
-from mock import patch
-import pytest  # noqa F401 Needed to run the tests
+import pytest
 
 from google.cloud.sql.connector.refresh_utils import _downscope_credentials
 from google.cloud.sql.connector.refresh_utils import _exponential_backoff

@@ -16,9 +16,9 @@ limitations under the License.
 
 import ssl
 from typing import Any
+from unittest.mock import AsyncMock
+from unittest.mock import patch
 
-from mock import AsyncMock
-from mock import patch
 import pytest
 
 from google.cloud.sql.connector.asyncpg import connect
