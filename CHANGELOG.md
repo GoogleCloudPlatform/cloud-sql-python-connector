@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.21.0](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v1.20.4...v1.21.0) (2026-07-23)
+
+
+### Features
+
+* Add PSC DNS and Global Write Endpoint support to Python Connector ([#1424](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/1424)) ([b34e9c6](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/b34e9c643017823e579e20eb47222f5ff510bf5e))
+
+
+### Bug Fixes
+
+* update python dependencies ([#1443](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/1443)) ([2adc515](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/2adc5157bda4b0bdea75687c2e511fa03be0bc3e))
+
 ## [1.20.4](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v1.20.3...v1.20.4) (2026-06-26)
 
 
