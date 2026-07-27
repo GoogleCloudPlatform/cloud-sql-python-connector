@@ -194,6 +194,29 @@ async def test_DnsResolver_with_direct_psc_dns_name() -> None:
     )
 
 
+async def test_DnsResolver_with_direct_psc_dns_name_permissive() -> None:
+    """Test DnsResolver resolves direct PSC DNS name with permissive formatting."""
+    dns_name = "g123.p.uscentral.sql-psc.goog"
+    real_conn_name = ConnectionName(
+        "my-project", "uscentral", "my-instance", dns_name
+    )
+
+    mock_client = AsyncMock()
+    mock_client.resolve_connect_settings.return_value = {
+        "connectionName": "my-project:uscentral:my-instance"
+    }
+
+    resolver = DnsResolver(client=mock_client)
+
+    result = await resolver.resolve(dns_name)
+
+    assert result == real_conn_name
+    mock_client.resolve_connect_settings.assert_awaited_once_with(
+        dns_name + ".", "uscentral"
+    )
+
+
+
 async def test_DnsResolver_with_cname_resolving_to_psc_dns_name() -> None:
     """Test DnsResolver resolves CNAME to PSC DNS and returns proper connection name."""
     dns_name = "db.example.com"

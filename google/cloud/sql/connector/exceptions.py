@@ -73,6 +73,12 @@ class DnsResolutionError(Exception):
     """
 
 
+class DnsLoopError(DnsResolutionError):
+    """
+    Exception to be raised when a CNAME loop is detected during DNS resolution.
+    """
+
+
 class CacheClosedError(Exception):
     """
     Exception to be raised when a ConnectionInfoCache can not be accessed after
