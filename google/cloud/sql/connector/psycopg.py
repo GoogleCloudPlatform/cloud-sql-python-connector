@@ -14,6 +14,7 @@
 
 import logging
 import os
+import selectors
 import socket
 import ssl
 import tempfile
@@ -25,48 +26,86 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(name=__name__)
 
-_CHUNK_SIZE = 8 * 1024  # bytes per recv() call inside the proxy forwarding loop
-
 
 def _proxy(local: socket.socket, remote: "ssl.SSLSocket") -> None:
-    """Bidirectionally proxy bytes between a local Unix socket and a remote
-    SSL socket.
+    """Single-threaded selectors-based proxy to avoid SSLSocket thread-safety issues."""
+    sel = selectors.DefaultSelector()
+    sel.register(local, selectors.EVENT_READ, data="local")
+    sel.register(remote, selectors.EVENT_READ, data="remote")
 
-    Spawns one daemon thread for the remote→local direction and runs the
-    local→remote direction in the calling thread. Blocks until the calling
-    thread's direction reaches EOF or a socket error, at which point both
-    sockets are closed so the other thread also unblocks and exits.
+    def forward_pending() -> bool:
+        """Read any pending decrypted data from SSL buffer and forward it.
+        Returns True if EOF was reached or error occurred (should exit).
+        """
+        while remote.pending() > 0:
+            try:
+                data = remote.recv(8192)
+            except OSError as e:
+                logger.debug("psycopg proxy: remote recv pending error: %s", e)
+                return True
+            if not data:
+                logger.debug("psycopg proxy: remote pending EOF")
+                return True
+            try:
+                local.sendall(data)
+            except OSError as e:
+                logger.debug("psycopg proxy: local send pending error: %s", e)
+                return True
+        return False
 
-    Args:
-        local: The Unix domain socket connected to the database driver.
-        remote: The SSL socket connected to the Cloud SQL proxy server.
-    """
-    def forward(src: Any, dst: Any) -> None:
-        buf = bytearray(_CHUNK_SIZE)
-        view = memoryview(buf)
-        try:
-            while True:
-                n = src.recv_into(view)
-                if n == 0:
-                    logger.debug("psycopg proxy: EOF on %s, closing both sockets", src)
-                    break
-                dst.sendall(view[:n])
-        except (OSError, ssl.SSLError) as e:
-            logger.debug("psycopg proxy: socket error on %s: %s", src, e)
-        finally:
-            # Close both ends so the sibling thread also unblocks.
-            for s in (local, remote):
-                try:
-                    s.shutdown(socket.SHUT_RDWR)
-                except OSError:
-                    pass
-                try:
-                    s.close()
-                except OSError:
-                    pass
+    try:
+        while True:
+            # First check if there is any pending data in SSL buffer
+            if forward_pending():
+                break
 
-    threading.Thread(target=forward, args=(remote, local), daemon=True).start()
-    forward(local, remote)  # run in calling thread rather than spawning a third
+            events = sel.select(timeout=30)
+            if not events:
+                logger.debug("psycopg proxy: inactivity timeout (30s)")
+                break
+
+            for key, mask in events:
+                if key.data == "local":
+                    try:
+                        data = local.recv(8192)
+                    except OSError as e:
+                        logger.debug("psycopg proxy: local recv error: %s", e)
+                        return
+                    if not data:
+                        logger.debug("psycopg proxy: local EOF")
+                        return
+                    try:
+                        remote.sendall(data)
+                    except OSError as e:
+                        logger.debug("psycopg proxy: remote send error: %s", e)
+                        return
+                elif key.data == "remote":
+                    try:
+                        data = remote.recv(8192)
+                    except OSError as e:
+                        logger.debug("psycopg proxy: remote recv error: %s", e)
+                        return
+                    if not data:
+                        logger.debug("psycopg proxy: remote EOF")
+                        return
+                    try:
+                        local.sendall(data)
+                    except OSError as e:
+                        logger.debug("psycopg proxy: local send error: %s", e)
+                        return
+    except OSError as e:
+        logger.debug("psycopg proxy: OSError in loop: %s", e)
+    finally:
+        sel.close()
+        for s in (local, remote):
+            try:
+                s.shutdown(socket.SHUT_RDWR)
+            except OSError:
+                pass
+            try:
+                s.close()
+            except OSError:
+                pass
 
 
 def connect(
