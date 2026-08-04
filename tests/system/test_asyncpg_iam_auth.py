@@ -74,7 +74,7 @@ async def create_sqlalchemy_engine(
             instance_connection_name,
             "asyncpg",
             user=user,
-            db=db,
+            database=db,
             ip_type=ip_type,  # can be "public", "private" or "psc"
             enable_iam_auth=True,
         ),

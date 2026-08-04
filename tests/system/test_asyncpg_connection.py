@@ -92,7 +92,7 @@ async def create_sqlalchemy_engine(
             "asyncpg",
             user=user,
             password=password,
-            db=db,
+            database=db,
             ip_type=ip_type,  # can be "public", "private" or "psc"
             **kwargs,  # additional asyncpg connection args
         ),
@@ -155,7 +155,7 @@ async def create_asyncpg_pool(
             "asyncpg",
             user=user,
             password=password,
-            db=db,
+            database=db,
             ip_type=ip_type,  # can be "public", "private" or "psc"
             **kwargs,
         )

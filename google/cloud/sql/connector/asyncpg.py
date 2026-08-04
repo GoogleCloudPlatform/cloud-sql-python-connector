@@ -51,7 +51,9 @@ async def connect(
             'Unable to import module "asyncpg." Please install and try again.'
         )
     user = kwargs.pop("user")
-    db = kwargs.pop("db")
+    db = kwargs.pop("database", kwargs.pop("db", None))
+    if db is None:
+        raise KeyError("database")
     passwd = kwargs.pop("password", None)
 
     return await asyncpg.connect(

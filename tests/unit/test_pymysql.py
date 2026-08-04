@@ -17,6 +17,7 @@ limitations under the License.
 import socket
 import ssl
 from typing import Any
+from unittest.mock import MagicMock
 from unittest.mock import patch
 
 import pytest
@@ -47,3 +48,41 @@ async def test_pymysql(context: ssl.SSLContext, kwargs: Any) -> None:
         pymysql_connect(ip_addr, sock, **kwargs)
         # verify that driver connection call would be made
         assert mock_connect.assert_called_once
+
+
+def test_pymysql_import_error(kwargs: Any) -> None:
+    """Test to verify that connect raises ImportError if pymysql is not installed."""
+    kwargs["timeout"] = 30
+    with patch.dict("sys.modules", {"pymysql": None}):
+        with pytest.raises(ImportError) as excinfo:
+            pymysql_connect("0.0.0.0", None, **kwargs)
+        assert 'Unable to import module "pymysql."' in str(excinfo.value)
+
+
+def test_pymysql_database_param(kwargs: Any) -> None:
+    """Test that pymysql wrapper accepts both 'db' and 'database' and maps 'db' to 'database'."""
+    ip_addr = "127.0.0.1"
+    sock = MagicMock(spec=ssl.SSLSocket)
+    kwargs["timeout"] = 30
+
+    # Test with 'db'
+    kwargs_db = kwargs.copy()
+    kwargs_db["db"] = "my-db-1"
+    with patch("pymysql.Connection") as mock_conn:
+        pymysql_connect(ip_addr, sock, **kwargs_db)
+        _, call_kwargs = mock_conn.call_args
+        assert call_kwargs["database"] == "my-db-1"
+        assert "db" not in call_kwargs
+
+    # Test with 'database'
+    kwargs_database = kwargs.copy()
+    kwargs_database["database"] = "my-db-2"
+    if "db" in kwargs_database:
+        del kwargs_database["db"]
+    with patch("pymysql.Connection") as mock_conn:
+        pymysql_connect(ip_addr, sock, **kwargs_database)
+        _, call_kwargs = mock_conn.call_args
+        assert call_kwargs["database"] == "my-db-2"
+        assert "db" not in call_kwargs
+
+

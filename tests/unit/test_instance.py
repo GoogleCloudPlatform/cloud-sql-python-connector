@@ -16,6 +16,8 @@ limitations under the License.
 
 import asyncio
 import datetime
+import ssl
+from unittest.mock import AsyncMock
 from unittest.mock import patch
 
 import mocks
@@ -27,6 +29,7 @@ from google.cloud.sql.connector.connection_info import ConnectionInfo
 from google.cloud.sql.connector.connection_name import ConnectionName
 from google.cloud.sql.connector.exceptions import AutoIAMAuthNotSupported
 from google.cloud.sql.connector.exceptions import CloudSQLIPTypeError
+from google.cloud.sql.connector.exceptions import TLSVersionError
 from google.cloud.sql.connector.instance import RefreshAheadCache
 from google.cloud.sql.connector.rate_limiter import AsyncRateLimiter
 from google.cloud.sql.connector.refresh_utils import _is_valid
@@ -167,6 +170,43 @@ async def test_force_refresh_cancels_pending_refresh(
 
 
 @pytest.mark.asyncio
+async def test_force_refresh_replaces_invalid_current(
+    cache: RefreshAheadCache,
+    test_rate_limiter: AsyncRateLimiter,
+) -> None:
+    """Test that force_refresh replaces current task with next task if current is invalid."""
+    cache._refresh_rate_limiter = test_rate_limiter
+    # make sure initial refresh is finished
+    await cache._current
+
+    # Create an expired ConnectionInfo
+    expired_info = ConnectionInfo(
+        cache._conn_name,
+        "cert",
+        "ca",
+        b"key",
+        {},
+        "POSTGRES",
+        datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(minutes=10),
+    )
+
+    # Create a task that returns the expired ConnectionInfo
+    async def get_expired() -> ConnectionInfo:
+        return expired_info
+
+    cache._current = asyncio.create_task(get_expired())
+    await cache._current  # wait for it to complete so _is_valid can read it
+
+    assert await _is_valid(cache._current) is False
+
+    next_refresh = cache._next
+    await cache.force_refresh()
+
+    assert cache._current == cache._next
+    assert cache._current != next_refresh
+
+
+@pytest.mark.asyncio
 async def test_RefreshAheadCache_close(cache: RefreshAheadCache) -> None:
     """
     Test that RefreshAheadCache's close method
@@ -293,3 +333,61 @@ async def test_ConnectionInfo_caches_sslcontext() -> None:
     # calling create_ssl_context should no-op with an existing 'context'
     await info.create_ssl_context()
     assert info.context == "context"
+
+
+@pytest.mark.asyncio
+async def test_ConnectionInfo_create_ssl_context_no_tls1_3_error() -> None:
+    """Test that create_ssl_context raises TLSVersionError if TLSv1.3 is not supported and IAM is enabled."""
+    info = ConnectionInfo(
+        ConnectionName("p", "r", "i"),
+        "cert",
+        "ca",
+        b"key",
+        {},
+        "POSTGRES",
+        datetime.datetime.now(datetime.timezone.utc),
+    )
+    with patch("google.cloud.sql.connector.connection_info.ssl.HAS_TLSv1_3", False):
+        with pytest.raises(TLSVersionError) as exc_info:
+            await info.create_ssl_context(enable_iam_auth=True)
+        assert (
+            "does not support TLSv1.3, which is required to use IAM Authentication"
+            in str(exc_info.value)
+        )
+
+
+@pytest.mark.asyncio
+async def test_ConnectionInfo_create_ssl_context_no_tls1_3_warning() -> None:
+    """Test that create_ssl_context falls back to TLSv1.2 with warning if TLSv1.3 is not supported."""
+    info = ConnectionInfo(
+        ConnectionName("p", "r", "i"),
+        "cert",
+        "ca",
+        b"key",
+        {},
+        "POSTGRES",
+        datetime.datetime.now(datetime.timezone.utc),
+    )
+
+    with patch(
+        "google.cloud.sql.connector.connection_info.ssl.HAS_TLSv1_3", False
+    ), patch(
+        "google.cloud.sql.connector.connection_info.logger"
+    ) as mock_logger, patch(
+        "google.cloud.sql.connector.connection_info.ssl.SSLContext.load_cert_chain"
+    ), patch(
+        "google.cloud.sql.connector.connection_info.ssl.SSLContext.load_verify_locations"
+    ), patch(
+        "google.cloud.sql.connector.connection_info.write_to_file",
+        AsyncMock(return_value=("cert", "ca", "key")),
+    ):
+
+        context = await info.create_ssl_context(enable_iam_auth=False)
+
+        assert context.minimum_version == ssl.TLSVersion.TLSv1_2
+        mock_logger.warning.assert_called_once()
+        assert (
+            "TLSv1.3 is not supported with your version of OpenSSL"
+            in mock_logger.warning.call_args[0][0]
+        )
+

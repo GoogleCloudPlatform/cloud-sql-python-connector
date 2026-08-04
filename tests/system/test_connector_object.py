@@ -37,7 +37,7 @@ def init_connection_engine(
             "pymysql",
             user=os.environ["MYSQL_USER"],
             password=os.environ["MYSQL_PASS"],
-            db=os.environ["MYSQL_DB"],
+            database=os.environ["MYSQL_DB"],
             ip_type=os.environ.get("IP_TYPE", "public"),
         )
         return conn
@@ -142,5 +142,5 @@ def test_connector_sqlserver_iam_auth_error() -> None:
                 "pytds",
                 user="my-user",
                 password="my-pass",
-                db="my-db",
+                database="my-db",
             )
