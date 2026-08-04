@@ -24,6 +24,20 @@ from google.cloud.sql.connector.psycopg import _proxy
 from google.cloud.sql.connector.psycopg import connect
 
 
+class MockableSocket(socket.socket):
+    pass
+
+
+def mockable_socketpair() -> tuple[MockableSocket, MockableSocket]:
+    """Create a socketpair wrapped in MockableSocket to allow method mocking."""
+    s1, s2 = socket.socketpair()
+    fd1 = s1.detach()
+    fd2 = s2.detach()
+    ms1 = MockableSocket(socket.AF_UNIX, socket.SOCK_STREAM, fileno=fd1)
+    ms2 = MockableSocket(socket.AF_UNIX, socket.SOCK_STREAM, fileno=fd2)
+    return ms1, ms2
+
+
 def test_proxy_bidirectional() -> None:
     """Test that _proxy forwards bytes in both directions and exits on EOF."""
     # local_client <-> local_server (simulates psycopg <-> proxy)
@@ -259,3 +273,175 @@ def test_proxy_remote_eof() -> None:
     assert remote_client.fileno() == -1
 
     local_client.close()
+
+
+def test_proxy_local_recv_error() -> None:
+    """Test that _proxy exits when local.recv raises OSError."""
+    local_client, local_server = mockable_socketpair()
+    remote_client, remote_server = mockable_socketpair()
+
+    # Mock local_server.recv to raise OSError
+    local_server.recv = MagicMock(side_effect=OSError("local recv failed"))
+
+    # Trigger selector by sending data to local_server
+    local_client.send(b"x")
+
+    # Run proxy. It should detect local is readable, call local.recv() which raises OSError, and exit.
+    _proxy(local_server, remote_client)
+
+    # Sockets should be closed
+    assert local_server.fileno() == -1
+    assert remote_client.fileno() == -1
+
+    local_client.close()
+    remote_server.close()
+
+
+def test_proxy_remote_send_error() -> None:
+    """Test that _proxy exits when remote.sendall raises OSError."""
+    local_client, local_server = mockable_socketpair()
+    remote_client, remote_server = mockable_socketpair()
+
+    # Mock remote_client.sendall to raise OSError
+    remote_client.sendall = MagicMock(side_effect=OSError("remote send failed"))
+
+    # Trigger selector by sending data from local_client -> local_server
+    local_client.send(b"x")
+
+    # Run proxy. It reads "x" from local, tries to send to remote, fails, and exits.
+    _proxy(local_server, remote_client)
+
+    assert local_server.fileno() == -1
+    assert remote_client.fileno() == -1
+
+    local_client.close()
+    remote_server.close()
+
+
+def test_proxy_remote_recv_error() -> None:
+    """Test that _proxy exits when remote.recv raises OSError."""
+    local_client, local_server = mockable_socketpair()
+    remote_client, remote_server = mockable_socketpair()
+
+    # Mock remote_client.recv to raise OSError
+    remote_client.recv = MagicMock(side_effect=OSError("remote recv failed"))
+
+    # Trigger selector by sending data from remote_server -> remote_client
+    remote_server.send(b"x")
+
+    # Run proxy. It detects remote is readable, calls remote.recv() which fails, and exits.
+    _proxy(local_server, remote_client)
+
+    assert local_server.fileno() == -1
+    assert remote_client.fileno() == -1
+
+    local_client.close()
+    remote_server.close()
+
+
+def test_proxy_local_send_error() -> None:
+    """Test that _proxy exits when local.sendall raises OSError."""
+    local_client, local_server = mockable_socketpair()
+    remote_client, remote_server = mockable_socketpair()
+
+    # Mock local_server.sendall to raise OSError
+    local_server.sendall = MagicMock(side_effect=OSError("local send failed"))
+
+    # Trigger selector by sending data from remote_server -> remote_client
+    remote_server.send(b"x")
+
+    # Run proxy. It reads "x" from remote, tries to send to local, fails, and exits.
+    _proxy(local_server, remote_client)
+
+    assert local_server.fileno() == -1
+    assert remote_client.fileno() == -1
+
+    local_client.close()
+    remote_server.close()
+
+
+def test_proxy_pending_recv_error() -> None:
+    """Test that _proxy exits when remote.recv raises OSError during pending check."""
+    local_client, local_server = socket.socketpair()
+    remote_client, remote_server = mockable_socketpair()
+
+    # Mock remote_client (remote sock in proxy)
+    remote_client.pending = MagicMock(return_value=10)
+    remote_client.recv = MagicMock(side_effect=OSError("pending recv failed"))
+
+    # Run proxy
+    _proxy(local_server, remote_client)
+
+    assert local_server.fileno() == -1
+    assert remote_client.fileno() == -1
+
+    local_client.close()
+    remote_server.close()
+
+
+def test_proxy_pending_local_send_error() -> None:
+    """Test that _proxy exits when local.sendall raises OSError during pending check."""
+    local_client, local_server = mockable_socketpair()
+    remote_client, remote_server = mockable_socketpair()
+
+    # Mock remote_client (remote sock in proxy)
+    remote_client.pending = MagicMock(return_value=10)
+    remote_client.recv = MagicMock(return_value=b"pending data")
+
+    # Mock local_server.sendall to raise OSError
+    local_server.sendall = MagicMock(
+        side_effect=OSError("local send pending failed")
+    )
+
+    # Run proxy
+    _proxy(local_server, remote_client)
+
+    assert local_server.fileno() == -1
+    assert remote_client.fileno() == -1
+
+    local_client.close()
+    remote_server.close()
+
+
+@patch.dict("sys.modules", {"psycopg": None})
+def test_connect_import_error() -> None:
+    """Test that connect raises ImportError if psycopg is not installed."""
+    mock_remote_sock = MagicMock(spec=ssl.SSLSocket)
+
+    import pytest
+
+    with pytest.raises(ImportError, match='Unable to import module "psycopg."'):
+        connect("127.0.0.1", mock_remote_sock)
+
+
+def test_connect_cleanup_errors() -> None:
+    """Test that connect ignores OSErrors when removing temp files/dirs during cleanup."""
+    mock_remote_sock = MagicMock(spec=ssl.SSLSocket)
+
+    def mock_connect_impl(*args: Any, **kwargs: Any) -> MagicMock:
+        host = kwargs.get("host")
+        socket_path = os.path.join(host, ".s.PGSQL.5432")
+        client = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        client.connect(socket_path)
+        client.close()
+        return MagicMock()
+
+    with patch("psycopg.connect", side_effect=mock_connect_impl), patch(
+        "google.cloud.sql.connector.psycopg.os.remove",
+        side_effect=OSError("remove failed"),
+    ) as mock_remove, patch(
+        "google.cloud.sql.connector.psycopg.os.rmdir",
+        side_effect=OSError("rmdir failed"),
+    ) as mock_rmdir:
+        conn = connect(
+            "127.0.0.1",
+            mock_remote_sock,
+            user="test_user",
+            db="test_db",
+            password="test_password",
+        )
+
+        assert conn is not None
+        assert mock_remove.called
+        assert mock_rmdir.called
+
