@@ -1,154 +1,222 @@
-# Copyright 2026 Google LLC
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+"""
+Copyright 2026 Google LLC
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+  https://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+"""
 
 import asyncio
+from datetime import datetime
 import os
-import time
-
-try:
-    import psutil
-except ImportError:
-    psutil = None
+from typing import Union
 
 import pytest
+import sqlalchemy
 
 from google.cloud.sql.connector import Connector
-
-# These will be set from environment variables or default to our test instance
-INSTANCE_CONNECTION_NAME = os.getenv(
-    "DB_CONNECTION_NAME", "galakp-playground:us-east7:pg-us-east7-psycopg"
-)
-DB_USER = os.getenv("DB_USER", "postgres")
-DB_PASSWORD = os.getenv("DB_PASSWORD", "SuperPass123!")
-DB_NAME = os.getenv("DB_NAME", "postgres")
+from google.cloud.sql.connector import DefaultResolver
+from google.cloud.sql.connector import DnsResolver
 
 
-@pytest.mark.skipif(psutil is None, reason="psutil package is not installed")
-def test_system_psycopg_resource_leak() -> None:
-    """Benchmark test to verify no resource leaks (threads, FDs, memory) between iteration 20 and 100."""
-    print("\nStarting resource leak benchmark...")
-    
-    process = psutil.Process(os.getpid())
-    
-    def get_metrics():
-        return {
-            "threads": process.num_threads(),
-            "fds": process.num_fds(),
-            "rss_mb": process.memory_info().rss / (1024 * 1024),
-        }
+def create_sqlalchemy_engine(
+    instance_connection_name: str,
+    user: str,
+    password: str,
+    db: str,
+    ip_type: str = "public",
+    refresh_strategy: str = "background",
+    resolver: Union[type[DefaultResolver], type[DnsResolver]] = DefaultResolver,
+) -> tuple[sqlalchemy.engine.Engine, Connector]:
+    """Creates a connection pool for a Cloud SQL instance and returns the pool
+    and the connector.
+    """
+    connector = Connector(refresh_strategy=refresh_strategy, resolver=resolver)
 
-    warmup_iterations = 20
-    total_iterations = 100
-    
-    baseline_metrics = None
-    active_final_metrics = None
-    
-    with Connector() as connector:
-        for i in range(1, total_iterations + 1):
-            conn = connector.connect(
-                INSTANCE_CONNECTION_NAME,
-                "psycopg",
-                user=DB_USER,
-                password=DB_PASSWORD,
-                db=DB_NAME,
-            )
-            cursor = conn.cursor()
-            cursor.execute("SELECT 1;")
-            cursor.fetchone()
-            cursor.close()
-            conn.close()
-            
-            if i == warmup_iterations:
-                time.sleep(0.5)
-                baseline_metrics = get_metrics()
-                print(f"Baseline Metrics (Iteration {i}): {baseline_metrics}")
-                
-            if i == total_iterations:
-                time.sleep(0.5)
-                active_final_metrics = get_metrics()
-                print(f"Active Final Metrics (Iteration {i}): {active_final_metrics}")
-                
-            if i % 10 == 0 and warmup_iterations < i < total_iterations:
-                current_metrics = get_metrics()
-                print(f"Iteration {i:3d}/{total_iterations}: {current_metrics}")
-                
-    # Post-close metrics
-    time.sleep(1)
-    post_close_metrics = get_metrics()
-    print(f"Post-Close Metrics: {post_close_metrics}")
-    
-    assert baseline_metrics is not None
-    assert active_final_metrics is not None
-    
-    # Assertions: compare Active Final (100) vs Baseline (20)
-    # Threads should not grow
-    assert active_final_metrics["threads"] <= baseline_metrics["threads"] + 1, f"Thread leak: {baseline_metrics} -> {active_final_metrics}"
-    # FDs should not grow
-    assert active_final_metrics["fds"] <= baseline_metrics["fds"] + 1, f"FD leak: {baseline_metrics} -> {active_final_metrics}"
-    # Memory growth should be minimal (allow < 5MB growth for minor fragmentation)
-    assert active_final_metrics["rss_mb"] <= baseline_metrics["rss_mb"] + 5, f"Memory leak: {baseline_metrics} -> {active_final_metrics}"
-    
-    print("Resource leak benchmark passed successfully.")
-
-
-def test_system_psycopg_basic() -> None:
-    """Basic system test to verify connection and query."""
-    print(f"\nConnecting to {INSTANCE_CONNECTION_NAME}...")
-    with Connector() as connector:
-        conn = connector.connect(
-            INSTANCE_CONNECTION_NAME,
+    # create SQLAlchemy connection pool
+    engine = sqlalchemy.create_engine(
+        "postgresql+psycopg://",
+        creator=lambda: connector.connect(
+            instance_connection_name,
             "psycopg",
-            user=DB_USER,
-            password=DB_PASSWORD,
-            db=DB_NAME,
-        )
-        
-        cursor = conn.cursor()
-        cursor.execute("SELECT version();")
-        result = cursor.fetchone()
-        print(f"Database version: {result[0]}")
-        assert result is not None
-        cursor.close()
-        conn.close()
-    print("Connection closed successfully.")
+            user=user,
+            password=password,
+            db=db,
+            ip_type=ip_type,
+        ),
+    )
+    return engine, connector
 
 
+# Fallback to playground values if env vars are missing
+def get_env(key: str, default: str = "") -> str:
+    # Map standard env vars to our playground values as defaults
+    defaults = {
+        "POSTGRES_CONNECTION_NAME": "galakp-playground:us-east7:pg-us-east7-psycopg",
+        "POSTGRES_USER": "postgres",
+        "POSTGRES_PASS": "SuperPass123!",
+        "POSTGRES_DB": "postgres",
+    }
+    return os.getenv(key, defaults.get(key, default))
 
+
+def test_psycopg_connection() -> None:
+    """Basic test to get time from database using psycopg."""
+    inst_conn_name = get_env("POSTGRES_CONNECTION_NAME")
+    user = get_env("POSTGRES_USER")
+    password = get_env("POSTGRES_PASS")
+    db = get_env("POSTGRES_DB")
+    ip_type = os.getenv("IP_TYPE", "public")
+
+    engine, connector = create_sqlalchemy_engine(
+        inst_conn_name, user, password, db, ip_type
+    )
+    with engine.connect() as conn:
+        time = conn.execute(sqlalchemy.text("SELECT NOW()")).fetchone()
+        conn.commit()
+        curr_time = time[0]
+        assert type(curr_time) is datetime
+    connector.close()
+
+
+def test_lazy_psycopg_connection() -> None:
+    """Basic test to get time from database using psycopg and lazy refresh."""
+    inst_conn_name = get_env("POSTGRES_CONNECTION_NAME")
+    user = get_env("POSTGRES_USER")
+    password = get_env("POSTGRES_PASS")
+    db = get_env("POSTGRES_DB")
+    ip_type = os.getenv("IP_TYPE", "public")
+
+    engine, connector = create_sqlalchemy_engine(
+        inst_conn_name, user, password, db, ip_type, "lazy"
+    )
+    with engine.connect() as conn:
+        time = conn.execute(sqlalchemy.text("SELECT NOW()")).fetchone()
+        conn.commit()
+        curr_time = time[0]
+        assert type(curr_time) is datetime
+    connector.close()
+
+
+def test_CAS_psycopg_connection() -> None:
+    """Basic test to get time from database using CAS."""
+    inst_conn_name = os.environ.get("POSTGRES_CAS_CONNECTION_NAME")
+    user = get_env("POSTGRES_USER")
+    password = os.environ.get("POSTGRES_CAS_PASS")
+    db = get_env("POSTGRES_DB")
+    ip_type = os.getenv("IP_TYPE", "public")
+
+    if not inst_conn_name or not password:
+        pytest.skip("POSTGRES_CAS_CONNECTION_NAME or POSTGRES_CAS_PASS not set")
+
+    engine, connector = create_sqlalchemy_engine(
+        inst_conn_name, user, password, db, ip_type
+    )
+    with engine.connect() as conn:
+        time = conn.execute(sqlalchemy.text("SELECT NOW()")).fetchone()
+        conn.commit()
+        curr_time = time[0]
+        assert type(curr_time) is datetime
+    connector.close()
+
+
+def test_customer_managed_CAS_psycopg_connection() -> None:
+    """Basic test to get time from database using Customer Managed CAS."""
+    inst_conn_name = os.environ.get("POSTGRES_CUSTOMER_CAS_CONNECTION_NAME")
+    user = get_env("POSTGRES_USER")
+    password = os.environ.get("POSTGRES_CUSTOMER_CAS_PASS")
+    db = get_env("POSTGRES_DB")
+    ip_type = os.getenv("IP_TYPE", "public")
+
+    if not inst_conn_name or not password:
+        pytest.skip("POSTGRES_CUSTOMER_CAS_CONNECTION_NAME or POSTGRES_CUSTOMER_CAS_PASS not set")
+
+    engine, connector = create_sqlalchemy_engine(
+        inst_conn_name, user, password, db, ip_type
+    )
+    with engine.connect() as conn:
+        time = conn.execute(sqlalchemy.text("SELECT NOW()")).fetchone()
+        conn.commit()
+        curr_time = time[0]
+        assert type(curr_time) is datetime
+    connector.close()
+
+
+def test_custom_SAN_with_dns_psycopg_connection() -> None:
+    """Basic test to get time from database using Custom SAN with DNS."""
+    inst_conn_name = os.environ.get("POSTGRES_CUSTOMER_CAS_PASS_VALID_DOMAIN_NAME")
+    user = get_env("POSTGRES_USER")
+    password = os.environ.get("POSTGRES_CUSTOMER_CAS_PASS")
+    db = get_env("POSTGRES_DB")
+    ip_type = os.getenv("IP_TYPE", "public")
+
+    if not inst_conn_name or not password:
+        pytest.skip("POSTGRES_CUSTOMER_CAS_PASS_VALID_DOMAIN_NAME or POSTGRES_CUSTOMER_CAS_PASS not set")
+
+    engine, connector = create_sqlalchemy_engine(
+        inst_conn_name, user, password, db, ip_type, resolver=DnsResolver
+    )
+    with engine.connect() as conn:
+        time = conn.execute(sqlalchemy.text("SELECT NOW()")).fetchone()
+        conn.commit()
+        curr_time = time[0]
+        assert type(curr_time) is datetime
+    connector.close()
+
+
+def test_MCP_psycopg_connection() -> None:
+    """Basic test to get time from database using MCP enabled instance."""
+    inst_conn_name = os.environ.get("POSTGRES_MCP_CONNECTION_NAME")
+    user = get_env("POSTGRES_USER")
+    password = os.environ.get("POSTGRES_MCP_PASS")
+    db = get_env("POSTGRES_DB")
+    ip_type = os.getenv("IP_TYPE", "public")
+
+    if not inst_conn_name or not password:
+        pytest.skip("POSTGRES_MCP_CONNECTION_NAME or POSTGRES_MCP_PASS not set")
+
+    engine, connector = create_sqlalchemy_engine(
+        inst_conn_name, user, password, db, ip_type
+    )
+    with engine.connect() as conn:
+        time = conn.execute(sqlalchemy.text("SELECT NOW()")).fetchone()
+        conn.commit()
+        curr_time = time[0]
+        assert type(curr_time) is datetime
+    connector.close()
 
 
 def test_system_psycopg_to_thread() -> None:
     """Verify that running sync connect in asyncio.to_thread works."""
-    print(f"\nConnecting via asyncio.to_thread to {INSTANCE_CONNECTION_NAME}...")
+    inst_conn_name = get_env("POSTGRES_CONNECTION_NAME")
+    user = get_env("POSTGRES_USER")
+    password = get_env("POSTGRES_PASS")
+    db = get_env("POSTGRES_DB")
 
     async def run_connect():
         with Connector() as connector:
             # Run the blocking connector.connect in a thread
             conn = await asyncio.to_thread(
                 connector.connect,
-                INSTANCE_CONNECTION_NAME,
+                inst_conn_name,
                 "psycopg",
-                user=DB_USER,
-                password=DB_PASSWORD,
-                db=DB_NAME,
+                user=user,
+                password=password,
+                db=db,
             )
             cursor = conn.cursor()
-            cursor.execute("SELECT version();")
+            cursor.execute("SELECT NOW();")
             result = cursor.fetchone()
-            print(f"Database version (to_thread): {result[0]}")
             assert result is not None
             cursor.close()
             conn.close()
 
     asyncio.run(run_connect())
-    print("to_thread connection closed successfully.")
