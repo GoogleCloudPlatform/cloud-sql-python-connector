@@ -12,11 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
 import asyncio
+import os
 import time
-import pytest
+
 import psutil
+
 from google.cloud.sql.connector import Connector
 
 # These will be set from environment variables or default to our test instance

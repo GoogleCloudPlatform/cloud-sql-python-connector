@@ -16,12 +16,12 @@ import os
 import socket
 import ssl
 import threading
-import time
 from typing import Any
-from unittest.mock import MagicMock, patch
-import pytest
+from unittest.mock import MagicMock
+from unittest.mock import patch
 
-from google.cloud.sql.connector.psycopg import _proxy, connect
+from google.cloud.sql.connector.psycopg import _proxy
+from google.cloud.sql.connector.psycopg import connect
 
 
 def test_proxy_bidirectional() -> None:
