@@ -31,6 +31,7 @@ from google.auth.credentials import with_scopes_if_required
 
 from google.cloud.sql.connector import asyncpg
 from google.cloud.sql.connector import pg8000
+from google.cloud.sql.connector import psycopg
 from google.cloud.sql.connector import pymysql
 from google.cloud.sql.connector import pytds
 from google.cloud.sql.connector.client import CloudSQLClient
@@ -362,6 +363,7 @@ class Connector:
             "pg8000": pg8000.connect,
             "asyncpg": asyncpg.connect,
             "pytds": pytds.connect,
+            "psycopg": psycopg.connect,
         }
 
         # only accept supported database drivers
