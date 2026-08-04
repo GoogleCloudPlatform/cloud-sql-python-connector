@@ -188,6 +188,7 @@ def test_system_psycopg_to_thread() -> None:
     user = os.environ["POSTGRES_USER"]
     password = os.environ["POSTGRES_PASS"]
     db = os.environ["POSTGRES_DB"]
+    ip_type = os.environ.get("IP_TYPE", "public")
 
     async def run_connect():
         with Connector() as connector:
@@ -199,6 +200,7 @@ def test_system_psycopg_to_thread() -> None:
                 user=user,
                 password=password,
                 db=db,
+                ip_type=ip_type,
             )
             cursor = conn.cursor()
             cursor.execute("SELECT NOW();")
