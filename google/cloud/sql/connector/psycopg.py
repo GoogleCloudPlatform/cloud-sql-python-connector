@@ -155,18 +155,32 @@ def connect(
 
     def _accept_and_proxy() -> None:
         """Accept one connection then proxy bytes until the connection closes."""
+        unix_conn = None
         try:
             unix_conn, _ = local_sock.accept()
             local_sock.close()
             logger.debug("psycopg proxy: accepted connection, starting proxy")
-        except OSError as e:
-            logger.debug("psycopg proxy: accept failed: %s", e)
+            _proxy(unix_conn, remote_sock)
+        except Exception as e:  # noqa: BLE001
+            logger.debug("psycopg proxy: error in accept/proxy thread: %s", e)
+            # Ensure cleanup on any exception
+            if unix_conn:
+                try:
+                    unix_conn.shutdown(socket.SHUT_RDWR)
+                except OSError:
+                    pass
+                try:
+                    unix_conn.close()
+                except OSError:
+                    pass
+            try:
+                remote_sock.shutdown(socket.SHUT_RDWR)
+            except OSError:
+                pass
             try:
                 remote_sock.close()
             except OSError:
                 pass
-            return
-        _proxy(unix_conn, remote_sock)
 
     threading.Thread(target=_accept_and_proxy, daemon=True).start()
 
