@@ -65,6 +65,50 @@ def test_proxy_bidirectional() -> None:
     remote_server.close()
 
 
+def test_proxy_pending_data() -> None:
+    """Test that _proxy forwards pending SSL data correctly."""
+    local_client, local_server = socket.socketpair()
+    remote_client, remote_server = socket.socketpair()
+
+    class MockSSLSocket:
+        def __init__(self, sock: socket.socket) -> None:
+            self._sock = sock
+            self._pending_calls = [12, 0]  # "pending data" is 12 bytes
+
+        def pending(self) -> int:
+            if self._pending_calls:
+                return self._pending_calls.pop(0)
+            return 0
+
+        def recv(self, bufsize: int, flags: int = 0) -> bytes:
+            return self._sock.recv(bufsize, flags)
+
+        def __getattr__(self, name: str) -> Any:
+            return getattr(self._sock, name)
+
+    wrapped_remote = MockSSLSocket(remote_client)
+
+    # Pre-populate the socket with data that will be read by forward_pending
+    remote_server.sendall(b"pending data")
+
+    # Start proxy in background
+    proxy_thread = threading.Thread(
+        target=_proxy, args=(local_server, wrapped_remote), daemon=True
+    )
+    proxy_thread.start()
+
+    # Verify that local_client receives the pending data immediately
+    assert local_client.recv(1024) == b"pending data"
+
+    # Clean up
+    local_client.close()
+    proxy_thread.join(timeout=2.0)
+
+    local_server.close()
+    remote_client.close()
+    remote_server.close()
+
+
 @patch("psycopg.connect")
 def test_connect_wrapper(mock_psycopg_connect: MagicMock) -> None:
     """Test connect wrapper creates temp socket and calls psycopg.connect with correct arguments."""
