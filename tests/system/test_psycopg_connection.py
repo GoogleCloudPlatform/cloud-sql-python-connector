@@ -16,7 +16,12 @@ import asyncio
 import os
 import time
 
-import psutil
+try:
+    import psutil
+except ImportError:
+    psutil = None
+
+import pytest
 
 from google.cloud.sql.connector import Connector
 
@@ -29,6 +34,7 @@ DB_PASSWORD = os.getenv("DB_PASSWORD", "SuperPass123!")
 DB_NAME = os.getenv("DB_NAME", "postgres")
 
 
+@pytest.mark.skipif(psutil is None, reason="psutil package is not installed")
 def test_system_psycopg_resource_leak() -> None:
     """Benchmark test to verify no resource leaks (threads, FDs, memory) between iteration 20 and 100."""
     print("\nStarting resource leak benchmark...")
