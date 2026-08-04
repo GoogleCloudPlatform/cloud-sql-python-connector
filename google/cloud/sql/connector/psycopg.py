@@ -39,10 +39,7 @@ def _proxy(local: socket.socket, remote: "ssl.SSLSocket") -> None:
         """
         if not hasattr(remote, "pending"):
             return False
-        try:
-            pending_bytes = remote.pending()
-        except AttributeError:
-            return False
+        pending_bytes = remote.pending()
         if not isinstance(pending_bytes, int):
             return False
 
@@ -62,7 +59,7 @@ def _proxy(local: socket.socket, remote: "ssl.SSLSocket") -> None:
                 return True
             try:
                 pending_bytes = remote.pending()
-            except (AttributeError, OSError):
+            except OSError:
                 break
             if not isinstance(pending_bytes, int):
                 break
