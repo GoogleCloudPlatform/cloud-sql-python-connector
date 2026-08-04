@@ -37,7 +37,16 @@ def _proxy(local: socket.socket, remote: "ssl.SSLSocket") -> None:
         """Read any pending decrypted data from SSL buffer and forward it.
         Returns True if EOF was reached or error occurred (should exit).
         """
-        while remote.pending() > 0:
+        if not hasattr(remote, "pending"):
+            return False
+        try:
+            pending_bytes = remote.pending()
+        except AttributeError:
+            return False
+        if not isinstance(pending_bytes, int):
+            return False
+
+        while pending_bytes > 0:
             try:
                 data = remote.recv(8192)
             except OSError as e:
@@ -51,6 +60,12 @@ def _proxy(local: socket.socket, remote: "ssl.SSLSocket") -> None:
             except OSError as e:
                 logger.debug("psycopg proxy: local send pending error: %s", e)
                 return True
+            try:
+                pending_bytes = remote.pending()
+            except (AttributeError, OSError):
+                break
+            if not isinstance(pending_bytes, int):
+                break
         return False
 
     try:
