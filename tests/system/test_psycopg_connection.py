@@ -56,25 +56,13 @@ def create_sqlalchemy_engine(
     return engine, connector
 
 
-# Fallback to playground values if env vars are missing
-def get_env(key: str, default: str = "") -> str:
-    # Map standard env vars to our playground values as defaults
-    defaults = {
-        "POSTGRES_CONNECTION_NAME": "galakp-playground:us-east7:pg-us-east7-psycopg",
-        "POSTGRES_USER": "postgres",
-        "POSTGRES_PASS": "SuperPass123!",
-        "POSTGRES_DB": "postgres",
-    }
-    return os.getenv(key, defaults.get(key, default))
-
-
 def test_psycopg_connection() -> None:
     """Basic test to get time from database using psycopg."""
-    inst_conn_name = get_env("POSTGRES_CONNECTION_NAME")
-    user = get_env("POSTGRES_USER")
-    password = get_env("POSTGRES_PASS")
-    db = get_env("POSTGRES_DB")
-    ip_type = os.getenv("IP_TYPE", "public")
+    inst_conn_name = os.environ["POSTGRES_CONNECTION_NAME"]
+    user = os.environ["POSTGRES_USER"]
+    password = os.environ["POSTGRES_PASS"]
+    db = os.environ["POSTGRES_DB"]
+    ip_type = os.environ.get("IP_TYPE", "public")
 
     engine, connector = create_sqlalchemy_engine(
         inst_conn_name, user, password, db, ip_type
@@ -89,11 +77,11 @@ def test_psycopg_connection() -> None:
 
 def test_lazy_psycopg_connection() -> None:
     """Basic test to get time from database using psycopg and lazy refresh."""
-    inst_conn_name = get_env("POSTGRES_CONNECTION_NAME")
-    user = get_env("POSTGRES_USER")
-    password = get_env("POSTGRES_PASS")
-    db = get_env("POSTGRES_DB")
-    ip_type = os.getenv("IP_TYPE", "public")
+    inst_conn_name = os.environ["POSTGRES_CONNECTION_NAME"]
+    user = os.environ["POSTGRES_USER"]
+    password = os.environ["POSTGRES_PASS"]
+    db = os.environ["POSTGRES_DB"]
+    ip_type = os.environ.get("IP_TYPE", "public")
 
     engine, connector = create_sqlalchemy_engine(
         inst_conn_name, user, password, db, ip_type, "lazy"
@@ -109,10 +97,10 @@ def test_lazy_psycopg_connection() -> None:
 def test_CAS_psycopg_connection() -> None:
     """Basic test to get time from database using CAS."""
     inst_conn_name = os.environ.get("POSTGRES_CAS_CONNECTION_NAME")
-    user = get_env("POSTGRES_USER")
+    user = os.environ["POSTGRES_USER"]
     password = os.environ.get("POSTGRES_CAS_PASS")
-    db = get_env("POSTGRES_DB")
-    ip_type = os.getenv("IP_TYPE", "public")
+    db = os.environ["POSTGRES_DB"]
+    ip_type = os.environ.get("IP_TYPE", "public")
 
     if not inst_conn_name or not password:
         pytest.skip("POSTGRES_CAS_CONNECTION_NAME or POSTGRES_CAS_PASS not set")
@@ -131,10 +119,10 @@ def test_CAS_psycopg_connection() -> None:
 def test_customer_managed_CAS_psycopg_connection() -> None:
     """Basic test to get time from database using Customer Managed CAS."""
     inst_conn_name = os.environ.get("POSTGRES_CUSTOMER_CAS_CONNECTION_NAME")
-    user = get_env("POSTGRES_USER")
+    user = os.environ["POSTGRES_USER"]
     password = os.environ.get("POSTGRES_CUSTOMER_CAS_PASS")
-    db = get_env("POSTGRES_DB")
-    ip_type = os.getenv("IP_TYPE", "public")
+    db = os.environ["POSTGRES_DB"]
+    ip_type = os.environ.get("IP_TYPE", "public")
 
     if not inst_conn_name or not password:
         pytest.skip("POSTGRES_CUSTOMER_CAS_CONNECTION_NAME or POSTGRES_CUSTOMER_CAS_PASS not set")
@@ -153,10 +141,10 @@ def test_customer_managed_CAS_psycopg_connection() -> None:
 def test_custom_SAN_with_dns_psycopg_connection() -> None:
     """Basic test to get time from database using Custom SAN with DNS."""
     inst_conn_name = os.environ.get("POSTGRES_CUSTOMER_CAS_PASS_VALID_DOMAIN_NAME")
-    user = get_env("POSTGRES_USER")
+    user = os.environ["POSTGRES_USER"]
     password = os.environ.get("POSTGRES_CUSTOMER_CAS_PASS")
-    db = get_env("POSTGRES_DB")
-    ip_type = os.getenv("IP_TYPE", "public")
+    db = os.environ["POSTGRES_DB"]
+    ip_type = os.environ.get("IP_TYPE", "public")
 
     if not inst_conn_name or not password:
         pytest.skip("POSTGRES_CUSTOMER_CAS_PASS_VALID_DOMAIN_NAME or POSTGRES_CUSTOMER_CAS_PASS not set")
@@ -175,10 +163,10 @@ def test_custom_SAN_with_dns_psycopg_connection() -> None:
 def test_MCP_psycopg_connection() -> None:
     """Basic test to get time from database using MCP enabled instance."""
     inst_conn_name = os.environ.get("POSTGRES_MCP_CONNECTION_NAME")
-    user = get_env("POSTGRES_USER")
+    user = os.environ["POSTGRES_USER"]
     password = os.environ.get("POSTGRES_MCP_PASS")
-    db = get_env("POSTGRES_DB")
-    ip_type = os.getenv("IP_TYPE", "public")
+    db = os.environ["POSTGRES_DB"]
+    ip_type = os.environ.get("IP_TYPE", "public")
 
     if not inst_conn_name or not password:
         pytest.skip("POSTGRES_MCP_CONNECTION_NAME or POSTGRES_MCP_PASS not set")
@@ -196,10 +184,10 @@ def test_MCP_psycopg_connection() -> None:
 
 def test_system_psycopg_to_thread() -> None:
     """Verify that running sync connect in asyncio.to_thread works."""
-    inst_conn_name = get_env("POSTGRES_CONNECTION_NAME")
-    user = get_env("POSTGRES_USER")
-    password = get_env("POSTGRES_PASS")
-    db = get_env("POSTGRES_DB")
+    inst_conn_name = os.environ["POSTGRES_CONNECTION_NAME"]
+    user = os.environ["POSTGRES_USER"]
+    password = os.environ["POSTGRES_PASS"]
+    db = os.environ["POSTGRES_DB"]
 
     async def run_connect():
         with Connector() as connector:

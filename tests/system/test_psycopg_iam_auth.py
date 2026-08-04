@@ -58,12 +58,9 @@ def create_sqlalchemy_engine(
 
 def test_psycopg_iam_authn_connection() -> None:
     """Basic test to get time from database using psycopg and IAM Authn."""
-    inst_conn_name = os.getenv(
-        "POSTGRES_CONNECTION_NAME",
-        "galakp-playground:us-east7:pg-us-east7-psycopg",
-    )
+    inst_conn_name = os.environ["POSTGRES_CONNECTION_NAME"]
     user = os.environ["POSTGRES_IAM_USER"]
-    db = os.getenv("POSTGRES_DB", "postgres")
+    db = os.environ["POSTGRES_DB"]
     ip_type = os.getenv("IP_TYPE", "public")
 
     engine, connector = create_sqlalchemy_engine(inst_conn_name, user, db, ip_type)
@@ -77,12 +74,9 @@ def test_psycopg_iam_authn_connection() -> None:
 
 def test_lazy_psycopg_iam_authn_connection() -> None:
     """Basic test to get time from database using psycopg, IAM Authn and lazy refresh."""
-    inst_conn_name = os.getenv(
-        "POSTGRES_CONNECTION_NAME",
-        "galakp-playground:us-east7:pg-us-east7-psycopg",
-    )
+    inst_conn_name = os.environ["POSTGRES_CONNECTION_NAME"]
     user = os.environ["POSTGRES_IAM_USER"]
-    db = os.getenv("POSTGRES_DB", "postgres")
+    db = os.environ["POSTGRES_DB"]
     ip_type = os.getenv("IP_TYPE", "public")
 
     engine, connector = create_sqlalchemy_engine(
