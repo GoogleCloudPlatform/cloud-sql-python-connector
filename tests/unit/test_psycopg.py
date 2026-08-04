@@ -154,3 +154,108 @@ def test_connect_wrapper(mock_psycopg_connect: MagicMock) -> None:
 
     # Verify temp dir was cleaned up
     assert not os.path.exists(kwargs["host"])
+
+
+def test_proxy_timeout() -> None:
+    """Test that _proxy exits and cleans up on selectors timeout."""
+    local_client, local_server = socket.socketpair()
+    remote_client, remote_server = socket.socketpair()
+
+    # Mock selectors.DefaultSelector.select to return empty list (timeout)
+    with patch(
+        "google.cloud.sql.connector.psycopg.selectors.DefaultSelector"
+    ) as mock_selector_cls:
+        mock_selector = MagicMock()
+        mock_selector.select.return_value = []  # Timeout
+        mock_selector_cls.return_value = mock_selector
+
+        # Run proxy
+        _proxy(local_server, remote_client)
+
+        # Sockets should be closed
+        assert local_server.fileno() == -1
+        assert remote_client.fileno() == -1
+
+    # Clean up outer sockets
+    local_client.close()
+    remote_server.close()
+
+
+@patch("psycopg.connect")
+def test_connect_wrapper_failure(mock_psycopg_connect: MagicMock) -> None:
+    """Test that connect wrapper cleans up correctly when psycopg.connect fails."""
+    mock_remote_sock = MagicMock(spec=ssl.SSLSocket)
+    mock_psycopg_connect.side_effect = Exception("connection failed simulated")
+
+    # Call the connect wrapper and expect it to raise
+    import pytest
+
+    with pytest.raises(Exception, match="connection failed simulated"):
+        connect(
+            "127.0.0.1",
+            mock_remote_sock,
+            user="test_user",
+            db="test_db",
+            password="test_password",
+        )
+
+    # Verify remote socket was closed
+    assert mock_remote_sock.close.called
+
+    # Verify cleanup with mocked paths
+    with patch(
+        "google.cloud.sql.connector.psycopg.tempfile.mkdtemp"
+    ) as mock_mkdtemp:
+        mock_mkdtemp.return_value = "/tmp/mock_temp_dir_failure"
+
+        with patch(
+            "google.cloud.sql.connector.psycopg.os.rmdir"
+        ) as mock_rmdir, patch(
+            "google.cloud.sql.connector.psycopg.os.remove"
+        ) as mock_remove, patch(
+            "google.cloud.sql.connector.psycopg.socket.socket"
+        ) as mock_socket_cls:
+            # Mock the local socket to avoid real OS bind/listen
+            mock_local_sock = MagicMock()
+            mock_socket_cls.return_value = mock_local_sock
+
+            with pytest.raises(Exception, match="connection failed simulated"):
+                connect(
+                    "127.0.0.1",
+                    mock_remote_sock,
+                    user="test_user",
+                    db="test_db",
+                    password="test_password",
+                )
+
+            # Verify rmdir and remove were called for cleanup
+            mock_rmdir.assert_called_once_with("/tmp/mock_temp_dir_failure")
+            mock_remove.assert_called_once()
+
+
+def test_proxy_remote_eof() -> None:
+    """Test that _proxy exits when remote socket receives EOF."""
+    local_client, local_server = socket.socketpair()
+    remote_client, remote_server = socket.socketpair()
+
+    # Start proxy in background
+    proxy_thread = threading.Thread(
+        target=_proxy, args=(local_server, remote_client), daemon=True
+    )
+    proxy_thread.start()
+
+    # Close remote server to trigger EOF on remote_client
+    remote_server.close()
+
+    # local_client should receive EOF (b"")
+    assert local_client.recv(1024) == b""
+
+    # Wait for proxy thread to finish
+    proxy_thread.join(timeout=2.0)
+    assert not proxy_thread.is_alive()
+
+    # Sockets should be closed
+    assert local_server.fileno() == -1
+    assert remote_client.fileno() == -1
+
+    local_client.close()
