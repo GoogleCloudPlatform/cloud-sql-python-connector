@@ -53,8 +53,9 @@ def connect(
     timeout = kwargs.pop("timeout")
     kwargs["connect_timeout"] = kwargs.get("connect_timeout", timeout)
 
-    # map 'db' to 'database' to avoid deprecation warning in pymysql
-    db = kwargs.pop("db", None)
+    # map 'db' to 'database' to avoid deprecation warning in pymysql,
+    # giving precedence to 'database' if both are provided
+    db = kwargs.pop("database", kwargs.pop("db", None))
     if db is not None:
         kwargs["database"] = db
 

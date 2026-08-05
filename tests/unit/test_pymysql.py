@@ -85,4 +85,15 @@ def test_pymysql_database_param(kwargs: Any) -> None:
         assert call_kwargs["database"] == "my-db-2"
         assert "db" not in call_kwargs
 
+    # Test with both 'database' and 'db', where 'database' takes precedence
+    kwargs_both = kwargs.copy()
+    kwargs_both["database"] = "my-db-1"
+    kwargs_both["db"] = "my-db-2"
+    with patch("pymysql.Connection") as mock_conn:
+        pymysql_connect(ip_addr, sock, **kwargs_both)
+        _, call_kwargs = mock_conn.call_args
+        assert call_kwargs["database"] == "my-db-1"
+        assert "db" not in call_kwargs
+
+
 
