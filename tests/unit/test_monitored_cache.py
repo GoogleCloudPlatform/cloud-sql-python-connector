@@ -238,3 +238,60 @@ async def test_MonitoredCache_purge_closed_sockets(
     # call _purge_closed_sockets and verify socket is removed
     monitored_cache._purge_closed_sockets()
     assert len(monitored_cache.sockets) == 0
+
+
+async def test_MonitoredCache_OptimizationForImmutableNames(
+    fake_client: CloudSQLClient,
+) -> None:
+    """
+    Test that MonitoredCache disables DNS polling for immutable instance DNS names
+    but enables it for custom DNS names and mutable global instance DNS names.
+    """
+    # 1. Custom DNS name -> should enable ticker
+    conn_name_custom = ConnectionName(
+        "test-project", "test-region", "test-instance", "db.example.com"
+    )
+    cache_custom = LazyRefreshCache(
+        conn_name_custom,
+        client=fake_client,
+        keys=asyncio.create_task(generate_keys()),
+        enable_iam_auth=False,
+    )
+    monitored_cache_custom = MonitoredCache(cache_custom, 30, DnsResolver())
+    assert monitored_cache_custom.domain_name_ticker is not None
+    await monitored_cache_custom.close()
+
+    # 2. Immutable instance DNS name -> should NOT enable ticker
+    conn_name_immutable = ConnectionName(
+        "test-project",
+        "test-region",
+        "test-instance",
+        "0123456789ab.fedcba9876543.us-central1.sql-psc.goog",
+    )
+    cache_immutable = LazyRefreshCache(
+        conn_name_immutable,
+        client=fake_client,
+        keys=asyncio.create_task(generate_keys()),
+        enable_iam_auth=False,
+    )
+    monitored_cache_immutable = MonitoredCache(cache_immutable, 30, DnsResolver())
+    assert monitored_cache_immutable.domain_name_ticker is None
+    await monitored_cache_immutable.close()
+
+    # 3. Mutable global instance DNS name -> should enable ticker
+    conn_name_global = ConnectionName(
+        "test-project",
+        "test-region",
+        "test-instance",
+        "0123456789ab.fedcba9876543.global.sql-psc.goog",
+    )
+    cache_global = LazyRefreshCache(
+        conn_name_global,
+        client=fake_client,
+        keys=asyncio.create_task(generate_keys()),
+        enable_iam_auth=False,
+    )
+    monitored_cache_global = MonitoredCache(cache_global, 30, DnsResolver())
+    assert monitored_cache_global.domain_name_ticker is not None
+    await monitored_cache_global.close()
+

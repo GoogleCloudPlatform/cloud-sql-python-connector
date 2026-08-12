@@ -19,13 +19,17 @@ import logging
 import ssl
 from typing import Any, Callable
 
+import aiohttp
+
 from google.cloud.sql.connector.connection_info import ConnectionInfo
 from google.cloud.sql.connector.connection_info import ConnectionInfoCache
 from google.cloud.sql.connector.exceptions import CacheClosedError
+from google.cloud.sql.connector.exceptions import DnsLoopError
 from google.cloud.sql.connector.instance import RefreshAheadCache
 from google.cloud.sql.connector.lazy import LazyRefreshCache
 from google.cloud.sql.connector.resolver import DefaultResolver
 from google.cloud.sql.connector.resolver import DnsResolver
+from google.cloud.sql.connector.resolver import is_instance_dns_name
 
 logger = logging.getLogger(name=__name__)
 
@@ -44,7 +48,16 @@ class MonitoredCache(ConnectionInfoCache):
 
         # If domain name is configured for instance and failover period is set,
         # poll for DNS record changes.
-        if self.cache.conn_name.domain_name and failover_period > 0:
+        is_instance_dns = False
+        if self.cache.conn_name.domain_name:
+            is_instance_dns = is_instance_dns_name(
+                self.cache.conn_name.domain_name or ""
+            )
+        if (
+            self.cache.conn_name.domain_name
+            and failover_period > 0
+            and not is_instance_dns
+        ):
             self.domain_name_ticker = asyncio.create_task(
                 ticker(failover_period, self._check_domain_name)
             )
@@ -90,12 +103,28 @@ class MonitoredCache(ConnectionInfoCache):
                 await self.close()
 
         except Exception as e:  # noqa: BLE001
-            # Domain name checks should not be fatal, log error and continue.
-            logger.debug(
-                f"['{self.cache.conn_name}']: Unable to check domain name, "
-                f"domain name {self.cache.conn_name.domain_name} did not "
-                f"resolve: {e}"
+            if self._is_non_transient(e):
+                logger.debug(
+                    f"['{self.cache.conn_name}']: Domain name check failed with "
+                    f"non-transient error, closing all connections: {e}"
+                )
+                await self.close()
+            else:
+                # Domain name checks should not be fatal for transient errors, log error and continue.
+                logger.debug(
+                    f"['{self.cache.conn_name}']: Unable to check domain name, "
+                    f"domain name {self.cache.conn_name.domain_name} did not "
+                    f"resolve (transient error): {e}"
+                )
+
+    def _is_non_transient(self, e: Exception) -> bool:
+        return (
+            isinstance(e, (ValueError, DnsLoopError))
+            or (
+                isinstance(e, aiohttp.ClientResponseError)
+                and e.status in (403, 404)
             )
+        )
 
     async def connect_info(self) -> ConnectionInfo:
         if self.closed:

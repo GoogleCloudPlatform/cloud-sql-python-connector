@@ -25,11 +25,24 @@ from google.cloud.sql.connector.connection_name import (
     _parse_connection_name_with_domain_name,
 )
 from google.cloud.sql.connector.connection_name import ConnectionName
+from google.cloud.sql.connector.exceptions import DnsLoopError
 from google.cloud.sql.connector.exceptions import DnsResolutionError
 
-PSC_DNS_PATTERN = re.compile(
-    r"^([a-f0-9]{12})\.([^.]+)\.([a-z0-9]+-[a-z0-9]+)\.(sql|sql-psa|sql-psc)\.goog\.?$"
+# ^([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])
+
+INSTANCE_DNS_NAME_PATTERN = re.compile(
+    r"^([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])\.([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])\.([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])\.(sql|sql-psa|sql-psc)\.goog\.?$"
 )
+
+GLOBAL_INSTANCE_DNS_PATTERN = re.compile(r"\.global\.sql(-\w+)?\.goog\.?$")
+
+
+def is_instance_dns_name(name: str) -> bool:
+    lower = name.lower()
+    return bool(
+        INSTANCE_DNS_NAME_PATTERN.search(lower)
+        and not GLOBAL_INSTANCE_DNS_PATTERN.search(lower)
+    )
 
 
 class DefaultResolver:
@@ -68,7 +81,7 @@ class DnsResolver(dns.asyncresolver.Resolver):
                 pass
 
             dns_normalized = current.rstrip(".")
-            match = PSC_DNS_PATTERN.match(dns_normalized.lower())
+            match = INSTANCE_DNS_NAME_PATTERN.match(dns_normalized.lower())
             if match:
                 region = match.group(3)
                 if region != "global":
@@ -102,7 +115,7 @@ class DnsResolver(dns.asyncresolver.Resolver):
 
             if cname_found:
                 if cname in visited:
-                    raise DnsResolutionError(f"CNAME loop detected for `{dns}`")
+                    raise DnsLoopError(f"CNAME loop detected for `{dns}`")
                 visited.add(cname)
                 current = cname
                 continue
@@ -130,7 +143,7 @@ class DnsResolver(dns.asyncresolver.Resolver):
                 else f"Unable to resolve TXT record for `{current}`"
             )
 
-        raise DnsResolutionError(
+        raise DnsLoopError(
             f"CNAME loop detected or max resolution depth reached for `{dns}`"
         )
 
