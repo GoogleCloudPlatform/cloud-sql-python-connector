@@ -71,10 +71,7 @@ def _proxy(local: socket.socket, remote: "ssl.SSLSocket") -> None:
             if forward_pending():
                 break
 
-            events = sel.select(timeout=30)
-            if not events:
-                logger.debug("psycopg proxy: inactivity timeout (30s)")
-                break
+            events = sel.select()
 
             for key, mask in events:
                 if key.data == "local":

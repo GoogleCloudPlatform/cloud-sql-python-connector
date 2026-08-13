@@ -20,8 +20,15 @@ from typing import Any
 from unittest.mock import MagicMock
 from unittest.mock import patch
 
+import pytest
+
 from google.cloud.sql.connector.psycopg import _proxy
 from google.cloud.sql.connector.psycopg import connect
+
+pytestmark = pytest.mark.skipif(
+    not hasattr(socket, "AF_UNIX"),
+    reason="Unix domain sockets (AF_UNIX) not available on this platform",
+)
 
 
 class MockableSocket(socket.socket):
@@ -170,31 +177,6 @@ def test_connect_wrapper(mock_psycopg_connect: MagicMock) -> None:
     assert not os.path.exists(kwargs["host"])
 
 
-def test_proxy_timeout() -> None:
-    """Test that _proxy exits and cleans up on selectors timeout."""
-    local_client, local_server = socket.socketpair()
-    remote_client, remote_server = socket.socketpair()
-
-    # Mock selectors.DefaultSelector.select to return empty list (timeout)
-    with patch(
-        "google.cloud.sql.connector.psycopg.selectors.DefaultSelector"
-    ) as mock_selector_cls:
-        mock_selector = MagicMock()
-        mock_selector.select.return_value = []  # Timeout
-        mock_selector_cls.return_value = mock_selector
-
-        # Run proxy
-        _proxy(local_server, remote_client)
-
-        # Sockets should be closed
-        assert local_server.fileno() == -1
-        assert remote_client.fileno() == -1
-
-    # Clean up outer sockets
-    local_client.close()
-    remote_server.close()
-
-
 @patch("psycopg.connect")
 def test_connect_wrapper_failure(mock_psycopg_connect: MagicMock) -> None:
     """Test that connect wrapper cleans up correctly when psycopg.connect fails."""
@@ -202,8 +184,6 @@ def test_connect_wrapper_failure(mock_psycopg_connect: MagicMock) -> None:
     mock_psycopg_connect.side_effect = Exception("connection failed simulated")
 
     # Call the connect wrapper and expect it to raise
-    import pytest
-
     with pytest.raises(Exception, match="connection failed simulated"):
         connect(
             "127.0.0.1",
@@ -217,18 +197,16 @@ def test_connect_wrapper_failure(mock_psycopg_connect: MagicMock) -> None:
     assert mock_remote_sock.close.called
 
     # Verify cleanup with mocked paths
-    with patch(
-        "google.cloud.sql.connector.psycopg.tempfile.mkdtemp"
-    ) as mock_mkdtemp:
+    with patch("google.cloud.sql.connector.psycopg.tempfile.mkdtemp") as mock_mkdtemp:
         mock_mkdtemp.return_value = "/tmp/mock_temp_dir_failure"
 
-        with patch(
-            "google.cloud.sql.connector.psycopg.os.rmdir"
-        ) as mock_rmdir, patch(
-            "google.cloud.sql.connector.psycopg.os.remove"
-        ) as mock_remove, patch(
-            "google.cloud.sql.connector.psycopg.socket.socket"
-        ) as mock_socket_cls:
+        with (
+            patch("google.cloud.sql.connector.psycopg.os.rmdir") as mock_rmdir,
+            patch("google.cloud.sql.connector.psycopg.os.remove") as mock_remove,
+            patch(
+                "google.cloud.sql.connector.psycopg.socket.socket"
+            ) as mock_socket_cls,
+        ):
             # Mock the local socket to avoid real OS bind/listen
             mock_local_sock = MagicMock()
             mock_socket_cls.return_value = mock_local_sock
@@ -389,9 +367,7 @@ def test_proxy_pending_local_send_error() -> None:
     remote_client.recv = MagicMock(return_value=b"pending data")
 
     # Mock local_server.sendall to raise OSError
-    local_server.sendall = MagicMock(
-        side_effect=OSError("local send pending failed")
-    )
+    local_server.sendall = MagicMock(side_effect=OSError("local send pending failed"))
 
     # Run proxy
     _proxy(local_server, remote_client)
@@ -407,8 +383,6 @@ def test_proxy_pending_local_send_error() -> None:
 def test_connect_import_error() -> None:
     """Test that connect raises ImportError if psycopg is not installed."""
     mock_remote_sock = MagicMock(spec=ssl.SSLSocket)
-
-    import pytest
 
     with pytest.raises(ImportError, match='Unable to import module "psycopg."'):
         connect("127.0.0.1", mock_remote_sock)
@@ -426,13 +400,17 @@ def test_connect_cleanup_errors() -> None:
         client.close()
         return MagicMock()
 
-    with patch("psycopg.connect", side_effect=mock_connect_impl), patch(
-        "google.cloud.sql.connector.psycopg.os.remove",
-        side_effect=OSError("remove failed"),
-    ) as mock_remove, patch(
-        "google.cloud.sql.connector.psycopg.os.rmdir",
-        side_effect=OSError("rmdir failed"),
-    ) as mock_rmdir:
+    with (
+        patch("psycopg.connect", side_effect=mock_connect_impl),
+        patch(
+            "google.cloud.sql.connector.psycopg.os.remove",
+            side_effect=OSError("remove failed"),
+        ) as mock_remove,
+        patch(
+            "google.cloud.sql.connector.psycopg.os.rmdir",
+            side_effect=OSError("rmdir failed"),
+        ) as mock_rmdir,
+    ):
         conn = connect(
             "127.0.0.1",
             mock_remote_sock,
@@ -444,4 +422,3 @@ def test_connect_cleanup_errors() -> None:
         assert conn is not None
         assert mock_remove.called
         assert mock_rmdir.called
-
