@@ -47,7 +47,7 @@ def connect(ip_address: str, sock: ssl.SSLSocket, **kwargs: Any) -> "pytds.Conne
             'Unable to import module "pytds." Please install and try again.'
         )
 
-    db = kwargs.pop("db", None)
+    db = kwargs.pop("database", kwargs.pop("db", None))
 
     if kwargs.pop("active_directory_auth", False):
         if platform.system() == "Windows":

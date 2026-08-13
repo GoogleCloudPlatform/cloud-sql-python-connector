@@ -78,7 +78,7 @@ def create_sqlalchemy_engine(
             "pymysql",
             user=user,
             password=password,
-            db=db,
+            database=db,
             ip_type=ip_type,  # can be "public", "private" or "psc"
         ),
     )

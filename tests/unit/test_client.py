@@ -15,14 +15,19 @@
 from __future__ import annotations
 
 import datetime
+from unittest.mock import AsyncMock
+from unittest.mock import MagicMock
+from unittest.mock import patch
 
 from aiohttp import ClientResponseError
 from aioresponses import aioresponses
 from google.auth.credentials import Credentials
+from google.auth.credentials import TokenState
 from mocks import FakeCredentials
 import pytest
 
 from google.cloud.sql.connector.client import CloudSQLClient
+from google.cloud.sql.connector.client import DEFAULT_SERVICE_ENDPOINT
 from google.cloud.sql.connector.utils import generate_keys
 from google.cloud.sql.connector.version import __version__ as version
 
@@ -322,4 +327,229 @@ async def test_get_metadata_multiple_psc_dns_sorted(fake_client: CloudSQLClient)
         fake_client.instance.psc_enabled = False
         fake_client.instance.legacy_dns_name = False
         fake_client.instance.dns_names = ["abcde.12345.us-central1.sql.goog"]
+
+
+async def test_CloudSQLClient_init_default_endpoint(
+    fake_credentials: FakeCredentials,
+) -> None:
+    """Test that CloudSQLClient uses default endpoint if None is passed."""
+    client = CloudSQLClient(None, "my-quota-project", fake_credentials)
+    assert client._sqladmin_api_endpoint == DEFAULT_SERVICE_ENDPOINT
+    await client.close()
+
+
+async def test_get_metadata_retry_50x(fake_credentials: Credentials) -> None:
+    """Test that _get_metadata retries on 5xx errors."""
+    client = CloudSQLClient(
+        sqladmin_api_endpoint="https://sqladmin.googleapis.com",
+        quota_project=None,
+        credentials=fake_credentials,
+    )
+    get_url = "https://sqladmin.googleapis.com/sql/v1beta4/projects/my-project/instances/my-instance/connectSettings"
+
+    resp_body = {
+        "ipAddresses": [{"type": "PRIMARY", "ipAddress": "127.0.0.1"}],
+        "region": "my-region",
+        "databaseVersion": "POSTGRES_15",
+        "serverCaCert": {"cert": "ca-cert"},
+    }
+
+    with aioresponses() as mocked:
+        # First call returns 500
+        mocked.get(get_url, status=500)
+        # Second call returns 200
+        mocked.get(get_url, status=200, payload=resp_body)
+
+        # We need to mock sleep in retry_50x to make it fast
+        with patch(
+            "google.cloud.sql.connector.refresh_utils.asyncio.sleep", AsyncMock()
+        ):
+            resp = await client._get_metadata("my-project", "my-region", "my-instance")
+
+        assert resp["database_version"] == "POSTGRES_15"
+        assert resp["ip_addresses"] == {"PRIMARY": ["127.0.0.1"]}
+        await client.close()
+
+
+async def test_get_ephemeral_retry_50x(fake_credentials: Credentials) -> None:
+    """Test that _get_ephemeral retries on 5xx errors."""
+    client = CloudSQLClient(
+        sqladmin_api_endpoint="https://sqladmin.googleapis.com",
+        quota_project=None,
+        credentials=fake_credentials,
+    )
+    post_url = "https://sqladmin.googleapis.com/sql/v1beta4/projects/my-project/instances/my-instance:generateEphemeralCert"
+
+    resp_body = {
+        "ephemeralCert": {"cert": "ephemeral-cert"},
+    }
+
+    mock_x509 = MagicMock()
+    mock_x509.not_valid_after_utc = datetime.datetime.now(
+        datetime.timezone.utc
+    ) + datetime.timedelta(hours=1)
+
+    with aioresponses() as mocked, patch(
+        "google.cloud.sql.connector.client.load_pem_x509_certificate",
+        return_value=mock_x509,
+    ):
+        # First call returns 500
+        mocked.post(post_url, status=500)
+        # Second call returns 200
+        mocked.post(post_url, status=200, payload=resp_body)
+
+        # We need to mock sleep in retry_50x to make it fast
+        with patch(
+            "google.cloud.sql.connector.refresh_utils.asyncio.sleep", AsyncMock()
+        ):
+            cert, expiration = await client._get_ephemeral(
+                "my-project", "my-instance", "pub-key"
+            )
+
+        assert cert == "ephemeral-cert"
+        assert expiration == mock_x509.not_valid_after_utc
+        await client.close()
+
+
+async def test_get_metadata_region_mismatch(fake_credentials: Credentials) -> None:
+    """Test that _get_metadata raises ValueError if region mismatched."""
+    client = CloudSQLClient(
+        sqladmin_api_endpoint="https://sqladmin.googleapis.com",
+        quota_project=None,
+        credentials=fake_credentials,
+    )
+    get_url = "https://sqladmin.googleapis.com/sql/v1beta4/projects/my-project/instances/my-instance/connectSettings"
+
+    resp_body = {
+        "ipAddresses": [{"type": "PRIMARY", "ipAddress": "127.0.0.1"}],
+        "region": "wrong-region",
+        "databaseVersion": "POSTGRES_15",
+        "serverCaCert": {"cert": "ca-cert"},
+    }
+
+    with aioresponses() as mocked:
+        mocked.get(get_url, status=200, payload=resp_body)
+        with pytest.raises(ValueError) as exc_info:
+            await client._get_metadata("my-project", "my-region", "my-instance")
+        assert "Provided region was mismatched" in str(exc_info.value)
+        await client.close()
+
+
+async def test_resolve_connect_settings_success(fake_credentials: Credentials) -> None:
+    """Test resolve_connect_settings returns successfully."""
+    client = CloudSQLClient(
+        sqladmin_api_endpoint="https://sqladmin.googleapis.com",
+        quota_project=None,
+        credentials=fake_credentials,
+    )
+    get_url = "https://sqladmin.googleapis.com/sql/v1beta4/locations/my-region/dns/my-dns:resolveConnectSettings"
+    resp_body = {"connectionName": "my-project:my-region:my-instance"}
+
+    with aioresponses() as mocked:
+        mocked.get(get_url, status=200, payload=resp_body)
+        resp = await client.resolve_connect_settings("my-dns", "my-region")
+        assert resp == resp_body
+        await client.close()
+
+
+async def test_resolve_connect_settings_error(fake_credentials: Credentials) -> None:
+    """Test resolve_connect_settings raises error on failure."""
+    client = CloudSQLClient(
+        sqladmin_api_endpoint="https://sqladmin.googleapis.com",
+        quota_project=None,
+        credentials=fake_credentials,
+    )
+    get_url = "https://sqladmin.googleapis.com/sql/v1beta4/locations/my-region/dns/my-dns:resolveConnectSettings"
+    resp_body = {
+        "error": {
+            "code": 404,
+            "message": "DNS name not found",
+        }
+    }
+
+    with aioresponses() as mocked:
+        mocked.get(get_url, status=404, payload=resp_body)
+        with pytest.raises(ClientResponseError) as exc_info:
+            await client.resolve_connect_settings("my-dns", "my-region")
+        assert exc_info.value.status == 404
+        assert exc_info.value.message == "DNS name not found"
+        await client.close()
+
+
+async def test_resolve_connect_settings_retry_50x(fake_credentials: Credentials) -> None:
+    """Test that resolve_connect_settings retries on 5xx errors."""
+    client = CloudSQLClient(
+        sqladmin_api_endpoint="https://sqladmin.googleapis.com",
+        quota_project=None,
+        credentials=fake_credentials,
+    )
+    get_url = "https://sqladmin.googleapis.com/sql/v1beta4/locations/my-region/dns/my-dns:resolveConnectSettings"
+    resp_body = {"connectionName": "my-project:my-region:my-instance"}
+
+    with aioresponses() as mocked:
+        # First call returns 500
+        mocked.get(get_url, status=500)
+        # Second call returns 200
+        mocked.get(get_url, status=200, payload=resp_body)
+
+        with patch(
+            "google.cloud.sql.connector.refresh_utils.asyncio.sleep", AsyncMock()
+        ):
+            resp = await client.resolve_connect_settings("my-dns", "my-region")
+
+        assert resp == resp_body
+        await client.close()
+
+
+async def test_resolve_connect_settings_token_refresh(fake_credentials: FakeCredentials) -> None:
+    """Test that resolve_connect_settings refreshes token if it is not FRESH."""
+    fake_credentials.token = "expired-token"
+    fake_credentials.expiry = datetime.datetime.now(
+        datetime.timezone.utc
+    ) - datetime.timedelta(minutes=10)
+    assert fake_credentials.token_state == TokenState.INVALID
+
+    client = CloudSQLClient(
+        sqladmin_api_endpoint="https://sqladmin.googleapis.com",
+        quota_project=None,
+        credentials=fake_credentials,
+    )
+    get_url = "https://sqladmin.googleapis.com/sql/v1beta4/locations/my-region/dns/my-dns:resolveConnectSettings"
+    resp_body = {"connectionName": "my-project:my-region:my-instance"}
+
+    with aioresponses() as mocked:
+        mocked.get(get_url, status=200, payload=resp_body)
+        resp = await client.resolve_connect_settings("my-dns", "my-region")
+
+        assert resp == resp_body
+        assert fake_credentials.token == "12345"
+        await client.close()
+
+
+async def test_resolve_connect_settings_error_parsing_json(
+    fake_credentials: Credentials,
+) -> None:
+    """Test that aiohttp default error messages are raised when resolve_connect_settings gets a bad JSON response."""
+    client = CloudSQLClient(
+        sqladmin_api_endpoint="https://sqladmin.googleapis.com",
+        quota_project=None,
+        credentials=fake_credentials,
+    )
+    get_url = "https://sqladmin.googleapis.com/sql/v1beta4/locations/my-region/dns/my-dns:resolveConnectSettings"
+    resp_body = ["error"]
+    with aioresponses() as mocked:
+        mocked.get(
+            get_url,
+            status=403,
+            payload=resp_body,
+            repeat=True,
+        )
+        with pytest.raises(ClientResponseError) as exc_info:
+            await client.resolve_connect_settings("my-dns", "my-region")
+        assert exc_info.value.status == 403
+        assert exc_info.value.message == "Forbidden"
+        await client.close()
+
+
+
 

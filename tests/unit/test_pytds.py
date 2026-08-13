@@ -18,6 +18,7 @@ import platform
 import socket
 import ssl
 from typing import Any
+from unittest.mock import MagicMock
 from unittest.mock import patch
 
 import pytest
@@ -99,3 +100,48 @@ async def test_pytds_windows_active_directory_auth(
         assert mock_login.assert_called_once
         assert connection is True
         assert mock_connect.assert_called_once
+
+
+
+def test_pytds_import_error(kwargs: Any) -> None:
+    """Test to verify that connect raises ImportError if pytds is not installed."""
+    with patch.dict("sys.modules", {"pytds": None}):
+        with pytest.raises(ImportError) as excinfo:
+            connect("0.0.0.0", None, **kwargs)
+        assert 'Unable to import module "pytds."' in str(excinfo.value)
+
+
+def test_pytds_database_param(kwargs: Any) -> None:
+    """Test that pytds wrapper accepts both 'db' and 'database'."""
+    ip_addr = "127.0.0.1"
+    sock = MagicMock(spec=ssl.SSLSocket)
+
+    # Test with 'db'
+    kwargs_db = kwargs.copy()
+    kwargs_db["db"] = "my-db-1"
+    with patch("pytds.connect") as mock_connect:
+        connect(ip_addr, sock, **kwargs_db)
+        mock_connect.assert_called_once_with(
+            ip_addr,
+            database="my-db-1",
+            user=kwargs["user"],
+            password=kwargs["password"],
+            sock=sock,
+        )
+
+    # Test with 'database'
+    kwargs_database = kwargs.copy()
+    kwargs_database["database"] = "my-db-2"
+    if "db" in kwargs_database:
+        del kwargs_database["db"]
+    with patch("pytds.connect") as mock_connect:
+        connect(ip_addr, sock, **kwargs_database)
+        mock_connect.assert_called_once_with(
+            ip_addr,
+            database="my-db-2",
+            user=kwargs["user"],
+            password=kwargs["password"],
+            sock=sock,
+        )
+
+

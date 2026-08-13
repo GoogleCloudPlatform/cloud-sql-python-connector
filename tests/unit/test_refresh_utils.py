@@ -18,12 +18,14 @@ from __future__ import annotations
 
 import asyncio
 import datetime
+from typing import Any
 from unittest.mock import Mock
 from unittest.mock import patch
 
 from conftest import SCOPES  # type: ignore
 import google.auth
 from google.auth.credentials import Credentials
+from google.auth.credentials import Scoped
 from google.auth.credentials import TokenState
 import google.oauth2.credentials
 import pytest
@@ -33,6 +35,25 @@ from google.cloud.sql.connector.refresh_utils import _exponential_backoff
 from google.cloud.sql.connector.refresh_utils import _is_valid
 from google.cloud.sql.connector.refresh_utils import _seconds_until_refresh
 from google.cloud.sql.connector.refresh_utils import retry_50x
+
+
+class DummyScopedCredentials(Credentials, Scoped):
+    def __init__(self, scopes: list[str] | None = None) -> None:
+        self._scopes = scopes
+
+    @property
+    def scopes(self) -> list[str] | None:
+        return self._scopes
+
+    def with_scopes(self, scopes: list[str]) -> DummyScopedCredentials:
+        return DummyScopedCredentials(scopes=scopes)
+
+    def refresh(self, request: Any) -> None:
+        pass
+
+    @property
+    def requires_scopes(self) -> bool:
+        return True
 
 
 @pytest.fixture
@@ -97,6 +118,19 @@ def test_downscope_credentials_user() -> None:
     # verify default credential scopes have not been altered
     assert creds.scopes == SCOPES
     # verify downscoped credentials have new scope
+    assert credentials.scopes == ["https://www.googleapis.com/auth/sqlservice.login"]
+    assert credentials != creds
+
+
+def test_downscope_credentials_scoped() -> None:
+    """
+    Test _downscope_credentials with a Scoped credential.
+    """
+    creds = DummyScopedCredentials()
+
+    with patch("google.auth.transport.requests.Request", return_value=Mock()):
+        credentials = _downscope_credentials(creds)
+
     assert credentials.scopes == ["https://www.googleapis.com/auth/sqlservice.login"]
     assert credentials != creds
 

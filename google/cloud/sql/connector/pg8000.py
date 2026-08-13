@@ -48,7 +48,9 @@ def connect(
         )
 
     user = kwargs.pop("user")
-    db = kwargs.pop("db")
+    db = kwargs.pop("database", kwargs.pop("db", None))
+    if db is None:
+        raise KeyError("database")
     passwd = kwargs.pop("password", None)
     return pg8000.dbapi.connect(
         user,

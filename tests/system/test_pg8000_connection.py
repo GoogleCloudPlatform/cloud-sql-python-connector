@@ -87,7 +87,7 @@ def create_sqlalchemy_engine(
             "pg8000",
             user=user,
             password=password,
-            db=db,
+            database=db,
             ip_type=ip_type,  # can be "public", "private" or "psc"
         ),
     )

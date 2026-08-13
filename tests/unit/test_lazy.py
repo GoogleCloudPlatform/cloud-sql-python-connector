@@ -13,6 +13,9 @@
 # limitations under the License.
 
 import asyncio
+from unittest.mock import AsyncMock
+
+import pytest
 
 from google.cloud.sql.connector.client import CloudSQLClient
 from google.cloud.sql.connector.connection_info import ConnectionInfo
@@ -84,3 +87,27 @@ async def test_LazyRefreshCache_force_refresh(fake_client: CloudSQLClient) -> No
     assert conn_info2 != conn_info
     assert cache._cached == conn_info2
     await cache.close()
+
+
+async def test_LazyRefreshCache_connect_info_error(
+    fake_client: CloudSQLClient,
+) -> None:
+    """
+    Test that LazyRefreshCache.connect_info propagates exceptions.
+    """
+    keys = asyncio.create_task(generate_keys())
+    cache = LazyRefreshCache(
+        ConnectionName("test-project", "test-region", "test-instance"),
+        client=fake_client,
+        keys=keys,
+        enable_iam_auth=False,
+    )
+
+    # Mock get_connection_info to raise an exception
+    fake_client.get_connection_info = AsyncMock(side_effect=Exception("Test Exception"))
+
+    with pytest.raises(Exception, match="Test Exception"):
+        await cache.connect_info()
+
+    await cache.close()
+

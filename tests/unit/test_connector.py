@@ -18,6 +18,8 @@ from __future__ import annotations
 import asyncio
 import os
 from threading import Thread
+from unittest.mock import AsyncMock
+from unittest.mock import MagicMock
 from unittest.mock import patch
 
 from aiohttp import ClientResponseError
@@ -29,11 +31,13 @@ from google.cloud.sql.connector import create_async_connector
 from google.cloud.sql.connector import IPTypes
 from google.cloud.sql.connector.client import CloudSQLClient
 from google.cloud.sql.connector.connection_name import ConnectionName
+from google.cloud.sql.connector.enums import RefreshStrategy
 from google.cloud.sql.connector.exceptions import ClosedConnectorError
 from google.cloud.sql.connector.exceptions import CloudSQLIPTypeError
 from google.cloud.sql.connector.exceptions import ConnectorLoopError
 from google.cloud.sql.connector.exceptions import IncompatibleDriverError
 from google.cloud.sql.connector.instance import RefreshAheadCache
+from google.cloud.sql.connector.monitored_cache import MonitoredCache
 from google.cloud.sql.connector.resolver import DnsResolver
 
 
@@ -99,6 +103,13 @@ async def test_connect_incompatible_driver_error(
             " 'POSTGRES_15'. Given driver can only be used with Cloud SQL MYSQL"
             " databases."
         )
+
+
+def test_connector_invalid_refresh_strategy() -> None:
+    """Test that initializing Connector with invalid refresh_strategy raises ValueError."""
+    with pytest.raises(ValueError) as exc_info:
+        Connector(refresh_strategy="INVALID")
+    assert "Incorrect value for refresh_strategy, got 'INVALID'" in str(exc_info.value)
 
 
 def test_connect_with_unsupported_driver(fake_credentials: Credentials) -> None:
@@ -720,5 +731,306 @@ async def test_Connector_connect_async_custom_dns_resolver_no_fallback_psc_to_pr
                     fake_client.instance.ip_addrs = original_ips
                     fake_client.instance.dns_names = original_dns_names
                     fake_client.instance.psc_enabled = False
+
+
+def test_Connector_init_lazy_with_loop(fake_credentials: Credentials) -> None:
+    """Test Connector initialization with custom loop and LAZY refresh strategy."""
+    loop = asyncio.new_event_loop()
+    try:
+        connector = Connector(
+            credentials=fake_credentials,
+            loop=loop,
+            refresh_strategy=RefreshStrategy.LAZY,
+        )
+        assert connector._loop == loop
+        assert connector._refresh_strategy == RefreshStrategy.LAZY
+        assert connector._keys is None
+    finally:
+        loop.close()
+
+
+def test_Connector_init_quota_project(fake_credentials: Credentials) -> None:
+    """Test Connector initialization with quota_project argument."""
+    connector = Connector(credentials=fake_credentials, quota_project="my-quota-project")
+    assert connector._quota_project == "my-quota-project"
+
+
+def test_Connector_init_sqladmin_endpoint(fake_credentials: Credentials) -> None:
+    """Test Connector initialization with sqladmin_api_endpoint argument."""
+    connector = Connector(
+        credentials=fake_credentials,
+        sqladmin_api_endpoint="https://my-custom-endpoint.com",
+    )
+    assert connector._sqladmin_api_endpoint == "https://my-custom-endpoint.com"
+
+
+@pytest.mark.asyncio
+async def test_Connector_connect_async_sync_driver(
+    fake_credentials: Credentials, fake_client: CloudSQLClient
+) -> None:
+    """Test that Connector.connect_async works with a sync driver (pg8000)."""
+    async with Connector(
+        credentials=fake_credentials, loop=asyncio.get_running_loop()
+    ) as connector:
+        connector._client = fake_client
+
+        # Mock socket.create_connection to avoid real network call
+        # Mock ssl.SSLContext.wrap_socket to return a mock socket
+        mock_sock = MagicMock()
+        with patch(
+            "google.cloud.sql.connector.connector.socket.create_connection",
+            return_value=mock_sock,
+        ), patch(
+            "ssl.SSLContext.wrap_socket", return_value=mock_sock
+        ), patch(
+            "google.cloud.sql.connector.pg8000.connect"
+        ) as mock_connect:
+
+            mock_connect.return_value = True
+
+            connection = await connector.connect_async(
+                "test-project:test-region:test-instance",
+                "pg8000",
+                user="my-user",
+                password="my-pass",
+                db="my-db",
+            )
+            assert connection is True
+            mock_connect.assert_called_once()
+
+
+
+@pytest.mark.asyncio
+async def test_Connector_connect_async_iam_username_truncation(
+    fake_credentials: Credentials, fake_client: CloudSQLClient
+) -> None:
+    """Test that IAM username is truncated and warning is logged."""
+    async with Connector(
+        credentials=fake_credentials, loop=asyncio.get_running_loop()
+    ) as connector:
+        connector._client = fake_client
+
+        # Modify database version to POSTGRES to trigger truncation for postgres SA
+        fake_client.instance.db_version = "POSTGRES_15"
+
+        with patch("google.cloud.sql.connector.asyncpg.connect") as mock_connect, patch(
+            "google.cloud.sql.connector.connector.logger"
+        ) as mock_logger:
+            mock_connect.return_value = True
+
+            # Use a username that needs truncation (ends with .gserviceaccount.com)
+            long_user = "my-sa@my-project.iam.gserviceaccount.com"
+            expected_user = "my-sa@my-project.iam"
+
+            await connector.connect_async(
+                "test-project:test-region:test-instance",
+                "asyncpg",
+                user=long_user,
+                password="my-pass",
+                db="my-db",
+                enable_iam_auth=True,
+            )
+
+            # Verify truncated user was passed to driver
+            _, kwargs = mock_connect.call_args
+            assert kwargs["user"] == expected_user
+
+            # Verify truncation warning was logged
+            mock_logger.debug.assert_any_call(
+                f"['test-project:test-region:test-instance']: Truncated IAM database username from {long_user} to {expected_user}"
+            )
+
+
+@pytest.mark.asyncio
+async def test_Connector_connect_async_lazy_refresh(
+    fake_credentials: Credentials, fake_client: CloudSQLClient
+) -> None:
+    """Test that Connector.connect_async works with LAZY refresh strategy."""
+    async with Connector(
+        credentials=fake_credentials,
+        loop=asyncio.get_running_loop(),
+        refresh_strategy=RefreshStrategy.LAZY,
+    ) as connector:
+        connector._client = fake_client
+
+        with patch("google.cloud.sql.connector.asyncpg.connect") as mock_connect:
+            mock_connect.return_value = True
+
+            # self._keys should be None initially for LAZY
+            assert connector._keys is None
+
+            connection = await connector.connect_async(
+                "test-project:test-region:test-instance",
+                "asyncpg",
+                user="my-user",
+                password="my-pass",
+                db="my-db",
+            )
+            assert connection is True
+            # self._keys should now be initialized
+            assert connector._keys is not None
+            mock_connect.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_Connector_connect_async_custom_dns_resolver_exception(
+    fake_credentials: Credentials, fake_client: CloudSQLClient
+) -> None:
+    """Test that Connector.connect_async falls back if DNS resolution raises exception."""
+    with patch(
+        "google.cloud.sql.connector.resolver.DnsResolver.resolve_a_record",
+        side_effect=Exception("DNS Resolution Failed"),
+    ), patch(
+        "google.cloud.sql.connector.resolver.DnsResolver.resolve"
+    ) as mock_resolve:
+        conn_name_with_domain = ConnectionName(
+            "test-project", "test-region", "test-instance", "db.example.com"
+        )
+        mock_resolve.return_value = conn_name_with_domain
+
+        async with Connector(
+            credentials=fake_credentials,
+            loop=asyncio.get_running_loop(),
+            resolver=DnsResolver,
+        ) as connector:
+            connector._client = fake_client
+
+            original_ips = fake_client.instance.ip_addrs
+            fake_client.instance.ip_addrs = {"PRIMARY": "5.6.7.8"}
+
+            try:
+                with patch(
+                    "google.cloud.sql.connector.asyncpg.connect"
+                ) as mock_connect:
+                    mock_connect.return_value = True
+
+                    connection = await connector.connect_async(
+                        "db.example.com",
+                        "asyncpg",
+                        user="my-user",
+                        password="my-pass",
+                        db="my-db",
+                    )
+
+                    # Verify mock_connect was called with metadata IP "5.6.7.8"
+                    args, _ = mock_connect.call_args
+                    assert args[0] == "5.6.7.8"
+                    assert connection is True
+            finally:
+                fake_client.instance.ip_addrs = original_ips
+
+
+@pytest.mark.asyncio
+async def test_Connector_connect_async_sync_driver_ssl_error(
+    fake_credentials: Credentials, fake_client: CloudSQLClient
+) -> None:
+    """Test that Connector.connect_async closes raw socket if SSL wrap fails."""
+    async with Connector(
+        credentials=fake_credentials, loop=asyncio.get_running_loop()
+    ) as connector:
+        connector._client = fake_client
+
+        mock_raw_sock = MagicMock()
+        with patch(
+            "google.cloud.sql.connector.connector.socket.create_connection",
+            return_value=mock_raw_sock,
+        ), patch(
+            "ssl.SSLContext.wrap_socket", side_effect=Exception("SSL wrap failed")
+        ), patch(
+            "google.cloud.sql.connector.pg8000.connect"
+        ) as mock_connect:
+
+            with pytest.raises(Exception, match="SSL wrap failed"):
+                await connector.connect_async(
+                    "test-project:test-region:test-instance",
+                    "pg8000",
+                    user="my-user",
+                    password="my-pass",
+                    db="my-db",
+                )
+
+            mock_raw_sock.close.assert_called_once()
+            mock_connect.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_Connector_connect_async_sync_driver_domain_name(
+    fake_credentials: Credentials, fake_client: CloudSQLClient
+) -> None:
+    """Test that Connector.connect_async stores socket in monitored_cache if domain name is used."""
+    with patch(
+        "google.cloud.sql.connector.resolver.DnsResolver.resolve_a_record",
+        return_value=["1.2.3.4"],
+    ), patch(
+        "google.cloud.sql.connector.resolver.DnsResolver.resolve"
+    ) as mock_resolve:
+        conn_name_with_domain = ConnectionName(
+            "test-project", "test-region", "test-instance", "db.example.com"
+        )
+        mock_resolve.return_value = conn_name_with_domain
+
+        async with Connector(
+            credentials=fake_credentials,
+            loop=asyncio.get_running_loop(),
+            resolver=DnsResolver,
+        ) as connector:
+            connector._client = fake_client
+
+            mock_sock = MagicMock()
+            with patch(
+                "google.cloud.sql.connector.connector.socket.create_connection",
+                return_value=mock_sock,
+            ), patch(
+                "ssl.SSLContext.wrap_socket", return_value=mock_sock
+            ), patch(
+                "google.cloud.sql.connector.pg8000.connect"
+            ) as mock_connect:
+
+                mock_connect.return_value = True
+
+                connection = await connector.connect_async(
+                    "db.example.com",
+                    "pg8000",
+                    user="my-user",
+                    password="my-pass",
+                    db="my-db",
+                )
+                assert connection is True
+
+                # Get monitored cache from connector
+                monitored_cache = connector._cache[(str(conn_name_with_domain), False)]
+                # Verify mock_sock was appended to monitored_cache.sockets
+                assert mock_sock in monitored_cache.sockets
+
+
+@pytest.mark.asyncio
+async def test_Connector_connect_async_connection_error_triggers_force_refresh(
+    fake_credentials: Credentials, fake_client: CloudSQLClient
+) -> None:
+    """Test that connection error triggers force_refresh on monitored cache."""
+    async with Connector(
+        credentials=fake_credentials, loop=asyncio.get_running_loop()
+    ) as connector:
+        connector._client = fake_client
+
+        with patch(
+            "google.cloud.sql.connector.asyncpg.connect",
+            side_effect=Exception("Connection Refused"),
+        ), patch.object(
+            MonitoredCache, "force_refresh", AsyncMock()
+        ) as mock_force_refresh:
+
+            with pytest.raises(Exception, match="Connection Refused"):
+                await connector.connect_async(
+                    "test-project:test-region:test-instance",
+                    "asyncpg",
+                    user="my-user",
+                    password="my-pass",
+                    db="my-db",
+                )
+
+            mock_force_refresh.assert_called_once()
+
+
 
 

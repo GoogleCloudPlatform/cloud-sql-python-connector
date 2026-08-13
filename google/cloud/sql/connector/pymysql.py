@@ -52,6 +52,13 @@ def connect(
     # pop timeout as timeout arg is called 'connect_timeout' for pymysql
     timeout = kwargs.pop("timeout")
     kwargs["connect_timeout"] = kwargs.get("connect_timeout", timeout)
+
+    # map 'db' to 'database' to avoid deprecation warning in pymysql,
+    # giving precedence to 'database' if both are provided
+    db = kwargs.pop("database", kwargs.pop("db", None))
+    if db is not None:
+        kwargs["database"] = db
+
     # Create pymysql connection object and hand in pre-made connection
     conn = pymysql.Connection(host=ip_address, defer_connect=True, **kwargs)
     conn.connect(sock)

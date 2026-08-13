@@ -317,3 +317,40 @@ async def test_DnsResolver_global_region_skips_direct_resolution() -> None:
 
     # Verify mock_client was NOT called because direct resolution was skipped
     mock_client.resolve_connect_settings.assert_not_called()
+
+
+async def test_DnsResolver_no_client_error() -> None:
+    """Test DnsResolver throws ValueError if client is not configured for PSC DNS."""
+    dns_name = "0123456789ab.fedcba9876543.europe-north2.sql-psc.goog"
+    resolver = DnsResolver(client=None)
+    with pytest.raises(ValueError) as exc_info:
+        await resolver.resolve(dns_name)
+    assert "SQLAdmin client is not configured in the resolver." in str(exc_info.value)
+
+
+async def test_DnsResolver_invalid_domain() -> None:
+    """Test DnsResolver throws ValueError if input is neither connection name nor valid domain."""
+    resolver = DnsResolver()
+    with pytest.raises(ValueError) as exc_info:
+        await resolver.resolve("invalidname")
+    assert "must have format: PROJECT:REGION:INSTANCE or be a valid DNS domain name" in str(exc_info.value)
+
+
+async def test_DnsResolver_max_depth_reached() -> None:
+    """Test DnsResolver throws DnsResolutionError if max resolution depth is reached."""
+    dns_name = "name0.example.com"
+    cname_map = {f"name{i}.example.com": f"name{i+1}.example.com" for i in range(10)}
+
+    resolver = DnsResolver()
+
+    async def mock_resolve_cname(name: str) -> str:
+        if name in cname_map:
+            return cname_map[name]
+        raise DnsResolutionError("No CNAME")
+
+    with patch.object(resolver, "resolve_cname", AsyncMock(side_effect=mock_resolve_cname)), patch.object(
+        resolver, "resolve_txt", AsyncMock(side_effect=DnsResolutionError("No TXT"))
+    ):
+        with pytest.raises(DnsResolutionError) as exc_info:
+            await resolver.resolve(dns_name)
+        assert "max resolution depth reached" in str(exc_info.value)

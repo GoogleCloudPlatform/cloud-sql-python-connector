@@ -15,6 +15,7 @@
 import asyncio
 import socket
 import ssl
+from unittest.mock import AsyncMock
 from unittest.mock import patch
 
 import dns.message
@@ -28,6 +29,7 @@ from google.cloud.sql.connector.connection_name import ConnectionName
 from google.cloud.sql.connector.exceptions import CacheClosedError
 from google.cloud.sql.connector.lazy import LazyRefreshCache
 from google.cloud.sql.connector.monitored_cache import MonitoredCache
+from google.cloud.sql.connector.monitored_cache import ticker
 from google.cloud.sql.connector.resolver import DefaultResolver
 from google.cloud.sql.connector.resolver import DnsResolver
 from google.cloud.sql.connector.utils import generate_keys
@@ -294,4 +296,119 @@ async def test_MonitoredCache_OptimizationForImmutableNames(
     monitored_cache_global = MonitoredCache(cache_global, 30, DnsResolver())
     assert monitored_cache_global.domain_name_ticker is not None
     await monitored_cache_global.close()
+
+
+async def test_MonitoredCache_check_domain_name_error(
+    fake_client: CloudSQLClient,
+) -> None:
+    """
+    Test that MonitoredCache._check_domain_name handles exceptions gracefully.
+    """
+    conn_name = ConnectionName(
+        "my-project", "my-region", "my-instance", "db.example.com"
+    )
+    cache = LazyRefreshCache(
+        conn_name,
+        client=fake_client,
+        keys=asyncio.create_task(generate_keys()),
+        enable_iam_auth=False,
+    )
+    resolver = DnsResolver()
+    # Mock resolver.resolve to raise exception
+    resolver.resolve = AsyncMock(side_effect=Exception("DNS Error"))
+
+    monitored_cache = MonitoredCache(cache, 0, resolver)
+    # verify cache is not closed initially
+    assert monitored_cache.closed is False
+    # call _check_domain_name, should catch exception and not raise/close
+    await monitored_cache._check_domain_name()
+    assert monitored_cache.closed is False
+
+
+async def test_MonitoredCache_force_refresh_closed(
+    fake_client: CloudSQLClient,
+) -> None:
+    """
+    Test that MonitoredCache.force_refresh returns early if cache is closed.
+    """
+    conn_name = ConnectionName("test-project", "test-region", "test-instance")
+    cache = LazyRefreshCache(
+        conn_name,
+        client=fake_client,
+        keys=asyncio.create_task(generate_keys()),
+        enable_iam_auth=False,
+    )
+    monitored_cache = MonitoredCache(cache, 0, DefaultResolver())
+    await monitored_cache.close()
+    assert monitored_cache.closed is True
+
+    # Patch cache.force_refresh to verify it is NOT called
+    with patch.object(cache, "force_refresh", AsyncMock()) as mock_force_refresh:
+        await monitored_cache.force_refresh()
+        mock_force_refresh.assert_not_called()
+
+
+async def test_MonitoredCache_close_twice(fake_client: CloudSQLClient) -> None:
+    """
+    Test that MonitoredCache.close returns early if already closed.
+    """
+    conn_name = ConnectionName("test-project", "test-region", "test-instance")
+    cache = LazyRefreshCache(
+        conn_name,
+        client=fake_client,
+        keys=asyncio.create_task(generate_keys()),
+        enable_iam_auth=False,
+    )
+    monitored_cache = MonitoredCache(cache, 0, DefaultResolver())
+
+    async def mock_close() -> None:
+        cache._closed = True
+
+    # Patch cache.close to verify it is called only once
+    with patch.object(
+        cache, "close", AsyncMock(side_effect=mock_close)
+    ) as mock_cache_close:
+        await monitored_cache.close()
+        assert monitored_cache.closed is True
+        mock_cache_close.assert_called_once()
+
+        # call close again
+        await monitored_cache.close()
+        # should still be called only once
+        mock_cache_close.assert_called_once()
+
+
+async def test_ticker() -> None:
+    """Test ticker function schedules calls."""
+    mock_func = AsyncMock()
+    # Run ticker with 1s interval
+    task = asyncio.create_task(ticker(1, mock_func))
+    # Wait for 1.5s to allow it to fire once
+    await asyncio.sleep(1.5)
+    task.cancel()
+    try:
+        await task
+    except asyncio.CancelledError:
+        pass
+    mock_func.assert_called_once()
+
+
+async def test_MonitoredCache_force_refresh(fake_client: CloudSQLClient) -> None:
+    """
+    Test that MonitoredCache.force_refresh calls cache.force_refresh.
+    """
+    conn_name = ConnectionName("test-project", "test-region", "test-instance")
+    cache = LazyRefreshCache(
+        conn_name,
+        client=fake_client,
+        keys=asyncio.create_task(generate_keys()),
+        enable_iam_auth=False,
+    )
+    monitored_cache = MonitoredCache(cache, 0, DefaultResolver())
+
+    # Patch cache.force_refresh to verify it is called
+    with patch.object(cache, "force_refresh", AsyncMock()) as mock_force_refresh:
+        await monitored_cache.force_refresh()
+        mock_force_refresh.assert_called_once()
+
 
