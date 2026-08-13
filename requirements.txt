@@ -1,9 +1,9 @@
-certifi==2026.6.17
-cryptography==49.0.0
-filelock==3.32.0
-google-auth==2.56.1
+certifi==2026.7.22
+cryptography==50.0.0
+filelock==3.32.3
+google-auth==2.56.3
 idna==3.18
-packaging==26.2
-pip==26.1.2
+packaging==26.3
+pip==26.2.1
 PyMySQL==1.2.0
-virtualenv==21.7.0
+virtualenv==21.7.4
