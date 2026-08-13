@@ -144,15 +144,42 @@ function write_e2e_env(){
   done
   # Aliases for python e2e tests
   echo "export POSTGRES_CUSTOMER_CAS_PASS_VALID_DOMAIN_NAME=\"\$POSTGRES_CUSTOMER_CAS_DOMAIN_NAME\""
+  echo "export MYSQL_USER_IAM='$(iam_user_mysql)'"
+  echo "export POSTGRES_USER_IAM='$(iam_user_pg)'"
   echo "export POSTGRES_IAM_USER=\"\$POSTGRES_USER_IAM\""
   echo "export MYSQL_IAM_USER=\"\$MYSQL_USER_IAM\""
   } > "$1"
 
 }
 
-## with_venv - runs a command with the venv activated
 function with_venv() {
   "$@"
+}
+
+function iam_user_pg() {
+  local email
+  local pguser
+
+  email="$(iam_user_email)"
+  pguser="${email%%.gserviceaccount.com}"
+  if [[ -n "$pguser" ]] ; then
+    echo "$pguser"
+  else
+    echo "$email"
+  fi
+}
+
+function iam_user_mysql() {
+  local email
+  local mysqluser
+
+  email=$(iam_user_email)
+  mysqluser="${email%%@*}"
+  echo "$mysqluser"
+}
+
+function iam_user_email() {
+  gcloud auth list --format json | jq -r '.[] | select (.status == "ACTIVE") | .account'
 }
 
 ## help - prints the help details
