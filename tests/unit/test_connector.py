@@ -1032,5 +1032,37 @@ async def test_Connector_connect_async_connection_error_triggers_force_refresh(
             mock_force_refresh.assert_called_once()
 
 
+@pytest.mark.asyncio
+async def test_Connector_connect_async_psycopg(
+    fake_credentials: Credentials, fake_client: CloudSQLClient
+) -> None:
+    """Test that Connector.connect_async works with psycopg driver."""
+    async with Connector(
+        credentials=fake_credentials, loop=asyncio.get_running_loop()
+    ) as connector:
+        connector._client = fake_client
+
+        mock_sock = MagicMock()
+        with (
+            patch(
+                "google.cloud.sql.connector.connector.socket.create_connection",
+                return_value=mock_sock,
+            ),
+            patch("ssl.SSLContext.wrap_socket", return_value=mock_sock),
+            patch("google.cloud.sql.connector.psycopg.connect") as mock_connect,
+        ):
+            mock_connect.return_value = True
+
+            connection = await connector.connect_async(
+                "test-project:test-region:test-instance",
+                "psycopg",
+                user="my-user",
+                password="my-pass",
+                db="my-db",
+            )
+            assert connection is True
+            mock_connect.assert_called_once()
+
+
 
 
