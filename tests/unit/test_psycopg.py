@@ -422,3 +422,312 @@ def test_connect_cleanup_errors() -> None:
         assert conn is not None
         assert mock_remove.called
         assert mock_rmdir.called
+
+
+def test_proxy_happy_path_sequential() -> None:
+    """Test that _proxy forwards sequential request/response traffic cleanly without errors."""
+    local_client, local_proxy = socket.socketpair(
+        socket.AF_UNIX, socket.SOCK_STREAM
+    )
+    remote_proxy, remote_server = socket.socketpair(
+        socket.AF_UNIX, socket.SOCK_STREAM
+    )
+
+    t = threading.Thread(
+        target=_proxy, args=(local_proxy, remote_proxy), daemon=True
+    )
+    t.start()
+
+    # Step 1: Client sends query
+    local_client.sendall(b"SELECT 1;")
+    received_query = remote_server.recv(1024)
+    assert received_query == b"SELECT 1;"
+
+    # Step 2: Server sends response
+    remote_server.sendall(b"RESULT 1")
+    received_resp = local_client.recv(1024)
+    assert received_resp == b"RESULT 1"
+
+    # Step 3: Client closes connection cleanly
+    local_client.shutdown(socket.SHUT_RDWR)
+    local_client.close()
+    remote_server.close()
+    t.join(timeout=2.0)
+    assert not t.is_alive()
+
+
+def test_proxy_backpressure_and_clean_teardown() -> None:
+    """Demonstrate that Cloud SQL's single-threaded selector proxy exits cleanly
+
+    without deadlocking on teardown.
+    """
+    local_client, local_proxy = socket.socketpair(
+        socket.AF_UNIX, socket.SOCK_STREAM
+    )
+    remote_proxy, remote_server = socket.socketpair(
+        socket.AF_UNIX, socket.SOCK_STREAM
+    )
+
+    t_proxy = threading.Thread(
+        target=_proxy, args=(local_proxy, remote_proxy), daemon=True
+    )
+    t_proxy.start()
+
+    # Step 1: Client sends query
+    local_client.sendall(b"SELECT 1;")
+    assert remote_server.recv(1024) == b"SELECT 1;"
+
+    # Step 2: Server sends response
+    remote_server.sendall(b"RESULT 1")
+    assert local_client.recv(1024) == b"RESULT 1"
+
+    # Step 3: Client closes connection while server is open
+    local_client.close()
+
+    # Single-threaded proxy terminates immediately without deadlocking
+    t_proxy.join(timeout=2.0)
+    assert (
+        not t_proxy.is_alive()
+    ), "Cloud SQL proxy must terminate cleanly without deadlocks"
+
+    remote_server.close()
+
+
+def test_proxy_pending_oserror_in_loop() -> None:
+    """Test that _proxy pending loop handles OSError on pending() and continues."""
+    local_client, local_proxy = mockable_socketpair()
+    remote_proxy, remote_server = mockable_socketpair()
+
+    # Add pending mock to real socket. First call returns 10, second raises OSError.
+    remote_proxy.pending = MagicMock(side_effect=[10, OSError("pending failed")])
+
+    # Send data to be read by recv in pending loop
+    remote_server.sendall(b"pending data")
+
+    # Start proxy in thread because it will block on select() after pending fails
+    t = threading.Thread(target=_proxy, args=(local_proxy, remote_proxy), daemon=True)
+    t.start()
+
+    # Verify local_client received the pending data
+    assert local_client.recv(1024) == b"pending data"
+
+    # Now trigger proxy exit by closing local_client
+    local_client.close()
+
+    t.join(timeout=2.0)
+    assert not t.is_alive()
+
+    remote_server.close()
+
+
+def test_proxy_pending_non_int() -> None:
+    """Test that _proxy pending check handles non-int return values from pending()."""
+    local_client, local_proxy = mockable_socketpair()
+    remote_proxy, remote_server = mockable_socketpair()
+
+    # First call returns non-int. Should return False (goes to select)
+    remote_proxy.pending = MagicMock(return_value="not an int")
+
+    # We need to run it in a thread because it will block on select
+    t = threading.Thread(target=_proxy, args=(local_proxy, remote_proxy), daemon=True)
+    t.start()
+
+    # Trigger exit.
+    local_client.close()
+    t.join(timeout=2.0)
+    assert not t.is_alive()
+    remote_server.close()
+
+
+def test_proxy_pending_non_int_in_loop() -> None:
+    """Test that _proxy pending loop handles non-int return values from pending() in loop."""
+    local_client, local_proxy = mockable_socketpair()
+    remote_proxy, remote_server = mockable_socketpair()
+
+    # Second call returns non-int.
+    remote_proxy.pending = MagicMock(side_effect=[10, "not an int"])
+    remote_server.sendall(b"data")
+
+    t = threading.Thread(target=_proxy, args=(local_proxy, remote_proxy), daemon=True)
+    t.start()
+
+    assert local_client.recv(1024) == b"data"
+
+    local_client.close()
+    t.join(timeout=2.0)
+    assert not t.is_alive()
+    remote_server.close()
+
+
+def test_proxy_pending_recv_eof() -> None:
+    """Test that _proxy pending loop handles remote recv EOF."""
+    local_client, local_server = mockable_socketpair()
+    remote_client, remote_server = mockable_socketpair()
+
+    remote_client.pending = MagicMock(return_value=10)
+    # Mock recv to return EOF
+    remote_client.recv = MagicMock(return_value=b"")
+
+    # Run proxy. It should call forward_pending, which calls recv, gets EOF,
+    # and returns True. This breaks the loop and proxy exits.
+    _proxy(local_server, remote_client)
+
+    # Sockets should be closed
+    assert local_server.fileno() == -1
+    assert remote_client.fileno() == -1
+
+    local_client.close()
+    remote_server.close()
+
+
+def test_proxy_select_oserror() -> None:
+    """Test that _proxy loop handles OSError in select()."""
+    local_client, local_server = mockable_socketpair()
+    remote_client, remote_server = mockable_socketpair()
+
+    with patch(
+        "google.cloud.sql.connector.psycopg.selectors.DefaultSelector"
+    ) as mock_sel_cls:
+        mock_sel = MagicMock()
+        mock_sel.select.side_effect = OSError("select failed")
+        mock_sel_cls.return_value = mock_sel
+
+        # Run proxy. It should catch OSError on select() and exit loop to finally block.
+        _proxy(local_server, remote_client)
+
+    assert local_server.fileno() == -1
+    assert remote_client.fileno() == -1
+
+    local_client.close()
+    remote_server.close()
+
+
+def test_proxy_finally_cleanup_errors() -> None:
+    """Test that _proxy finally block ignores OSErrors during socket shutdown/close."""
+    local_client, local_server = mockable_socketpair()
+    remote_client, remote_server = mockable_socketpair()
+
+    real_local_shutdown = local_server.shutdown
+    def mock_local_shutdown(how):
+        try:
+            real_local_shutdown(how)
+        except OSError:
+            pass
+        raise OSError("shutdown failed")
+    local_server.shutdown = MagicMock(side_effect=mock_local_shutdown)
+
+    real_local_close = local_server.close
+    def mock_local_close():
+        real_local_close()
+        raise OSError("close failed")
+    local_server.close = MagicMock(side_effect=mock_local_close)
+
+    real_remote_shutdown = remote_client.shutdown
+    def mock_remote_shutdown(how):
+        try:
+            real_remote_shutdown(how)
+        except OSError:
+            pass
+        raise OSError("shutdown failed")
+    remote_client.shutdown = MagicMock(side_effect=mock_remote_shutdown)
+
+    real_remote_close = remote_client.close
+    def mock_remote_close():
+        real_remote_close()
+        raise OSError("close failed")
+    remote_client.close = MagicMock(side_effect=mock_remote_close)
+
+    # Trigger exit by closing client
+    local_client.close()
+
+    # Run proxy. It should handle the exceptions in finally block.
+    _proxy(local_server, remote_client)
+
+    remote_server.close()
+
+
+@patch("google.cloud.sql.connector.psycopg._proxy")
+def test_accept_and_proxy_cleanup_errors(mock_proxy_fn: MagicMock) -> None:
+    """Test that accept_and_proxy thread handles errors during cleanup on exception."""
+    # Make _proxy raise an exception to trigger the except block in _accept_and_proxy
+    mock_proxy_fn.side_effect = Exception("proxy crash")
+
+    mock_unix_conn = MagicMock(spec=socket.socket)
+    mock_unix_conn.shutdown.side_effect = OSError("unix conn shutdown failed")
+    mock_unix_conn.close.side_effect = OSError("unix conn close failed")
+
+    mock_remote_sock = MagicMock(spec=ssl.SSLSocket)
+    mock_remote_sock.shutdown.side_effect = OSError("remote shutdown failed")
+
+    # Mock socket.socket to return a mock local_sock that returns our mock_unix_conn
+    real_socket = socket.socket
+    mock_local_sock = MagicMock()
+    mock_local_sock.accept.return_value = (mock_unix_conn, ("path",))
+
+    def socket_side_effect(family, type, proto=0, fileno=None):
+        if family == socket.AF_UNIX:
+            return mock_local_sock
+        return real_socket(family, type, proto, fileno)
+
+    event = threading.Event()
+    def remote_close_fn():
+        event.set()
+        raise OSError("remote close failed")
+    mock_remote_sock.close.side_effect = remote_close_fn
+
+    with patch("socket.socket", side_effect=socket_side_effect), patch(
+        "psycopg.connect"
+    ) as mock_psycopg_connect:
+        mock_psycopg_connect.return_value = MagicMock()
+
+        connect(
+            "127.0.0.1",
+            mock_remote_sock,
+            user="test_user",
+            db="test_db",
+            password="test_password",
+        )
+
+        # Wait for the accept_and_proxy thread to finish cleanup
+        assert event.wait(timeout=2.0)
+
+        # Verify mock_unix_conn shutdown and close were called
+        mock_unix_conn.shutdown.assert_called_once_with(socket.SHUT_RDWR)
+        mock_unix_conn.close.assert_called_once()
+        mock_remote_sock.shutdown.assert_called_once_with(socket.SHUT_RDWR)
+        mock_remote_sock.close.assert_called_once()
+
+
+@patch("psycopg.connect")
+def test_connect_wrapper_failure_cleanup_errors(mock_psycopg_connect: MagicMock) -> None:
+    """Test that connect wrapper ignores OSErrors during cleanup on connection failure."""
+    mock_remote_sock = MagicMock(spec=ssl.SSLSocket)
+    mock_remote_sock.close.side_effect = OSError("remote close failed")
+
+    mock_psycopg_connect.side_effect = Exception("connection failed simulated")
+
+    mock_local_sock = MagicMock()
+    mock_local_sock.close.side_effect = OSError("local close failed")
+
+    real_socket = socket.socket
+    def socket_side_effect(family, type, proto=0, fileno=None):
+        if family == socket.AF_UNIX:
+            return mock_local_sock
+        return real_socket(family, type, proto, fileno)
+
+    with (
+        patch("socket.socket", side_effect=socket_side_effect),
+        pytest.raises(Exception, match="connection failed simulated"),
+    ):
+        connect(
+            "127.0.0.1",
+            mock_remote_sock,
+            user="test_user",
+            db="test_db",
+            password="test_password",
+        )
+
+    mock_local_sock.close.assert_called_once()
+    assert mock_remote_sock.close.call_count >= 1
+
+
