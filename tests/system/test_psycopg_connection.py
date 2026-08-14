@@ -18,6 +18,7 @@ from __future__ import annotations
 import asyncio
 from datetime import datetime
 import os
+import socket
 
 import pytest
 import sqlalchemy
@@ -25,6 +26,11 @@ import sqlalchemy
 from google.cloud.sql.connector import Connector
 from google.cloud.sql.connector import DefaultResolver
 from google.cloud.sql.connector import DnsResolver
+
+pytestmark = pytest.mark.skipif(
+    not hasattr(socket, "AF_UNIX"),
+    reason="Unix domain sockets (AF_UNIX) not available on this platform",
+)
 
 
 def create_sqlalchemy_engine(

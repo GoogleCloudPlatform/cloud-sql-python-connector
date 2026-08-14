@@ -388,6 +388,18 @@ def test_connect_import_error() -> None:
         connect("127.0.0.1", mock_remote_sock)
 
 
+def test_connect_unsupported_platform() -> None:
+    """Test that connect raises NotImplementedError when AF_UNIX is not available."""
+    mock_remote_sock = MagicMock(spec=ssl.SSLSocket)
+    with (
+        patch("google.cloud.sql.connector.psycopg.hasattr", return_value=False),
+        pytest.raises(
+            NotImplementedError, match="Unix domain sockets \\(AF_UNIX\\)"
+        ),
+    ):
+        connect("127.0.0.1", mock_remote_sock)
+
+
 def test_connect_cleanup_errors() -> None:
     """Test that connect ignores OSErrors when removing temp files/dirs during cleanup."""
     mock_remote_sock = MagicMock(spec=ssl.SSLSocket)
