@@ -42,6 +42,7 @@ The Cloud SQL Python Connector is a package to be used alongside a database driv
 Currently supported drivers are:
  - [`pymysql`](https://github.com/PyMySQL/PyMySQL) (MySQL)
  - [`pg8000`](https://github.com/tlocke/pg8000) (PostgreSQL)
+ - [`psycopg`](https://github.com/psycopg/psycopg) (PostgreSQL)
  - [`asyncpg`](https://github.com/MagicStack/asyncpg) (PostgreSQL)
  - [`pytds`](https://github.com/denisenkom/pytds) (SQL Server)
 
@@ -56,11 +57,15 @@ based on your database dialect.
 pip install "cloud-sql-python-connector[pymysql]"
 ```
 ### Postgres
-There are two different database drivers that are supported for the Postgres dialect:
+There are three different database drivers that are supported for the Postgres dialect:
 
 #### pg8000
 ```
 pip install "cloud-sql-python-connector[pg8000]"
+```
+#### psycopg
+```
+pip install "cloud-sql-python-connector[psycopg]"
 ```
 #### asyncpg
 ```
@@ -132,6 +137,18 @@ pool = sqlalchemy.create_engine(
     creator=lambda: connector.connect(
         "project:region:instance",
         "pymysql",
+        user="my-user",
+        password="my-password",
+        db="my-db-name"
+    ),
+)
+
+# Or with Postgres (psycopg):
+pool = sqlalchemy.create_engine(
+    "postgresql+psycopg://",
+    creator=lambda: connector.connect(
+        "project:region:instance",
+        "psycopg",
         user="my-user",
         password="my-password",
         db="my-db-name"

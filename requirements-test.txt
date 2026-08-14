@@ -11,4 +11,6 @@ asyncpg==0.31.0
 python-tds==1.17.1
 aioresponses==0.7.9
 pytest-aiohttp==1.1.1
+psycopg==3.3.4
+psycopg-binary==3.3.4
 
