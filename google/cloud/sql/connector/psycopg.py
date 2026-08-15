@@ -142,6 +142,11 @@ def connect(
             'Unable to import module "psycopg." Please install and try again.'
         )
 
+    if not hasattr(socket, "AF_UNIX"):
+        raise NotImplementedError(
+            "Unix domain sockets (AF_UNIX) are not supported on this platform"
+        )
+
     tmpdir = tempfile.mkdtemp()
     socket_path = os.path.join(tmpdir, ".s.PGSQL.5432")
     logger.debug("psycopg: created Unix socket at %s", socket_path)
