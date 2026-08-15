@@ -223,6 +223,22 @@ async def test_Connector_Init_async_context_manager(
             IPTypes.PSC,
             IPTypes.PSC,
         ),
+        (
+            "sqldata",
+            IPTypes.SQL_DATA,
+        ),
+        (
+            "SQLDATA",
+            IPTypes.SQL_DATA,
+        ),
+        (
+            "SQL_DATA",
+            IPTypes.SQL_DATA,
+        ),
+        (
+            IPTypes.SQL_DATA,
+            IPTypes.SQL_DATA,
+        ),
     ],
 )
 def test_Connector_init_ip_type(
@@ -245,7 +261,7 @@ def test_Connector_Init_bad_ip_type(fake_credentials: Credentials) -> None:
     assert (
         exc_info.value.args[0]
         == f"Incorrect value for ip_type, got '{bad_ip_type.upper()}'. "
-        "Want one of: 'PRIMARY', 'PRIVATE', 'PSC', 'PUBLIC'."
+        "Want one of: 'PRIMARY', 'PRIVATE', 'PSC', 'SQL_DATA', 'PUBLIC'."
     )
 
 
@@ -268,7 +284,7 @@ def test_Connector_connect_bad_ip_type(
         assert (
             exc_info.value.args[0]
             == f"Incorrect value for ip_type, got '{bad_ip_type.upper()}'. "
-            "Want one of: 'PRIMARY', 'PRIVATE', 'PSC', 'PUBLIC'."
+            "Want one of: 'PRIMARY', 'PRIVATE', 'PSC', 'SQL_DATA', 'PUBLIC'."
         )
 
 
