@@ -19,6 +19,7 @@ from datetime import datetime
 import os
 
 # [START cloud_sql_connector_postgres_pg8000]
+import pytest
 import sqlalchemy
 
 from google.cloud.sql.connector import Connector
@@ -209,3 +210,28 @@ def test_MCP_pg8000_connection() -> None:
         curr_time = time[0]
         assert type(curr_time) is datetime
     connector.close()
+
+
+def test_AIDE_pg8000_connection() -> None:
+    """Basic test to get time from database using AIDE instance."""
+    if "POSTGRES_AIDE_CONNECTION_NAME" not in os.environ:
+        pytest.skip("POSTGRES_AIDE_CONNECTION_NAME not set")
+    inst_conn_name = os.environ["POSTGRES_AIDE_CONNECTION_NAME"]
+    user = os.environ.get("POSTGRES_AIDE_USER", os.environ.get("POSTGRES_USER", "postgres"))
+    password = os.environ.get("POSTGRES_AIDE_PASS", os.environ.get("POSTGRES_PASS", ""))
+    db = os.environ.get("POSTGRES_AIDE_DB", os.environ.get("POSTGRES_DB", "postgres"))
+
+    engine, connector = create_sqlalchemy_engine(
+        inst_conn_name,
+        user,
+        password,
+        db,
+        ip_type="sqldata",
+    )
+    with engine.connect() as conn:
+        time = conn.execute(sqlalchemy.text("SELECT NOW()")).fetchone()
+        conn.commit()
+        curr_time = time[0]
+        assert type(curr_time) is datetime
+    connector.close()
+

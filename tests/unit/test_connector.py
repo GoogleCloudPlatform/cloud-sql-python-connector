@@ -212,6 +212,22 @@ async def test_Connector_Init_async_context_manager(
             IPTypes.PSC,
             IPTypes.PSC,
         ),
+        (
+            "sqldata",
+            IPTypes.SQL_DATA,
+        ),
+        (
+            "SQLDATA",
+            IPTypes.SQL_DATA,
+        ),
+        (
+            "SQL_DATA",
+            IPTypes.SQL_DATA,
+        ),
+        (
+            IPTypes.SQL_DATA,
+            IPTypes.SQL_DATA,
+        ),
     ],
 )
 def test_Connector_init_ip_type(
