@@ -20,6 +20,7 @@ import os
 from typing import Any
 
 import asyncpg
+import pytest
 import sqlalchemy
 import sqlalchemy.ext.asyncio
 
@@ -283,3 +284,52 @@ async def test_lazy_connection_with_asyncpg() -> None:
         assert res[0][0] == 1
 
     await connector.close_async()
+
+
+async def test_AIDE_sqlalchemy_connection_with_asyncpg() -> None:
+    """Basic test to get time from database using AIDE instance."""
+    if "POSTGRES_AIDE_CONNECTION_NAME" not in os.environ:
+        pytest.skip("POSTGRES_AIDE_CONNECTION_NAME not set")
+    inst_conn_name = os.environ["POSTGRES_AIDE_CONNECTION_NAME"]
+    user = os.environ.get("POSTGRES_AIDE_USER", os.environ.get("POSTGRES_USER", "postgres"))
+    password = os.environ.get("POSTGRES_AIDE_PASS", os.environ.get("POSTGRES_PASS", ""))
+    db = os.environ.get("POSTGRES_AIDE_DB", os.environ.get("POSTGRES_DB", "postgres"))
+
+    pool, connector = await create_sqlalchemy_engine(
+        inst_conn_name,
+        user,
+        password,
+        db,
+        ip_type="sqldata",
+    )
+
+    async with pool.connect() as conn:
+        res = (await conn.execute(sqlalchemy.text("SELECT 1"))).fetchone()
+        assert res[0] == 1
+
+    await connector.close_async()
+
+
+async def test_AIDE_connection_with_asyncpg() -> None:
+    """Basic test to get time from database using AIDE instance."""
+    if "POSTGRES_AIDE_CONNECTION_NAME" not in os.environ:
+        pytest.skip("POSTGRES_AIDE_CONNECTION_NAME not set")
+    inst_conn_name = os.environ["POSTGRES_AIDE_CONNECTION_NAME"]
+    user = os.environ.get("POSTGRES_AIDE_USER", os.environ.get("POSTGRES_USER", "postgres"))
+    password = os.environ.get("POSTGRES_AIDE_PASS", os.environ.get("POSTGRES_PASS", ""))
+    db = os.environ.get("POSTGRES_AIDE_DB", os.environ.get("POSTGRES_DB", "postgres"))
+
+    pool, connector = await create_asyncpg_pool(
+        inst_conn_name,
+        user,
+        password,
+        db,
+        ip_type="sqldata",
+    )
+
+    async with pool.acquire() as conn:
+        res = await conn.fetch("SELECT 1")
+        assert res[0][0] == 1
+
+    await connector.close_async()
+
