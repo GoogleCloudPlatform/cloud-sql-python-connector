@@ -28,6 +28,7 @@ from google.cloud.sql.connector.client import CloudSQLClient
 from google.cloud.sql.connector.connection_info import ConnectionInfo
 from google.cloud.sql.connector.connection_name import ConnectionName
 from google.cloud.sql.connector.exceptions import AutoIAMAuthNotSupported
+from google.cloud.sql.connector.exceptions import CloudSQLConnectionError
 from google.cloud.sql.connector.exceptions import CloudSQLIPTypeError
 from google.cloud.sql.connector.exceptions import TLSVersionError
 from google.cloud.sql.connector.instance import RefreshAheadCache
@@ -424,4 +425,15 @@ async def test_probe_connection_postgres_startup_packet(
     mock_reader.read.assert_awaited_once()
     mock_writer.close.assert_called_once()
     mock_writer.wait_closed.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_ConnectionInfo_missing_server_ca_cert() -> None:
+    """Test that create_ssl_context raises CloudSQLConnectionError when server_ca_cert is None."""
+    info = ConnectionInfo(
+        "", "cert", None, b"key", {}, "POSTGRES", datetime.datetime.now(datetime.timezone.utc)
+    )
+    with pytest.raises(CloudSQLConnectionError) as exc_info:
+        await info.create_ssl_context()
+    assert "server CA certificate is missing" in str(exc_info.value)
 
