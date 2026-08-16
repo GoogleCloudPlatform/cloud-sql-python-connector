@@ -124,7 +124,7 @@ class SqlDataClient:
         for cb in self._on_close_callbacks:
             try:
                 cb()
-            except Exception:  # noqa: BLE001
+            except Exception:  # noqa: BLE001, S110
                 pass
 
     async def _handle_tunnel(
@@ -141,7 +141,8 @@ class SqlDataClient:
     ):
         logger.debug("Accepted local connection for SQL Data tunnel")
         # Close the server so no more connections are accepted on this port
-        self._server.close()
+        if self._server:
+            self._server.close()
         self._active_writers.add(client_writer)
 
         # Buffer to cache client writes for fallback replay
@@ -404,11 +405,15 @@ class SqlDataClient:
                 task.cancel()
                 try:
                     await task
-                except (asyncio.CancelledError, Exception):  # noqa: BLE001
+                except asyncio.CancelledError:
                     pass
+                except Exception as e:  # noqa: BLE001
+                    logger.debug(f"Error awaiting cancelled tunnel task: {e}")
             for task in done:
-                if not task.cancelled() and task.exception() is not None:
-                    raise task.exception()
+                if not task.cancelled():
+                    exc = task.exception()
+                    if exc is not None:
+                        raise exc
         finally:
             self._tunnel_tasks.discard(t_client)
             self._tunnel_tasks.discard(t_backend)
@@ -432,7 +437,7 @@ class SqlDataClient:
             for cb in self._on_close_callbacks:
                 try:
                     cb()
-                except Exception:  # noqa: BLE001
+                except Exception:  # noqa: BLE001, S110
                     pass
             logger.debug("SQL Data tunnel handler finished")
 
