@@ -24,11 +24,14 @@ from google.auth.transport.grpc import AuthMetadataPlugin
 from google.auth.transport.requests import Request
 import grpc
 
+from google.cloud.sql.connector.enums import IPTypes
 from google.cloud.sql.connector.exceptions import CloudSQLIPTypeError
 
 import google.rpc.status_pb2  # noqa: F401 # isort: skip
 from google.cloud.sql.connector.proto import sql_data_service_pb2  # type: ignore
 from google.cloud.sql.connector.proto import sql_data_service_pb2_grpc  # type: ignore
+
+SERVER_PROXY_PORT = 3307
 
 logger = logging.getLogger(__name__)
 
@@ -205,7 +208,6 @@ class SqlDataClient:
             conn_info = await get_conn_info()
             # Find a fallback IP address
             targets: list[str] = []
-            from google.cloud.sql.connector.enums import IPTypes
             for t in [IPTypes.PRIVATE, IPTypes.PUBLIC, IPTypes.PSC]:
                 try:
                     targets.extend(conn_info.get_preferred_ips(t))
@@ -217,10 +219,10 @@ class SqlDataClient:
             ssl_context = await conn_info.create_ssl_context(enable_iam_auth)
             last_ex: Exception | None = None
             for target_ip in targets:
-                logger.debug(f"Connecting directly to {target_ip}:3307")
+                logger.debug(f"Connecting directly to {target_ip}:{SERVER_PROXY_PORT}")
                 try:
                     r, w = await asyncio.open_connection(
-                        target_ip, 3307, ssl=ssl_context, server_hostname=target_ip
+                        target_ip, SERVER_PROXY_PORT, ssl=ssl_context, server_hostname=target_ip
                     )
                     self._active_writers.add(w)
                     return r, w

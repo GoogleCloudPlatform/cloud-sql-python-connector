@@ -84,8 +84,9 @@ class Connector:
         Args:
             ip_type (str | IPTypes): The default IP address type used to connect to
                 Cloud SQL instances. Can be one of the following:
-                IPTypes.PUBLIC ("PUBLIC"), IPTypes.PRIVATE ("PRIVATE"), or
-                IPTypes.PSC ("PSC"). Default: IPTypes.PUBLIC
+                IPTypes.PUBLIC ("PUBLIC"), IPTypes.PRIVATE ("PRIVATE"),
+                IPTypes.PSC ("PSC"), or IPTypes.SQL_DATA ("SQL_DATA").
+                Default: IPTypes.PUBLIC
 
             enable_iam_auth (bool): Enables automatic IAM database authentication
                 (Postgres and MySQL) as the default authentication method for all
@@ -130,6 +131,12 @@ class Connector:
                 attempt to check if a failover has occured for a given instance.
                 Must be used with `resolver=DnsResolver` to have any effect.
                 Default: 30
+
+            sql_data_endpoint (str): Endpoint host for SQL Data Service calls.
+                Default: "sqladmin.googleapis.com".
+
+            sql_data_stream_timeout (int): Timeout in seconds for the SQL Data
+                Service gRPC stream. Default: 7200.
         """
         # if refresh_strategy is str, convert to RefreshStrategy enum
         if isinstance(refresh_strategy, str):
@@ -670,6 +677,8 @@ async def create_async_connector(
     refresh_strategy: str | RefreshStrategy = RefreshStrategy.BACKGROUND,
     resolver: type[DefaultResolver | DnsResolver] = DefaultResolver,
     failover_period: int = 30,
+    sql_data_endpoint: str = "sqladmin.googleapis.com",
+    sql_data_stream_timeout: int = 7200,
 ) -> Connector:
     """Helper function to create Connector object for asyncio connections.
 
@@ -679,8 +688,9 @@ async def create_async_connector(
     Args:
         ip_type (str | IPTypes): The default IP address type used to connect to
             Cloud SQL instances. Can be one of the following:
-            IPTypes.PUBLIC ("PUBLIC"), IPTypes.PRIVATE ("PRIVATE"), or
-            IPTypes.PSC ("PSC"). Default: IPTypes.PUBLIC
+            IPTypes.PUBLIC ("PUBLIC"), IPTypes.PRIVATE ("PRIVATE"),
+            IPTypes.PSC ("PSC"), or IPTypes.SQL_DATA ("SQL_DATA").
+            Default: IPTypes.PUBLIC
 
         enable_iam_auth (bool): Enables automatic IAM database authentication
             (Postgres and MySQL) as the default authentication method for all
@@ -726,6 +736,12 @@ async def create_async_connector(
             Must be used with `resolver=DnsResolver` to have any effect.
             Default: 30
 
+        sql_data_endpoint (str): Endpoint host for SQL Data Service calls.
+            Default: "sqladmin.googleapis.com".
+
+        sql_data_stream_timeout (int): Timeout in seconds for the SQL Data
+            Service gRPC stream. Default: 7200.
+
     Returns:
         A Connector instance configured with running event loop.
     """
@@ -745,4 +761,6 @@ async def create_async_connector(
         refresh_strategy=refresh_strategy,
         resolver=resolver,
         failover_period=failover_period,
+        sql_data_endpoint=sql_data_endpoint,
+        sql_data_stream_timeout=sql_data_stream_timeout,
     )

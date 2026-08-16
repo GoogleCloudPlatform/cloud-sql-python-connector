@@ -278,7 +278,11 @@ class CloudSQLClient:
         try:
             ephemeral_cert: str = ret_dict["ephemeralCert"]["cert"]
         except KeyError as e:
-            logger.error(f"KeyError in _get_ephemeral parsing generateEphemeralCert: {e}. Response dict: {ret_dict}")
+            logger.error(
+                "KeyError in _get_ephemeral parsing generateEphemeralCert: %s. Response dict: %s",
+                e,
+                ret_dict,
+            )
             raise
 
         # decode cert to read expiration
