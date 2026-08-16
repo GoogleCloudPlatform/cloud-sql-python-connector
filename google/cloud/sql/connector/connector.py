@@ -221,7 +221,7 @@ class Connector:
         self._sql_data_endpoint = sql_data_endpoint
         self._sql_data_stream_timeout = sql_data_stream_timeout
         self._sql_data_fallback_cache: set[str] = set()
-        self._sqldata_clients: list[SqlDataClient] = []
+        self._sqldata_clients: set[SqlDataClient] = set()
 
 
 
@@ -423,7 +423,10 @@ class Connector:
                     quota_project=self._quota_project,
                     timeout=self._sql_data_stream_timeout,
                 )
-                self._sqldata_clients.append(sqldata_client)
+                self._sqldata_clients.add(sqldata_client)
+                sqldata_client._on_close_callbacks.append(
+                    lambda: self._sqldata_clients.discard(sqldata_client)
+                )
 
                 def on_fallback(name):
                     self._sql_data_fallback_cache.add(name)
@@ -458,6 +461,7 @@ class Connector:
                     fd = raw_sock.detach()
                     fallback_sock = FallbackSocket(fileno=fd)
 
+                    cache = None
                     if conn_name.domain_name:
                         cache = self._get_or_create_cache(conn_name, enable_iam_auth)
                         cache.sockets.append(fallback_sock)
@@ -468,7 +472,13 @@ class Connector:
                         fallback_sock,
                         **kwargs,
                     )
-                    return await self._loop.run_in_executor(None, connect_partial)
+                    try:
+                        return await self._loop.run_in_executor(None, connect_partial)
+                    except Exception:
+                        fallback_sock.close()
+                        if conn_name.domain_name and cache:
+                            cache._purge_closed_sockets()
+                        raise
             else:
                 try:
                     conn_info = await monitored_cache.connect_info()
@@ -642,7 +652,8 @@ class Connector:
             await self._client.close()
         await asyncio.gather(
             *[cache.close() for cache in self._cache.values()],
-            *[client.close() for client in self._sqldata_clients],
+            *[client.close() for client in list(self._sqldata_clients)],
+            return_exceptions=True,
         )
 
 
