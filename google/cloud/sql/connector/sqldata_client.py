@@ -155,7 +155,7 @@ class SqlDataClient:
 
             # Start stream
             logger.debug(f"Starting StreamSqlData with metadata {metadata}")
-            stream = stub.StreamSqlData(metadata=metadata)
+            stream = stub.StreamSqlData(metadata=metadata, timeout=self._timeout)
 
             # Send StartSession
             start_session = sql_data_service_pb2.StartSession(  # type: ignore[attr-defined]
