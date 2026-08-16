@@ -45,6 +45,11 @@ class SqlDataClient:
         self._credentials = credentials
         self._quota_project = quota_project
         self._timeout = timeout
+        self._server: asyncio.Server | None = None
+        self._tunnel_tasks: set[asyncio.Task] = set()
+        self._active_grpc_channels: set[grpc.aio.Channel] = set()
+        self._active_writers: set[asyncio.StreamWriter] = set()
+        self._on_close_callbacks: list[Callable[[], None]] = []
 
     async def connect_tunnel(
         self,
@@ -86,14 +91,38 @@ class SqlDataClient:
         return port
 
     async def close(self) -> None:
-        """Closes the local tunnel server if it is running."""
-        if hasattr(self, "_server") and self._server:
+        """Closes the local tunnel server, active streams, and channels."""
+        if self._server:
             self._server.close()
             try:
                 await asyncio.wait_for(self._server.wait_closed(), timeout=2.0)
                 logger.debug("SQL Data tunnel server closed by client close()")
             except asyncio.TimeoutError:
                 logger.warning("Timeout waiting for SQL Data tunnel server to close")
+            self._server = None
+
+        for task in list(self._tunnel_tasks):
+            task.cancel()
+
+        for channel in list(self._active_grpc_channels):
+            try:
+                await channel.close()
+            except Exception as e:  # noqa: BLE001
+                logger.debug(f"Error closing gRPC channel: {e}")
+        self._active_grpc_channels.clear()
+
+        for writer in list(self._active_writers):
+            try:
+                writer.close()
+            except Exception as e:  # noqa: BLE001
+                logger.debug(f"Error closing stream writer: {e}")
+        self._active_writers.clear()
+
+        for cb in self._on_close_callbacks:
+            try:
+                cb()
+            except Exception:  # noqa: BLE001
+                pass
 
     async def _handle_tunnel(
         self,
@@ -110,6 +139,7 @@ class SqlDataClient:
         logger.debug("Accepted local connection for SQL Data tunnel")
         # Close the server so no more connections are accepted on this port
         self._server.close()
+        self._active_writers.add(client_writer)
 
         # Buffer to cache client writes for fallback replay
         client_write_buffer = bytearray()
@@ -137,6 +167,7 @@ class SqlDataClient:
 
             logger.debug(f"Creating secure channel to {endpoint}")
             channel = grpc.aio.secure_channel(endpoint, channel_creds)
+            self._active_grpc_channels.add(channel)
             stub = sql_data_service_pb2_grpc.SqlDataServiceStub(channel)
 
             instance_id = f"projects/{project}/instances/{instance_connection_name.split(':')[-1]}"
@@ -188,9 +219,11 @@ class SqlDataClient:
             for target_ip in targets:
                 logger.debug(f"Connecting directly to {target_ip}:3307")
                 try:
-                    return await asyncio.open_connection(
+                    r, w = await asyncio.open_connection(
                         target_ip, 3307, ssl=ssl_context, server_hostname=target_ip
                     )
+                    self._active_writers.add(w)
+                    return r, w
                 except Exception as e:  # noqa: BLE001
                     logger.debug(f"Direct connection to {target_ip} failed: {e}")
                     last_ex = e
@@ -355,18 +388,50 @@ class SqlDataClient:
                     await grpc_channel.close()
                 logger.debug("Backend to client task finished")
 
-        # Run both tasks
+        # Run both tasks with explicit lifecycle and cancellation management
+        t_client = asyncio.create_task(client_to_backend())
+        t_backend = asyncio.create_task(backend_to_client())
+        self._tunnel_tasks.add(t_client)
+        self._tunnel_tasks.add(t_backend)
         try:
-            await asyncio.gather(client_to_backend(), backend_to_client())
+            done, pending = await asyncio.wait(
+                [t_client, t_backend],
+                return_when=asyncio.FIRST_EXCEPTION,
+            )
+            for task in pending:
+                task.cancel()
+                try:
+                    await task
+                except (asyncio.CancelledError, Exception):  # noqa: BLE001
+                    pass
+            for task in done:
+                if not task.cancelled() and task.exception() is not None:
+                    raise task.exception()
         finally:
+            self._tunnel_tasks.discard(t_client)
+            self._tunnel_tasks.discard(t_backend)
+            if grpc_channel:
+                self._active_grpc_channels.discard(grpc_channel)
+                try:
+                    await grpc_channel.close()
+                except Exception as e:  # noqa: BLE001
+                    logger.debug(f"Error closing gRPC channel: {e}")
+            self._active_writers.discard(client_writer)
+            if backend_writer:
+                self._active_writers.discard(backend_writer)
             logger.debug("Closing client socket in _handle_tunnel finally")
             try:
                 client_writer.close()
-                sock = client_writer.get_extra_info('socket')
+                sock = client_writer.get_extra_info("socket")
                 if sock:
                     sock.close()
             except Exception as e:  # noqa: BLE001
                 logger.debug(f"Error closing client writer: {e}")
+            for cb in self._on_close_callbacks:
+                try:
+                    cb()
+                except Exception:  # noqa: BLE001
+                    pass
             logger.debug("SQL Data tunnel handler finished")
 
 
