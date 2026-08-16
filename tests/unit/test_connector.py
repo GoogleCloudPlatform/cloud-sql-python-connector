@@ -18,6 +18,8 @@ from __future__ import annotations
 import asyncio
 import os
 from threading import Thread
+from unittest.mock import AsyncMock
+from unittest.mock import MagicMock
 from unittest.mock import patch
 
 from aiohttp import ClientResponseError
@@ -35,6 +37,8 @@ from google.cloud.sql.connector.exceptions import ConnectorLoopError
 from google.cloud.sql.connector.exceptions import IncompatibleDriverError
 from google.cloud.sql.connector.instance import RefreshAheadCache
 from google.cloud.sql.connector.resolver import DnsResolver
+from google.cloud.sql.connector.sqldata_client import FallbackSocket
+from google.cloud.sql.connector.sqldata_client import SqlDataClient
 
 
 @pytest.mark.asyncio
@@ -736,5 +740,164 @@ async def test_Connector_connect_async_custom_dns_resolver_no_fallback_psc_to_pr
                     fake_client.instance.ip_addrs = original_ips
                     fake_client.instance.dns_names = original_dns_names
                     fake_client.instance.psc_enabled = False
+
+
+def test_Connector_Init_sqldata_options(fake_credentials: Credentials) -> None:
+    """Test that Connector initializes with custom SQL data endpoint and timeout."""
+    with Connector(
+        credentials=fake_credentials,
+        sql_data_endpoint="custom.sqladmin.googleapis.com",
+        sql_data_stream_timeout=3600,
+    ) as connector:
+        assert connector._sql_data_endpoint == "custom.sqladmin.googleapis.com"
+        assert connector._sql_data_stream_timeout == 3600
+
+
+@pytest.mark.asyncio
+async def test_create_async_connector_sqldata_options(
+    fake_credentials: Credentials,
+) -> None:
+    """Test that create_async_connector properly forwards SQL data options."""
+    connector = await create_async_connector(
+        credentials=fake_credentials,
+        sql_data_endpoint="custom.sqladmin.googleapis.com",
+        sql_data_stream_timeout=1800,
+    )
+    assert connector._sql_data_endpoint == "custom.sqladmin.googleapis.com"
+    assert connector._sql_data_stream_timeout == 1800
+    await connector.close_async()
+
+
+@pytest.mark.asyncio
+async def test_Connector_connect_async_sqldata_iam_auth(
+    fake_credentials: Credentials,
+    fake_client: CloudSQLClient,
+) -> None:
+    """Test that connect_async with SQL_DATA and IAM auth properly maps driver engine without KeyError."""
+    connect_string = "test-project:test-region:test-instance"
+    async with Connector(
+        credentials=fake_credentials,
+        loop=asyncio.get_running_loop(),
+        ip_type=IPTypes.SQL_DATA,
+    ) as connector:
+        connector._client = fake_client
+
+        with patch("google.cloud.sql.connector.connector.SqlDataClient") as mock_sqldata_cls:
+            mock_client_instance = MagicMock()
+            mock_client_instance.connect_tunnel = AsyncMock(return_value=3307)
+            mock_client_instance.close = AsyncMock()
+            mock_sqldata_cls.return_value = mock_client_instance
+
+            with patch("google.cloud.sql.connector.asyncpg.connect") as mock_connect:
+                mock_connect.return_value = True
+
+                connection = await connector.connect_async(
+                    connect_string,
+                    "asyncpg",
+                    user="test-sa@test-project.iam.gserviceaccount.com",
+                    db="my-db",
+                    enable_iam_auth=True,
+                )
+                assert connection is True
+                # Verify IAM user was formatted and passed without error
+                assert mock_connect.called
+                _, kwargs = mock_connect.call_args
+                assert kwargs["user"] == "test-sa@test-project.iam"
+
+
+def test_sqldata_client_init(fake_credentials: Credentials) -> None:
+    """Test that SqlDataClient initializes with expected properties."""
+    client = SqlDataClient(
+        endpoint="custom.sqladmin.googleapis.com",
+        credentials=fake_credentials,
+        quota_project="test-quota-project",
+        timeout=3600,
+    )
+    assert client._endpoint == "custom.sqladmin.googleapis.com"
+    assert client._credentials == fake_credentials
+    assert client._quota_project == "test-quota-project"
+    assert client._timeout == 3600
+    assert client._server is None
+    assert len(client._tunnel_tasks) == 0
+
+
+@pytest.mark.asyncio
+async def test_sqldata_client_close(fake_credentials: Credentials) -> None:
+    """Test that SqlDataClient.close cleanly cancels tasks and closes resources."""
+    client = SqlDataClient(
+        endpoint="sqladmin.googleapis.com",
+        credentials=fake_credentials,
+    )
+    mock_server = MagicMock()
+    mock_server.close = MagicMock()
+    mock_server.wait_closed = AsyncMock()
+    client._server = mock_server
+
+    mock_channel = AsyncMock()
+    client._active_grpc_channels.add(mock_channel)
+
+    mock_writer = MagicMock()
+    client._active_writers.add(mock_writer)
+
+    callback_called = False
+
+    def on_close() -> None:
+        nonlocal callback_called
+        callback_called = True
+
+    client._on_close_callbacks.append(on_close)
+
+    async def dummy_task():
+        await asyncio.sleep(100)
+
+    task = asyncio.create_task(dummy_task())
+    client._tunnel_tasks.add(task)
+
+    await client.close()
+
+    try:
+        await task
+    except asyncio.CancelledError:
+        pass
+
+    assert client._server is None
+    assert mock_server.close.called
+    assert mock_channel.close.called
+    assert mock_writer.close.called
+    assert task.cancelled()
+    assert callback_called
+
+
+def test_fallback_socket() -> None:
+    """Test that FallbackSocket ignores connect calls."""
+    sock = FallbackSocket()
+    sock.connect("127.0.0.1", 3307)
+    sock.close()
+
+
+@pytest.mark.asyncio
+async def test_sqldata_client_connect_tunnel(fake_credentials: Credentials) -> None:
+    """Test that connect_tunnel binds to a local port."""
+    client = SqlDataClient(
+        endpoint="sqladmin.googleapis.com",
+        credentials=fake_credentials,
+    )
+    get_conn_info = AsyncMock()
+    on_fallback = MagicMock()
+    is_fallback_cached = MagicMock(return_value=False)
+
+    port = await client.connect_tunnel(
+        instance_connection_name="proj:reg:inst",
+        region="reg",
+        project="proj",
+        get_conn_info=get_conn_info,
+        enable_iam_auth=False,
+        on_fallback=on_fallback,
+        is_fallback_cached=is_fallback_cached,
+    )
+    assert isinstance(port, int)
+    assert port > 0
+    await client.close()
+
 
 
