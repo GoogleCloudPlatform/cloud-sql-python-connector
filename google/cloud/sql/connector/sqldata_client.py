@@ -209,7 +209,7 @@ class SqlDataClient:
             conn_info = await get_conn_info()
             # Find a fallback IP address
             targets: list[str] = []
-            for t in [IPTypes.PRIVATE, IPTypes.PUBLIC, IPTypes.PSC]:
+            for t in [IPTypes.PRIVATE, IPTypes.PSC, IPTypes.PUBLIC]:
                 try:
                     targets.extend(conn_info.get_preferred_ips(t))
                 except CloudSQLIPTypeError as e:
