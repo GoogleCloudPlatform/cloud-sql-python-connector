@@ -26,6 +26,7 @@ from google.cloud.sql.connector.client import CloudSQLClient
 from google.cloud.sql.connector.connection_info import ConnectionInfo
 from google.cloud.sql.connector.connection_name import ConnectionName
 from google.cloud.sql.connector.exceptions import AutoIAMAuthNotSupported
+from google.cloud.sql.connector.exceptions import CloudSQLConnectionError
 from google.cloud.sql.connector.exceptions import CloudSQLIPTypeError
 from google.cloud.sql.connector.instance import RefreshAheadCache
 from google.cloud.sql.connector.rate_limiter import AsyncRateLimiter
@@ -293,3 +294,14 @@ async def test_ConnectionInfo_caches_sslcontext() -> None:
     # calling create_ssl_context should no-op with an existing 'context'
     await info.create_ssl_context()
     assert info.context == "context"
+
+
+@pytest.mark.asyncio
+async def test_ConnectionInfo_missing_server_ca_cert() -> None:
+    """Test that create_ssl_context raises CloudSQLConnectionError when server_ca_cert is None."""
+    info = ConnectionInfo(
+        "", "cert", None, b"key", {}, "POSTGRES", datetime.datetime.now(datetime.timezone.utc)
+    )
+    with pytest.raises(CloudSQLConnectionError) as exc_info:
+        await info.create_ssl_context()
+    assert "server CA certificate is missing" in str(exc_info.value)

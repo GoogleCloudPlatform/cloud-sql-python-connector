@@ -91,3 +91,9 @@ class ClosedConnectorError(Exception):
     Exception to be raised when a Connector is closed and connect method is
     called on it.
     """
+
+
+class CloudSQLConnectionError(Exception):
+    """
+    Exception to be raised when a connection cannot be established to a Cloud SQL instance.
+    """

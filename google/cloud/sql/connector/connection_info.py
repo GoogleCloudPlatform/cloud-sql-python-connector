@@ -21,6 +21,7 @@ import ssl
 from typing import Any, TYPE_CHECKING
 
 from google.cloud.sql.connector.connection_name import ConnectionName
+from google.cloud.sql.connector.exceptions import CloudSQLConnectionError
 from google.cloud.sql.connector.exceptions import CloudSQLIPTypeError
 from google.cloud.sql.connector.exceptions import TLSVersionError
 from google.cloud.sql.connector.utils import AsyncTemporaryDirectory
@@ -80,7 +81,9 @@ class ConnectionInfo:
             return self.context
         
         if self.server_ca_cert is None:
-            raise ValueError("Cannot create SSL context: server CA certificate is missing.")
+            raise CloudSQLConnectionError(
+                "Cannot create SSL context: server CA certificate is missing."
+            )
 
         context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
 
