@@ -407,7 +407,7 @@ class Connector:
             if ip_type == IPTypes.SQL_DATA:
                 logger.debug(f"['{conn_name}']: Connecting via SQL Data Service tunnel")
                 if enable_iam_auth:
-                    engine = DriverMapping[driver].value
+                    engine = DriverMapping[driver.upper()].value
                     formatted_user = format_database_user(
                         engine, kwargs["user"]
                     )
