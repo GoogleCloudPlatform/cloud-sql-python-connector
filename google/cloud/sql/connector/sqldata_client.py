@@ -63,6 +63,7 @@ class SqlDataClient:
         enable_iam_auth: bool,
         on_fallback: Callable[[str], None],
         is_fallback_cached: Callable[[str], bool],
+        connect_timeout: float = 30.0,
     ) -> int:
         """Starts a local TCP tunnel and returns the local port.
 
@@ -81,6 +82,7 @@ class SqlDataClient:
                 enable_iam_auth,
                 on_fallback,
                 is_fallback_cached,
+                connect_timeout,
             ),
             "127.0.0.1",
             0,
@@ -138,6 +140,7 @@ class SqlDataClient:
         enable_iam_auth: bool,
         on_fallback: Callable[[str], None],
         is_fallback_cached: Callable[[str], bool],
+        connect_timeout: float = 30.0,
     ):
         logger.debug("Accepted local connection for SQL Data tunnel")
         # Close the server so no more connections are accepted on this port
@@ -207,9 +210,9 @@ class SqlDataClient:
         async def connect_direct() -> tuple[asyncio.StreamReader, asyncio.StreamWriter]:
             logger.debug("Fallback triggered, fetching connection info...")
             conn_info = await get_conn_info()
-            # Find a fallback IP address
+            # Find a fallback IP address, prioritizing PUBLIC for direct fallback connectivity
             targets: list[str] = []
-            for t in [IPTypes.PRIVATE, IPTypes.PSC, IPTypes.PUBLIC]:
+            for t in [IPTypes.PUBLIC, IPTypes.PSC, IPTypes.PRIVATE]:
                 try:
                     targets.extend(conn_info.get_preferred_ips(t))
                 except CloudSQLIPTypeError as e:
@@ -222,8 +225,11 @@ class SqlDataClient:
             for target_ip in targets:
                 logger.debug(f"Connecting directly to {target_ip}:{SERVER_PROXY_PORT}")
                 try:
-                    r, w = await asyncio.open_connection(
-                        target_ip, SERVER_PROXY_PORT, ssl=ssl_context, server_hostname=target_ip
+                    r, w = await asyncio.wait_for(
+                        asyncio.open_connection(
+                            target_ip, SERVER_PROXY_PORT, ssl=ssl_context, server_hostname=target_ip
+                        ),
+                        timeout=connect_timeout,
                     )
                     self._active_writers.add(w)
                     return r, w

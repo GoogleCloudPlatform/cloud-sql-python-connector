@@ -333,3 +333,60 @@ async def test_AIDE_connection_with_asyncpg() -> None:
 
     await connector.close_async()
 
+
+async def test_sqldata_fallback_sqlalchemy_connection_with_asyncpg() -> None:
+    """Test connecting to a non-AIDE instance with ip_type='sqldata'.
+
+    The server returns FAILED_PRECONDITION for standard (non-Developer Edition) instances,
+    and the connector falls back to connecting via public IP.
+    """
+    if "POSTGRES_FALLBACK_CONNECTION_NAME" not in os.environ:
+        pytest.skip("POSTGRES_FALLBACK_CONNECTION_NAME not set")
+    inst_conn_name = os.environ["POSTGRES_FALLBACK_CONNECTION_NAME"]
+    user = os.environ.get("POSTGRES_FALLBACK_USER", os.environ.get("POSTGRES_USER", "postgres"))
+    password = os.environ.get("POSTGRES_FALLBACK_PASS", os.environ.get("POSTGRES_PASS", ""))
+    db = os.environ.get("POSTGRES_FALLBACK_DB", os.environ.get("POSTGRES_DB", "postgres"))
+
+    pool, connector = await create_sqlalchemy_engine(
+        inst_conn_name,
+        user,
+        password,
+        db,
+        ip_type="sqldata",
+    )
+
+    async with pool.connect() as conn:
+        res = (await conn.execute(sqlalchemy.text("SELECT 1"))).fetchone()
+        assert res[0] == 1
+
+    await connector.close_async()
+
+
+async def test_sqldata_fallback_connection_with_asyncpg() -> None:
+    """Test connecting to a non-AIDE instance with ip_type='sqldata' via raw pool.
+
+    The server returns FAILED_PRECONDITION for standard (non-Developer Edition) instances,
+    and the connector falls back to connecting via public IP.
+    """
+    if "POSTGRES_FALLBACK_CONNECTION_NAME" not in os.environ:
+        pytest.skip("POSTGRES_FALLBACK_CONNECTION_NAME not set")
+    inst_conn_name = os.environ["POSTGRES_FALLBACK_CONNECTION_NAME"]
+    user = os.environ.get("POSTGRES_FALLBACK_USER", os.environ.get("POSTGRES_USER", "postgres"))
+    password = os.environ.get("POSTGRES_FALLBACK_PASS", os.environ.get("POSTGRES_PASS", ""))
+    db = os.environ.get("POSTGRES_FALLBACK_DB", os.environ.get("POSTGRES_DB", "postgres"))
+
+    pool, connector = await create_asyncpg_pool(
+        inst_conn_name,
+        user,
+        password,
+        db,
+        ip_type="sqldata",
+    )
+
+    async with pool.acquire() as conn:
+        res = await conn.fetch("SELECT 1")
+        assert res[0][0] == 1
+
+    await connector.close_async()
+
+

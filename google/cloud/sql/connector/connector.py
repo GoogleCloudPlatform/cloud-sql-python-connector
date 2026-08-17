@@ -454,6 +454,7 @@ class Connector:
                     enable_iam_auth=enable_iam_auth,
                     on_fallback=on_fallback,
                     is_fallback_cached=is_fallback_cached,
+                    connect_timeout=kwargs.get("timeout", self._timeout),
                 )
 
                 if driver in ASYNC_DRIVERS:
