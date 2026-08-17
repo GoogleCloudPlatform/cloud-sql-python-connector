@@ -38,10 +38,19 @@ logger = logging.getLogger(__name__)
 
 def is_resource_exhausted_error(err: Exception) -> bool:
     """Checks whether an exception represents a gRPC RESOURCE_EXHAUSTED error."""
-    if isinstance(err, grpc.aio.AioRpcError):
-        return err.code() == grpc.StatusCode.RESOURCE_EXHAUSTED
+    if isinstance(err, (grpc.aio.AioRpcError, grpc.RpcError)):
+        try:
+            return err.code() == grpc.StatusCode.RESOURCE_EXHAUSTED
+        except Exception:  # noqa: BLE001, S110
+            pass
     if hasattr(err, "code") and callable(err.code):
-        return err.code() == grpc.StatusCode.RESOURCE_EXHAUSTED
+        try:
+            return err.code() == grpc.StatusCode.RESOURCE_EXHAUSTED
+        except Exception:  # noqa: BLE001, S110
+            pass
+    cause = getattr(err, "__cause__", None) or getattr(err, "__context__", None)
+    if isinstance(cause, Exception) and cause is not err:
+        return is_resource_exhausted_error(cause)
     return False
 
 
@@ -113,10 +122,10 @@ class SqlDataClient:
         if self._server:
             self._server.close()
             try:
-                await asyncio.wait_for(self._server.wait_closed(), timeout=2.0)
+                await asyncio.wait_for(self._server.wait_closed(), timeout=0.5)
                 logger.debug("SQL Data tunnel server closed by client close()")
-            except asyncio.TimeoutError:
-                logger.warning("Timeout waiting for SQL Data tunnel server to close")
+            except (asyncio.TimeoutError, Exception) as e:  # noqa: BLE001
+                logger.debug(f"Tunnel server wait_closed finished or timed out: {e}")
             self._server = None
 
         for task in list(self._tunnel_tasks):
@@ -142,6 +151,20 @@ class SqlDataClient:
             except Exception:  # noqa: BLE001, S110
                 pass
 
+    async def _open_direct_connection(
+        self,
+        target_ip: str,
+        port: int,
+        ssl_context: Any,
+        connect_timeout: float,
+    ) -> tuple[asyncio.StreamReader, asyncio.StreamWriter]:
+        return await asyncio.wait_for(
+            asyncio.open_connection(
+                target_ip, port, ssl=ssl_context, server_hostname=target_ip
+            ),
+            timeout=connect_timeout,
+        )
+
     async def _handle_tunnel(
         self,
         client_reader: asyncio.StreamReader,
@@ -163,16 +186,16 @@ class SqlDataClient:
             self._server.close()
         self._active_writers.add(client_writer)
 
-        # Buffer to cache client writes for fallback replay
+        t_client: asyncio.Task | None = None
+        t_backend: asyncio.Task | None = None
+        grpc_channel: grpc.aio.Channel | None = None
+        backend_writer: asyncio.StreamWriter | None = None
+        backend_reader: asyncio.StreamReader | None = None
+        grpc_stream: Any | None = None
         client_write_buffer = bytearray()
         first_read_done = False
         fallback_triggered = False
-
-        # We need to share these streams between tasks
-        backend_reader: asyncio.StreamReader | None = None
-        backend_writer: asyncio.StreamWriter | None = None
-        grpc_stream: Any | None = None
-        grpc_channel: grpc.aio.Channel | None = None
+        fallback_ready = asyncio.Event()
 
         # Check if fallback is already cached
         use_fallback = is_fallback_cached(instance_connection_name)
@@ -225,9 +248,9 @@ class SqlDataClient:
         async def connect_direct() -> tuple[asyncio.StreamReader, asyncio.StreamWriter]:
             logger.debug("Fallback triggered, fetching connection info...")
             conn_info = await get_conn_info()
-            # Find a fallback IP address, prioritizing PUBLIC for direct fallback connectivity
+            # Find a fallback IP address, prioritizing PRIVATE, PSC, PUBLIC
             targets: list[str] = []
-            for t in [IPTypes.PUBLIC, IPTypes.PSC, IPTypes.PRIVATE]:
+            for t in [IPTypes.PRIVATE, IPTypes.PSC, IPTypes.PUBLIC]:
                 try:
                     targets.extend(conn_info.get_preferred_ips(t))
                 except CloudSQLIPTypeError as e:
@@ -240,11 +263,11 @@ class SqlDataClient:
             for target_ip in targets:
                 logger.debug(f"Connecting directly to {target_ip}:{SERVER_PROXY_PORT}")
                 try:
-                    r, w = await asyncio.wait_for(
-                        asyncio.open_connection(
-                            target_ip, SERVER_PROXY_PORT, ssl=ssl_context, server_hostname=target_ip
-                        ),
-                        timeout=connect_timeout,
+                    r, w = await self._open_direct_connection(
+                        target_ip,
+                        SERVER_PROXY_PORT,
+                        ssl_context,
+                        connect_timeout,
                     )
                     self._active_writers.add(w)
                     return r, w
@@ -254,29 +277,6 @@ class SqlDataClient:
             if last_ex:
                 raise last_ex
             raise ValueError("Cannot fallback to direct connection: no IP address available.")
-
-        fallback_ready = asyncio.Event()
-
-        # Initialize connection
-        if use_fallback:
-            logger.debug("Using cached fallback connection")
-            backend_reader, backend_writer = await connect_direct()
-            fallback_triggered = True
-            fallback_ready.set()
-        else:
-            try:
-                grpc_channel, grpc_stream = await connect_grpc()
-            except Exception as e:
-                logger.debug(f"Failed to initialize gRPC stream: {e}")
-                if is_resource_exhausted_error(e):
-                    if on_resource_exhausted:
-                        on_resource_exhausted(e)
-                    raise
-                # Try fallback immediately for non-resource-exhausted errors
-                backend_reader, backend_writer = await connect_direct()
-                fallback_triggered = True
-                fallback_ready.set()
-                on_fallback(instance_connection_name)
 
         # Task to read from client and write to backend
         async def client_to_backend():
@@ -429,12 +429,33 @@ class SqlDataClient:
                     await grpc_channel.close()
                 logger.debug("Backend to client task finished")
 
-        # Run both tasks with explicit lifecycle and cancellation management
-        t_client = asyncio.create_task(client_to_backend())
-        t_backend = asyncio.create_task(backend_to_client())
-        self._tunnel_tasks.add(t_client)
-        self._tunnel_tasks.add(t_backend)
         try:
+            # Initialize connection
+            if use_fallback:
+                logger.debug("Using cached fallback connection")
+                backend_reader, backend_writer = await connect_direct()
+                fallback_triggered = True
+                fallback_ready.set()
+            else:
+                try:
+                    grpc_channel, grpc_stream = await connect_grpc()
+                except Exception as e:
+                    logger.debug(f"Failed to initialize gRPC stream: {e}")
+                    if is_resource_exhausted_error(e):
+                        if on_resource_exhausted:
+                            on_resource_exhausted(e)
+                        raise
+                    # Try fallback immediately for non-resource-exhausted errors
+                    backend_reader, backend_writer = await connect_direct()
+                    fallback_triggered = True
+                    fallback_ready.set()
+                    on_fallback(instance_connection_name)
+
+            # Run both tasks with explicit lifecycle and cancellation management
+            t_client = asyncio.create_task(client_to_backend())
+            t_backend = asyncio.create_task(backend_to_client())
+            self._tunnel_tasks.add(t_client)
+            self._tunnel_tasks.add(t_backend)
             done, pending = await asyncio.wait(
                 [t_client, t_backend],
                 return_when=asyncio.FIRST_EXCEPTION,
@@ -453,8 +474,10 @@ class SqlDataClient:
                     if exc is not None:
                         raise exc
         finally:
-            self._tunnel_tasks.discard(t_client)
-            self._tunnel_tasks.discard(t_backend)
+            if t_client:
+                self._tunnel_tasks.discard(t_client)
+            if t_backend:
+                self._tunnel_tasks.discard(t_backend)
             if grpc_channel:
                 self._active_grpc_channels.discard(grpc_channel)
                 try:
