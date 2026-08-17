@@ -14,6 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
+from __future__ import annotations
+
 
 class ConnectorLoopError(Exception):
     """
@@ -97,3 +99,28 @@ class CloudSQLConnectionError(Exception):
     """
     Exception to be raised when a connection cannot be established to a Cloud SQL instance.
     """
+
+
+class ResourceExhaustedError(CloudSQLConnectionError):
+    """
+    Exception to be raised when a connection cannot be established because
+    the SQL Data Service is busy / in cooldown due to resource exhaustion.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        connection_name: str | None = None,
+        raw_error: Exception | None = None,
+    ) -> None:
+        self.message = message
+        self.connection_name = connection_name
+        self.raw_error = raw_error
+        super().__init__(
+            f"[{connection_name}] {message}: {raw_error}"
+            if connection_name and raw_error
+            else f"[{connection_name}] {message}"
+            if connection_name
+            else message
+        )
+
