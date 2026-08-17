@@ -71,6 +71,33 @@ class SqlDataConnState:
         self.backoff_counter: int = 0
         self.last_err: Exception | None = None
 
+    def is_cooldown_active(self) -> bool:
+        """Returns True if the instance connection is in cooldown due to resource exhaustion."""
+        return bool(
+            self.allowed
+            and self.cooldown_until
+            and time.time() < self.cooldown_until
+        )
+
+    def record_exhausted(self, err: Exception, base_cooldown: float) -> float:
+        """Records a resource exhaustion error, increments backoff counter, and returns the cooldown duration."""
+        if self.backoff_counter < 5:
+            self.backoff_counter += 1
+        backoff = _cooldown_backoff(base_cooldown, self.backoff_counter)
+        self.cooldown_until = time.time() + backoff
+        self.last_err = err
+        return backoff
+
+    def record_success(self) -> None:
+        """Resets cooldown and backoff state on successful communication."""
+        self.backoff_counter = 0
+        self.cooldown_until = None
+        self.last_err = None
+
+    def record_fallback(self) -> None:
+        """Marks SQL Data Service as not allowed for this instance."""
+        self.allowed = False
+
 
 def _cooldown_backoff(base_cooldown: float, attempt: int) -> float:
     multi = 1.618
@@ -157,6 +184,9 @@ class Connector:
 
             sql_data_stream_timeout (int): Timeout in seconds for the SQL Data
                 Service gRPC stream. Default: 7200.
+
+            resource_exhausted_cooldown_period (float): Cooldown period in seconds
+                after a ResourceExhausted error. Default: 5.0.
         """
         # if refresh_strategy is str, convert to RefreshStrategy enum
         if isinstance(refresh_strategy, str):
@@ -439,11 +469,7 @@ class Connector:
                 state = self._sql_data_conn_state.setdefault(
                     str(conn_name), SqlDataConnState()
                 )
-                if (
-                    state.allowed
-                    and state.cooldown_until
-                    and time.time() < state.cooldown_until
-                ):
+                if state.is_cooldown_active():
                     logger.debug(
                         f"['{conn_name}']: SQL Data Service in cooldown until {state.cooldown_until}"
                     )
@@ -475,26 +501,19 @@ class Connector:
                 )
 
                 def on_resource_exhausted(err: Exception) -> None:
-                    if state.backoff_counter < 5:
-                        state.backoff_counter += 1
-                    backoff = _cooldown_backoff(
-                        self._resource_exhausted_cooldown_period,
-                        state.backoff_counter,
+                    backoff = state.record_exhausted(
+                        err, self._resource_exhausted_cooldown_period
                     )
-                    state.cooldown_until = time.time() + backoff
-                    state.last_err = err
                     logger.debug(
                         f"['{conn_name}']: ResourceExhausted occurred, backing off for {backoff:.2f}s "
                         f"(attempt {state.backoff_counter})"
                     )
 
                 def on_success() -> None:
-                    state.backoff_counter = 0
-                    state.cooldown_until = None
-                    state.last_err = None
+                    state.record_success()
 
                 def on_fallback(name: str) -> None:
-                    state.allowed = False
+                    state.record_fallback()
                     self._sql_data_fallback_cache.add(name)
 
                 def is_fallback_cached(name: str) -> bool:

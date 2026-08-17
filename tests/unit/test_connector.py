@@ -958,6 +958,41 @@ def test_is_resource_exhausted_error_helper() -> None:
     )
     assert not is_resource_exhausted_error(Exception("other error"))
 
+    # Test wrapped cause
+    wrapped = Exception("wrapper error")
+    wrapped.__cause__ = MockRpcError(grpc.StatusCode.RESOURCE_EXHAUSTED)
+    assert is_resource_exhausted_error(wrapped)
+
+
+def test_SqlDataConnState_methods() -> None:
+    """Test SqlDataConnState state transitions and helper methods."""
+    import time
+
+    from google.cloud.sql.connector.connector import SqlDataConnState
+
+    state = SqlDataConnState()
+    assert state.allowed is True
+    assert state.is_cooldown_active() is False
+
+    err = Exception("resource busy")
+    backoff = state.record_exhausted(err, base_cooldown=2.0)
+    assert state.backoff_counter == 1
+    assert state.last_err is err
+    assert state.cooldown_until is not None
+    assert state.cooldown_until > time.time()
+    assert state.is_cooldown_active() is True
+    assert backoff > 0
+
+    state.record_success()
+    assert state.backoff_counter == 0
+    assert state.cooldown_until is None
+    assert state.last_err is None
+    assert state.is_cooldown_active() is False
+
+    state.record_fallback()
+    assert state.allowed is False
+    assert state.is_cooldown_active() is False
+
 
 @pytest.mark.asyncio
 async def test_ResourceExhausted_cooldown_blocks_connection(
@@ -1078,6 +1113,56 @@ async def test_ResourceExhausted_callbacks_lifecycle(
             assert state.backoff_counter == 0
             assert state.cooldown_until is None
             assert state.last_err is None
+
+
+@pytest.mark.asyncio
+async def test_sqldata_fallback_ip_order(fake_credentials: Credentials) -> None:
+    """Test that direct fallback queries IP addresses in PRIVATE, PSC, PUBLIC order."""
+    client = SqlDataClient(
+        endpoint="sqladmin.googleapis.com",
+        credentials=fake_credentials,
+    )
+    mock_conn_info = MagicMock()
+    queried_ip_types: list[IPTypes] = []
+
+    def mock_get_preferred_ips(ip_type: IPTypes):
+        queried_ip_types.append(ip_type)
+        if ip_type == IPTypes.PUBLIC:
+            return ["1.2.3.4"]
+        from google.cloud.sql.connector.exceptions import CloudSQLIPTypeError
+
+        raise CloudSQLIPTypeError(f"{ip_type} not available")
+
+    mock_conn_info.get_preferred_ips.side_effect = mock_get_preferred_ips
+    mock_conn_info.create_ssl_context = AsyncMock(return_value=None)
+    get_conn_info = AsyncMock(return_value=mock_conn_info)
+
+    mock_reader = AsyncMock()
+    mock_reader.read = AsyncMock(return_value=b"")
+    mock_writer = MagicMock()
+    mock_writer.wait_closed = AsyncMock()
+    client._open_direct_connection = AsyncMock(
+        return_value=(mock_reader, mock_writer)
+    )
+
+    port = await client.connect_tunnel(
+        instance_connection_name="proj:reg:inst",
+        region="reg",
+        project="proj",
+        get_conn_info=get_conn_info,
+        enable_iam_auth=False,
+        on_fallback=MagicMock(),
+        is_fallback_cached=MagicMock(return_value=True),
+    )
+
+    # Trigger client connection to tunnel
+    _r, w = await asyncio.open_connection("127.0.0.1", port)
+    await asyncio.sleep(0.1)
+    w.close()
+    await w.wait_closed()
+
+    assert queried_ip_types == [IPTypes.PRIVATE, IPTypes.PSC, IPTypes.PUBLIC]
+    await client.close()
 
 
 
