@@ -119,6 +119,8 @@ class RefreshAheadCache(ConnectionInfoCache):
                 self._keys,
                 self._enable_iam_auth,
             )
+            if self._enable_iam_auth:
+                await self._probe_connection(connection_info)
             logger.debug(
                 f"['{self._conn_name}']: Connection info refresh operation complete"
             )
@@ -137,6 +139,63 @@ class RefreshAheadCache(ConnectionInfoCache):
         finally:
             self._refresh_in_progress.clear()
         return connection_info
+
+    async def _probe_connection(self, conn_info: ConnectionInfo) -> None:
+        """Proactively probes the database to refresh IAM tokens on server-side MCP."""
+        targets: list[str] = []
+        if self._conn_name.domain_name:
+            targets.append(self._conn_name.domain_name)
+        else:
+            for ip_type in ("PSC", "PRIVATE", "PUBLIC"):
+                if ip_type in conn_info.ip_addrs:
+                    targets.extend(conn_info.ip_addrs[ip_type])
+
+        if not targets:
+            logger.debug(
+                f"['{self._conn_name}']: Proactive IAM token refresh probe skipped: no target IP addresses"
+            )
+            return
+
+        port = 3307
+        try:
+            ssl_context = await conn_info.create_ssl_context(self._enable_iam_auth)
+        except Exception as e:  # noqa: BLE001
+            logger.debug(
+                f"['{self._conn_name}']: Failed to create SSL context for probe: {e!s}"
+            )
+            return
+
+        for target in targets:
+            try:
+                logger.debug(
+                    f"['{self._conn_name}']: Probing IAM token refresh on {target}:{port}"
+                )
+                _, writer = await asyncio.wait_for(
+                    asyncio.open_connection(
+                        host=target,
+                        port=port,
+                        ssl=ssl_context,
+                        server_hostname=(
+                            self._conn_name.domain_name
+                            if self._conn_name.domain_name
+                            else None
+                        ),
+                    ),
+                    timeout=15.0,
+                )
+                writer.close()
+                await writer.wait_closed()
+                logger.debug(
+                    f"['{self._conn_name}']: Proactive IAM token refresh probe successful"
+                )
+                return
+            except Exception as e:  # noqa: BLE001
+                logger.debug(
+                    f"['{self._conn_name}']: Probing IAM token refresh on {target}:{port} failed: {e!s}"
+                )
+        logger.debug(
+            f"['{self._conn_name}']: Proactive IAM token refresh probe encountered error across all targets"
+        )
 
     def _schedule_refresh(self, delay: int) -> asyncio.Task:
         """
