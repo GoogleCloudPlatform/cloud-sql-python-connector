@@ -20,8 +20,10 @@ import asyncio
 from functools import partial
 import logging
 import os
+import random
 import socket
 from threading import Thread
+import time
 from types import TracebackType
 from typing import Any, Callable
 
@@ -40,6 +42,7 @@ from google.cloud.sql.connector.enums import IPTypes
 from google.cloud.sql.connector.enums import RefreshStrategy
 from google.cloud.sql.connector.exceptions import ClosedConnectorError
 from google.cloud.sql.connector.exceptions import ConnectorLoopError
+from google.cloud.sql.connector.exceptions import ResourceExhaustedError
 from google.cloud.sql.connector.instance import RefreshAheadCache
 from google.cloud.sql.connector.lazy import LazyRefreshCache
 from google.cloud.sql.connector.monitored_cache import MonitoredCache
@@ -57,6 +60,22 @@ SERVER_PROXY_PORT = 3307
 _DEFAULT_SCHEME = "https://"
 _DEFAULT_UNIVERSE_DOMAIN = "googleapis.com"
 _SQLADMIN_HOST_TEMPLATE = "sqladmin.{universe_domain}"
+
+
+class SqlDataConnState:
+    """Tracks connection state, fallback status, and resource exhaustion cooldown for SQL Data Service."""
+
+    def __init__(self) -> None:
+        self.allowed: bool = True
+        self.cooldown_until: float | None = None
+        self.backoff_counter: int = 0
+        self.last_err: Exception | None = None
+
+
+def _cooldown_backoff(base_cooldown: float, attempt: int) -> float:
+    multi = 1.618
+    exp = float(attempt - 1) + random.random()
+    return base_cooldown * (multi**exp)
 
 
 class Connector:
@@ -78,6 +97,7 @@ class Connector:
         failover_period: int = 30,
         sql_data_endpoint: str = "sqladmin.googleapis.com",
         sql_data_stream_timeout: int = 7200,
+        resource_exhausted_cooldown_period: float = 5.0,
     ) -> None:
         """Initializes a Connector instance.
 
@@ -227,7 +247,11 @@ class Connector:
             )
         self._sql_data_endpoint = sql_data_endpoint
         self._sql_data_stream_timeout = sql_data_stream_timeout
+        self._resource_exhausted_cooldown_period = (
+            resource_exhausted_cooldown_period
+        )
         self._sql_data_fallback_cache: set[str] = set()
+        self._sql_data_conn_state: dict[str, SqlDataConnState] = {}
         self._sqldata_clients: set[SqlDataClient] = set()
 
 
@@ -412,6 +436,21 @@ class Connector:
         # attempt to establish connection
         try:
             if ip_type == IPTypes.SQL_DATA:
+                state = self._sql_data_conn_state.setdefault(
+                    str(conn_name), SqlDataConnState()
+                )
+                if (
+                    state.allowed
+                    and state.cooldown_until
+                    and time.time() < state.cooldown_until
+                ):
+                    logger.debug(
+                        f"['{conn_name}']: SQL Data Service in cooldown until {state.cooldown_until}"
+                    )
+                    raise ResourceExhaustedError(
+                        "cooldown active", str(conn_name), state.last_err
+                    )
+
                 logger.debug(f"['{conn_name}']: Connecting via SQL Data Service tunnel")
                 if enable_iam_auth:
                     engine = DriverMapping[driver.upper()].value
@@ -435,11 +474,31 @@ class Connector:
                     lambda: self._sqldata_clients.discard(sqldata_client)
                 )
 
-                def on_fallback(name):
+                def on_resource_exhausted(err: Exception) -> None:
+                    if state.backoff_counter < 5:
+                        state.backoff_counter += 1
+                    backoff = _cooldown_backoff(
+                        self._resource_exhausted_cooldown_period,
+                        state.backoff_counter,
+                    )
+                    state.cooldown_until = time.time() + backoff
+                    state.last_err = err
+                    logger.debug(
+                        f"['{conn_name}']: ResourceExhausted occurred, backing off for {backoff:.2f}s "
+                        f"(attempt {state.backoff_counter})"
+                    )
+
+                def on_success() -> None:
+                    state.backoff_counter = 0
+                    state.cooldown_until = None
+                    state.last_err = None
+
+                def on_fallback(name: str) -> None:
+                    state.allowed = False
                     self._sql_data_fallback_cache.add(name)
 
-                def is_fallback_cached(name):
-                    return name in self._sql_data_fallback_cache
+                def is_fallback_cached(name: str) -> bool:
+                    return not state.allowed or name in self._sql_data_fallback_cache
 
                 # Defer cache creation and connect_info call
                 async def get_conn_info():
@@ -454,6 +513,8 @@ class Connector:
                     enable_iam_auth=enable_iam_auth,
                     on_fallback=on_fallback,
                     is_fallback_cached=is_fallback_cached,
+                    on_resource_exhausted=on_resource_exhausted,
+                    on_success=on_success,
                     connect_timeout=kwargs.get("timeout", self._timeout),
                 )
 
@@ -680,6 +741,7 @@ async def create_async_connector(
     failover_period: int = 30,
     sql_data_endpoint: str = "sqladmin.googleapis.com",
     sql_data_stream_timeout: int = 7200,
+    resource_exhausted_cooldown_period: float = 5.0,
 ) -> Connector:
     """Helper function to create Connector object for asyncio connections.
 
@@ -743,6 +805,9 @@ async def create_async_connector(
         sql_data_stream_timeout (int): Timeout in seconds for the SQL Data
             Service gRPC stream. Default: 7200.
 
+        resource_exhausted_cooldown_period (float): Cooldown period in seconds
+            after a ResourceExhausted error. Default: 5.0.
+
     Returns:
         A Connector instance configured with running event loop.
     """
@@ -764,4 +829,5 @@ async def create_async_connector(
         failover_period=failover_period,
         sql_data_endpoint=sql_data_endpoint,
         sql_data_stream_timeout=sql_data_stream_timeout,
+        resource_exhausted_cooldown_period=resource_exhausted_cooldown_period,
     )

@@ -900,4 +900,185 @@ async def test_sqldata_client_connect_tunnel(fake_credentials: Credentials) -> N
     await client.close()
 
 
+def test_Connector_Init_resource_exhausted_options(
+    fake_credentials: Credentials,
+) -> None:
+    """Test that Connector initializes with resource_exhausted_cooldown_period."""
+    with Connector(
+        credentials=fake_credentials,
+        resource_exhausted_cooldown_period=10.0,
+    ) as connector:
+        assert connector._resource_exhausted_cooldown_period == 10.0
+
+
+@pytest.mark.asyncio
+async def test_create_async_connector_resource_exhausted_options(
+    fake_credentials: Credentials,
+) -> None:
+    """Test that create_async_connector forwards resource_exhausted_cooldown_period."""
+    connector = await create_async_connector(
+        credentials=fake_credentials,
+        resource_exhausted_cooldown_period=8.5,
+    )
+    assert connector._resource_exhausted_cooldown_period == 8.5
+    await connector.close_async()
+
+
+def test_cooldown_backoff_calculation() -> None:
+    """Test exponential backoff with jitter calculation."""
+    from google.cloud.sql.connector.connector import _cooldown_backoff
+
+    base = 5.0
+    for attempt in range(1, 6):
+        backoff = _cooldown_backoff(base, attempt)
+        # 1.618^(attempt-1) <= multiplier <= 1.618^attempt
+        min_expected = base * (1.618 ** (attempt - 1))
+        max_expected = base * (1.618**attempt)
+        assert min_expected <= backoff <= max_expected
+
+
+def test_is_resource_exhausted_error_helper() -> None:
+    """Test is_resource_exhausted_error helper with various exception types."""
+    import grpc
+
+    from google.cloud.sql.connector.sqldata_client import is_resource_exhausted_error
+
+    class MockRpcError(Exception):
+        def __init__(self, code):
+            self._code = code
+
+        def code(self):
+            return self._code
+
+    assert is_resource_exhausted_error(
+        MockRpcError(grpc.StatusCode.RESOURCE_EXHAUSTED)
+    )
+    assert not is_resource_exhausted_error(
+        MockRpcError(grpc.StatusCode.FAILED_PRECONDITION)
+    )
+    assert not is_resource_exhausted_error(Exception("other error"))
+
+
+@pytest.mark.asyncio
+async def test_ResourceExhausted_cooldown_blocks_connection(
+    fake_credentials: Credentials,
+    fake_client: CloudSQLClient,
+) -> None:
+    """Test that active cooldown raises ResourceExhaustedError without connecting."""
+    import time
+
+    from google.cloud.sql.connector.connector import SqlDataConnState
+    from google.cloud.sql.connector.exceptions import ResourceExhaustedError
+
+    connect_string = "proj:reg:inst"
+    async with Connector(
+        credentials=fake_credentials,
+        loop=asyncio.get_running_loop(),
+        ip_type=IPTypes.SQL_DATA,
+        resource_exhausted_cooldown_period=2.0,
+    ) as connector:
+        connector._client = fake_client
+
+        # Manually set state to cooldown active
+        state = SqlDataConnState()
+        state.cooldown_until = time.time() + 10.0
+        state.backoff_counter = 1
+        state.last_err = Exception("resource busy")
+        connector._sql_data_conn_state[connect_string] = state
+
+        with (
+            patch(
+                "google.cloud.sql.connector.connector.SqlDataClient"
+            ) as mock_sqldata_cls,
+            pytest.raises(ResourceExhaustedError) as exc_info,
+        ):
+            await connector.connect_async(
+                connect_string,
+                "asyncpg",
+                user="test-user",
+                db="test-db",
+            )
+        assert "cooldown active" in str(exc_info.value)
+        assert not mock_sqldata_cls.called
+
+
+@pytest.mark.asyncio
+async def test_ResourceExhausted_callbacks_lifecycle(
+    fake_credentials: Credentials,
+    fake_client: CloudSQLClient,
+) -> None:
+    """Test that on_resource_exhausted and on_success callbacks properly update state."""
+    import time
+
+    from google.cloud.sql.connector.exceptions import ResourceExhaustedError
+
+    connect_string = "proj:reg:inst"
+    async with Connector(
+        credentials=fake_credentials,
+        loop=asyncio.get_running_loop(),
+        ip_type=IPTypes.SQL_DATA,
+        resource_exhausted_cooldown_period=0.5,
+    ) as connector:
+        connector._client = fake_client
+
+        captured_on_resource_exhausted = None
+        captured_on_success = None
+
+        mock_sqldata_instance = MagicMock()
+
+        async def mock_connect_tunnel(**kwargs):
+            nonlocal captured_on_resource_exhausted, captured_on_success
+            captured_on_resource_exhausted = kwargs.get("on_resource_exhausted")
+            captured_on_success = kwargs.get("on_success")
+            return 3307
+
+        mock_sqldata_instance.connect_tunnel = AsyncMock(
+            side_effect=mock_connect_tunnel
+        )
+        mock_sqldata_instance.close = AsyncMock()
+
+        with (
+            patch(
+                "google.cloud.sql.connector.connector.SqlDataClient",
+                return_value=mock_sqldata_instance,
+            ),
+            patch("google.cloud.sql.connector.asyncpg.connect", return_value=True),
+        ):
+            # 1. Connect and trigger on_resource_exhausted
+            await connector.connect_async(
+                connect_string,
+                "asyncpg",
+                user="test-user",
+                db="test-db",
+            )
+            assert captured_on_resource_exhausted is not None
+            assert captured_on_success is not None
+
+            state = connector._sql_data_conn_state[connect_string]
+            assert state.backoff_counter == 0
+            assert state.cooldown_until is None
+
+            # Trigger resource exhausted
+            captured_on_resource_exhausted(Exception("resource exhausted"))
+            assert state.backoff_counter == 1
+            assert state.cooldown_until is not None
+            assert state.cooldown_until > time.time()
+
+            # Second connect attempt during cooldown fails with ResourceExhaustedError
+            with pytest.raises(ResourceExhaustedError):
+                await connector.connect_async(
+                    connect_string,
+                    "asyncpg",
+                    user="test-user",
+                    db="test-db",
+                )
+
+            # Reset via on_success
+            captured_on_success()
+            assert state.backoff_counter == 0
+            assert state.cooldown_until is None
+            assert state.last_err is None
+
+
+
 

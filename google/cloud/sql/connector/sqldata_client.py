@@ -36,6 +36,15 @@ SERVER_PROXY_PORT = 3307
 logger = logging.getLogger(__name__)
 
 
+def is_resource_exhausted_error(err: Exception) -> bool:
+    """Checks whether an exception represents a gRPC RESOURCE_EXHAUSTED error."""
+    if isinstance(err, grpc.aio.AioRpcError):
+        return err.code() == grpc.StatusCode.RESOURCE_EXHAUSTED
+    if hasattr(err, "code") and callable(err.code):
+        return err.code() == grpc.StatusCode.RESOURCE_EXHAUSTED
+    return False
+
+
 class SqlDataClient:
     def __init__(
         self,
@@ -63,6 +72,8 @@ class SqlDataClient:
         enable_iam_auth: bool,
         on_fallback: Callable[[str], None],
         is_fallback_cached: Callable[[str], bool],
+        on_resource_exhausted: Callable[[Exception], None] | None = None,
+        on_success: Callable[[], None] | None = None,
         connect_timeout: float = 30.0,
     ) -> int:
         """Starts a local TCP tunnel and returns the local port.
@@ -82,6 +93,8 @@ class SqlDataClient:
                 enable_iam_auth,
                 on_fallback,
                 is_fallback_cached,
+                on_resource_exhausted,
+                on_success,
                 connect_timeout,
             ),
             "127.0.0.1",
@@ -140,6 +153,8 @@ class SqlDataClient:
         enable_iam_auth: bool,
         on_fallback: Callable[[str], None],
         is_fallback_cached: Callable[[str], bool],
+        on_resource_exhausted: Callable[[Exception], None] | None = None,
+        on_success: Callable[[], None] | None = None,
         connect_timeout: float = 30.0,
     ):
         logger.debug("Accepted local connection for SQL Data tunnel")
@@ -251,9 +266,13 @@ class SqlDataClient:
         else:
             try:
                 grpc_channel, grpc_stream = await connect_grpc()
-            except Exception as e:  # noqa: BLE001
+            except Exception as e:
                 logger.debug(f"Failed to initialize gRPC stream: {e}")
-                # Try fallback immediately
+                if is_resource_exhausted_error(e):
+                    if on_resource_exhausted:
+                        on_resource_exhausted(e)
+                    raise
+                # Try fallback immediately for non-resource-exhausted errors
                 backend_reader, backend_writer = await connect_direct()
                 fallback_triggered = True
                 fallback_ready.set()
@@ -286,6 +305,10 @@ class SqlDataClient:
                             try:
                                 await grpc_stream.write(req)
                             except Exception as e:
+                                if is_resource_exhausted_error(e):
+                                    if on_resource_exhausted:
+                                        on_resource_exhausted(e)
+                                    raise
                                 if fallback_triggered or not first_read_done:
                                     logger.debug(
                                         f"Write to gRPC stream failed while fallback pending or triggered: {e}"
@@ -294,6 +317,8 @@ class SqlDataClient:
                                     raise
             except Exception as e:
                 logger.error(f"Error in client_to_backend: {e}")
+                if is_resource_exhausted_error(e) and on_resource_exhausted:
+                    on_resource_exhausted(e)
                 raise
             finally:
                 if fallback_triggered:
@@ -327,7 +352,10 @@ class SqlDataClient:
                         if not grpc_stream:
                             return
                         async for resp in grpc_stream:
-                            first_read_done = True
+                            if not first_read_done:
+                                first_read_done = True
+                                if on_success:
+                                    on_success()
                             msg_type = resp.WhichOneof("message")
                             if msg_type == "session_metadata":
                                 logger.debug("Received SessionMetadata")
@@ -341,6 +369,10 @@ class SqlDataClient:
                                 break
                     except grpc.aio.AioRpcError as e:
                         logger.debug(f"gRPC stream error: {e}")
+                        if is_resource_exhausted_error(e):
+                            if on_resource_exhausted:
+                                on_resource_exhausted(e)
+                            raise
                         # Check for fallback condition
                         if (
                             not first_read_done
