@@ -1,5 +1,24 @@
 # Changelog
 
+## [1.22.0](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v1.21.0...v1.22.0) (2026-08-18)
+
+
+### Features
+
+* Add PSC DNS and Global Write Endpoint support to Python Connector ([#1446](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/1446)) ([62640f3](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/62640f3c4f1e5cccf9c1c4622d4025804e92d02f))
+* add support for psycopg ([#1452](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/1452)) ([ba58f8f](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/ba58f8ff573e5559dd7d9b4be7ffb2db6d5db6da))
+
+
+### Bug Fixes
+
+* **psycopg:** add platform guard for platforms without AF_UNIX support ([#1466](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/1466)) ([2dfee66](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/2dfee663f8e5bbf0392ea1cf9940ec5e8b533448))
+* update deps to the latest ([#1456](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/1456)) ([a1bdfc7](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/a1bdfc7b3ae16af2c99c6faa1b12757d55d6ad72))
+
+
+### Documentation
+
+* update pg8000 link to new repository location ([#1368](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/1368)) ([2b20167](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/2b20167d683a1bc827f37bbb421cf5d6fa2e0de0))
+
 ## [1.21.0](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v1.20.4...v1.21.0) (2026-07-23)
 
 
