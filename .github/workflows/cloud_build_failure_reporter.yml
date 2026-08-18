@@ -29,6 +29,7 @@ on:
 
 jobs:
   report:
+    if: github.repository == 'GoogleCloudPlatform/cloud-sql-python-connector'
 
     permissions:
       issues: 'write'
@@ -39,13 +40,15 @@ jobs:
 
     steps:
       - uses: 'actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd' # v8
+        env:
+          TRIGGER_NAMES: ${{ inputs.trigger_names }}
         with:
           script: |-
                   // parse test names
-                  const testNameSubstring = '${{ inputs.trigger_names }}';
+                  const testNameSubstring = process.env.TRIGGER_NAMES || '';
                   const testNameFound = new Map(); //keeps track of whether each test is found
                   testNameSubstring.split(',').forEach(testName => {
-                    testNameFound.set(testName, false); 
+                    testNameFound.set(testName.trim(), false); 
                   });
                   
                   // label for all issues opened by reporter
@@ -172,8 +175,8 @@ jobs:
                   const noTestFound = Array.from(testNameFound.values()).every(value => value === false);
                   if (noTestFound){
                     createOrCommentIssue(
-                      'Missing periodic tests: ${{ inputs.trigger_names }}',
-                      `No periodic test is found for triggers: ${{ inputs.trigger_names }}. Last checked from ${
+                      `Missing periodic tests: ${testNameSubstring}`,
+                      `No periodic test is found for triggers: ${testNameSubstring}. Last checked from ${
                         commits[0].html_url
                       } to ${commits[commits.length - 1].html_url}.`
                     );

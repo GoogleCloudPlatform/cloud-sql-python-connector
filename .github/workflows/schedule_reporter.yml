@@ -20,6 +20,7 @@ on:
 
 jobs:
   run_reporter:
+    if: github.repository == 'GoogleCloudPlatform/cloud-sql-python-connector'
     permissions:
       issues: 'write'
       checks: 'read'
@@ -27,3 +28,4 @@ jobs:
     uses: ./.github/workflows/cloud_build_failure_reporter.yml
     with:
       trigger_names: "py-continuous-test-on-merge,py-integration-test-nightly"
+
