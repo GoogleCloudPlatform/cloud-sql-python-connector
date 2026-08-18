@@ -29,6 +29,7 @@ on:
 
 jobs:
   report:
+    if: github.repository == 'GoogleCloudPlatform/cloud-sql-python-connector'
 
     permissions:
       issues: 'write'
