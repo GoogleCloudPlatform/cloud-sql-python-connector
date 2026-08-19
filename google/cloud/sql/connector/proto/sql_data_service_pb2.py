@@ -34,6 +34,8 @@ _runtime_version.ValidateProtobufRuntimeVersion(
 )
 # @@protoc_insertion_point(imports)
 
+from google.rpc import status_pb2 as _status_pb2  # noqa: F401
+
 _sym_db = _symbol_database.Default()
 
 
