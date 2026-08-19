@@ -14,12 +14,15 @@
 
 steps:
   - id: run integration tests
-    name: python:${_VERSION}
+    name: python:3.13
     entrypoint: bash
     env:
       - "IP_TYPE=${_IP_TYPE}"
     secretEnv:
       [
+        "MYSQL_PSA_CONNECTION_NAME",
+        "MYSQL_PSA_USER",
+        "MYSQL_PSA_PASS",
         "MYSQL_CONNECTION_NAME",
         "MYSQL_USER",
         "MYSQL_IAM_USER",
@@ -59,6 +62,12 @@ availableSecrets:
       env: "MYSQL_IAM_USER"
     - versionName: "projects/$PROJECT_ID/secrets/MYSQL_PASS/versions/latest"
       env: "MYSQL_PASS"
+    - versionName: "projects/$PROJECT_ID/secrets/MYSQL_PSA_CONNECTION_NAME/versions/latest"
+      env: "MYSQL_PSA_CONNECTION_NAME"
+    - versionName: "projects/$PROJECT_ID/secrets/MYSQL_PSA_USER/versions/latest"
+      env: "MYSQL_PSA_USER"
+    - versionName: "projects/$PROJECT_ID/secrets/MYSQL_PSA_PASS/versions/latest"
+      env: "MYSQL_PSA_PASS"
     - versionName: "projects/$PROJECT_ID/secrets/MYSQL_DB/versions/latest"
       env: "MYSQL_DB"
     - versionName: "projects/$PROJECT_ID/secrets/MYSQL_MCP_CONNECTION_NAME/versions/latest"
@@ -98,11 +107,10 @@ availableSecrets:
     - versionName: "projects/$PROJECT_ID/secrets/SQLSERVER_DB/versions/latest"
       env: "SQLSERVER_DB"
 substitutions:
-  _VERSION: ${_VERSION}
   _IP_TYPE: ${_IP_TYPE}
 
 options:
   dynamicSubstitutions: true
   pool:
-    name: ${_POOL_NAME}
+    name: ${_POOL_NAME_2}
   logging: CLOUD_LOGGING_ONLY
