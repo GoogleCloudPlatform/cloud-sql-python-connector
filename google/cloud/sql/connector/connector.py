@@ -48,7 +48,6 @@ from google.cloud.sql.connector.lazy import LazyRefreshCache
 from google.cloud.sql.connector.monitored_cache import MonitoredCache
 from google.cloud.sql.connector.resolver import DefaultResolver
 from google.cloud.sql.connector.resolver import DnsResolver
-from google.cloud.sql.connector.sqldata_client import FallbackSocket
 from google.cloud.sql.connector.sqldata_client import SqlDataClient
 from google.cloud.sql.connector.utils import format_database_user
 from google.cloud.sql.connector.utils import generate_keys
@@ -282,7 +281,7 @@ class Connector:
         )
         self._sql_data_fallback_cache: set[str] = set()
         self._sql_data_conn_state: dict[str, SqlDataConnState] = {}
-        self._sqldata_clients: set[SqlDataClient] = set()
+        self._sqldata_clients: set[Any] = set()
 
 
 
@@ -524,7 +523,7 @@ class Connector:
                     cache = self._get_or_create_cache(conn_name, enable_iam_auth)
                     return await cache.connect_info()
 
-                tunnel_port = await sqldata_client.connect_tunnel(
+                sock = await sqldata_client.connect(
                     instance_connection_name=str(conn_name),
                     region=conn_name.region,
                     project=conn_name.project,
@@ -537,36 +536,24 @@ class Connector:
                     connect_timeout=kwargs.get("timeout", self._timeout),
                 )
 
-                if driver in ASYNC_DRIVERS:
-                    return await connector(
-                        "127.0.0.1",
-                        None,
-                        port=tunnel_port,
-                        **kwargs,
-                    )
-                else:
-                    raw_sock = socket.create_connection(("127.0.0.1", tunnel_port))
-                    fd = raw_sock.detach()
-                    fallback_sock = FallbackSocket(fileno=fd)
+                cache = None
+                if conn_name.domain_name:
+                    cache = self._get_or_create_cache(conn_name, enable_iam_auth)
+                    cache.sockets.append(sock)
 
-                    cache = None
-                    if conn_name.domain_name:
-                        cache = self._get_or_create_cache(conn_name, enable_iam_auth)
-                        cache.sockets.append(fallback_sock)
-
-                    connect_partial = partial(
-                        connector,
-                        "127.0.0.1",
-                        fallback_sock,
-                        **kwargs,
-                    )
-                    try:
-                        return await self._loop.run_in_executor(None, connect_partial)
-                    except Exception:
-                        fallback_sock.close()
-                        if conn_name.domain_name and cache:
-                            cache._purge_closed_sockets()
-                        raise
+                connect_partial = partial(
+                    connector,
+                    "127.0.0.1",
+                    sock,
+                    **kwargs,
+                )
+                try:
+                    return await self._loop.run_in_executor(None, connect_partial)
+                except Exception:
+                    sock.close()
+                    if conn_name.domain_name and cache:
+                        cache._purge_closed_sockets()
+                    raise
             else:
                 try:
                     conn_info = await monitored_cache.connect_info()
