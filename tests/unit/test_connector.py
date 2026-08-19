@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import asyncio
 import os
+import socket
 from threading import Thread
 from unittest.mock import AsyncMock
 from unittest.mock import MagicMock
@@ -39,7 +40,6 @@ from google.cloud.sql.connector.exceptions import IncompatibleDriverError
 from google.cloud.sql.connector.instance import RefreshAheadCache
 from google.cloud.sql.connector.monitored_cache import MonitoredCache
 from google.cloud.sql.connector.resolver import DnsResolver
-from google.cloud.sql.connector.sqldata_client import FallbackSocket
 from google.cloud.sql.connector.sqldata_client import SqlDataClient
 
 
@@ -224,22 +224,6 @@ async def test_Connector_Init_async_context_manager(
         (
             IPTypes.PSC,
             IPTypes.PSC,
-        ),
-        (
-            "sqldata",
-            IPTypes.SQL_DATA,
-        ),
-        (
-            "SQLDATA",
-            IPTypes.SQL_DATA,
-        ),
-        (
-            "SQL_DATA",
-            IPTypes.SQL_DATA,
-        ),
-        (
-            IPTypes.SQL_DATA,
-            IPTypes.SQL_DATA,
         ),
     ],
 )
@@ -1124,16 +1108,17 @@ async def test_Connector_connect_async_sqldata_iam_auth(
 
         with patch("google.cloud.sql.connector.connector.SqlDataClient") as mock_sqldata_cls:
             mock_client_instance = MagicMock()
-            mock_client_instance.connect_tunnel = AsyncMock(return_value=3307)
+            mock_sock = MagicMock(spec=socket.socket)
+            mock_client_instance.connect = AsyncMock(return_value=mock_sock)
             mock_client_instance.close = AsyncMock()
             mock_sqldata_cls.return_value = mock_client_instance
 
-            with patch("google.cloud.sql.connector.asyncpg.connect") as mock_connect:
+            with patch("google.cloud.sql.connector.pg8000.connect") as mock_connect:
                 mock_connect.return_value = True
 
                 connection = await connector.connect_async(
                     connect_string,
-                    "asyncpg",
+                    "pg8000",
                     user="test-sa@test-project.iam.gserviceaccount.com",
                     db="my-db",
                     enable_iam_auth=True,
@@ -1157,27 +1142,18 @@ def test_sqldata_client_init(fake_credentials: Credentials) -> None:
     assert client._credentials == fake_credentials
     assert client._quota_project == "test-quota-project"
     assert client._timeout == 3600
-    assert client._server is None
-    assert len(client._tunnel_tasks) == 0
+    assert len(client._active_sockets) == 0
 
 
 @pytest.mark.asyncio
 async def test_sqldata_client_close(fake_credentials: Credentials) -> None:
-    """Test that SqlDataClient.close cleanly cancels tasks and closes resources."""
+    """Test that SqlDataClient.close cleanly closes active sockets."""
     client = SqlDataClient(
         endpoint="sqladmin.googleapis.com",
         credentials=fake_credentials,
     )
-    mock_server = MagicMock()
-    mock_server.close = MagicMock()
-    mock_server.wait_closed = AsyncMock()
-    client._server = mock_server
-
-    mock_channel = AsyncMock()
-    client._active_grpc_channels.add(mock_channel)
-
-    mock_writer = MagicMock()
-    client._active_writers.add(mock_writer)
+    mock_sock = MagicMock()
+    client._active_sockets.add(mock_sock)
 
     callback_called = False
 
@@ -1187,57 +1163,11 @@ async def test_sqldata_client_close(fake_credentials: Credentials) -> None:
 
     client._on_close_callbacks.append(on_close)
 
-    async def dummy_task():
-        await asyncio.sleep(100)
-
-    task = asyncio.create_task(dummy_task())
-    client._tunnel_tasks.add(task)
-
     await client.close()
 
-    try:
-        await task
-    except asyncio.CancelledError:
-        pass
-
-    assert client._server is None
-    assert mock_server.close.called
-    assert mock_channel.close.called
-    assert mock_writer.close.called
-    assert task.cancelled()
+    assert mock_sock.close.called
+    assert len(client._active_sockets) == 0
     assert callback_called
-
-
-def test_fallback_socket() -> None:
-    """Test that FallbackSocket ignores connect calls."""
-    sock = FallbackSocket()
-    sock.connect("127.0.0.1", 3307)
-    sock.close()
-
-
-@pytest.mark.asyncio
-async def test_sqldata_client_connect_tunnel(fake_credentials: Credentials) -> None:
-    """Test that connect_tunnel binds to a local port."""
-    client = SqlDataClient(
-        endpoint="sqladmin.googleapis.com",
-        credentials=fake_credentials,
-    )
-    get_conn_info = AsyncMock()
-    on_fallback = MagicMock()
-    is_fallback_cached = MagicMock(return_value=False)
-
-    port = await client.connect_tunnel(
-        instance_connection_name="proj:reg:inst",
-        region="reg",
-        project="proj",
-        get_conn_info=get_conn_info,
-        enable_iam_auth=False,
-        on_fallback=on_fallback,
-        is_fallback_cached=is_fallback_cached,
-    )
-    assert isinstance(port, int)
-    assert port > 0
-    await client.close()
 
 
 def test_Connector_Init_resource_exhausted_options(
@@ -1369,7 +1299,7 @@ async def test_ResourceExhausted_cooldown_blocks_connection(
         ):
             await connector.connect_async(
                 connect_string,
-                "asyncpg",
+                "pg8000",
                 user="test-user",
                 db="test-db",
             )
@@ -1401,15 +1331,13 @@ async def test_ResourceExhausted_callbacks_lifecycle(
 
         mock_sqldata_instance = MagicMock()
 
-        async def mock_connect_tunnel(**kwargs):
+        async def mock_connect(**kwargs):
             nonlocal captured_on_resource_exhausted, captured_on_success
             captured_on_resource_exhausted = kwargs.get("on_resource_exhausted")
             captured_on_success = kwargs.get("on_success")
-            return 3307
+            return MagicMock(spec=socket.socket)
 
-        mock_sqldata_instance.connect_tunnel = AsyncMock(
-            side_effect=mock_connect_tunnel
-        )
+        mock_sqldata_instance.connect = AsyncMock(side_effect=mock_connect)
         mock_sqldata_instance.close = AsyncMock()
 
         with (
@@ -1417,12 +1345,12 @@ async def test_ResourceExhausted_callbacks_lifecycle(
                 "google.cloud.sql.connector.connector.SqlDataClient",
                 return_value=mock_sqldata_instance,
             ),
-            patch("google.cloud.sql.connector.asyncpg.connect", return_value=True),
+            patch("google.cloud.sql.connector.pg8000.connect", return_value=True),
         ):
             # 1. Connect and trigger on_resource_exhausted
             await connector.connect_async(
                 connect_string,
-                "asyncpg",
+                "pg8000",
                 user="test-user",
                 db="test-db",
             )
@@ -1443,7 +1371,7 @@ async def test_ResourceExhausted_callbacks_lifecycle(
             with pytest.raises(ResourceExhaustedError):
                 await connector.connect_async(
                     connect_string,
-                    "asyncpg",
+                    "pg8000",
                     user="test-user",
                     db="test-db",
                 )
@@ -1474,32 +1402,170 @@ async def test_sqldata_fallback_ip_order(fake_credentials: Credentials) -> None:
         raise CloudSQLIPTypeError(f"{ip_type} not available")
 
     mock_conn_info.get_preferred_ips.side_effect = mock_get_preferred_ips
-    mock_conn_info.create_ssl_context = AsyncMock(return_value=None)
+    mock_ssl_ctx = MagicMock()
+    mock_ssl_sock = MagicMock(spec=socket.socket)
+    mock_ssl_ctx.wrap_socket.return_value = mock_ssl_sock
+    mock_conn_info.create_ssl_context = AsyncMock(return_value=mock_ssl_ctx)
     get_conn_info = AsyncMock(return_value=mock_conn_info)
 
-    mock_reader = AsyncMock()
-    mock_reader.read = AsyncMock(return_value=b"")
-    mock_writer = MagicMock()
-    mock_writer.wait_closed = AsyncMock()
-    client._open_direct_connection = AsyncMock(
-        return_value=(mock_reader, mock_writer)
-    )
+    mock_raw_sock = MagicMock(spec=socket.socket)
 
-    port = await client.connect_tunnel(
-        instance_connection_name="proj:reg:inst",
-        region="reg",
-        project="proj",
-        get_conn_info=get_conn_info,
-        enable_iam_auth=False,
-        on_fallback=MagicMock(),
-        is_fallback_cached=MagicMock(return_value=True),
-    )
+    with patch("socket.create_connection", return_value=mock_raw_sock):
+        sock = await client.connect(
+            instance_connection_name="proj:reg:inst",
+            region="reg",
+            project="proj",
+            get_conn_info=get_conn_info,
+            enable_iam_auth=False,
+            on_fallback=MagicMock(),
+            is_fallback_cached=MagicMock(return_value=True),
+        )
 
-    # Trigger client connection to tunnel
-    _r, w = await asyncio.open_connection("127.0.0.1", port)
-    await asyncio.sleep(0.1)
-    w.close()
-    await w.wait_closed()
+        assert sock is mock_ssl_sock
+        assert queried_ip_types == [IPTypes.PRIVATE, IPTypes.PSC, IPTypes.PUBLIC]
+        await client.close()
 
-    assert queried_ip_types == [IPTypes.PRIVATE, IPTypes.PSC, IPTypes.PUBLIC]
-    await client.close()
+
+@pytest.mark.asyncio
+async def test_Connector_connect_async_sqldata_incompatible_driver(
+    fake_credentials: Credentials,
+    fake_client: CloudSQLClient,
+) -> None:
+    """Test that connecting with SQL_DATA and an async driver raises IncompatibleDriverError."""
+    async with Connector(
+        credentials=fake_credentials,
+        loop=asyncio.get_running_loop(),
+        ip_type=IPTypes.SQL_DATA,
+    ) as connector:
+        connector._client = fake_client
+
+        with pytest.raises(IncompatibleDriverError, match="Driver 'asyncpg' is not supported"):
+            await connector.connect_async(
+                "test-project:test-region:test-instance",
+                "asyncpg",
+                user="my-user",
+                password="my-pass",
+                db="my-db",
+            )
+
+
+@pytest.mark.asyncio
+async def test_Connector_connect_async_sqldata_domain_name_and_error_cleanup(
+    fake_credentials: Credentials,
+    fake_client: CloudSQLClient,
+) -> None:
+    """Test that connecting with SQL_DATA and a domain name manages socket cache and cleans up on error."""
+    from google.cloud.sql.connector.resolver import DnsResolver
+
+    mock_sqldata_client = MagicMock()
+    mock_sock = MagicMock()
+    mock_sqldata_client.connect = AsyncMock(return_value=mock_sock)
+    mock_sqldata_client.close = AsyncMock()
+    mock_sqldata_client._on_close_callbacks = []
+
+    with patch(
+        "google.cloud.sql.connector.resolver.DnsResolver.resolve",
+        return_value=ConnectionName(
+            "test-project", "test-region", "test-instance", "db.example.com"
+        ),
+    ), patch(
+        "google.cloud.sql.connector.connector.SqlDataClient",
+        return_value=mock_sqldata_client,
+    ):
+        async with Connector(
+            credentials=fake_credentials,
+            loop=asyncio.get_running_loop(),
+            ip_type=IPTypes.SQL_DATA,
+            resolver=DnsResolver,
+        ) as connector:
+            connector._client = fake_client
+
+            with patch(
+                "google.cloud.sql.connector.pg8000.connect",
+                side_effect=RuntimeError("pg8000 connect failed"),
+            ), patch.object(
+                MonitoredCache, "force_refresh", AsyncMock()
+            ):
+                with pytest.raises(RuntimeError, match="pg8000 connect failed"):
+                    await connector.connect_async(
+                        "db.example.com",
+                        "pg8000",
+                        user="my-user",
+                        password="my-pass",
+                        db="my-db",
+                    )
+                mock_sock.close.assert_called_once()
+
+
+
+@pytest.mark.asyncio
+async def test_Connector_connect_async_sqldata_fallback_and_callbacks(
+    fake_credentials: Credentials,
+    fake_client: CloudSQLClient,
+) -> None:
+    """Test on_fallback, on_success, and is_fallback_cached callbacks for SQL_DATA."""
+    mock_sqldata_client = MagicMock()
+    mock_sock = MagicMock()
+    mock_sqldata_client.close = AsyncMock()
+    mock_sqldata_client._on_close_callbacks = []
+
+    async def fake_connect(**kwargs):
+        # Trigger on_fallback and verify
+        on_fallback = kwargs["on_fallback"]
+        is_fallback_cached = kwargs["is_fallback_cached"]
+        on_success = kwargs["on_success"]
+        get_conn_info = kwargs["get_conn_info"]
+
+        # Call get_conn_info
+        conn_info = await get_conn_info()
+        assert conn_info is not None
+
+        # Verify initial fallback cache state
+        assert not is_fallback_cached("test-project:test-region:test-instance")
+
+        # Trigger fallback
+        on_fallback("test-project:test-region:test-instance")
+        assert is_fallback_cached("test-project:test-region:test-instance")
+
+        on_success()
+        return mock_sock
+
+    mock_sqldata_client.connect = AsyncMock(side_effect=fake_connect)
+
+    with patch(
+        "google.cloud.sql.connector.connector.SqlDataClient",
+        return_value=mock_sqldata_client,
+    ):
+        async with Connector(
+            credentials=fake_credentials,
+            loop=asyncio.get_running_loop(),
+            ip_type=IPTypes.SQL_DATA,
+        ) as connector:
+            connector._client = fake_client
+
+            with patch("google.cloud.sql.connector.pg8000.connect", return_value=True):
+                conn = await connector.connect_async(
+                    "test-project:test-region:test-instance",
+                    "pg8000",
+                    user="my-user",
+                    password="my-pass",
+                    db="my-db",
+                )
+                assert conn is True
+
+
+
+
+def test_Connector_close_handles_exception(fake_credentials: Credentials) -> None:
+    """Test Connector.close() safely handles exception if close_future raises."""
+    connector = Connector(credentials=fake_credentials)
+    with patch(
+        "asyncio.run_coroutine_threadsafe"
+    ) as mock_run:
+        mock_future = MagicMock()
+        mock_future.result.side_effect = TimeoutError("Timed out")
+        mock_run.return_value = mock_future
+        # Should log and not raise exception
+        connector.close()
+
+

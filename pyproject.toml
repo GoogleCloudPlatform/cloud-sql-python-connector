@@ -97,3 +97,17 @@ single-line-exclusions = ["typing"]
 
 [tool.ruff.format]
 quote-style = "double"
+
+[tool.coverage.run]
+omit = ["google/cloud/sql/connector/proto/*"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "@abc.abstractmethod",
+]
+
