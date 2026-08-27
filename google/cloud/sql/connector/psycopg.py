@@ -14,6 +14,7 @@
 
 import logging
 import os
+import platform
 import selectors
 import socket
 import ssl
@@ -123,9 +124,9 @@ def connect(
     """Create a psycopg DBAPI connection object.
 
     Because psycopg does not accept a pre-connected socket, this function
-    creates a temporary Unix domain socket, tells psycopg to connect there,
-    and runs a background proxy that forwards bytes between that socket and
-    the already-established Cloud SQL TLS connection.
+    creates a local listener (Unix domain socket on Unix, TCP loopback on Windows),
+    tells psycopg to connect there, and runs a background proxy that forwards bytes
+    between that socket and the already-established Cloud SQL TLS connection.
 
     Args:
         ip_address (str): IP address of the Cloud SQL instance.
@@ -142,37 +143,48 @@ def connect(
             'Unable to import module "psycopg." Please install and try again.'
         )
 
-    if not hasattr(socket, "AF_UNIX"):
-        raise NotImplementedError(
-            "Unix domain sockets (AF_UNIX) are not supported on this platform"
-        )
+    is_windows = platform.system() == "Windows"
 
-    tmpdir = tempfile.mkdtemp()
-    socket_path = os.path.join(tmpdir, ".s.PGSQL.5432")
-    logger.debug("psycopg: created Unix socket at %s", socket_path)
+    if is_windows:
+        # On Windows, libpq does not support Unix domain sockets.
+        # Use a local TCP loopback socket on an ephemeral port.
+        local_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        local_sock.bind(("127.0.0.1", 0))
+        local_sock.listen(1)
+        host = "127.0.0.1"
+        port = local_sock.getsockname()[1]
+        tmpdir = None
+        socket_path = None
+        logger.debug("psycopg: created TCP loopback listener on 127.0.0.1:%d", port)
+    else:
+        tmpdir = tempfile.mkdtemp()
+        socket_path = os.path.join(tmpdir, ".s.PGSQL.5432")
+        logger.debug("psycopg: created Unix socket at %s", socket_path)
 
-    local_sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-    local_sock.bind(socket_path)
-    local_sock.listen(1)
+        local_sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        local_sock.bind(socket_path)
+        local_sock.listen(1)
+        host = tmpdir
+        port = 5432
 
     def _accept_and_proxy() -> None:
         """Accept one connection then proxy bytes until the connection closes."""
-        unix_conn = None
+        local_conn = None
         try:
-            unix_conn, _ = local_sock.accept()
+            local_conn, _ = local_sock.accept()
             local_sock.close()
             logger.debug("psycopg proxy: accepted connection, starting proxy")
-            _proxy(unix_conn, remote_sock)
+            _proxy(local_conn, remote_sock)
         except Exception as e:  # noqa: BLE001
             logger.debug("psycopg proxy: error in accept/proxy thread: %s", e)
             # Ensure cleanup on any exception
-            if unix_conn:
+            if local_conn:
                 try:
-                    unix_conn.shutdown(socket.SHUT_RDWR)
+                    local_conn.shutdown(socket.SHUT_RDWR)
                 except OSError:
                     pass
                 try:
-                    unix_conn.close()
+                    local_conn.close()
                 except OSError:
                     pass
             try:
@@ -190,20 +202,22 @@ def connect(
     db = kwargs.pop("db")
     passwd = kwargs.pop("password", None)
     # SSL is already handled by the underlying SSLSocket; disable it on the
-    # Unix socket so psycopg does not attempt a second TLS handshake.
+    # local socket so psycopg does not attempt a second TLS handshake.
     kwargs.pop("sslmode", None)
     timeout = kwargs.pop("timeout", None)
     if timeout is not None:
         kwargs["connect_timeout"] = int(timeout)
 
-    logger.debug("psycopg: connecting as user=%s dbname=%s", user, db)
+    logger.debug(
+        "psycopg: connecting as user=%s dbname=%s to %s:%s", user, db, host, port
+    )
     try:
         conn = psycopg.connect(
             user=user,
             dbname=db,
             password=passwd,
-            host=tmpdir,
-            port=5432,
+            host=host,
+            port=port,
             sslmode="disable",
             **kwargs,
         )
@@ -225,11 +239,13 @@ def connect(
     finally:
         # The socket file and its parent directory are only needed during the
         # initial connect() call; remove them now regardless of outcome.
-        try:
-            os.remove(socket_path)
-        except OSError:
-            pass
-        try:
-            os.rmdir(tmpdir)
-        except OSError:
-            pass
+        if socket_path:
+            try:
+                os.remove(socket_path)
+            except OSError:
+                pass
+        if tmpdir:
+            try:
+                os.rmdir(tmpdir)
+            except OSError:
+                pass

@@ -13,12 +13,12 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
+
 from __future__ import annotations
 
 import asyncio
 from datetime import datetime
 import os
-import socket
 
 import pytest
 import sqlalchemy
@@ -26,11 +26,6 @@ import sqlalchemy
 from google.cloud.sql.connector import Connector
 from google.cloud.sql.connector import DefaultResolver
 from google.cloud.sql.connector import DnsResolver
-
-pytestmark = pytest.mark.skipif(
-    not hasattr(socket, "AF_UNIX"),
-    reason="Unix domain sockets (AF_UNIX) not available on this platform",
-)
 
 
 def create_sqlalchemy_engine(
@@ -131,7 +126,9 @@ def test_customer_managed_CAS_psycopg_connection() -> None:
     ip_type = os.environ.get("IP_TYPE", "public")
 
     if not inst_conn_name or not password:
-        pytest.skip("POSTGRES_CUSTOMER_CAS_CONNECTION_NAME or POSTGRES_CUSTOMER_CAS_PASS not set")
+        pytest.skip(
+            "POSTGRES_CUSTOMER_CAS_CONNECTION_NAME or POSTGRES_CUSTOMER_CAS_PASS not set"
+        )
 
     engine, connector = create_sqlalchemy_engine(
         inst_conn_name, user, password, db, ip_type
@@ -153,7 +150,9 @@ def test_custom_SAN_with_dns_psycopg_connection() -> None:
     ip_type = os.environ.get("IP_TYPE", "public")
 
     if not inst_conn_name or not password:
-        pytest.skip("POSTGRES_CUSTOMER_CAS_PASS_VALID_DOMAIN_NAME or POSTGRES_CUSTOMER_CAS_PASS not set")
+        pytest.skip(
+            "POSTGRES_CUSTOMER_CAS_PASS_VALID_DOMAIN_NAME or POSTGRES_CUSTOMER_CAS_PASS not set"
+        )
 
     engine, connector = create_sqlalchemy_engine(
         inst_conn_name, user, password, db, ip_type, resolver=DnsResolver
