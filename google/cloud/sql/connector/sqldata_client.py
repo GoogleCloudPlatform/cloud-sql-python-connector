@@ -22,15 +22,14 @@ import socket
 import threading
 from typing import Any, Callable
 
+from google.api_core.client_options import ClientOptions
+from google.api_core.exceptions import ResourceExhausted
 from google.auth.credentials import Credentials
-from google.auth.transport.grpc import AuthMetadataPlugin
-from google.auth.transport.requests import Request
 import grpc
 
+from google.cloud import sqladmin_v1beta4
 from google.cloud.sql.connector.enums import IPTypes
 from google.cloud.sql.connector.exceptions import CloudSQLIPTypeError
-from google.cloud.sql.connector.proto import sql_data_service_pb2  # type: ignore
-from google.cloud.sql.connector.proto import sql_data_service_pb2_grpc  # type: ignore
 
 SERVER_PROXY_PORT = 3307
 _EOF_SENTINEL = object()
@@ -40,7 +39,9 @@ logger = logging.getLogger(__name__)
 
 
 def is_resource_exhausted_error(err: Exception) -> bool:
-    """Checks whether an exception represents a gRPC RESOURCE_EXHAUSTED error."""
+    """Checks whether an exception represents a RESOURCE_EXHAUSTED error."""
+    if isinstance(err, ResourceExhausted):
+        return True
     if isinstance(err, grpc.RpcError):
         try:
             return err.code() == grpc.StatusCode.RESOURCE_EXHAUSTED
@@ -55,6 +56,7 @@ def is_resource_exhausted_error(err: Exception) -> bool:
     if isinstance(cause, Exception) and cause is not err:
         return is_resource_exhausted_error(cause)
     return False
+
 
 
 class _RequestQueue:
@@ -127,7 +129,7 @@ class SqlDataSocket(socket.socket):
         self,
         request_queue: _RequestQueue,
         response_stream: Any,
-        channel: grpc.Channel,
+        grpc_client: sqladmin_v1beta4.SqlDataServiceClient | None = None,
         timeout: float | None = None,
         on_close: Callable[[], None] | None = None,
         on_success: Callable[[], None] | None = None,
@@ -137,7 +139,7 @@ class SqlDataSocket(socket.socket):
         super().__init__(socket.AF_INET, socket.SOCK_STREAM)
         self._request_queue = request_queue
         self._response_stream = response_stream
-        self._channel = channel
+        self._grpc_client = grpc_client
         self._timeout = timeout
         self._on_close = on_close
         self._on_success = on_success
@@ -169,14 +171,28 @@ class SqlDataSocket(socket.socket):
                     self._first_read_done = True
                     if self._on_success:
                         self._on_success()
-                msg_type = resp.WhichOneof("message")
-                if msg_type == "data":
+                raw_pb = (
+                    sqladmin_v1beta4.StreamSqlDataResponse.pb(resp)
+                    if hasattr(sqladmin_v1beta4.StreamSqlDataResponse, "pb")
+                    and isinstance(resp, sqladmin_v1beta4.StreamSqlDataResponse)
+                    else resp
+                )
+                which = (
+                    raw_pb.WhichOneof("message")
+                    if hasattr(raw_pb, "WhichOneof")
+                    else None
+                )
+                if which == "data" or (which is None and hasattr(resp, "data") and resp.data):
                     data = resp.data.data
                     if data:
                         self._read_queue.put(data)
-                elif msg_type == "session_metadata":
+                elif which == "session_metadata" or (
+                    which is None and hasattr(resp, "session_metadata") and resp.session_metadata
+                ):
                     logger.debug("Received SessionMetadata")
-                elif msg_type == "terminate_session":
+                elif which == "terminate_session" or (
+                    which is None and hasattr(resp, "terminate_session") and resp.terminate_session
+                ):
                     logger.debug("Received TerminateSession from server")
                     self._closed = True
                     break
@@ -202,9 +218,10 @@ class SqlDataSocket(socket.socket):
         data_bytes = bytes(data) if not isinstance(data, bytes) else data
         if not self._first_read_done:
             self._write_buffer.extend(data_bytes)
-        packet = sql_data_service_pb2.DataPacket(data=data_bytes)  # type: ignore[attr-defined]
-        req = sql_data_service_pb2.StreamSqlDataRequest(data=packet)  # type: ignore[attr-defined]
+        packet = sqladmin_v1beta4.DataPacket(data=data_bytes)
+        req = sqladmin_v1beta4.StreamSqlDataRequest(data=packet)
         self._request_queue.put(req)
+
 
     def send(  # type: ignore[override]
         self, data: Any, flags: int = 0
@@ -395,7 +412,12 @@ class SqlDataSocket(socket.socket):
         except Exception:  # noqa: BLE001, S110
             pass
         try:
-            self._channel.close()
+            if (
+                self._grpc_client is not None
+                and hasattr(self._grpc_client, "transport")
+                and hasattr(self._grpc_client.transport, "close")
+            ):
+                self._grpc_client.transport.close()
         except Exception:  # noqa: BLE001, S110
             pass
         try:
@@ -486,32 +508,28 @@ class SqlDataClient:
             create_direct = await get_direct_socket_sync_factory()
             return create_direct()
 
-        # Connect synchronous gRPC stream
-        auth_request = Request()
-        plugin = AuthMetadataPlugin(self._credentials, auth_request)
-        call_creds = grpc.metadata_call_credentials(plugin)
-        channel_creds = grpc.composite_channel_credentials(
-            grpc.ssl_channel_credentials(), call_creds
-        )
-
+        # Connect synchronous gRPC stream via GAPIC client
         endpoint = self._endpoint.removeprefix("https://").removeprefix("http://")
-        channel = grpc.secure_channel(endpoint, channel_creds)
+        client_options = ClientOptions(
+            api_endpoint=endpoint,
+            quota_project_id=self._quota_project,
+        )
+        grpc_client = sqladmin_v1beta4.SqlDataServiceClient(
+            credentials=self._credentials,
+            client_options=client_options,
+        )
 
         instance_id = (
             f"projects/{project}/instances/{instance_connection_name.split(':')[-1]}"
         )
         location_id = f"locations/{region}"
 
-        metadata = []
-        quota_project_in_creds = getattr(self._credentials, "quota_project_id", None)
-        if self._quota_project and self._quota_project != quota_project_in_creds:
-            metadata.append(("x-goog-user-project", self._quota_project))
-        metadata.append(
+        metadata = [
             (
                 "x-goog-request-params",
                 f"instance_id={instance_id}&location_id={location_id}",
             )
-        )
+        ]
 
         create_direct_sock_fn: Callable[[], socket.socket] | None = None
         try:
@@ -525,26 +543,34 @@ class SqlDataClient:
                 raise ValueError("No direct fallback connection factory available.")
             return create_direct_sock_fn()
 
-        stub = sql_data_service_pb2_grpc.SqlDataServiceStub(channel)
-
         try:
             request_queue = _RequestQueue()
-            start_session = sql_data_service_pb2.StartSession(  # type: ignore[attr-defined]
+            start_session = sqladmin_v1beta4.StartSession(
                 instance_id=instance_id, location_id=location_id
             )
-            req = sql_data_service_pb2.StreamSqlDataRequest(  # type: ignore[attr-defined]
+            req = sqladmin_v1beta4.StreamSqlDataRequest(
                 start_session=start_session
             )
             request_queue.put(req)
 
-            response_stream = stub.StreamSqlData(
-                request_queue, metadata=metadata, timeout=self._timeout
-            )
+            response_stream: Any
+            if hasattr(grpc_client, "transport") and hasattr(
+                grpc_client.transport, "stream_sql_data"
+            ):
+                response_stream = grpc_client.transport.stream_sql_data(  # type: ignore[call-arg]
+                    request_queue,  # type: ignore[arg-type]
+                    metadata=metadata,
+                    timeout=self._timeout,
+                )
+            else:
+                response_stream = grpc_client.stream_sql_data(  # type: ignore[arg-type]
+                    requests=request_queue, metadata=metadata, timeout=self._timeout
+                )
 
             sock = SqlDataSocket(
                 request_queue=request_queue,
                 response_stream=response_stream,
-                channel=channel,
+                grpc_client=grpc_client,
                 timeout=connect_timeout,
                 on_close=lambda: self._active_sockets.discard(sock),
                 on_success=on_success,
@@ -557,7 +583,8 @@ class SqlDataClient:
         except Exception as e:
             logger.debug(f"Sync gRPC connection attempt failed: {e}")
             try:
-                channel.close()
+                if hasattr(grpc_client, "transport") and hasattr(grpc_client.transport, "close"):
+                    grpc_client.transport.close()
             except Exception:  # noqa: BLE001, S110
                 pass
 
@@ -576,6 +603,7 @@ class SqlDataClient:
                 return create_direct_sock_fn()
             create_direct = await get_direct_socket_sync_factory()
             return create_direct()
+
 
     async def close(self) -> None:
         """Closes all active sockets created by this client."""
