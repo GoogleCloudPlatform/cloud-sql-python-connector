@@ -6,3 +6,5 @@ exclude_lines =
     raise NotImplementedError
     if __name__ == .__main__.:
     @abc.abstractmethod
+    if TYPE_CHECKING:
+
