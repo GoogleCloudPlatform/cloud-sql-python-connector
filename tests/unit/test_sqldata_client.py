@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+import queue
 import socket
 import time
 from unittest.mock import AsyncMock
@@ -133,14 +134,20 @@ def test_is_resource_exhausted_error_code_exception():
         def code(self):
             raise RuntimeError("code failed")
 
+    class BrokenRpcError(grpc.RpcError):
+        def code(self):
+            raise RuntimeError("code failed")
+
     err = BrokenError()
     assert not is_resource_exhausted_error(err)
+    assert not is_resource_exhausted_error(BrokenRpcError())
 
     # Wrapped with code exception in parent but valid in cause
     wrapped = Exception("wrapper")
     wrapped.__cause__ = MockRpcError(grpc.StatusCode.RESOURCE_EXHAUSTED)
     err.__cause__ = wrapped
     assert is_resource_exhausted_error(err)
+
 
 
 def test_request_queue_operations():
@@ -270,6 +277,10 @@ def test_sqldata_socket_makefile_modes():
     # Text read mode
     f_text = sock.makefile(mode="r", encoding="utf-8")
     assert hasattr(f_text, "readline")
+
+    # Default read mode without r/w/+
+    f_default = sock.makefile(mode="b")
+    assert hasattr(f_default, "read")
 
     sock.close()
 
@@ -801,5 +812,230 @@ def test_sqldata_socket_transparent_fallback():
     mock_direct_sock.sendall.assert_called_once_with(b"startup message")
     mock_direct_sock.recv.assert_called_once_with(1024, 0)
     sock.close()
+
+
+def test_sqldata_socket_reader_loop_closed():
+    mock_response_stream = MagicMock()
+    mock_grpc_client = MagicMock()
+    req_queue = _RequestQueue()
+
+    def stream_loop():
+        yield sqladmin_v1beta4.StreamSqlDataResponse()
+        time.sleep(0.05)
+        yield sqladmin_v1beta4.StreamSqlDataResponse()
+
+    mock_response_stream.__iter__.side_effect = stream_loop
+
+    sock = SqlDataSocket(
+        request_queue=req_queue,
+        response_stream=mock_response_stream,
+        grpc_client=mock_grpc_client,
+        timeout=1.0,
+    )
+    sock._closed = True
+    time.sleep(0.1)
+    sock.close()
+
+
+def test_sqldata_socket_recv_closed_empty_queue():
+    mock_response_stream = MagicMock()
+    mock_grpc_client = MagicMock()
+    req_queue = _RequestQueue()
+    mock_response_stream.__iter__.return_value = iter([])
+
+    sock = SqlDataSocket(
+        request_queue=req_queue,
+        response_stream=mock_response_stream,
+        grpc_client=mock_grpc_client,
+        timeout=0.01,
+    )
+    try:
+        sock._read_queue.get_nowait()
+    except queue.Empty:
+        pass
+    sock._closed = True
+    assert sock.recv(1024) == b""
+    sock.close()
+
+
+def test_sqldata_socket_close_with_exceptions():
+    mock_response_stream = MagicMock()
+    mock_grpc_client = MagicMock()
+    req_queue = _RequestQueue()
+    mock_response_stream.__iter__.return_value = iter([])
+
+    mock_direct_sock = MagicMock()
+    mock_direct_sock.close.side_effect = Exception("direct close error")
+
+    sock = SqlDataSocket(
+        request_queue=req_queue,
+        response_stream=mock_response_stream,
+        grpc_client=mock_grpc_client,
+        timeout=0.01,
+    )
+    sock._direct_sock = mock_direct_sock
+
+    with patch("socket.socket.close", side_effect=Exception("super close error")):
+        sock.close()
+
+
+@pytest.mark.asyncio
+async def test_sqldata_client_fallback_no_ips():
+    creds = MagicMock(spec=Credentials)
+    client = SqlDataClient(
+        endpoint="https://example.com",
+        credentials=creds,
+    )
+    mock_conn_info = MagicMock()
+    mock_conn_info.get_preferred_ips.return_value = []
+    get_conn_info = AsyncMock(return_value=mock_conn_info)
+
+    with pytest.raises(ValueError, match="no IP address available"):
+        await client.connect(
+            instance_connection_name="proj:region:inst",
+            region="region",
+            project="proj",
+            get_conn_info=get_conn_info,
+            enable_iam_auth=False,
+            on_fallback=MagicMock(),
+            is_fallback_cached=lambda _: True,
+        )
+
+
+@pytest.mark.asyncio
+async def test_sqldata_client_connect_fallback_fn_invoked():
+    creds = MagicMock(spec=Credentials)
+    client = SqlDataClient(
+        endpoint="https://example.com",
+        credentials=creds,
+    )
+
+    mock_raw_sock = MagicMock(spec=socket.socket)
+    mock_ssl_sock = MagicMock(spec=socket.socket)
+    mock_ssl_sock.recv.return_value = b"direct response"
+    mock_ssl_ctx = MagicMock()
+    mock_ssl_ctx.wrap_socket.return_value = mock_ssl_sock
+
+    mock_conn_info = MagicMock()
+    mock_conn_info.get_preferred_ips.return_value = ["1.2.3.4"]
+    mock_conn_info.create_ssl_context = AsyncMock(return_value=mock_ssl_ctx)
+    get_conn_info = AsyncMock(return_value=mock_conn_info)
+
+    mock_grpc_client = MagicMock()
+    del mock_grpc_client.transport
+
+    def stream_failing(*args, **kwargs):
+        raise MockRpcError(grpc.StatusCode.FAILED_PRECONDITION)
+        yield
+
+    mock_stream = MagicMock()
+    mock_stream.__iter__.side_effect = stream_failing
+    mock_grpc_client.stream_sql_data.return_value = mock_stream
+
+    with patch(
+        "google.cloud.sqladmin_v1beta4.SqlDataServiceClient",
+        return_value=mock_grpc_client,
+    ), patch(
+        "socket.create_connection", return_value=mock_raw_sock
+    ):
+        on_fallback = MagicMock()
+        sock = await client.connect(
+            instance_connection_name="proj:region:inst",
+            region="region",
+            project="proj",
+            get_conn_info=get_conn_info,
+            enable_iam_auth=False,
+            on_fallback=on_fallback,
+            is_fallback_cached=lambda _: False,
+        )
+        resp = sock.recv(1024)
+        assert resp == b"direct response"
+        on_fallback.assert_called_once_with("proj:region:inst")
+        await client.close()
+
+
+@pytest.mark.asyncio
+async def test_sqldata_client_connect_fallback_fn_none():
+    creds = MagicMock(spec=Credentials)
+    client = SqlDataClient(
+        endpoint="https://example.com",
+        credentials=creds,
+    )
+
+    mock_conn_info = MagicMock()
+    mock_conn_info.get_preferred_ips.side_effect = Exception("ip failure")
+    get_conn_info = AsyncMock(return_value=mock_conn_info)
+
+    mock_grpc_client = MagicMock()
+    mock_grpc_client.transport.stream_sql_data = mock_grpc_client.stream_sql_data
+
+    def stream_failing(*args, **kwargs):
+        raise MockRpcError(grpc.StatusCode.FAILED_PRECONDITION)
+        yield
+
+    mock_stream = MagicMock()
+    mock_stream.__iter__.side_effect = stream_failing
+    mock_grpc_client.stream_sql_data.return_value = mock_stream
+
+    with patch(
+        "google.cloud.sqladmin_v1beta4.SqlDataServiceClient",
+        return_value=mock_grpc_client,
+    ):
+        on_fallback = MagicMock()
+        sock = await client.connect(
+            instance_connection_name="proj:region:inst",
+            region="region",
+            project="proj",
+            get_conn_info=get_conn_info,
+            enable_iam_auth=False,
+            on_fallback=on_fallback,
+            is_fallback_cached=lambda _: False,
+        )
+        with pytest.raises(ValueError, match="No direct fallback connection factory available"):
+            sock.recv(1024)
+        await client.close()
+
+
+@pytest.mark.asyncio
+async def test_sqldata_client_connect_close_transport_exception():
+    creds = MagicMock(spec=Credentials)
+    client = SqlDataClient(
+        endpoint="https://example.com",
+        credentials=creds,
+    )
+    mock_raw_sock = MagicMock(spec=socket.socket)
+    mock_ssl_sock = MagicMock(spec=socket.socket)
+    mock_ssl_ctx = MagicMock()
+    mock_ssl_ctx.wrap_socket.return_value = mock_ssl_sock
+
+    mock_conn_info = MagicMock()
+    mock_conn_info.get_preferred_ips.return_value = ["1.2.3.4"]
+    mock_conn_info.create_ssl_context = AsyncMock(
+        side_effect=[Exception("init prep fail"), mock_ssl_ctx]
+    )
+    get_conn_info = AsyncMock(return_value=mock_conn_info)
+
+    mock_grpc_client = MagicMock()
+    mock_grpc_client.transport.stream_sql_data.side_effect = Exception("stream fail")
+    mock_grpc_client.transport.close.side_effect = Exception("close fail")
+
+    with patch(
+        "google.cloud.sqladmin_v1beta4.SqlDataServiceClient",
+        return_value=mock_grpc_client,
+    ), patch(
+        "socket.create_connection", return_value=mock_raw_sock
+    ):
+        sock = await client.connect(
+            instance_connection_name="proj:region:inst",
+            region="region",
+            project="proj",
+            get_conn_info=get_conn_info,
+            enable_iam_auth=False,
+            on_fallback=MagicMock(),
+            is_fallback_cached=lambda _: False,
+        )
+        assert sock is mock_ssl_sock
+        await client.close()
+
 
 
