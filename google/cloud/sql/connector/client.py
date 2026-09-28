@@ -173,9 +173,13 @@ class CloudSQLClient:
             if psc_dns_names:
                 ip_addresses["PSC"] = psc_dns_names
 
+        server_ca_cert = None
+        if "serverCaCert" in ret_dict and "cert" in ret_dict["serverCaCert"]:
+            server_ca_cert = ret_dict["serverCaCert"]["cert"]
+
         return {
             "ip_addresses": ip_addresses,
-            "server_ca_cert": ret_dict["serverCaCert"]["cert"],
+            "server_ca_cert": server_ca_cert,
             "database_version": ret_dict["databaseVersion"],
         }
 
@@ -271,7 +275,15 @@ class CloudSQLClient:
         finally:
             resp.raise_for_status()
 
-        ephemeral_cert: str = ret_dict["ephemeralCert"]["cert"]
+        try:
+            ephemeral_cert: str = ret_dict["ephemeralCert"]["cert"]
+        except KeyError as e:
+            logger.error(
+                "KeyError in _get_ephemeral parsing generateEphemeralCert: %s. Response dict: %s",
+                e,
+                ret_dict,
+            )
+            raise
 
         # decode cert to read expiration
         x509 = load_pem_x509_certificate(

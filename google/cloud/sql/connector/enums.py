@@ -41,6 +41,7 @@ class IPTypes(Enum):
     PUBLIC = "PRIMARY"
     PRIVATE = "PRIVATE"
     PSC = "PSC"
+    SQL_DATA = "SQL_DATA"
 
     @classmethod
     def _missing_(cls, value: object) -> None:
@@ -54,6 +55,8 @@ class IPTypes(Enum):
         """Convert IP type from a str into IPTypes."""
         if ip_type_str.upper() == "PUBLIC":
             ip_type_str = "PRIMARY"
+        elif ip_type_str.upper() in ("SQLDATA", "SQL_DATA"):
+            ip_type_str = "SQL_DATA"
         return cls(ip_type_str.upper())
 
 
