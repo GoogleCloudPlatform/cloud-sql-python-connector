@@ -84,9 +84,20 @@ class RefreshAheadCache(ConnectionInfoCache):
             rate=1 / 30,
         )
         self._refresh_in_progress = asyncio.locks.Event()
+        self._iam_principals: list[tuple[str, str]] = []
         self._current: asyncio.Task = self._schedule_refresh(0)
         self._next: asyncio.Task = self._current
         self._closed = False
+
+    def record_principal(self, user: str, database: str) -> None:
+        """Records a PostgreSQL (user, database) pair observed on an IAM connection."""
+        if not user:
+            return
+        if not database:
+            database = user
+        pair = (user, database)
+        if pair not in self._iam_principals:
+            self._iam_principals.append(pair)
 
     @property
     def conn_name(self) -> ConnectionName:
@@ -175,37 +186,69 @@ class RefreshAheadCache(ConnectionInfoCache):
             )
             return
 
-        for target in targets:
-            try:
-                logger.debug(
-                    f"['{self._conn_name}']: Probing IAM token refresh on {target}:{port}"
-                )
-                _, writer = await asyncio.wait_for(
-                    asyncio.open_connection(
-                        host=target,
-                        port=port,
-                        ssl=ssl_context,
-                        server_hostname=(
-                            self._conn_name.domain_name
-                            if self._conn_name.domain_name
-                            else None
+        principals: list[tuple[str, str] | None] = []
+        if (
+            conn_info.database_version.startswith("POSTGRES")
+            and self._iam_principals
+        ):
+            principals.extend(self._iam_principals)
+        else:
+            principals.append(None)
+
+        all_succeeded = True
+        for principal in principals:
+            probed_principal = False
+            for target in targets:
+                try:
+                    logger.debug(
+                        f"['{self._conn_name}']: Probing IAM token refresh on {target}:{port}"
+                    )
+                    reader, writer = await asyncio.wait_for(
+                        asyncio.open_connection(
+                            host=target,
+                            port=port,
+                            ssl=ssl_context,
+                            server_hostname=(
+                                self._conn_name.domain_name
+                                if self._conn_name.domain_name
+                                else None
+                            ),
                         ),
-                    ),
-                    timeout=float(self._timeout),
-                )
-                writer.close()
-                await writer.wait_closed()
-                logger.debug(
-                    f"['{self._conn_name}']: Proactive IAM token refresh probe successful"
-                )
-                return
-            except Exception as e:  # noqa: BLE001
-                logger.debug(
-                    f"['{self._conn_name}']: Probing IAM token refresh on {target}:{port} failed: {e!s}"
-                )
-        logger.debug(
-            f"['{self._conn_name}']: Proactive IAM token refresh probe encountered error across all targets"
-        )
+                        timeout=float(self._timeout),
+                    )
+                    try:
+                        if principal is not None:
+                            user, database = principal
+                            writer.write(
+                                _build_postgres_startup_packet(user, database)
+                            )
+                            await writer.drain()
+                            await asyncio.wait_for(
+                                reader.read(1024),
+                                timeout=float(self._timeout),
+                            )
+                            writer.write(b"X\x00\x00\x00\x04")
+                            await writer.drain()
+                    finally:
+                        writer.close()
+                        await writer.wait_closed()
+                    probed_principal = True
+                    break
+                except Exception as e:  # noqa: BLE001
+                    logger.debug(
+                        f"['{self._conn_name}']: Probing IAM token refresh on {target}:{port} failed: {e!s}"
+                    )
+            if not probed_principal:
+                all_succeeded = False
+
+        if all_succeeded:
+            logger.debug(
+                f"['{self._conn_name}']: Proactive IAM token refresh probe successful"
+            )
+        else:
+            logger.debug(
+                f"['{self._conn_name}']: Proactive IAM token refresh probe encountered error across all targets"
+            )
 
     def _schedule_refresh(self, delay: int) -> asyncio.Task:
         """
@@ -292,3 +335,18 @@ class RefreshAheadCache(ConnectionInfoCache):
         tasks = asyncio.gather(self._current, self._next, return_exceptions=True)
         await asyncio.wait_for(tasks, timeout=2.0)
         self._closed = True
+
+
+def _build_postgres_startup_packet(user: str, database: str) -> bytes:
+    """Builds a PostgreSQL v3.0 StartupMessage for (user, database)."""
+    if not database:
+        database = user
+    body = (
+        b"user\x00"
+        + user.encode("utf-8")
+        + b"\x00database\x00"
+        + database.encode("utf-8")
+        + b"\x00\x00"
+    )
+    total_len = 8 + len(body)
+    return total_len.to_bytes(4, byteorder="big") + b"\x00\x03\x00\x00" + body

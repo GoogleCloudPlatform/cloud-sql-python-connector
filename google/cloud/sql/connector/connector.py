@@ -439,6 +439,9 @@ class Connector:
                     f"['{instance_connection_string}']: Truncated IAM database username from {kwargs['user']} to {formatted_user}"
                 )
                 kwargs["user"] = formatted_user
+            if conn_info.database_version.startswith("POSTGRES"):
+                db_name = kwargs.get("db") or kwargs.get("database") or kwargs["user"]
+                monitored_cache.record_principal(kwargs["user"], str(db_name))
 
         try:
             last_ex = None
