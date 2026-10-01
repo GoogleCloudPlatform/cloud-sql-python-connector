@@ -140,8 +140,7 @@ class MonitoredCache(ConnectionInfoCache):
         return await self.cache.force_refresh()
 
     def record_principal(self, user: str, database: str) -> None:
-        if hasattr(self.cache, "record_principal"):
-            self.cache.record_principal(user, database)
+        self.cache.record_principal(user, database)
 
     async def close(self) -> None:
         # Cancel domain name ticker task.

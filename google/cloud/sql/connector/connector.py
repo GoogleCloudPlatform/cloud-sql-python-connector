@@ -338,6 +338,8 @@ class Connector:
                     self._client,
                     self._keys,
                     enable_iam_auth,
+                    ip_type=self._ip_type,
+                    timeout=self._timeout,
                 )
             else:
                 logger.debug(
