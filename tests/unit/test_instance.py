@@ -398,6 +398,7 @@ async def test_probe_connection_postgres_startup_packet(
 ) -> None:
     """Test that _probe_connection sends PostgreSQL v3 StartupMessage and Terminate when IAM principal is recorded."""
     from unittest.mock import MagicMock
+
     from google.cloud.sql.connector.instance import _build_postgres_startup_packet
 
     cache._enable_iam_auth = True

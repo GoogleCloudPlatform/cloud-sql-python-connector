@@ -119,7 +119,9 @@ async def test_LazyRefreshCache_probe_connection_postgres_startup_packet(
     Test that LazyRefreshCache.connect_info probes the instance with a PostgreSQL
     StartupMessage and Terminate when enable_iam_auth=True and a principal is recorded.
     """
-    from unittest.mock import MagicMock, patch
+    from unittest.mock import MagicMock
+    from unittest.mock import patch
+
     from google.cloud.sql.connector.instance import _build_postgres_startup_packet
 
     keys = asyncio.create_task(generate_keys())
