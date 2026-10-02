@@ -46,6 +46,10 @@ class ConnectionInfoCache(abc.ABC):
         pass
 
     @abc.abstractmethod
+    def record_principal(self, user: str, database: str) -> None:
+        pass
+
+    @abc.abstractmethod
     async def close(self) -> None:
         pass
 
