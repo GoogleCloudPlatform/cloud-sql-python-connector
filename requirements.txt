@@ -1,6 +1,6 @@
 certifi==2026.7.22
 cryptography==50.0.0
-filelock==3.32.3
+filelock==4.0.9
 google-auth==2.56.3
 idna==3.19
 packaging==26.3
