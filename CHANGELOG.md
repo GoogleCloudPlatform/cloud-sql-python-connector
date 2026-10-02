@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.22.1](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v1.22.0...v1.22.1) (2026-10-02)
+
+
+### Bug Fixes
+
+* send PostgreSQL v3 StartupMessage in proactive IAM refresh probe for MCP ([#1480](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/1480)) ([d531553](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/d53155380010b99d6c351052487a5680360dd8ca))
+
 ## [1.22.0](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v1.21.0...v1.22.0) (2026-08-18)
 
 
