@@ -18,10 +18,11 @@ limitations under the License.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 import datetime
 import json
 import ssl
-from typing import Any, Callable, Literal
+from typing import Any, Literal
 
 from aiohttp import web
 from cryptography import x509

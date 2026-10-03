@@ -17,11 +17,12 @@ limitations under the License.
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Callable
 import copy
 import datetime
 import logging
 import random
-from typing import Any, Callable
+from typing import Any
 
 import aiohttp
 from google.auth.credentials import Credentials

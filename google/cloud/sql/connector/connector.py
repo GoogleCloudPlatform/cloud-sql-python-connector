@@ -17,13 +17,14 @@ limitations under the License.
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Callable
 from functools import partial
 import logging
 import os
 import socket
 from threading import Thread
 from types import TracebackType
-from typing import Any, Callable
+from typing import Any
 
 import google.auth
 from google.auth.credentials import Credentials
