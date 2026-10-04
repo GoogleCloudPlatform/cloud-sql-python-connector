@@ -483,7 +483,13 @@ class Connector:
                         sock,
                         **kwargs,
                     )
-                    conn = await self._loop.run_in_executor(None, connect_partial)
+                    try:
+                        conn = await self._loop.run_in_executor(None, connect_partial)
+                    except Exception:
+                        sock.close()
+                        if sock in monitored_cache.sockets:
+                            monitored_cache.sockets.remove(sock)
+                        raise
                     last_ex = None
                     return conn
                 except Exception as e:  # noqa: BLE001

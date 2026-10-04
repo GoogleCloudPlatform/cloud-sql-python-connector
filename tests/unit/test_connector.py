@@ -954,6 +954,46 @@ async def test_Connector_connect_async_sync_driver_ssl_error(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("use_domain", [False, True])
+async def test_Connector_connect_async_sync_driver_error_closes_socket(
+    fake_credentials: Credentials, fake_client: CloudSQLClient, use_domain: bool
+) -> None:
+    """A driver error must release its socket and remove failover tracking."""
+    conn_name = ConnectionName(
+        "test-project", "test-region", "test-instance",
+        "db.example.com" if use_domain else None,
+    )
+    with patch(
+        "google.cloud.sql.connector.resolver.DnsResolver.resolve_a_record",
+        return_value=["1.2.3.4"],
+    ), patch(
+        "google.cloud.sql.connector.resolver.DnsResolver.resolve",
+        return_value=conn_name,
+    ):
+        async with Connector(
+            credentials=fake_credentials,
+            loop=asyncio.get_running_loop(),
+            resolver=DnsResolver,
+        ) as connector:
+            connector._client = fake_client
+            mock_sock = MagicMock()
+            with patch(
+                "google.cloud.sql.connector.connector.socket.create_connection",
+                return_value=MagicMock(),
+            ), patch("ssl.SSLContext.wrap_socket", return_value=mock_sock):
+                # The real pg8000 adapter raises before handing the socket to
+                # the driver when the required database argument is missing.
+                with pytest.raises(KeyError, match="database"):
+                    await connector.connect_async(
+                        str(conn_name), "pg8000", user="my-user"
+                    )
+
+                mock_sock.close.assert_called_once()
+                monitored_cache = connector._cache[(str(conn_name), False)]
+                assert mock_sock not in monitored_cache.sockets
+
+
+@pytest.mark.asyncio
 async def test_Connector_connect_async_sync_driver_domain_name(
     fake_credentials: Credentials, fake_client: CloudSQLClient
 ) -> None:
@@ -1001,6 +1041,7 @@ async def test_Connector_connect_async_sync_driver_domain_name(
                 monitored_cache = connector._cache[(str(conn_name_with_domain), False)]
                 # Verify mock_sock was appended to monitored_cache.sockets
                 assert mock_sock in monitored_cache.sockets
+                mock_sock.close.assert_not_called()
 
 
 @pytest.mark.asyncio
