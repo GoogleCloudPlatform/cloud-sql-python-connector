@@ -285,7 +285,7 @@ class CloudSQLClient:
             # google.auth library strips timezone info for backwards compatibality
             # reasons with Python 2. Add it back to allow timezone aware datetimes.
             # Ref: https://github.com/googleapis/google-auth-library-python/blob/49a5ff7411a2ae4d32a7d11700f9f961c55406a9/google/auth/_helpers.py#L93-L99
-            token_expiration = token_expiration.replace(tzinfo=datetime.timezone.utc)
+            token_expiration = token_expiration.replace(tzinfo=datetime.UTC)
 
             expiration = min(expiration, token_expiration)
         return ephemeral_cert, expiration

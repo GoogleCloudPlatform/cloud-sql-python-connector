@@ -17,7 +17,7 @@ from __future__ import annotations
 import asyncio
 from datetime import datetime
 from datetime import timedelta
-from datetime import timezone
+from datetime import UTC
 import logging
 
 from google.cloud.sql.connector.client import CloudSQLClient
@@ -121,7 +121,7 @@ class LazyRefreshCache(ConnectionInfoCache):
             if (
                 self._cached
                 and not self._needs_refresh
-                and datetime.now(timezone.utc)
+                and datetime.now(UTC)
                 < (self._cached.expiration - timedelta(seconds=_refresh_buffer))
             ):
                 logger.debug(
