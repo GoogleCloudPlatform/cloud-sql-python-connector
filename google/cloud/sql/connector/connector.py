@@ -338,8 +338,6 @@ class Connector:
                     self._client,
                     self._keys,
                     enable_iam_auth,
-                    ip_type=self._ip_type,
-                    timeout=self._timeout,
                 )
             else:
                 logger.debug(
@@ -350,8 +348,6 @@ class Connector:
                     self._client,
                     self._keys,
                     enable_iam_auth,
-                    ip_type=self._ip_type,
-                    timeout=self._timeout,
                 )
             # wrap cache as a MonitoredCache
             monitored_cache = MonitoredCache(
@@ -441,9 +437,6 @@ class Connector:
                     f"['{instance_connection_string}']: Truncated IAM database username from {kwargs['user']} to {formatted_user}"
                 )
                 kwargs["user"] = formatted_user
-            if conn_info.database_version.startswith("POSTGRES"):
-                db_name = kwargs.get("db") or kwargs.get("database") or kwargs["user"]
-                monitored_cache.record_principal(kwargs["user"], str(db_name))
 
         try:
             last_ex = None
