@@ -75,3 +75,16 @@ def test_format_database_user_mysql() -> None:
     user2 = utils.format_database_user("MYSQL_8_0", "test")
     assert user == "test"
     assert user2 == "test"
+
+
+def test_iptypes_from_str() -> None:
+    """Test IPTypes._from_str parses string values properly."""
+    from google.cloud.sql.connector.enums import IPTypes
+
+    assert IPTypes._from_str("sqldata") == IPTypes.SQL_DATA
+    assert IPTypes._from_str("sql_data") == IPTypes.SQL_DATA
+    assert IPTypes._from_str("public") == IPTypes.PUBLIC
+    assert IPTypes._from_str("private") == IPTypes.PRIVATE
+    assert IPTypes._from_str("psc") == IPTypes.PSC
+
+

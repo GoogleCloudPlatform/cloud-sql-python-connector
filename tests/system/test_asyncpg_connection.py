@@ -283,3 +283,5 @@ async def test_lazy_connection_with_asyncpg() -> None:
         assert res[0][0] == 1
 
     await connector.close_async()
+
+
