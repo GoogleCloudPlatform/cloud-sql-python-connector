@@ -103,7 +103,7 @@ async def test_get_ephemeral(fake_client: CloudSQLClient) -> None:
         "test-project", "test-instance", keys[1]
     )
     assert isinstance(client_cert, str)
-    assert expiration > datetime.datetime.now(datetime.timezone.utc)
+    assert expiration > datetime.datetime.now(datetime.UTC)
 
 
 @pytest.mark.asyncio
@@ -386,7 +386,7 @@ async def test_get_ephemeral_retry_50x(fake_credentials: Credentials) -> None:
 
     mock_x509 = MagicMock()
     mock_x509.not_valid_after_utc = datetime.datetime.now(
-        datetime.timezone.utc
+        datetime.UTC
     ) + datetime.timedelta(hours=1)
 
     with aioresponses() as mocked, patch(
@@ -505,7 +505,7 @@ async def test_resolve_connect_settings_token_refresh(fake_credentials: FakeCred
     """Test that resolve_connect_settings refreshes token if it is not FRESH."""
     fake_credentials.token = "expired-token"
     fake_credentials.expiry = datetime.datetime.now(
-        datetime.timezone.utc
+        datetime.UTC
     ) - datetime.timedelta(minutes=10)
     assert fake_credentials.token_state == TokenState.INVALID
 

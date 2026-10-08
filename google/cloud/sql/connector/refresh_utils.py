@@ -17,11 +17,12 @@ limitations under the License.
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Callable
 import copy
 import datetime
 import logging
 import random
-from typing import Any, Callable
+from typing import Any
 
 import aiohttp
 from google.auth.credentials import Credentials
@@ -52,7 +53,7 @@ def _seconds_until_refresh(
     """
 
     duration = int(
-        (expiration - datetime.datetime.now(datetime.timezone.utc)).total_seconds()
+        (expiration - datetime.datetime.now(datetime.UTC)).total_seconds()
     )
 
     # if certificate duration is less than 1 hour
@@ -70,7 +71,7 @@ async def _is_valid(task: asyncio.Task) -> bool:
     try:
         metadata = await task
         # only valid if now is before the cert expires
-        if datetime.datetime.now(datetime.timezone.utc) < metadata.expiration:
+        if datetime.datetime.now(datetime.UTC) < metadata.expiration:
             return True
     except Exception:  # noqa: BLE001
         # supress any errors from task

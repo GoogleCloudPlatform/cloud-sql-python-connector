@@ -88,11 +88,11 @@ async def test_schedule_refresh_wont_replace_valid_result_with_invalid(
     current_refresh = cache._current
     # set certificate to be expired
     cache._client.instance.cert_expiration = datetime.datetime.now(
-        datetime.timezone.utc
+        datetime.UTC
     ) - datetime.timedelta(minutes=10)
     # cert not_valid_before has to be before expiry
     cache._client.instance.cert_before = datetime.datetime.now(
-        datetime.timezone.utc
+        datetime.UTC
     ) - datetime.timedelta(minutes=20)
     # schedule new refresh
     new_refresh = cache._schedule_refresh(0)
@@ -115,11 +115,11 @@ async def test_schedule_refresh_replaces_invalid_result(
     cache._refresh_rate_limiter = test_rate_limiter
     # set certificate to be expired
     cache._client.instance.cert_expiration = datetime.datetime.now(
-        datetime.timezone.utc
+        datetime.UTC
     ) - datetime.timedelta(minutes=10)
     # cert not_valid_before has to be before expiry
     cache._client.instance.cert_before = datetime.datetime.now(
-        datetime.timezone.utc
+        datetime.UTC
     ) - datetime.timedelta(minutes=20)
     # set current to invalid (expired)
     cache._current = cache._schedule_refresh(0)
@@ -128,9 +128,9 @@ async def test_schedule_refresh_replaces_invalid_result(
     assert await _is_valid(cache._current) is False
 
     # set certificate to valid
-    cache._client.instance.cert_before = datetime.datetime.now(datetime.timezone.utc)
+    cache._client.instance.cert_before = datetime.datetime.now(datetime.UTC)
     cache._client.instance.cert_expiration = datetime.datetime.now(
-        datetime.timezone.utc
+        datetime.UTC
     ) + datetime.timedelta(hours=1)
 
     # schedule refresh immediately and await it
@@ -187,7 +187,7 @@ async def test_force_refresh_replaces_invalid_current(
         b"key",
         {},
         "POSTGRES",
-        datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(minutes=10),
+        datetime.datetime.now(datetime.UTC) - datetime.timedelta(minutes=10),
     )
 
     # Create a task that returns the expired ConnectionInfo
@@ -251,7 +251,7 @@ async def test_perform_refresh_expiration(
     credentials expiration should be used.
     """
     # set credentials expiration to 1 minute from now
-    expiration = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(
+    expiration = datetime.datetime.now(datetime.UTC) + datetime.timedelta(
         minutes=1
     )
     credentials = mocks.FakeCredentials(token="my-token", expiry=expiration)
@@ -324,7 +324,7 @@ async def test_AutoIAMAuthNotSupportedError(fake_client: CloudSQLClient) -> None
 
 async def test_ConnectionInfo_caches_sslcontext() -> None:
     info = ConnectionInfo(
-        "", "cert", "cert", b"key", {}, "POSTGRES", datetime.datetime.now(datetime.timezone.utc)
+        "", "cert", "cert", b"key", {}, "POSTGRES", datetime.datetime.now(datetime.UTC)
     )
     # context should default to None
     assert info.context is None
@@ -345,7 +345,7 @@ async def test_ConnectionInfo_create_ssl_context_no_tls1_3_error() -> None:
         b"key",
         {},
         "POSTGRES",
-        datetime.datetime.now(datetime.timezone.utc),
+        datetime.datetime.now(datetime.UTC),
     )
     with patch("google.cloud.sql.connector.connection_info.ssl.HAS_TLSv1_3", False):
         with pytest.raises(TLSVersionError) as exc_info:
@@ -366,7 +366,7 @@ async def test_ConnectionInfo_create_ssl_context_no_tls1_3_warning() -> None:
         b"key",
         {},
         "POSTGRES",
-        datetime.datetime.now(datetime.timezone.utc),
+        datetime.datetime.now(datetime.UTC),
     )
 
     with patch(
