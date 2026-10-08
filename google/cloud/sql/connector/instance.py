@@ -26,7 +26,6 @@ from google.cloud.sql.connector.client import CloudSQLClient
 from google.cloud.sql.connector.connection_info import ConnectionInfo
 from google.cloud.sql.connector.connection_info import ConnectionInfoCache
 from google.cloud.sql.connector.connection_name import ConnectionName
-from google.cloud.sql.connector.enums import IPTypes
 from google.cloud.sql.connector.exceptions import RefreshNotValidError
 from google.cloud.sql.connector.rate_limiter import AsyncRateLimiter
 from google.cloud.sql.connector.refresh_utils import _is_valid
@@ -35,8 +34,6 @@ from google.cloud.sql.connector.refresh_utils import _seconds_until_refresh
 logger = logging.getLogger(name=__name__)
 
 APPLICATION_NAME = "cloud-sql-python-connector"
-SERVER_PROXY_PORT = 3307
-DEFAULT_CONNECT_TIMEOUT = 30
 
 
 class RefreshAheadCache(ConnectionInfoCache):
@@ -53,8 +50,6 @@ class RefreshAheadCache(ConnectionInfoCache):
         client: CloudSQLClient,
         keys: asyncio.Future,
         enable_iam_auth: bool = False,
-        ip_type: IPTypes | str = IPTypes.PUBLIC,
-        timeout: int = DEFAULT_CONNECT_TIMEOUT,
     ) -> None:
         """Initializes a RefreshAheadCache instance.
 
@@ -67,16 +62,10 @@ class RefreshAheadCache(ConnectionInfoCache):
             enable_iam_auth (bool): Enables automatic IAM database authentication
                 (Postgres and MySQL) as the default authentication method for all
                 connections.
-            ip_type (IPTypes | str): Preferred IP type used to connect to the instance.
-            timeout (int): Connect timeout in seconds.
         """
         self._conn_name = conn_name
 
         self._enable_iam_auth = enable_iam_auth
-        if isinstance(ip_type, str):
-            ip_type = IPTypes._from_str(ip_type)
-        self._ip_type = ip_type
-        self._timeout = timeout
         self._keys = keys
         self._client = client
         self._refresh_rate_limiter = AsyncRateLimiter(
@@ -84,14 +73,9 @@ class RefreshAheadCache(ConnectionInfoCache):
             rate=1 / 30,
         )
         self._refresh_in_progress = asyncio.locks.Event()
-        self._iam_principals: list[tuple[str, str]] = []
         self._current: asyncio.Task = self._schedule_refresh(0)
         self._next: asyncio.Task = self._current
         self._closed = False
-
-    def record_principal(self, user: str, database: str) -> None:
-        """Records a PostgreSQL (user, database) pair observed on an IAM connection."""
-        _append_iam_principal(self._iam_principals, user, database)
 
     @property
     def conn_name(self) -> ConnectionName:
@@ -135,8 +119,6 @@ class RefreshAheadCache(ConnectionInfoCache):
                 self._keys,
                 self._enable_iam_auth,
             )
-            if self._enable_iam_auth:
-                await self._probe_connection(connection_info)
             logger.debug(
                 f"['{self._conn_name}']: Connection info refresh operation complete"
             )
@@ -155,17 +137,6 @@ class RefreshAheadCache(ConnectionInfoCache):
         finally:
             self._refresh_in_progress.clear()
         return connection_info
-
-    async def _probe_connection(self, conn_info: ConnectionInfo) -> None:
-        """Proactively probes the database to refresh IAM tokens on server-side MCP."""
-        await _probe_instance_connection(
-            self._conn_name,
-            conn_info,
-            self._enable_iam_auth,
-            self._ip_type,
-            self._timeout,
-            self._iam_principals,
-        )
 
     def _schedule_refresh(self, delay: int) -> asyncio.Task:
         """
@@ -252,124 +223,3 @@ class RefreshAheadCache(ConnectionInfoCache):
         tasks = asyncio.gather(self._current, self._next, return_exceptions=True)
         await asyncio.wait_for(tasks, timeout=2.0)
         self._closed = True
-
-
-def _append_iam_principal(
-    principals: list[tuple[str, str]], user: str, database: str
-) -> None:
-    """Appends (user, database) to principals if not already present."""
-    if not user:
-        return
-    if not database:
-        database = user
-    pair = (user, database)
-    if pair not in principals:
-        principals.append(pair)
-
-
-async def _probe_instance_connection(
-    conn_name: ConnectionName,
-    conn_info: ConnectionInfo,
-    enable_iam_auth: bool,
-    ip_type: IPTypes,
-    timeout: int,
-    iam_principals: list[tuple[str, str]],
-) -> None:
-    """Proactively probes the database to refresh IAM tokens on server-side MCP."""
-    targets: list[str] = []
-    if conn_name.domain_name:
-        targets.append(conn_name.domain_name)
-    else:
-        if ip_type.value in conn_info.ip_addrs:
-            targets.extend(conn_info.ip_addrs[ip_type.value])
-
-    if not targets:
-        logger.debug(
-            f"['{conn_name}']: Proactive IAM token refresh probe skipped: no target IP addresses"
-        )
-        return
-
-    port = SERVER_PROXY_PORT
-    try:
-        ssl_context = await conn_info.create_ssl_context(enable_iam_auth)
-    except Exception as e:  # noqa: BLE001
-        logger.debug(
-            f"['{conn_name}']: Failed to create SSL context for probe: {e!s}"
-        )
-        return
-
-    principals: list[tuple[str, str] | None] = []
-    if conn_info.database_version.startswith("POSTGRES") and iam_principals:
-        principals.extend(iam_principals)
-    else:
-        principals.append(None)
-
-    all_succeeded = True
-    for principal in principals:
-        probed_principal = False
-        for target in targets:
-            try:
-                logger.debug(
-                    f"['{conn_name}']: Probing IAM token refresh on {target}:{port}"
-                )
-                reader, writer = await asyncio.wait_for(
-                    asyncio.open_connection(
-                        host=target,
-                        port=port,
-                        ssl=ssl_context,
-                        server_hostname=(
-                            conn_name.domain_name
-                            if conn_name.domain_name
-                            else None
-                        ),
-                    ),
-                    timeout=float(timeout),
-                )
-                try:
-                    if principal is not None:
-                        user, database = principal
-                        writer.write(
-                            _build_postgres_startup_packet(user, database)
-                        )
-                        await writer.drain()
-                        await asyncio.wait_for(
-                            reader.read(1024),
-                            timeout=float(timeout),
-                        )
-                        writer.write(b"X\x00\x00\x00\x04")
-                        await writer.drain()
-                finally:
-                    writer.close()
-                    await writer.wait_closed()
-                probed_principal = True
-                break
-            except Exception as e:  # noqa: BLE001
-                logger.debug(
-                    f"['{conn_name}']: Probing IAM token refresh on {target}:{port} failed: {e!s}"
-                )
-        if not probed_principal:
-            all_succeeded = False
-
-    if all_succeeded:
-        logger.debug(
-            f"['{conn_name}']: Proactive IAM token refresh probe successful"
-        )
-    else:
-        logger.debug(
-            f"['{conn_name}']: Proactive IAM token refresh probe encountered error across all targets"
-        )
-
-
-def _build_postgres_startup_packet(user: str, database: str) -> bytes:
-    """Builds a PostgreSQL v3.0 StartupMessage for (user, database)."""
-    if not database:
-        database = user
-    body = (
-        b"user\x00"
-        + user.encode("utf-8")
-        + b"\x00database\x00"
-        + database.encode("utf-8")
-        + b"\x00\x00"
-    )
-    total_len = 8 + len(body)
-    return total_len.to_bytes(4, byteorder="big") + b"\x00\x03\x00\x00" + body
