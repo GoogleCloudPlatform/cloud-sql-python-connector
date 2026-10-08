@@ -6,4 +6,4 @@ idna==3.19
 packaging==26.3
 pip==26.2.1
 PyMySQL==1.2.0
-virtualenv==21.7.4
+virtualenv==21.7.13
