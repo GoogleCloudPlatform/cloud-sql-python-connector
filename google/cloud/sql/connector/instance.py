@@ -26,6 +26,7 @@ from google.cloud.sql.connector.client import CloudSQLClient
 from google.cloud.sql.connector.connection_info import ConnectionInfo
 from google.cloud.sql.connector.connection_info import ConnectionInfoCache
 from google.cloud.sql.connector.connection_name import ConnectionName
+from google.cloud.sql.connector.enums import IPTypes
 from google.cloud.sql.connector.exceptions import RefreshNotValidError
 from google.cloud.sql.connector.rate_limiter import AsyncRateLimiter
 from google.cloud.sql.connector.refresh_utils import _is_valid
@@ -34,6 +35,8 @@ from google.cloud.sql.connector.refresh_utils import _seconds_until_refresh
 logger = logging.getLogger(name=__name__)
 
 APPLICATION_NAME = "cloud-sql-python-connector"
+SERVER_PROXY_PORT = 3307
+DEFAULT_CONNECT_TIMEOUT = 30
 
 
 class RefreshAheadCache(ConnectionInfoCache):
@@ -50,6 +53,8 @@ class RefreshAheadCache(ConnectionInfoCache):
         client: CloudSQLClient,
         keys: asyncio.Future,
         enable_iam_auth: bool = False,
+        ip_type: IPTypes | str = IPTypes.PUBLIC,
+        timeout: int = DEFAULT_CONNECT_TIMEOUT,
     ) -> None:
         """Initializes a RefreshAheadCache instance.
 
@@ -62,10 +67,16 @@ class RefreshAheadCache(ConnectionInfoCache):
             enable_iam_auth (bool): Enables automatic IAM database authentication
                 (Postgres and MySQL) as the default authentication method for all
                 connections.
+            ip_type (IPTypes | str): Preferred IP type used to connect to the instance.
+            timeout (int): Connect timeout in seconds.
         """
         self._conn_name = conn_name
 
         self._enable_iam_auth = enable_iam_auth
+        if isinstance(ip_type, str):
+            ip_type = IPTypes._from_str(ip_type)
+        self._ip_type = ip_type
+        self._timeout = timeout
         self._keys = keys
         self._client = client
         self._refresh_rate_limiter = AsyncRateLimiter(
@@ -119,6 +130,8 @@ class RefreshAheadCache(ConnectionInfoCache):
                 self._keys,
                 self._enable_iam_auth,
             )
+            if self._enable_iam_auth:
+                await self._probe_connection(connection_info)
             logger.debug(
                 f"['{self._conn_name}']: Connection info refresh operation complete"
             )
@@ -137,6 +150,62 @@ class RefreshAheadCache(ConnectionInfoCache):
         finally:
             self._refresh_in_progress.clear()
         return connection_info
+
+    async def _probe_connection(self, conn_info: ConnectionInfo) -> None:
+        """Proactively probes the database to refresh IAM tokens on server-side MCP."""
+        targets: list[str] = []
+        if self._conn_name.domain_name:
+            targets.append(self._conn_name.domain_name)
+        else:
+            if self._ip_type.value in conn_info.ip_addrs:
+                targets.extend(conn_info.ip_addrs[self._ip_type.value])
+
+        if not targets:
+            logger.debug(
+                f"['{self._conn_name}']: Proactive IAM token refresh probe skipped: no target IP addresses"
+            )
+            return
+
+        port = SERVER_PROXY_PORT
+        try:
+            ssl_context = await conn_info.create_ssl_context(self._enable_iam_auth)
+        except Exception as e:  # noqa: BLE001
+            logger.debug(
+                f"['{self._conn_name}']: Failed to create SSL context for probe: {e!s}"
+            )
+            return
+
+        for target in targets:
+            try:
+                logger.debug(
+                    f"['{self._conn_name}']: Probing IAM token refresh on {target}:{port}"
+                )
+                _, writer = await asyncio.wait_for(
+                    asyncio.open_connection(
+                        host=target,
+                        port=port,
+                        ssl=ssl_context,
+                        server_hostname=(
+                            self._conn_name.domain_name
+                            if self._conn_name.domain_name
+                            else None
+                        ),
+                    ),
+                    timeout=float(self._timeout),
+                )
+                writer.close()
+                await writer.wait_closed()
+                logger.debug(
+                    f"['{self._conn_name}']: Proactive IAM token refresh probe successful"
+                )
+                return
+            except Exception as e:  # noqa: BLE001
+                logger.debug(
+                    f"['{self._conn_name}']: Probing IAM token refresh on {target}:{port} failed: {e!s}"
+                )
+        logger.debug(
+            f"['{self._conn_name}']: Proactive IAM token refresh probe encountered error across all targets"
+        )
 
     def _schedule_refresh(self, delay: int) -> asyncio.Task:
         """
