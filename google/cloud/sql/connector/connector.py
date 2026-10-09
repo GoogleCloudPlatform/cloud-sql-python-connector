@@ -123,7 +123,7 @@ class Connector:
         refresh_strategy: str | RefreshStrategy = RefreshStrategy.BACKGROUND,
         resolver: type[DefaultResolver | DnsResolver] = DefaultResolver,
         failover_period: int = 30,
-        sql_data_endpoint: str = "sqladmin.googleapis.com",
+        sql_data_endpoint: str | None = None,
         sql_data_stream_timeout: int = 7200,
         resource_exhausted_cooldown_period: float = 5.0,
     ) -> None:
@@ -180,7 +180,8 @@ class Connector:
                 Must be used with `resolver=DnsResolver` to have any effect.
                 Default: 30
 
-            sql_data_endpoint (str): Endpoint host for SQL Data Service calls.
+            sql_data_endpoint (str | None): Endpoint host for SQL Data Service
+                calls. If not specified, derived from `sqladmin_api_endpoint`.
                 Default: "sqladmin.googleapis.com".
 
             sql_data_stream_timeout (int): Timeout in seconds for the SQL Data
@@ -276,7 +277,12 @@ class Connector:
                 "configured the universe domain explicitly, `googleapis.com` "
                 "is the default."
             )
-        self._sql_data_endpoint = sql_data_endpoint
+        if sql_data_endpoint:
+            self._sql_data_endpoint = sql_data_endpoint
+        else:
+            self._sql_data_endpoint = (
+                self._sqladmin_api_endpoint.split("://", 1)[-1].split("/", 1)[0]
+            )
         self._sql_data_stream_timeout = sql_data_stream_timeout
         self._resource_exhausted_cooldown_period = (
             resource_exhausted_cooldown_period
@@ -284,6 +290,7 @@ class Connector:
         self._sql_data_fallback_cache: set[str] = set()
         self._sql_data_conn_state: dict[str, SqlDataConnState] = {}
         self._sqldata_clients: set[Any] = set()
+        self._sqldata_client: SqlDataClient | None = None
 
 
 
@@ -499,16 +506,20 @@ class Connector:
                         )
                         kwargs["user"] = formatted_user
 
-                sqldata_client = SqlDataClient(
-                    endpoint=self._sql_data_endpoint,
-                    credentials=self._credentials,
-                    quota_project=self._quota_project,
-                    timeout=self._sql_data_stream_timeout,
-                )
-                self._sqldata_clients.add(sqldata_client)
-                sqldata_client._on_close_callbacks.append(
-                    lambda: self._sqldata_clients.discard(sqldata_client)
-                )
+                if self._sqldata_client is None:
+                    sqldata_client = SqlDataClient(
+                        endpoint=self._sql_data_endpoint,
+                        credentials=self._credentials,
+                        quota_project=self._quota_project,
+                        timeout=self._sql_data_stream_timeout,
+                    )
+                    self._sqldata_client = sqldata_client
+                    self._sqldata_clients.add(sqldata_client)
+                    sqldata_client._on_close_callbacks.append(
+                        lambda: self._sqldata_clients.discard(sqldata_client)
+                    )
+                else:
+                    sqldata_client = self._sqldata_client
 
                 def on_resource_exhausted(err: Exception) -> None:
                     backoff = state.record_exhausted(
@@ -736,6 +747,7 @@ class Connector:
         """Helper function to cancel the cache's tasks
         and close aiohttp.ClientSession."""
         self._closed = True
+        self._sqldata_client = None
         if self._client:
             await self._client.close()
         await asyncio.gather(
@@ -758,7 +770,7 @@ async def create_async_connector(
     refresh_strategy: str | RefreshStrategy = RefreshStrategy.BACKGROUND,
     resolver: type[DefaultResolver | DnsResolver] = DefaultResolver,
     failover_period: int = 30,
-    sql_data_endpoint: str = "sqladmin.googleapis.com",
+    sql_data_endpoint: str | None = None,
     sql_data_stream_timeout: int = 7200,
     resource_exhausted_cooldown_period: float = 5.0,
 ) -> Connector:
@@ -818,7 +830,8 @@ async def create_async_connector(
             Must be used with `resolver=DnsResolver` to have any effect.
             Default: 30
 
-        sql_data_endpoint (str): Endpoint host for SQL Data Service calls.
+        sql_data_endpoint (str | None): Endpoint host for SQL Data Service
+            calls. If not specified, derived from `sqladmin_api_endpoint`.
             Default: "sqladmin.googleapis.com".
 
         sql_data_stream_timeout (int): Timeout in seconds for the SQL Data

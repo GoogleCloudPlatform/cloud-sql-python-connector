@@ -28,8 +28,46 @@ if TYPE_CHECKING:
 logger = logging.getLogger(name=__name__)
 
 
+def _proxy_sqldata(local: socket.socket, remote: socket.socket) -> None:
+    """Bidirectional thread-based proxy for queue-backed SqlDataSocket."""
+
+    def forward_local_to_remote() -> None:
+        try:
+            while data := local.recv(8192):
+                remote.sendall(data)
+        except OSError:
+            pass
+        finally:
+            remote.close()
+
+    threading.Thread(target=forward_local_to_remote, daemon=True).start()
+    try:
+        while True:
+            try:
+                if not (data := remote.recv(8192)):
+                    break
+                local.sendall(data)
+            except socket.timeout:
+                if not getattr(remote, "_first_read_done", False) or getattr(
+                    remote, "_closed", False
+                ):
+                    break
+    except OSError:
+        pass
+    finally:
+        try:
+            local.shutdown(socket.SHUT_RDWR)
+        except OSError:
+            pass
+        local.close()
+        remote.close()
+
+
 def _proxy(local: socket.socket, remote: "ssl.SSLSocket") -> None:
     """Single-threaded selectors-based proxy to avoid SSLSocket thread-safety issues."""
+    if hasattr(remote, "_read_queue"):
+        _proxy_sqldata(local, remote)
+        return
     sel = selectors.DefaultSelector()
     sel.register(local, selectors.EVENT_READ, data="local")
     sel.register(remote, selectors.EVENT_READ, data="remote")
