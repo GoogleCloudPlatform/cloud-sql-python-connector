@@ -13,9 +13,11 @@
 # limitations under the License.
 
 import os
+import queue
 import socket
 import ssl
 import threading
+import time
 from typing import Any
 from unittest.mock import MagicMock
 from unittest.mock import patch
@@ -813,3 +815,51 @@ def test_connect_wrapper_failure_cleanup_errors(
 
     mock_local_sock.close.assert_called_once()
     assert mock_remote_sock.close.call_count >= 1
+
+
+def test_proxy_sqldata_bidirectional() -> None:
+    """Test that _proxy forwards traffic for queue-backed SqlDataSocket."""
+    local_client, local_server = socket.socketpair()
+    read_queue: queue.Queue = queue.Queue()
+    remote = MagicMock()
+    remote._read_queue = read_queue
+    remote._first_read_done = True
+    remote._closed = False
+    remote.sendall.side_effect = lambda payload: read_queue.put(
+        b"echo:" + payload
+    )
+
+    def fake_recv(bufsize: int) -> bytes:
+        try:
+            return read_queue.get(timeout=0.01) or b""
+        except queue.Empty:
+            if remote._closed:
+                return b""
+            raise socket.timeout("timed out") from None
+
+    remote.recv.side_effect = fake_recv
+    remote.close.side_effect = lambda: (
+        setattr(remote, "_closed", True),
+        read_queue.put(b""),
+    )
+
+    proxy_thread = threading.Thread(
+        target=_proxy, args=(local_server, remote), daemon=True
+    )
+    proxy_thread.start()
+    local_client.sendall(b"SELECT 1")
+    assert local_client.recv(1024) == b"echo:SELECT 1"
+    time.sleep(0.03)
+    local_client.close()
+    proxy_thread.join(timeout=1.0)
+
+    # Also cover OSError / initial timeout exit path
+    client_sock, server_sock = mockable_socketpair()
+    server_sock.recv = MagicMock(side_effect=OSError("err"))
+    remote._first_read_done = False
+    remote._closed = False
+    remote.recv.side_effect = [socket.timeout("handshake"), OSError("err")]
+    _proxy(server_sock, remote)
+    remote.recv.side_effect = OSError("err")
+    _proxy(server_sock, remote)
+    client_sock.close()

@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import errno
 import io
 import logging
@@ -23,6 +24,7 @@ import threading
 from typing import Any, Callable
 
 from google.api_core.client_options import ClientOptions
+from google.api_core.exceptions import FailedPrecondition
 from google.api_core.exceptions import ResourceExhausted
 from google.auth.credentials import Credentials
 import grpc
@@ -38,24 +40,42 @@ _STREAM_EOF = object()
 logger = logging.getLogger(__name__)
 
 
-def is_resource_exhausted_error(err: Exception) -> bool:
-    """Checks whether an exception represents a RESOURCE_EXHAUSTED error."""
-    if isinstance(err, ResourceExhausted):
+def _is_grpc_status_error(
+    err: Exception,
+    exc_cls: type[Exception],
+    status_code: grpc.StatusCode,
+) -> bool:
+    """Checks whether an exception or its cause matches the given gRPC status."""
+    if isinstance(err, exc_cls):
         return True
     if isinstance(err, grpc.RpcError):
         try:
-            return err.code() == grpc.StatusCode.RESOURCE_EXHAUSTED
+            return err.code() == status_code
         except Exception:  # noqa: BLE001, S110
             pass
     if hasattr(err, "code") and callable(err.code):
         try:
-            return err.code() == grpc.StatusCode.RESOURCE_EXHAUSTED
+            return err.code() == status_code
         except Exception:  # noqa: BLE001, S110
             pass
     cause = getattr(err, "__cause__", None) or getattr(err, "__context__", None)
     if isinstance(cause, Exception) and cause is not err:
-        return is_resource_exhausted_error(cause)
+        return _is_grpc_status_error(cause, exc_cls, status_code)
     return False
+
+
+def is_resource_exhausted_error(err: Exception) -> bool:
+    """Checks whether an exception represents a RESOURCE_EXHAUSTED error."""
+    return _is_grpc_status_error(
+        err, ResourceExhausted, grpc.StatusCode.RESOURCE_EXHAUSTED
+    )
+
+
+def is_failed_precondition_error(err: Exception) -> bool:
+    """Checks whether an exception represents a FAILED_PRECONDITION error."""
+    return _is_grpc_status_error(
+        err, FailedPrecondition, grpc.StatusCode.FAILED_PRECONDITION
+    )
 
 
 
@@ -167,10 +187,6 @@ class SqlDataSocket(socket.socket):
             for resp in self._response_stream:
                 if self._closed:
                     break
-                if not self._first_read_done:
-                    self._first_read_done = True
-                    if self._on_success:
-                        self._on_success()
                 raw_pb = (
                     sqladmin_v1beta4.StreamSqlDataResponse.pb(resp)
                     if hasattr(sqladmin_v1beta4.StreamSqlDataResponse, "pb")
@@ -182,6 +198,18 @@ class SqlDataSocket(socket.socket):
                     if hasattr(raw_pb, "WhichOneof")
                     else None
                 )
+                if which == "terminate_session" or (
+                    which is None
+                    and hasattr(resp, "terminate_session")
+                    and resp.terminate_session
+                ):
+                    logger.debug("Received TerminateSession from server")
+                    self._closed = True
+                    break
+                if not self._first_read_done:
+                    self._first_read_done = True
+                    if self._on_success:
+                        self._on_success()
                 if which == "data" or (which is None and hasattr(resp, "data") and resp.data):
                     data = resp.data.data
                     if data:
@@ -190,12 +218,6 @@ class SqlDataSocket(socket.socket):
                     which is None and hasattr(resp, "session_metadata") and resp.session_metadata
                 ):
                     logger.debug("Received SessionMetadata")
-                elif which == "terminate_session" or (
-                    which is None and hasattr(resp, "terminate_session") and resp.terminate_session
-                ):
-                    logger.debug("Received TerminateSession from server")
-                    self._closed = True
-                    break
         except Exception as e:  # noqa: BLE001
             if not self._closed:
                 logger.debug(f"gRPC sync stream reader encountered: {e}")
@@ -262,7 +284,7 @@ class SqlDataSocket(socket.socket):
                 if (
                     not self._first_read_done
                     and self._fallback_fn is not None
-                    and not is_resource_exhausted_error(self._error)
+                    and is_failed_precondition_error(self._error)
                 ):
                     logger.info(
                         f"SQL Data Service returned error before first read: {self._error}. "
@@ -270,6 +292,7 @@ class SqlDataSocket(socket.socket):
                     )
                     try:
                         self._direct_sock = self._fallback_fn()
+                        self._direct_sock.settimeout(self._timeout)
                         if self._write_buffer:
                             self._direct_sock.sendall(bytes(self._write_buffer))
                         self._first_read_done = True
@@ -446,6 +469,7 @@ class SqlDataClient:
         self._credentials = credentials
         self._quota_project = quota_project
         self._timeout = timeout
+        self._grpc_client: sqladmin_v1beta4.SqlDataServiceClient | None = None
         self._active_sockets: set[SqlDataSocket] = set()
         self._on_close_callbacks: list[Callable[[], None]] = []
 
@@ -491,6 +515,7 @@ class SqlDataClient:
                         ssl_sock = ssl_context.wrap_socket(
                             raw_sock, server_hostname=target_ip
                         )
+                        ssl_sock.settimeout(None)
                         return ssl_sock
                     except Exception as e:  # noqa: BLE001
                         logger.debug(f"Direct TLS connection to {target_ip} failed: {e}")
@@ -508,16 +533,18 @@ class SqlDataClient:
             create_direct = await get_direct_socket_sync_factory()
             return create_direct()
 
-        # Connect synchronous gRPC stream via GAPIC client
-        endpoint = self._endpoint.removeprefix("https://").removeprefix("http://")
-        client_options = ClientOptions(
-            api_endpoint=endpoint,
-            quota_project_id=self._quota_project,
-        )
-        grpc_client = sqladmin_v1beta4.SqlDataServiceClient(
-            credentials=self._credentials,
-            client_options=client_options,
-        )
+        # Connect synchronous gRPC stream via shared GAPIC client
+        if self._grpc_client is None:
+            endpoint = self._endpoint.removeprefix("https://").removeprefix("http://")
+            client_options = ClientOptions(
+                api_endpoint=endpoint,
+                quota_project_id=self._quota_project,
+            )
+            self._grpc_client = sqladmin_v1beta4.SqlDataServiceClient(
+                credentials=self._credentials,
+                client_options=client_options,
+            )
+        grpc_client = self._grpc_client
 
         instance_id = (
             f"projects/{project}/instances/{instance_connection_name.split(':')[-1]}"
@@ -531,16 +558,19 @@ class SqlDataClient:
             )
         ]
 
-        create_direct_sock_fn: Callable[[], socket.socket] | None = None
-        try:
-            create_direct_sock_fn = await get_direct_socket_sync_factory()
-        except Exception as e:  # noqa: BLE001
-            logger.debug(f"Could not prepare direct fallback factory: {e}")
+        loop = asyncio.get_running_loop()
 
         def fallback_fn() -> socket.socket:
             on_fallback(instance_connection_name)
-            if create_direct_sock_fn is None:
-                raise ValueError("No direct fallback connection factory available.")
+            try:
+                create_direct_sock_fn = asyncio.run_coroutine_threadsafe(
+                    get_direct_socket_sync_factory(), loop
+                ).result(timeout=connect_timeout)
+            except Exception as e:
+                logger.debug(f"Could not prepare direct fallback factory: {e}")
+                raise ValueError(
+                    "No direct fallback connection factory available."
+                ) from e
             return create_direct_sock_fn()
 
         try:
@@ -570,7 +600,7 @@ class SqlDataClient:
             sock = SqlDataSocket(
                 request_queue=request_queue,
                 response_stream=response_stream,
-                grpc_client=grpc_client,
+                grpc_client=None,
                 timeout=connect_timeout,
                 on_close=lambda: self._active_sockets.discard(sock),
                 on_success=on_success,
@@ -582,28 +612,22 @@ class SqlDataClient:
 
         except Exception as e:
             logger.debug(f"Sync gRPC connection attempt failed: {e}")
-            try:
-                if hasattr(grpc_client, "transport") and hasattr(grpc_client.transport, "close"):
-                    grpc_client.transport.close()
-            except Exception:  # noqa: BLE001, S110
-                pass
-
             if is_resource_exhausted_error(e):
                 if on_resource_exhausted:
                     on_resource_exhausted(e)
                 raise
 
-            # Fallback to direct TLS on connection failure
+            if not is_failed_precondition_error(e):
+                raise
+
+            # Fallback to direct TLS on FAILED_PRECONDITION
             logger.info(
                 f"SQL Data Service connection failed for {instance_connection_name}. "
                 "Falling back to direct TLS connection."
             )
             on_fallback(instance_connection_name)
-            if create_direct_sock_fn:
-                return create_direct_sock_fn()
             create_direct = await get_direct_socket_sync_factory()
             return create_direct()
-
 
     async def close(self) -> None:
         """Closes all active sockets created by this client."""
@@ -613,6 +637,15 @@ class SqlDataClient:
             except Exception:  # noqa: BLE001, S110
                 pass
         self._active_sockets.clear()
+        if self._grpc_client is not None:
+            try:
+                if hasattr(self._grpc_client, "transport") and hasattr(
+                    self._grpc_client.transport, "close"
+                ):
+                    self._grpc_client.transport.close()
+            except Exception:  # noqa: BLE001, S110
+                pass
+            self._grpc_client = None
         for cb in self._on_close_callbacks:
             try:
                 cb()
