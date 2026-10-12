@@ -764,6 +764,16 @@ def test_Connector_init_sqladmin_endpoint(fake_credentials: Credentials) -> None
         sqladmin_api_endpoint="https://my-custom-endpoint.com",
     )
     assert connector._sqladmin_api_endpoint == "https://my-custom-endpoint.com"
+    assert connector._sql_data_endpoint == "my-custom-endpoint.com"
+    connector.close()
+
+    connector_override = Connector(
+        credentials=fake_credentials,
+        sqladmin_api_endpoint="https://my-custom-endpoint.com",
+        sql_data_endpoint="explicit-sqldata-endpoint.com",
+    )
+    assert connector_override._sql_data_endpoint == "explicit-sqldata-endpoint.com"
+    connector_override.close()
 
 
 @pytest.mark.asyncio
@@ -1516,12 +1526,12 @@ async def test_Connector_connect_async_sqldata_fallback_and_callbacks(
         on_success = kwargs["on_success"]
         get_conn_info = kwargs["get_conn_info"]
 
+        if is_fallback_cached("test-project:test-region:test-instance"):
+            return mock_sock
+
         # Call get_conn_info
         conn_info = await get_conn_info()
         assert conn_info is not None
-
-        # Verify initial fallback cache state
-        assert not is_fallback_cached("test-project:test-region:test-instance")
 
         # Trigger fallback
         on_fallback("test-project:test-region:test-instance")
@@ -1552,6 +1562,14 @@ async def test_Connector_connect_async_sqldata_fallback_and_callbacks(
                     db="my-db",
                 )
                 assert conn is True
+                await connector.connect_async(
+                    "test-project:test-region:test-instance",
+                    "pg8000",
+                    user="my-user",
+                    password="my-pass",
+                    db="my-db",
+                )
+            assert len(connector._sqldata_clients) == 1
 
 
 
@@ -1567,5 +1585,3 @@ def test_Connector_close_handles_exception(fake_credentials: Credentials) -> Non
         mock_run.return_value = mock_future
         # Should log and not raise exception
         connector.close()
-
-

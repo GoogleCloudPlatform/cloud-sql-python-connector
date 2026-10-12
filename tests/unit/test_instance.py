@@ -396,7 +396,7 @@ async def test_ConnectionInfo_create_ssl_context_no_tls1_3_warning() -> None:
 async def test_ConnectionInfo_missing_server_ca_cert() -> None:
     """Test that create_ssl_context raises CloudSQLConnectionError when server_ca_cert is None."""
     info = ConnectionInfo(
-        "", "cert", None, b"key", {}, "POSTGRES", datetime.datetime.now(datetime.timezone.utc)
+        "", "cert", None, b"key", {}, "POSTGRES", datetime.datetime.now(datetime.UTC)
     )
     with pytest.raises(CloudSQLConnectionError) as exc_info:
         await info.create_ssl_context()
