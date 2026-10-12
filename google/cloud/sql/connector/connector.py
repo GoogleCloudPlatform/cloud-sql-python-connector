@@ -135,6 +135,8 @@ class Connector:
                 Cloud SQL instances. Can be one of the following:
                 IPTypes.PUBLIC ("PUBLIC"), IPTypes.PRIVATE ("PRIVATE"),
                 IPTypes.PSC ("PSC"), or IPTypes.SQL_DATA ("SQL_DATA").
+                Note: IPTypes.SQL_DATA is not currently supported with the
+                asyncpg driver.
                 Default: IPTypes.PUBLIC
 
             enable_iam_auth (bool): Enables automatic IAM database authentication
@@ -778,6 +780,8 @@ async def create_async_connector(
             Cloud SQL instances. Can be one of the following:
             IPTypes.PUBLIC ("PUBLIC"), IPTypes.PRIVATE ("PRIVATE"),
             IPTypes.PSC ("PSC"), or IPTypes.SQL_DATA ("SQL_DATA").
+            Note: IPTypes.SQL_DATA is not currently supported with the
+            asyncpg driver.
             Default: IPTypes.PUBLIC
 
         enable_iam_auth (bool): Enables automatic IAM database authentication

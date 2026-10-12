@@ -14,8 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-from __future__ import annotations
-
 import ssl
 from typing import Any, TYPE_CHECKING
 
@@ -26,15 +24,16 @@ if TYPE_CHECKING:
 
 
 async def connect(
-    ip_address: str, ctx: ssl.SSLContext | None, **kwargs: Any
-) -> asyncpg.Connection:
+    ip_address: str, ctx: ssl.SSLContext, **kwargs: Any
+) -> "asyncpg.Connection":
     """Helper function to create an asyncpg DB-API connection object.
 
     Args:
         ip_address (str): A string containing an IP address for the Cloud SQL
             instance.
         ctx (ssl.SSLContext): An SSLContext object created from the Cloud SQL
-            server CA cert and ephemeral cert. Pass None to disable SSL.
+            server CA cert and ephemeral cert.
+            server CA cert and ephemeral cert.
         kwargs: Keyword arguments for establishing asyncpg connection
             object to Cloud SQL instance.
 
@@ -56,18 +55,14 @@ async def connect(
     if db is None:
         raise KeyError("database")
     passwd = kwargs.pop("password", None)
-    port = kwargs.pop("port", SERVER_PROXY_PORT)
 
-    connect_args = {
-        "user": user,
-        "database": db,
-        "password": passwd,
-        "host": ip_address,
-        "port": port,
+    return await asyncpg.connect(
+        user=user,
+        database=db,
+        password=passwd,
+        host=ip_address,
+        port=SERVER_PROXY_PORT,
+        ssl=ctx,
+        direct_tls=True,
         **kwargs,
-    }
-    if ctx is not None:
-        connect_args["ssl"] = ctx
-        connect_args["direct_tls"] = True
-
-    return await asyncpg.connect(**connect_args)
+    )
