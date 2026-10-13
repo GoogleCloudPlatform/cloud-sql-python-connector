@@ -24,6 +24,8 @@ import threading
 from types import TracebackType
 from typing import Any, Self, TYPE_CHECKING
 
+from google.cloud.sql.connector.sqldata_client import SqlDataSocket
+
 if TYPE_CHECKING:
     import psycopg
 
@@ -110,46 +112,31 @@ def _forward_pending(local: socket.socket, remote: "ssl.SSLSocket") -> bool:
     return False
 
 
-def _proxy_sqldata(local: socket.socket, remote: socket.socket) -> None:
-    """Bidirectional thread-based proxy for queue-backed SqlDataSocket."""
-
-    def forward_local_to_remote() -> None:
-        try:
-            while data := local.recv(8192):
-                remote.sendall(data)
-        except OSError:
-            pass
-        finally:
-            remote.close()
-
-    threading.Thread(target=forward_local_to_remote, daemon=True).start()
+def _forward_local_to_remote(local: socket.socket, remote: SqlDataSocket) -> None:
+    """Forward bytes from local socket to remote SqlDataSocket until EOF or error."""
     try:
-        while True:
-            try:
-                if not (data := remote.recv(8192)):
-                    break
-                local.sendall(data)
-            except TimeoutError:
-                if not getattr(remote, "_first_read_done", False) or getattr(
-                    remote, "_closed", False
-                ):
-                    break
-    except OSError:
-        pass
-    finally:
-        try:
-            local.shutdown(socket.SHUT_RDWR)
-        except OSError:
+        while _forward_bytes(local, remote, "local", "remote"):
             pass
-        local.close()
-        remote.close()
+    finally:
+        _close_socket(remote, shutdown=False)
+
+
+def _proxy_sqldata(local: socket.socket, remote: SqlDataSocket) -> None:
+    """Bidirectional thread-based proxy for queue-backed SqlDataSocket."""
+    remote.settimeout(None)
+    threading.Thread(
+        target=_forward_local_to_remote, args=(local, remote), daemon=True
+    ).start()
+    try:
+        while _forward_bytes(remote, local, "remote", "local"):
+            pass
+    finally:
+        _close_socket(local)
+        _close_socket(remote, shutdown=False)
 
 
 def _proxy(local: socket.socket, remote: "ssl.SSLSocket") -> None:
     """Single-threaded selectors-based proxy to avoid SSLSocket thread-safety issues."""
-    if hasattr(remote, "_read_queue"):
-        _proxy_sqldata(local, remote)
-        return
     sel = selectors.DefaultSelector()
     sel.register(local, selectors.EVENT_READ, data="local")
     sel.register(remote, selectors.EVENT_READ, data="remote")
@@ -187,7 +174,9 @@ class _PsycopgProxy:
     deterministic cleanup of temporary filesystem resources.
     """
 
-    def __init__(self, ip_address: str, remote_sock: "ssl.SSLSocket") -> None:
+    def __init__(
+        self, ip_address: str, remote_sock: "ssl.SSLSocket | SqlDataSocket"
+    ) -> None:
         self._ip_address = ip_address
         self._remote_sock = remote_sock
         self._tmpdir: str | None = None
@@ -251,7 +240,10 @@ class _PsycopgProxy:
             logger.debug(
                 f"['{self._ip_address}']: Accepted local connection, starting proxy"
             )
-            _proxy(local_conn, self._remote_sock)
+            if isinstance(self._remote_sock, SqlDataSocket):
+                _proxy_sqldata(local_conn, self._remote_sock)
+            else:
+                _proxy(local_conn, self._remote_sock)
         except Exception as e:  # noqa: BLE001
             logger.debug(f"['{self._ip_address}']: Error in accept/proxy thread: {e}")
             if local_conn is not None:
@@ -273,19 +265,21 @@ class _PsycopgProxy:
 
 
 def connect(
-    ip_address: str, remote_sock: "ssl.SSLSocket", **kwargs: Any
+    ip_address: str,
+    remote_sock: "ssl.SSLSocket | SqlDataSocket",
+    **kwargs: Any,
 ) -> "psycopg.Connection":
     """Create a psycopg DBAPI connection object.
 
     Because psycopg does not accept a pre-connected socket, this function
     creates a local listener (Unix domain socket on Unix, TCP loopback on Windows),
     tells psycopg to connect there, and runs a background proxy that forwards bytes
-    between that socket and the already-established Cloud SQL TLS connection.
+    between that socket and the already-established Cloud SQL connection.
 
     Args:
         ip_address (str): IP address of the Cloud SQL instance.
-        remote_sock (ssl.SSLSocket): SSL/TLS secure socket stream connected to the
-            Cloud SQL proxy server.
+        remote_sock (ssl.SSLSocket | SqlDataSocket): Secure socket stream
+            connected to the Cloud SQL instance.
 
     Returns:
         psycopg.Connection: A psycopg Connection object for the Cloud SQL instance.
