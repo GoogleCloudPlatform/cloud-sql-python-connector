@@ -813,3 +813,49 @@ def test_connect_wrapper_failure_cleanup_errors(
 
     mock_local_sock.close.assert_called_once()
     assert mock_remote_sock.close.call_count >= 1
+
+
+def test_proxy_tls13_post_handshake_want_read() -> None:
+    """Test that _proxy does not deadlock or exit on SSLWantReadError (e.g. TLS 1.3 NewSessionTicket)."""
+    local_client, local_server = socket.socketpair()
+    remote_client, remote_server = socket.socketpair()
+
+    class MockTLS13SSLSocket:
+        def __init__(self, sock: socket.socket) -> None:
+            self._sock = sock
+            self._want_read_once = True
+
+        def pending(self) -> int:
+            return 0
+
+        def recv(self, bufsize: int, flags: int = 0) -> bytes:
+            if self._want_read_once:
+                self._want_read_once = False
+                # Drain the 1-byte dummy ticket wakeup from the underlying socket
+                self._sock.recv(1)
+                raise ssl.SSLWantReadError()
+            return self._sock.recv(bufsize, flags)
+
+        def __getattr__(self, name: str) -> Any:
+            return getattr(self._sock, name)
+
+    wrapped_remote = MockTLS13SSLSocket(remote_client)
+
+    # Simulate TLS 1.3 NewSessionTicket arriving on remote BEFORE client sends StartupMessage
+    remote_server.sendall(b"T")
+
+    proxy_thread = threading.Thread(
+        target=_proxy, args=(local_server, wrapped_remote), daemon=True
+    )
+    proxy_thread.start()
+
+    # Client sends StartupMessage and receives response without deadlocking
+    local_client.sendall(b"StartupMessage")
+    assert remote_server.recv(1024) == b"StartupMessage"
+    remote_server.sendall(b"AuthenticationOk")
+    assert local_client.recv(1024) == b"AuthenticationOk"
+
+    local_client.close()
+    proxy_thread.join(timeout=2.0)
+    assert not proxy_thread.is_alive()
+    remote_server.close()

@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import contextlib
 import logging
 import os
 import platform
@@ -52,6 +53,8 @@ def _forward_bytes(
     dst: socket.socket,
     src_name: str,
     dst_name: str,
+    *,
+    nonblocking: bool = False,
 ) -> bool:
     """Read a chunk of bytes from src and send it to dst.
 
@@ -59,8 +62,17 @@ def _forward_bytes(
         bool: True if bytes were forwarded, False on EOF or OSError.
     """
     try:
-        data = src.recv(_BUFFER_SIZE)
+        if nonblocking:
+            src.setblocking(False)
+        try:
+            data = src.recv(_BUFFER_SIZE)
+        finally:
+            if nonblocking:
+                with contextlib.suppress(OSError):
+                    src.setblocking(True)
     except OSError as e:
+        if nonblocking and isinstance(e, (ssl.SSLWantReadError, BlockingIOError)):
+            return True
         logger.debug(f"Failed to receive from {src_name} socket: {e}")
         return False
     if not data:
@@ -118,7 +130,7 @@ def _proxy(local: socket.socket, remote: "ssl.SSLSocket") -> None:
                 ):
                     return
                 if key.data == "remote" and not _forward_bytes(
-                    remote, local, "remote", "local"
+                    remote, local, "remote", "local", nonblocking=True
                 ):
                     return
     except OSError as e:
