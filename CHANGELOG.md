@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.23.0](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v1.22.0...v1.23.0) (2026-10-15)
+
+
+### Features
+
+* drop support for Python &lt;=3.10 and require &gt;=3.11 ([#1485](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/1485)) ([50f4e19](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/50f4e19a46f758151a7f2afb159eea88619e6782))
+* **psycopg:** add support for Windows via TCP loopback proxy ([#1474](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/1474)) ([5200d35](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/5200d3536ff5a9758c6e9e12fd2159967ff6721b))
+* Support Developer Edition connections ([#1433](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/1433)) ([8e43bb3](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/8e43bb3f9c045f2e2b6834739855c6fd8237b9ec))
+
+
+### Bug Fixes
+
+* **psycopg:** prevent proxy deadlock on TLS 1.3 post-handshake messages ([#1494](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/1494)) ([d3eef24](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/d3eef24a7ba37f7bb761ef9ef067fe620a9c93f6))
+* send PostgreSQL v3 StartupMessage in proactive IAM refresh probe for MCP ([#1480](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/1480)) ([d531553](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/d53155380010b99d6c351052487a5680360dd8ca))
+* update deps to the latest ([#1484](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/1484)) ([75febc3](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/75febc30dcf5932014afccf5ae3f8a3f97fe96dd))
+
 ## [1.22.0](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v1.21.0...v1.22.0) (2026-08-18)
 
 
