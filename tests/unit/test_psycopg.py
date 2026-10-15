@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import os
+import queue
 import socket
 import ssl
 import threading
@@ -23,7 +24,9 @@ from unittest.mock import patch
 import pytest
 
 from google.cloud.sql.connector.psycopg import _proxy
+from google.cloud.sql.connector.psycopg import _proxy_sqldata
 from google.cloud.sql.connector.psycopg import connect
+from google.cloud.sql.connector.sqldata_client import SqlDataSocket
 
 
 class MockableSocket(socket.socket):
@@ -556,9 +559,9 @@ def test_proxy_backpressure_and_clean_teardown() -> None:
 
     # Single-threaded proxy terminates immediately without deadlocking
     t_proxy.join(timeout=2.0)
-    assert (
-        not t_proxy.is_alive()
-    ), "Cloud SQL proxy must terminate cleanly without deadlocks"
+    assert not t_proxy.is_alive(), (
+        "Cloud SQL proxy must terminate cleanly without deadlocks"
+    )
 
     remote_server.close()
 
@@ -859,3 +862,37 @@ def test_proxy_tls13_post_handshake_want_read() -> None:
     proxy_thread.join(timeout=2.0)
     assert not proxy_thread.is_alive()
     remote_server.close()
+def test_proxy_sqldata_bidirectional() -> None:
+    """Test that _proxy_sqldata forwards traffic and connect dispatches SqlDataSocket."""
+    local_client, local_server = socket.socketpair()
+    read_queue: queue.Queue = queue.Queue()
+    remote = MagicMock(spec=SqlDataSocket)
+    remote.sendall.side_effect = lambda payload: read_queue.put(b"echo:" + payload)
+    remote.recv.side_effect = lambda bufsize: read_queue.get() or b""
+    remote.close.side_effect = lambda: read_queue.put(b"")
+
+    proxy_thread = threading.Thread(
+        target=_proxy_sqldata, args=(local_server, remote), daemon=True
+    )
+    proxy_thread.start()
+    local_client.sendall(b"SELECT 1")
+    assert local_client.recv(1024) == b"echo:SELECT 1"
+    local_client.close()
+    proxy_thread.join(timeout=1.0)
+    remote.settimeout.assert_called_once_with(None)
+
+    # Also verify _PsycopgProxy._accept_and_proxy dispatches SqlDataSocket to _proxy_sqldata
+    done = threading.Event()
+    remote.recv.side_effect = lambda bufsize: (done.set(), b"")[1]
+    with patch("psycopg.connect") as mock_psycopg_connect:
+
+        def mock_connect_impl(*args: Any, **kwargs: Any) -> MagicMock:
+            host = kwargs["host"]
+            socket_path = os.path.join(host, ".s.PGSQL.5432")
+            with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as client:
+                client.connect(socket_path)
+            assert done.wait(timeout=1.0)
+            return MagicMock()
+
+        mock_psycopg_connect.side_effect = mock_connect_impl
+        connect("127.0.0.1", remote, user="u", db="d")

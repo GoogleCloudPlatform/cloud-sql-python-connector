@@ -201,7 +201,7 @@ from google.cloud.sql.connector import Connector
 
 # Note: all parameters below are optional
 connector = Connector(
-    ip_type="public",  # can also be "private" or "psc"
+    ip_type="public",  # can also be "private", "psc", or "sql_data"
     enable_iam_auth=False,
     timeout=30,
     credentials=custom_creds, # google.auth.credentials.Credentials
@@ -279,7 +279,11 @@ with, set the `ip_type` keyword argument when initializing a `Connector()` or wh
 calling `connector.connect()`.
 
 Possible values for `ip_type` are `"public"` (default value),
-`"private"`, and `"psc"`.
+`"private"`, `"psc"`, and `"sql_data"`.
+
+> [!NOTE]
+>
+> Usage of the `asyncpg` driver does not currently support `ip_type="sql_data"` (`IPTypes.SQL_DATA`).
 
 Example:
 

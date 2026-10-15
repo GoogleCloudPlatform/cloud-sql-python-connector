@@ -298,7 +298,33 @@ async def test_get_ephemeral_error_parsing_json(
         await client.close()
 
 
+async def test_get_ephemeral_missing_cert_key(
+    fake_credentials: Credentials,
+) -> None:
+    """
+    Test that KeyError is raised and logged when ephemeralCert is missing.
+    """
+    client = CloudSQLClient(
+        sqladmin_api_endpoint="https://sqladmin.googleapis.com",
+        quota_project=None,
+        credentials=fake_credentials,
+    )
+    post_url = "https://sqladmin.googleapis.com/sql/v1beta4/projects/my-project/instances/my-instance:generateEphemeralCert"
+    resp_body = {}  # missing ephemeralCert
+    with aioresponses() as mocked:
+        mocked.post(
+            post_url,
+            status=200,
+            payload=resp_body,
+            repeat=True,
+        )
+        with pytest.raises(KeyError):
+            await client._get_ephemeral("my-project", "my-instance", "my-key")
+        await client.close()
+
+
 @pytest.mark.asyncio
+
 async def test_get_metadata_multiple_psc_dns_sorted(fake_client: CloudSQLClient) -> None:
     """
     Test _get_metadata returns successfully with multiple PSC IP types sorted.
