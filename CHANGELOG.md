@@ -13,7 +13,6 @@
 ### Bug Fixes
 
 * **psycopg:** prevent proxy deadlock on TLS 1.3 post-handshake messages ([#1494](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/1494)) ([d3eef24](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/d3eef24a7ba37f7bb761ef9ef067fe620a9c93f6))
-* send PostgreSQL v3 StartupMessage in proactive IAM refresh probe for MCP ([#1480](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/1480)) ([d531553](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/d53155380010b99d6c351052487a5680360dd8ca))
 * update deps to the latest ([#1484](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/1484)) ([75febc3](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/75febc30dcf5932014afccf5ae3f8a3f97fe96dd))
 
 ## [1.22.0](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v1.21.0...v1.22.0) (2026-08-18)
