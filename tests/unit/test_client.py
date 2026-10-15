@@ -329,6 +329,41 @@ async def test_get_metadata_multiple_psc_dns_sorted(fake_client: CloudSQLClient)
         fake_client.instance.dns_names = ["abcde.12345.us-central1.sql.goog"]
 
 
+@pytest.mark.asyncio
+async def test_get_metadata_multiple_psc_dns_sorted_with_trailing_dots(
+    fake_client: CloudSQLClient,
+) -> None:
+    """
+    Test _get_metadata returns successfully with multiple PSC IP types sorted
+    even when names contain trailing dots or mixed case.
+    """
+    fake_client.instance.psc_enabled = True
+    fake_client.instance.legacy_dns_name = False
+    fake_client.instance.dns_names = [
+        "dns1.sql.goog.",
+        "dns2.SQL-PSC.GOOG.",
+        "dns3.sql.goog.",
+    ]
+    try:
+        resp = await fake_client._get_metadata(
+            "test-project",
+            "test-region",
+            "test-instance",
+        )
+        assert resp["database_version"] == "POSTGRES_15"
+        assert resp["ip_addresses"] == {
+            "PRIMARY": ["127.0.0.1"],
+            "PRIVATE": ["10.0.0.1"],
+            "PSC": ["dns2.SQL-PSC.GOOG", "dns1.sql.goog", "dns3.sql.goog"],
+        }
+        assert isinstance(resp["server_ca_cert"], str)
+    finally:
+        fake_client.instance.psc_enabled = False
+        fake_client.instance.legacy_dns_name = False
+        fake_client.instance.dns_names = ["abcde.12345.us-central1.sql.goog"]
+
+
+
 async def test_CloudSQLClient_init_default_endpoint(
     fake_credentials: FakeCredentials,
 ) -> None:
