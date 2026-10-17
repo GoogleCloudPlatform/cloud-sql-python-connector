@@ -18,10 +18,11 @@ limitations under the License.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 import datetime
 import json
 import ssl
-from typing import Any, Callable, Literal
+from typing import Any, Literal
 
 from aiohttp import web
 from cryptography import x509
@@ -56,7 +57,7 @@ class FakeCredentials:
     def refresh(self, _: Callable) -> None:
         """Refreshes the access token."""
         self.token = "12345"
-        self.expiry = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(
+        self.expiry = datetime.datetime.now(datetime.UTC) + datetime.timedelta(
             minutes=60
         )
 
@@ -70,7 +71,7 @@ class FakeCredentials:
         """
         if self.expiry is None:
             return False
-        return not self.expiry > datetime.datetime.now(datetime.timezone.utc)
+        return not self.expiry > datetime.datetime.now(datetime.UTC)
 
     @property
     def universe_domain(self) -> str:
@@ -94,11 +95,11 @@ class FakeCredentials:
         if self.expiry is None:
             return TokenState.FRESH
 
-        expired = datetime.datetime.now(datetime.timezone.utc) >= self.expiry
+        expired = datetime.datetime.now(datetime.UTC) >= self.expiry
         if expired:
             return TokenState.INVALID
 
-        is_stale = datetime.datetime.now(datetime.timezone.utc) >= (
+        is_stale = datetime.datetime.now(datetime.UTC) >= (
             self.expiry - _helpers.REFRESH_THRESHOLD
         )
         if is_stale:
@@ -117,9 +118,9 @@ def generate_cert(
     Generate a private key and cert object to be used in testing.
     """
     if cert_before is None:
-        cert_before = datetime.datetime.now(datetime.timezone.utc)
+        cert_before = datetime.datetime.now(datetime.UTC)
     if cert_after is None:
-        cert_after = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=1)
+        cert_after = datetime.datetime.now(datetime.UTC) + datetime.timedelta(hours=1)
     # generate private key
     key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
     common_name = f"{project}:{name}"
@@ -168,9 +169,9 @@ def client_key_signed_cert(
     Create a PEM encoded certificate that is signed by given public key.
     """
     if cert_before is None:
-        cert_before = datetime.datetime.now(datetime.timezone.utc)
+        cert_before = datetime.datetime.now(datetime.UTC)
     if cert_expiration is None:
-        cert_expiration = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=1)
+        cert_expiration = datetime.datetime.now(datetime.UTC) + datetime.timedelta(hours=1)
     # configure cert subject
     subject = issuer = x509.Name(
         [
@@ -234,9 +235,9 @@ class FakeCSQLInstance:
         cert_expiration: datetime.datetime | None = None,
     ) -> None:
         if cert_before is None:
-            cert_before = datetime.datetime.now(datetime.timezone.utc)
+            cert_before = datetime.datetime.now(datetime.UTC)
         if cert_expiration is None:
-            cert_expiration = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=1)
+            cert_expiration = datetime.datetime.now(datetime.UTC) + datetime.timedelta(hours=1)
         if dns_names is None:
             dns_names = ["abcde.12345.us-central1.sql.goog"]
         if ip_addrs is None:

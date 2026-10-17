@@ -13,12 +13,12 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
+
 from __future__ import annotations
 
 import asyncio
 from datetime import datetime
 import os
-import socket
 
 import pytest
 import sqlalchemy
@@ -26,11 +26,6 @@ import sqlalchemy
 from google.cloud.sql.connector import Connector
 from google.cloud.sql.connector import DefaultResolver
 from google.cloud.sql.connector import DnsResolver
-
-pytestmark = pytest.mark.skipif(
-    not hasattr(socket, "AF_UNIX"),
-    reason="Unix domain sockets (AF_UNIX) not available on this platform",
-)
 
 
 def create_sqlalchemy_engine(
@@ -131,7 +126,9 @@ def test_customer_managed_CAS_psycopg_connection() -> None:
     ip_type = os.environ.get("IP_TYPE", "public")
 
     if not inst_conn_name or not password:
-        pytest.skip("POSTGRES_CUSTOMER_CAS_CONNECTION_NAME or POSTGRES_CUSTOMER_CAS_PASS not set")
+        pytest.skip(
+            "POSTGRES_CUSTOMER_CAS_CONNECTION_NAME or POSTGRES_CUSTOMER_CAS_PASS not set"
+        )
 
     engine, connector = create_sqlalchemy_engine(
         inst_conn_name, user, password, db, ip_type
@@ -153,7 +150,9 @@ def test_custom_SAN_with_dns_psycopg_connection() -> None:
     ip_type = os.environ.get("IP_TYPE", "public")
 
     if not inst_conn_name or not password:
-        pytest.skip("POSTGRES_CUSTOMER_CAS_PASS_VALID_DOMAIN_NAME or POSTGRES_CUSTOMER_CAS_PASS not set")
+        pytest.skip(
+            "POSTGRES_CUSTOMER_CAS_PASS_VALID_DOMAIN_NAME or POSTGRES_CUSTOMER_CAS_PASS not set"
+        )
 
     engine, connector = create_sqlalchemy_engine(
         inst_conn_name, user, password, db, ip_type, resolver=DnsResolver
@@ -216,3 +215,66 @@ def test_system_psycopg_to_thread() -> None:
             conn.close()
 
     asyncio.run(run_connect())
+
+
+def test_AIDE_psycopg_connection() -> None:
+    """Basic test to get time from database using AIDE instance."""
+    if "POSTGRES_AIDE_CONNECTION_NAME" not in os.environ:
+        pytest.skip("POSTGRES_AIDE_CONNECTION_NAME not set")
+    inst_conn_name = os.environ["POSTGRES_AIDE_CONNECTION_NAME"]
+    user = os.environ.get(
+        "POSTGRES_AIDE_USER", os.environ.get("POSTGRES_USER", "postgres")
+    )
+    password = os.environ.get(
+        "POSTGRES_AIDE_PASS", os.environ.get("POSTGRES_PASS", "")
+    )
+    db = os.environ.get("POSTGRES_AIDE_DB", os.environ.get("POSTGRES_DB", "postgres"))
+
+    engine, connector = create_sqlalchemy_engine(
+        inst_conn_name,
+        user,
+        password,
+        db,
+        ip_type="sqldata",
+    )
+    with engine.connect() as conn:
+        time = conn.execute(sqlalchemy.text("SELECT NOW()")).fetchone()
+        conn.commit()
+        curr_time = time[0]
+        assert type(curr_time) is datetime
+    connector.close()
+
+
+def test_sqldata_fallback_psycopg_connection() -> None:
+    """Test connecting to a non-AIDE instance with ip_type='sqldata'.
+
+    The server returns FAILED_PRECONDITION for standard (non-Developer Edition) instances,
+    and the connector falls back to connecting via public IP.
+    """
+    if "POSTGRES_FALLBACK_CONNECTION_NAME" not in os.environ:
+        pytest.skip("POSTGRES_FALLBACK_CONNECTION_NAME not set")
+    inst_conn_name = os.environ["POSTGRES_FALLBACK_CONNECTION_NAME"]
+    user = os.environ.get(
+        "POSTGRES_FALLBACK_USER", os.environ.get("POSTGRES_USER", "postgres")
+    )
+    password = os.environ.get(
+        "POSTGRES_FALLBACK_PASS", os.environ.get("POSTGRES_PASS", "")
+    )
+    db = os.environ.get(
+        "POSTGRES_FALLBACK_DB", os.environ.get("POSTGRES_DB", "postgres")
+    )
+
+    engine, connector = create_sqlalchemy_engine(
+        inst_conn_name,
+        user,
+        password,
+        db,
+        ip_type="sqldata",
+    )
+    with engine.connect() as conn:
+        time = conn.execute(sqlalchemy.text("SELECT NOW()")).fetchone()
+        conn.commit()
+        curr_time = time[0]
+        assert type(curr_time) is datetime
+    connector.close()
+
