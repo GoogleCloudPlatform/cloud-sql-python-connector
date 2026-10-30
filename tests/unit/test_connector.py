@@ -799,6 +799,55 @@ async def test_Connector_connect_async_sync_driver(
             mock_connect.assert_called_once()
 
 
+@pytest.mark.asyncio
+async def test_Connector_connect_async_postgres_wraps_with_postgres_connection(
+    fake_credentials: Credentials, fake_client: CloudSQLClient
+) -> None:
+    """Test that Connector.connect_async wraps socket with PostgresConnection when IAM is enabled on Postgres."""
+    from google.cloud.sql.connector.postgres_connection import (
+        build_postgres_startup_packet,
+    )
+    from google.cloud.sql.connector.postgres_connection import PostgresConnection
+
+    async with Connector(
+        credentials=fake_credentials, loop=asyncio.get_running_loop()
+    ) as connector:
+        connector._client = fake_client
+        fake_client.instance.db_version = "POSTGRES_15"
+
+        mock_sock = MagicMock()
+        with patch(
+            "google.cloud.sql.connector.connector.socket.create_connection",
+            return_value=mock_sock,
+        ), patch(
+            "ssl.SSLContext.wrap_socket", return_value=mock_sock
+        ), patch(
+            "google.cloud.sql.connector.pg8000.connect"
+        ) as mock_connect:
+            mock_connect.return_value = True
+
+            await connector.connect_async(
+                "test-project:test-region:test-instance",
+                "pg8000",
+                user="iam-user@example.com",
+                password="my-pass",
+                db="my-db",
+                enable_iam_auth=True,
+            )
+
+            mock_connect.assert_called_once()
+            passed_sock = mock_connect.call_args[0][1]
+            assert isinstance(passed_sock, PostgresConnection)
+
+            # Test writing startup packet triggers record_principal
+            passed_sock.sendall(
+                build_postgres_startup_packet("wire-user@example.com", "wiredb")
+            )
+            cache = connector._cache[
+                ("test-project:test-region:test-instance", True)
+            ].cache
+            assert ("wire-user@example.com", "wiredb") in cache._iam_principals
+
 
 @pytest.mark.asyncio
 async def test_Connector_connect_async_iam_username_truncation(
@@ -1062,6 +1111,10 @@ async def test_Connector_connect_async_psycopg(
             )
             assert connection is True
             mock_connect.assert_called_once()
+
+
+
+
 
 
 

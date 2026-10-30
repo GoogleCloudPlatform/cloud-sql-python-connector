@@ -21,6 +21,7 @@ from functools import partial
 import logging
 import os
 import socket
+import ssl
 from threading import Thread
 from types import TracebackType
 from typing import Any, Callable
@@ -35,6 +36,7 @@ from google.cloud.sql.connector import psycopg
 from google.cloud.sql.connector import pymysql
 from google.cloud.sql.connector import pytds
 from google.cloud.sql.connector.client import CloudSQLClient
+from google.cloud.sql.connector.connection_info import ConnectionInfo
 from google.cloud.sql.connector.enums import DriverMapping
 from google.cloud.sql.connector.enums import IPTypes
 from google.cloud.sql.connector.enums import RefreshStrategy
@@ -43,6 +45,7 @@ from google.cloud.sql.connector.exceptions import ConnectorLoopError
 from google.cloud.sql.connector.instance import RefreshAheadCache
 from google.cloud.sql.connector.lazy import LazyRefreshCache
 from google.cloud.sql.connector.monitored_cache import MonitoredCache
+from google.cloud.sql.connector.postgres_connection import PostgresConnection
 from google.cloud.sql.connector.resolver import DefaultResolver
 from google.cloud.sql.connector.resolver import DnsResolver
 from google.cloud.sql.connector.utils import format_database_user
@@ -329,6 +332,9 @@ class Connector:
         ].closed:
             monitored_cache = self._cache[(str(conn_name), enable_iam_auth)]
         else:
+            dial_probe = partial(
+                self._dial_probe_connection, enable_iam_auth=enable_iam_auth
+            )
             if self._refresh_strategy == RefreshStrategy.LAZY:
                 logger.debug(
                     f"['{conn_name}']: Refresh strategy is set to lazy refresh"
@@ -340,6 +346,7 @@ class Connector:
                     enable_iam_auth,
                     ip_type=self._ip_type,
                     timeout=self._timeout,
+                    dial_func=dial_probe,
                 )
             else:
                 logger.debug(
@@ -352,6 +359,7 @@ class Connector:
                     enable_iam_auth,
                     ip_type=self._ip_type,
                     timeout=self._timeout,
+                    dial_func=dial_probe,
                 )
             # wrap cache as a MonitoredCache
             monitored_cache = MonitoredCache(
@@ -432,7 +440,7 @@ class Connector:
             targets.extend(preferred_ips)
 
         # format `user` param for automatic IAM database authn
-        if enable_iam_auth:
+        if enable_iam_auth and "user" in kwargs:
             formatted_user = format_database_user(
                 conn_info.database_version, kwargs["user"]
             )
@@ -442,8 +450,14 @@ class Connector:
                 )
                 kwargs["user"] = formatted_user
             if conn_info.database_version.startswith("POSTGRES"):
-                db_name = kwargs.get("db") or kwargs.get("database") or kwargs["user"]
-                monitored_cache.record_principal(kwargs["user"], str(db_name))
+                db_name = (
+                    kwargs.get("db")
+                    or kwargs.get("database")
+                    or kwargs["user"]
+                )
+                monitored_cache.record_principal(
+                    kwargs["user"], str(db_name)
+                )
 
         try:
             last_ex = None
@@ -463,6 +477,7 @@ class Connector:
                     # Create socket with SSLContext for sync drivers
                     ctx = await conn_info.create_ssl_context(enable_iam_auth)
                     raw_sock = socket.create_connection((target_ip, SERVER_PROXY_PORT))
+                    sock: ssl.SSLSocket | PostgresConnection
                     try:
                         sock = ctx.wrap_socket(
                             raw_sock,
@@ -471,6 +486,15 @@ class Connector:
                     except Exception:
                         raw_sock.close()
                         raise
+
+                    if (
+                        enable_iam_auth
+                        and conn_info.database_version.startswith("POSTGRES")
+                    ):
+                        sock = PostgresConnection(
+                            sock,
+                            on_startup=monitored_cache.record_principal,
+                        )
 
                     # If this connection was opened using a domain name, then store it
                     # for later in case we need to forcibly close it on failover.
@@ -512,6 +536,62 @@ class Connector:
         # remove cache from stored caches and close it
         cache = self._cache.pop((instance_connection_string, enable_iam_auth))
         await cache.close()
+
+    async def _dial_probe_connection(
+        self,
+        conn_info: ConnectionInfo,
+        enable_iam_auth: bool,
+    ) -> tuple[asyncio.StreamReader, asyncio.StreamWriter]:
+        """Dials a TLS probe connection using the connector's IP resolution and SSLContext."""
+        targets: list[str] = []
+        if conn_info.conn_name.domain_name and isinstance(self._resolver, DnsResolver):
+            try:
+                ips = await self._resolver.resolve_a_record(
+                    conn_info.conn_name.domain_name
+                )
+                if ips:
+                    targets.extend(ips)
+                else:
+                    targets.extend(conn_info.get_preferred_ips(self._ip_type))
+            except Exception:  # noqa: BLE001
+                targets.extend(conn_info.get_preferred_ips(self._ip_type))
+        elif conn_info.conn_name.domain_name:
+            targets.append(conn_info.conn_name.domain_name)
+        else:
+            targets.extend(conn_info.get_preferred_ips(self._ip_type))
+
+        if not targets:
+            raise ConnectionError(
+                f"No target IP addresses found for {conn_info.conn_name}"
+            )
+
+        ssl_context = await conn_info.create_ssl_context(enable_iam_auth)
+        server_hostname = (
+            conn_info.conn_name.domain_name
+            if conn_info.conn_name.domain_name
+            else None
+        )
+
+        last_err: Exception | None = None
+        for target in targets:
+            try:
+                reader, writer = await asyncio.wait_for(
+                    asyncio.open_connection(
+                        host=target,
+                        port=SERVER_PROXY_PORT,
+                        ssl=ssl_context,
+                        server_hostname=server_hostname,
+                    ),
+                    timeout=float(self._timeout),
+                )
+                return reader, writer
+            except Exception as e:  # noqa: BLE001
+                last_err = e
+        if last_err:
+            raise last_err
+        raise ConnectionError(
+            f"Failed to connect to any target for {conn_info.conn_name}"
+        )
 
     def __enter__(self) -> Any:
         """Enter context manager by returning Connector object"""

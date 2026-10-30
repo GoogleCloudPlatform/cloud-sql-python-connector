@@ -17,10 +17,12 @@ limitations under the License.
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Awaitable
 from datetime import datetime
 from datetime import timedelta
 from datetime import timezone
 import logging
+from typing import Callable
 
 from google.cloud.sql.connector.client import CloudSQLClient
 from google.cloud.sql.connector.connection_info import ConnectionInfo
@@ -28,6 +30,8 @@ from google.cloud.sql.connector.connection_info import ConnectionInfoCache
 from google.cloud.sql.connector.connection_name import ConnectionName
 from google.cloud.sql.connector.enums import IPTypes
 from google.cloud.sql.connector.exceptions import RefreshNotValidError
+from google.cloud.sql.connector.postgres_connection import build_postgres_startup_packet
+from google.cloud.sql.connector.postgres_connection import build_terminate_packet
 from google.cloud.sql.connector.rate_limiter import AsyncRateLimiter
 from google.cloud.sql.connector.refresh_utils import _is_valid
 from google.cloud.sql.connector.refresh_utils import _seconds_until_refresh
@@ -55,6 +59,13 @@ class RefreshAheadCache(ConnectionInfoCache):
         enable_iam_auth: bool = False,
         ip_type: IPTypes | str = IPTypes.PUBLIC,
         timeout: int = DEFAULT_CONNECT_TIMEOUT,
+        dial_func: (
+            Callable[
+                [ConnectionInfo],
+                Awaitable[tuple[asyncio.StreamReader, asyncio.StreamWriter]],
+            ]
+            | None
+        ) = None,
     ) -> None:
         """Initializes a RefreshAheadCache instance.
 
@@ -69,6 +80,7 @@ class RefreshAheadCache(ConnectionInfoCache):
                 connections.
             ip_type (IPTypes | str): Preferred IP type used to connect to the instance.
             timeout (int): Connect timeout in seconds.
+            dial_func: Optional callable to dial probe connections.
         """
         self._conn_name = conn_name
 
@@ -77,6 +89,7 @@ class RefreshAheadCache(ConnectionInfoCache):
             ip_type = IPTypes._from_str(ip_type)
         self._ip_type = ip_type
         self._timeout = timeout
+        self._dial_func = dial_func
         self._keys = keys
         self._client = client
         self._refresh_rate_limiter = AsyncRateLimiter(
@@ -165,6 +178,7 @@ class RefreshAheadCache(ConnectionInfoCache):
             self._ip_type,
             self._timeout,
             self._iam_principals,
+            self._dial_func,
         )
 
     def _schedule_refresh(self, delay: int) -> asyncio.Task:
@@ -274,79 +288,97 @@ async def _probe_instance_connection(
     ip_type: IPTypes,
     timeout: int,
     iam_principals: list[tuple[str, str]],
+    dial_func: (
+        Callable[
+            [ConnectionInfo],
+            Awaitable[tuple[asyncio.StreamReader, asyncio.StreamWriter]],
+        ]
+        | None
+    ) = None,
 ) -> None:
     """Proactively probes the database to refresh IAM tokens on server-side MCP."""
+    if not enable_iam_auth:
+        return
+
+    # Proactive IAM refresh probe is PostgreSQL-only.
+    if not conn_info.database_version.startswith("POSTGRES"):
+        logger.debug(
+            f"['{conn_name}']: Proactive IAM token refresh probe skipped: instance engine '{conn_info.database_version}' is not PostgreSQL"
+        )
+        return
+
+    # Do not probe if no IAM principals have connected yet.
+    if not iam_principals:
+        logger.debug(
+            f"['{conn_name}']: Proactive IAM token refresh probe skipped: no IAM principals connected"
+        )
+        return
+
     targets: list[str] = []
-    if conn_name.domain_name:
-        targets.append(conn_name.domain_name)
-    else:
-        if ip_type.value in conn_info.ip_addrs:
-            targets.extend(conn_info.ip_addrs[ip_type.value])
+    ssl_context = None
+    if dial_func is None:
+        if conn_name.domain_name:
+            targets.append(conn_name.domain_name)
+        else:
+            if ip_type.value in conn_info.ip_addrs:
+                targets.extend(conn_info.ip_addrs[ip_type.value])
 
-    if not targets:
-        logger.debug(
-            f"['{conn_name}']: Proactive IAM token refresh probe skipped: no target IP addresses"
-        )
-        return
+        if not targets:
+            logger.debug(
+                f"['{conn_name}']: Proactive IAM token refresh probe skipped: no target IP addresses"
+            )
+            return
 
-    port = SERVER_PROXY_PORT
-    try:
-        ssl_context = await conn_info.create_ssl_context(enable_iam_auth)
-    except Exception as e:  # noqa: BLE001
-        logger.debug(
-            f"['{conn_name}']: Failed to create SSL context for probe: {e!s}"
-        )
-        return
-
-    principals: list[tuple[str, str] | None] = []
-    if conn_info.database_version.startswith("POSTGRES") and iam_principals:
-        principals.extend(iam_principals)
-    else:
-        principals.append(None)
+        try:
+            ssl_context = await conn_info.create_ssl_context(enable_iam_auth)
+        except Exception as e:  # noqa: BLE001
+            logger.debug(
+                f"['{conn_name}']: Failed to create SSL context for probe: {e!s}"
+            )
+            return
 
     all_succeeded = True
-    for principal in principals:
+    for user, database in iam_principals:
         probed_principal = False
-        for target in targets:
+        if dial_func is not None:
             try:
-                logger.debug(
-                    f"['{conn_name}']: Probing IAM token refresh on {target}:{port}"
+                reader, writer = await dial_func(conn_info)
+                await _send_startup_probe(
+                    reader, writer, user, database, timeout, conn_name
                 )
-                reader, writer = await asyncio.wait_for(
-                    asyncio.open_connection(
-                        host=target,
-                        port=port,
-                        ssl=ssl_context,
-                        server_hostname=(
-                            conn_name.domain_name
-                            if conn_name.domain_name
-                            else None
-                        ),
-                    ),
-                    timeout=float(timeout),
-                )
-                try:
-                    if principal is not None:
-                        user, database = principal
-                        writer.write(
-                            _build_postgres_startup_packet(user, database)
-                        )
-                        await writer.drain()
-                        await asyncio.wait_for(
-                            reader.read(1024),
-                            timeout=float(timeout),
-                        )
-                        writer.write(b"X\x00\x00\x00\x04")
-                        await writer.drain()
-                finally:
-                    writer.close()
-                    await writer.wait_closed()
                 probed_principal = True
-                break
             except Exception as e:  # noqa: BLE001
                 logger.debug(
-                    f"['{conn_name}']: Probing IAM token refresh on {target}:{port} failed: {e!s}"
+                    f"['{conn_name}']: Probing IAM token refresh for ({user}, {database}) failed: {e!s}"
                 )
+        else:
+            for target in targets:
+                try:
+                    logger.debug(
+                        f"['{conn_name}']: Probing IAM token refresh on {target}:{SERVER_PROXY_PORT}"
+                    )
+                    reader, writer = await asyncio.wait_for(
+                        asyncio.open_connection(
+                            host=target,
+                            port=SERVER_PROXY_PORT,
+                            ssl=ssl_context,
+                            server_hostname=(
+                                conn_name.domain_name
+                                if conn_name.domain_name
+                                else None
+                            ),
+                        ),
+                        timeout=float(timeout),
+                    )
+                    await _send_startup_probe(
+                        reader, writer, user, database, timeout, conn_name
+                    )
+                    probed_principal = True
+                    break
+                except Exception as e:  # noqa: BLE001
+                    logger.debug(
+                        f"['{conn_name}']: Probing IAM token refresh on {target}:{SERVER_PROXY_PORT} failed: {e!s}"
+                    )
         if not probed_principal:
             all_succeeded = False
 
@@ -360,16 +392,35 @@ async def _probe_instance_connection(
         )
 
 
-def _build_postgres_startup_packet(user: str, database: str) -> bytes:
-    """Builds a PostgreSQL v3.0 StartupMessage for (user, database)."""
-    if not database:
-        database = user
-    body = (
-        b"user\x00"
-        + user.encode("utf-8")
-        + b"\x00database\x00"
-        + database.encode("utf-8")
-        + b"\x00\x00"
-    )
-    total_len = 8 + len(body)
-    return total_len.to_bytes(4, byteorder="big") + b"\x00\x03\x00\x00" + body
+async def _send_startup_probe(
+    reader: asyncio.StreamReader,
+    writer: asyncio.StreamWriter,
+    user: str,
+    database: str,
+    timeout: int,
+    conn_name: ConnectionName,
+) -> None:
+    """Sends a PostgreSQL StartupMessage probe and gracefully terminates."""
+    try:
+        writer.write(build_postgres_startup_packet(user, database))
+        await writer.drain()
+        await asyncio.wait_for(
+            reader.read(1024),
+            timeout=float(timeout),
+        )
+        writer.write(build_terminate_packet())
+        await writer.drain()
+        try:
+            await asyncio.wait_for(reader.read(1024), timeout=1.0)
+        except Exception as e:  # noqa: BLE001
+            logger.debug(
+                f"['{conn_name}']: Ignoring error while waiting for server EOF: {e!s}"
+            )
+    finally:
+        writer.close()
+        try:
+            await asyncio.wait_for(writer.wait_closed(), timeout=2.0)
+        except Exception as e:  # noqa: BLE001
+            logger.debug(
+                f"['{conn_name}']: Ignoring error while waiting for socket to close: {e!s}"
+            )

@@ -15,10 +15,12 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Awaitable
 from datetime import datetime
 from datetime import timedelta
 from datetime import timezone
 import logging
+from typing import Callable
 
 from google.cloud.sql.connector.client import CloudSQLClient
 from google.cloud.sql.connector.connection_info import ConnectionInfo
@@ -50,6 +52,13 @@ class LazyRefreshCache(ConnectionInfoCache):
         enable_iam_auth: bool = False,
         ip_type: IPTypes | str = IPTypes.PUBLIC,
         timeout: int = DEFAULT_CONNECT_TIMEOUT,
+        dial_func: (
+            Callable[
+                [ConnectionInfo],
+                Awaitable[tuple[asyncio.StreamReader, asyncio.StreamWriter]],
+            ]
+            | None
+        ) = None,
     ) -> None:
         """Initializes a LazyRefreshCache instance.
 
@@ -64,6 +73,7 @@ class LazyRefreshCache(ConnectionInfoCache):
                 connections.
             ip_type (IPTypes | str): Preferred IP type used to connect to the instance.
             timeout (int): Connect timeout in seconds.
+            dial_func: Optional callable to dial probe connections.
         """
         self._conn_name = conn_name
         self._enable_iam_auth = enable_iam_auth
@@ -71,6 +81,7 @@ class LazyRefreshCache(ConnectionInfoCache):
             ip_type = IPTypes._from_str(ip_type)
         self._ip_type = ip_type
         self._timeout = timeout
+        self._dial_func = dial_func
         self._keys = keys
         self._client = client
         self._lock = asyncio.Lock()
@@ -108,6 +119,7 @@ class LazyRefreshCache(ConnectionInfoCache):
             self._ip_type,
             self._timeout,
             self._iam_principals,
+            self._dial_func,
         )
 
     async def connect_info(self) -> ConnectionInfo:

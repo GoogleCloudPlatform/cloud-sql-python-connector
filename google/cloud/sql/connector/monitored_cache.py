@@ -27,6 +27,7 @@ from google.cloud.sql.connector.exceptions import CacheClosedError
 from google.cloud.sql.connector.exceptions import DnsLoopError
 from google.cloud.sql.connector.instance import RefreshAheadCache
 from google.cloud.sql.connector.lazy import LazyRefreshCache
+from google.cloud.sql.connector.postgres_connection import PostgresConnection
 from google.cloud.sql.connector.resolver import DefaultResolver
 from google.cloud.sql.connector.resolver import DnsResolver
 from google.cloud.sql.connector.resolver import is_instance_dns_name
@@ -44,7 +45,7 @@ class MonitoredCache(ConnectionInfoCache):
         self.resolver = resolver
         self.cache = cache
         self.domain_name_ticker: asyncio.Task | None = None
-        self.sockets: list[ssl.SSLSocket] = []
+        self.sockets: list[ssl.SSLSocket | PostgresConnection] = []
 
         # If domain name is configured for instance and failover period is set,
         # poll for DNS record changes.

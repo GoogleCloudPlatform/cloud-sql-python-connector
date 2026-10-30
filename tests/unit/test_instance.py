@@ -399,7 +399,9 @@ async def test_probe_connection_postgres_startup_packet(
     """Test that _probe_connection sends PostgreSQL v3 StartupMessage and Terminate when IAM principal is recorded."""
     from unittest.mock import MagicMock
 
-    from google.cloud.sql.connector.instance import _build_postgres_startup_packet
+    from google.cloud.sql.connector.postgres_connection import (
+        build_postgres_startup_packet,
+    )
 
     cache._enable_iam_auth = True
     cache.record_principal("iam-user@example.com", "mydb")
@@ -419,9 +421,106 @@ async def test_probe_connection_postgres_startup_packet(
 
     mock_open_conn.assert_awaited_once()
     written_packets = [call.args[0] for call in mock_writer.write.call_args_list]
-    expected_startup = _build_postgres_startup_packet("iam-user@example.com", "mydb")
+    expected_startup = build_postgres_startup_packet("iam-user@example.com", "mydb")
     assert written_packets == [expected_startup, b"X\x00\x00\x00\x04"]
-    mock_reader.read.assert_awaited_once()
+    assert mock_reader.read.await_count == 2
     mock_writer.close.assert_called_once()
     mock_writer.wait_closed.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_probe_connection_skips_non_postgres(
+    cache: RefreshAheadCache,
+) -> None:
+    """Test that _probe_connection does not probe for non-Postgres engines (e.g. MySQL)."""
+    cache._enable_iam_auth = True
+    cache.record_principal("iam-user@example.com", "mydb")
+    conn_info = await cache.connect_info()
+    conn_info.database_version = "MYSQL_8_0"
+
+    with patch(
+        "google.cloud.sql.connector.instance.asyncio.open_connection",
+        AsyncMock(),
+    ) as mock_open_conn:
+        await cache._probe_connection(conn_info)
+
+    mock_open_conn.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_probe_connection_skips_when_no_iam_principals(
+    cache: RefreshAheadCache,
+) -> None:
+    """Test that _probe_connection does not probe when no IAM principals are recorded."""
+    cache._enable_iam_auth = True
+    conn_info = await cache.connect_info()
+
+    with patch(
+        "google.cloud.sql.connector.instance.asyncio.open_connection",
+        AsyncMock(),
+    ) as mock_open_conn:
+        await cache._probe_connection(conn_info)
+
+    mock_open_conn.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_probe_connection_uses_dial_func(
+    fake_client: CloudSQLClient,
+) -> None:
+    """Test that _probe_connection uses dial_func when provided."""
+    from unittest.mock import MagicMock
+
+    from google.cloud.sql.connector.utils import generate_keys
+
+    mock_reader = AsyncMock()
+    mock_reader.read = AsyncMock(return_value=b"R\x00\x00\x00\x08\x00\x00\x00\x00")
+    mock_writer = MagicMock()
+    mock_writer.drain = AsyncMock()
+    mock_writer.wait_closed = AsyncMock()
+    mock_dial = AsyncMock(return_value=(mock_reader, mock_writer))
+
+    keys = asyncio.create_task(generate_keys())
+    cache = RefreshAheadCache(
+        ConnectionName("test-project", "test-region", "test-instance"),
+        client=fake_client,
+        keys=keys,
+        enable_iam_auth=True,
+        dial_func=mock_dial,
+    )
+    cache.record_principal("iam-user@example.com", "mydb")
+    conn_info = await cache.connect_info()
+
+    mock_dial.assert_awaited_once_with(conn_info)
+    assert mock_writer.write.call_count == 2
+    mock_writer.close.assert_called_once()
+    await cache.close()
+
+
+@pytest.mark.asyncio
+async def test_probe_connection_handles_connection_reset_cleanly(
+    cache: RefreshAheadCache,
+) -> None:
+    """Test that _probe_connection handles abrupt server disconnect/reset without raising."""
+    from unittest.mock import MagicMock
+
+    cache._enable_iam_auth = True
+    cache.record_principal("iam-user@example.com", "mydb")
+    conn_info = await cache.connect_info()
+
+    mock_reader = AsyncMock()
+    mock_reader.read = AsyncMock(return_value=b"")  # Server EOF
+    mock_writer = MagicMock()
+    mock_writer.drain = AsyncMock()
+    mock_writer.wait_closed = AsyncMock(side_effect=ConnectionResetError("reset"))
+
+    with patch(
+        "google.cloud.sql.connector.instance.asyncio.open_connection",
+        AsyncMock(return_value=(mock_reader, mock_writer)),
+    ):
+        # Should not raise exception
+        await cache._probe_connection(conn_info)
+
+    mock_writer.close.assert_called_once()
+
 
