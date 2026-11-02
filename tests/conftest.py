@@ -115,7 +115,7 @@ async def start_proxy_server(instance: FakeCSQLInstance) -> None:
         # need to be written to files in order to be loaded by the SSLContext
         server_key_bytes = instance.server_key.private_bytes(
             encoding=serialization.Encoding.PEM,
-            format=serialization.PrivateFormat.TraditionalOpenSSL,
+            format=serialization.PrivateFormat.PKCS8,
             encryption_algorithm=serialization.NoEncryption(),
         )
         async with AsyncTemporaryDirectory() as tmpdir:

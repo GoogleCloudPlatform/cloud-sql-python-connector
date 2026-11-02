@@ -14,6 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import rsa
 import pytest
 
 from google.cloud.sql.connector import utils
@@ -39,6 +41,23 @@ async def test_generate_keys_returns_bytes_and_str() -> None:
 
     res1, res2 = await utils.generate_keys()
     assert isinstance(res1, bytes) and (isinstance(res2, str))
+
+
+@pytest.mark.asyncio
+async def test_generate_keys_pkcs8_and_spki_pem_format() -> None:
+    """Test that generate_keys() serializes private keys in modern PKCS#8 PEM
+    format and public keys in SubjectPublicKeyInfo PEM format."""
+    priv_pem, pub_pem = await utils.generate_keys()
+
+    assert priv_pem.startswith(b"-----BEGIN PRIVATE KEY-----\n")
+    assert not priv_pem.startswith(b"-----BEGIN RSA PRIVATE KEY-----\n")
+    assert pub_pem.startswith("-----BEGIN PUBLIC KEY-----\n")
+
+    priv_key = serialization.load_pem_private_key(priv_pem, password=None)
+    pub_key = serialization.load_pem_public_key(pub_pem.encode("UTF-8"))
+    assert isinstance(priv_key, rsa.RSAPrivateKey)
+    assert isinstance(pub_key, rsa.RSAPublicKey)
+    assert priv_key.public_key().public_numbers() == pub_key.public_numbers()
 
 
 def test_format_database_user_postgres() -> None:
