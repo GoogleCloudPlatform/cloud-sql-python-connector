@@ -52,7 +52,7 @@ async def generate_keys() -> tuple[bytes, str]:
 
     priv_key = private_key_obj.private_bytes(
         encoding=serialization.Encoding.PEM,
-        format=serialization.PrivateFormat.TraditionalOpenSSL,
+        format=serialization.PrivateFormat.PKCS8,
         encryption_algorithm=serialization.NoEncryption(),
     )
 
