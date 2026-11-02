@@ -15,9 +15,10 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Callable
 import logging
-import ssl
-from typing import Any, Callable
+import socket
+from typing import Any
 
 import aiohttp
 
@@ -45,7 +46,7 @@ class MonitoredCache(ConnectionInfoCache):
         self.resolver = resolver
         self.cache = cache
         self.domain_name_ticker: asyncio.Task | None = None
-        self.sockets: list[ssl.SSLSocket | PostgresConnection] = []
+        self.sockets: list[socket.socket | ssl.SSLSocket | PostgresConnection] = []
 
         # If domain name is configured for instance and failover period is set,
         # poll for DNS record changes.
@@ -78,11 +79,11 @@ class MonitoredCache(ConnectionInfoCache):
         list of sockets.
         """
         open_sockets = []
-        for socket in self.sockets:
+        for sock in self.sockets:
             # Check fileno for if socket is closed. Will return
             # -1 on failure, which will be used to signal socket closed.
-            if socket.fileno() != -1:
-                open_sockets.append(socket)
+            if sock.fileno() != -1:
+                open_sockets.append(sock)
         self.sockets = open_sockets
 
     async def _check_domain_name(self) -> None:
@@ -163,11 +164,11 @@ class MonitoredCache(ConnectionInfoCache):
         await self.cache.close()
 
         # Close any still open sockets
-        for socket in self.sockets:
+        for sock in self.sockets:
             # Check fileno for if socket is closed. Will return
             # -1 on failure, which will be used to signal socket closed.
-            if socket.fileno() != -1:
-                socket.close()
+            if sock.fileno() != -1:
+                sock.close()
 
 
 async def ticker(interval: int, function: Callable, *args: Any, **kwargs: Any) -> None:

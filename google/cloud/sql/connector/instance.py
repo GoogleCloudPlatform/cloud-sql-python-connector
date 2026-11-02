@@ -20,7 +20,7 @@ import asyncio
 from collections.abc import Awaitable
 from datetime import datetime
 from datetime import timedelta
-from datetime import timezone
+from datetime import UTC
 import logging
 from typing import Callable
 
@@ -235,7 +235,7 @@ class RefreshAheadCache(ConnectionInfoCache):
             logger.debug(
                 f"['{self._conn_name}']: Connection info refresh"
                 " operation scheduled for "
-                f"{(datetime.now(timezone.utc) + timedelta(seconds=delay)).isoformat(timespec='seconds')} "
+                f"{(datetime.now(UTC) + timedelta(seconds=delay)).isoformat(timespec='seconds')} "
                 f"(now + {timedelta(seconds=delay)})"
             )
             self._next = self._schedule_refresh(delay)

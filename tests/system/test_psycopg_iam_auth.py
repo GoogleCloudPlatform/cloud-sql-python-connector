@@ -16,24 +16,17 @@ limitations under the License.
 
 from datetime import datetime
 import os
-import socket
 
 import pytest
 import sqlalchemy
 
 from google.cloud.sql.connector import Connector
 
-# Skip all tests in this file if POSTGRES_IAM_USER is not set or AF_UNIX is not available
-pytestmark = [
-    pytest.mark.skipif(
-        not os.environ.get("POSTGRES_IAM_USER"),
-        reason="POSTGRES_IAM_USER env var not set for IAM Authn tests",
-    ),
-    pytest.mark.skipif(
-        not hasattr(socket, "AF_UNIX"),
-        reason="Unix domain sockets (AF_UNIX) not available on this platform",
-    ),
-]
+# Skip all tests in this file if POSTGRES_IAM_USER is not set
+pytestmark = pytest.mark.skipif(
+    not os.environ.get("POSTGRES_IAM_USER"),
+    reason="POSTGRES_IAM_USER env var not set for IAM Authn tests",
+)
 
 
 def create_sqlalchemy_engine(

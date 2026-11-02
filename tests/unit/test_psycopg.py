@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import os
+import queue
 import socket
 import ssl
 import threading
@@ -23,12 +24,9 @@ from unittest.mock import patch
 import pytest
 
 from google.cloud.sql.connector.psycopg import _proxy
+from google.cloud.sql.connector.psycopg import _proxy_sqldata
 from google.cloud.sql.connector.psycopg import connect
-
-pytestmark = pytest.mark.skipif(
-    not hasattr(socket, "AF_UNIX"),
-    reason="Unix domain sockets (AF_UNIX) not available on this platform",
-)
+from google.cloud.sql.connector.sqldata_client import SqlDataSocket
 
 
 class MockableSocket(socket.socket):
@@ -40,8 +38,8 @@ def mockable_socketpair() -> tuple[MockableSocket, MockableSocket]:
     s1, s2 = socket.socketpair()
     fd1 = s1.detach()
     fd2 = s2.detach()
-    ms1 = MockableSocket(socket.AF_UNIX, socket.SOCK_STREAM, fileno=fd1)
-    ms2 = MockableSocket(socket.AF_UNIX, socket.SOCK_STREAM, fileno=fd2)
+    ms1 = MockableSocket(s1.family, s1.type, fileno=fd1)
+    ms2 = MockableSocket(s2.family, s2.type, fileno=fd2)
     return ms1, ms2
 
 
@@ -130,6 +128,9 @@ def test_proxy_pending_data() -> None:
     remote_server.close()
 
 
+@pytest.mark.skipif(
+    not hasattr(socket, "AF_UNIX"), reason="AF_UNIX not supported on this platform"
+)
 @patch("psycopg.connect")
 def test_connect_wrapper(mock_psycopg_connect: MagicMock) -> None:
     """Test connect wrapper creates temp socket and calls psycopg.connect with correct arguments."""
@@ -141,9 +142,10 @@ def test_connect_wrapper(mock_psycopg_connect: MagicMock) -> None:
     def mock_connect_impl(*args: Any, **kwargs: Any) -> MagicMock:
         host = kwargs.get("host")
         socket_path = os.path.join(host, ".s.PGSQL.5432")
-        client = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        client.connect(socket_path)
-        client.close()
+        if hasattr(socket, "AF_UNIX"):
+            client = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+            client.connect(socket_path)
+            client.close()
         return MagicMock()
 
     mock_psycopg_connect.side_effect = mock_connect_impl
@@ -177,6 +179,9 @@ def test_connect_wrapper(mock_psycopg_connect: MagicMock) -> None:
     assert not os.path.exists(kwargs["host"])
 
 
+@pytest.mark.skipif(
+    not hasattr(socket, "AF_UNIX"), reason="AF_UNIX not supported on this platform"
+)
 @patch("psycopg.connect")
 def test_connect_wrapper_failure(mock_psycopg_connect: MagicMock) -> None:
     """Test that connect wrapper cleans up correctly when psycopg.connect fails."""
@@ -388,18 +393,83 @@ def test_connect_import_error() -> None:
         connect("127.0.0.1", mock_remote_sock)
 
 
-def test_connect_unsupported_platform() -> None:
-    """Test that connect raises NotImplementedError when AF_UNIX is not available."""
+@patch("google.cloud.sql.connector.psycopg.platform.system", return_value="Windows")
+@patch("psycopg.connect")
+def test_connect_wrapper_windows(
+    mock_psycopg_connect: MagicMock, mock_platform: MagicMock
+) -> None:
+    """Test that connect wrapper on Windows uses TCP loopback on 127.0.0.1 with ephemeral port."""
     mock_remote_sock = MagicMock(spec=ssl.SSLSocket)
+
+    def mock_connect_impl(*args: Any, **kwargs: Any) -> MagicMock:
+        host = kwargs.get("host")
+        port = kwargs.get("port")
+        client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        client.connect((host, port))
+        client.close()
+        return MagicMock()
+
+    mock_psycopg_connect.side_effect = mock_connect_impl
+
+    conn = connect(
+        "127.0.0.1",
+        mock_remote_sock,
+        user="test_user",
+        db="test_db",
+        password="test_password",
+        sslmode="require",
+        timeout=30.5,
+    )
+
+    assert conn is not None
+    assert mock_psycopg_connect.called
+
+    _, kwargs = mock_psycopg_connect.call_args
+    assert kwargs["user"] == "test_user"
+    assert kwargs["dbname"] == "test_db"
+    assert kwargs["password"] == "test_password"
+    assert kwargs["sslmode"] == "disable"
+    assert kwargs["connect_timeout"] == 30
+
+
+@patch("google.cloud.sql.connector.psycopg.platform.system", return_value="Windows")
+@patch("psycopg.connect")
+def test_connect_wrapper_windows_failure(
+    mock_psycopg_connect: MagicMock, mock_platform: MagicMock
+) -> None:
+    """Test that connect wrapper on Windows cleans up correctly on connection failure."""
+    mock_remote_sock = MagicMock(spec=ssl.SSLSocket)
+    mock_psycopg_connect.side_effect = Exception("windows connection failed simulated")
+
+    mock_local_sock = MagicMock()
+    mock_local_sock.getsockname.return_value = ("127.0.0.1", 54321)
+
+    real_socket = socket.socket
+
+    def socket_side_effect(family, type, proto=0, fileno=None):
+        if family == socket.AF_INET:
+            return mock_local_sock
+        return real_socket(family, type, proto, fileno)
+
     with (
-        patch("google.cloud.sql.connector.psycopg.hasattr", return_value=False),
-        pytest.raises(
-            NotImplementedError, match="Unix domain sockets \\(AF_UNIX\\)"
-        ),
+        patch("socket.socket", side_effect=socket_side_effect),
+        pytest.raises(Exception, match="windows connection failed simulated"),
     ):
-        connect("127.0.0.1", mock_remote_sock)
+        connect(
+            "127.0.0.1",
+            mock_remote_sock,
+            user="test_user",
+            db="test_db",
+            password="test_password",
+        )
+
+    mock_local_sock.close.assert_called_once()
+    assert mock_remote_sock.close.called
 
 
+@pytest.mark.skipif(
+    not hasattr(socket, "AF_UNIX"), reason="AF_UNIX not supported on this platform"
+)
 def test_connect_cleanup_errors() -> None:
     """Test that connect ignores OSErrors when removing temp files/dirs during cleanup."""
     mock_remote_sock = MagicMock(spec=ssl.SSLSocket)
@@ -407,9 +477,10 @@ def test_connect_cleanup_errors() -> None:
     def mock_connect_impl(*args: Any, **kwargs: Any) -> MagicMock:
         host = kwargs.get("host")
         socket_path = os.path.join(host, ".s.PGSQL.5432")
-        client = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        client.connect(socket_path)
-        client.close()
+        if hasattr(socket, "AF_UNIX"):
+            client = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+            client.connect(socket_path)
+            client.close()
         return MagicMock()
 
     with (
@@ -438,16 +509,10 @@ def test_connect_cleanup_errors() -> None:
 
 def test_proxy_happy_path_sequential() -> None:
     """Test that _proxy forwards sequential request/response traffic cleanly without errors."""
-    local_client, local_proxy = socket.socketpair(
-        socket.AF_UNIX, socket.SOCK_STREAM
-    )
-    remote_proxy, remote_server = socket.socketpair(
-        socket.AF_UNIX, socket.SOCK_STREAM
-    )
+    local_client, local_proxy = socket.socketpair()
+    remote_proxy, remote_server = socket.socketpair()
 
-    t = threading.Thread(
-        target=_proxy, args=(local_proxy, remote_proxy), daemon=True
-    )
+    t = threading.Thread(target=_proxy, args=(local_proxy, remote_proxy), daemon=True)
     t.start()
 
     # Step 1: Client sends query
@@ -473,12 +538,8 @@ def test_proxy_backpressure_and_clean_teardown() -> None:
 
     without deadlocking on teardown.
     """
-    local_client, local_proxy = socket.socketpair(
-        socket.AF_UNIX, socket.SOCK_STREAM
-    )
-    remote_proxy, remote_server = socket.socketpair(
-        socket.AF_UNIX, socket.SOCK_STREAM
-    )
+    local_client, local_proxy = socket.socketpair()
+    remote_proxy, remote_server = socket.socketpair()
 
     t_proxy = threading.Thread(
         target=_proxy, args=(local_proxy, remote_proxy), daemon=True
@@ -498,9 +559,9 @@ def test_proxy_backpressure_and_clean_teardown() -> None:
 
     # Single-threaded proxy terminates immediately without deadlocking
     t_proxy.join(timeout=2.0)
-    assert (
-        not t_proxy.is_alive()
-    ), "Cloud SQL proxy must terminate cleanly without deadlocks"
+    assert not t_proxy.is_alive(), (
+        "Cloud SQL proxy must terminate cleanly without deadlocks"
+    )
 
     remote_server.close()
 
@@ -620,33 +681,41 @@ def test_proxy_finally_cleanup_errors() -> None:
     remote_client, remote_server = mockable_socketpair()
 
     real_local_shutdown = local_server.shutdown
+
     def mock_local_shutdown(how):
         try:
             real_local_shutdown(how)
         except OSError:
             pass
         raise OSError("shutdown failed")
+
     local_server.shutdown = MagicMock(side_effect=mock_local_shutdown)
 
     real_local_close = local_server.close
+
     def mock_local_close():
         real_local_close()
         raise OSError("close failed")
+
     local_server.close = MagicMock(side_effect=mock_local_close)
 
     real_remote_shutdown = remote_client.shutdown
+
     def mock_remote_shutdown(how):
         try:
             real_remote_shutdown(how)
         except OSError:
             pass
         raise OSError("shutdown failed")
+
     remote_client.shutdown = MagicMock(side_effect=mock_remote_shutdown)
 
     real_remote_close = remote_client.close
+
     def mock_remote_close():
         real_remote_close()
         raise OSError("close failed")
+
     remote_client.close = MagicMock(side_effect=mock_remote_close)
 
     # Trigger exit by closing client
@@ -677,19 +746,22 @@ def test_accept_and_proxy_cleanup_errors(mock_proxy_fn: MagicMock) -> None:
     mock_local_sock.accept.return_value = (mock_unix_conn, ("path",))
 
     def socket_side_effect(family, type, proto=0, fileno=None):
-        if family == socket.AF_UNIX:
+        if family in (getattr(socket, "AF_UNIX", None), socket.AF_INET):
             return mock_local_sock
         return real_socket(family, type, proto, fileno)
 
     event = threading.Event()
+
     def remote_close_fn():
         event.set()
         raise OSError("remote close failed")
+
     mock_remote_sock.close.side_effect = remote_close_fn
 
-    with patch("socket.socket", side_effect=socket_side_effect), patch(
-        "psycopg.connect"
-    ) as mock_psycopg_connect:
+    with (
+        patch("socket.socket", side_effect=socket_side_effect),
+        patch("psycopg.connect") as mock_psycopg_connect,
+    ):
         mock_psycopg_connect.return_value = MagicMock()
 
         connect(
@@ -711,7 +783,9 @@ def test_accept_and_proxy_cleanup_errors(mock_proxy_fn: MagicMock) -> None:
 
 
 @patch("psycopg.connect")
-def test_connect_wrapper_failure_cleanup_errors(mock_psycopg_connect: MagicMock) -> None:
+def test_connect_wrapper_failure_cleanup_errors(
+    mock_psycopg_connect: MagicMock,
+) -> None:
     """Test that connect wrapper ignores OSErrors during cleanup on connection failure."""
     mock_remote_sock = MagicMock(spec=ssl.SSLSocket)
     mock_remote_sock.close.side_effect = OSError("remote close failed")
@@ -722,8 +796,9 @@ def test_connect_wrapper_failure_cleanup_errors(mock_psycopg_connect: MagicMock)
     mock_local_sock.close.side_effect = OSError("local close failed")
 
     real_socket = socket.socket
+
     def socket_side_effect(family, type, proto=0, fileno=None):
-        if family == socket.AF_UNIX:
+        if family in (getattr(socket, "AF_UNIX", None), socket.AF_INET):
             return mock_local_sock
         return real_socket(family, type, proto, fileno)
 
@@ -743,3 +818,81 @@ def test_connect_wrapper_failure_cleanup_errors(mock_psycopg_connect: MagicMock)
     assert mock_remote_sock.close.call_count >= 1
 
 
+def test_proxy_tls13_post_handshake_want_read() -> None:
+    """Test that _proxy does not deadlock or exit on SSLWantReadError (e.g. TLS 1.3 NewSessionTicket)."""
+    local_client, local_server = socket.socketpair()
+    remote_client, remote_server = socket.socketpair()
+
+    class MockTLS13SSLSocket:
+        def __init__(self, sock: socket.socket) -> None:
+            self._sock = sock
+            self._want_read_once = True
+
+        def pending(self) -> int:
+            return 0
+
+        def recv(self, bufsize: int, flags: int = 0) -> bytes:
+            if self._want_read_once:
+                self._want_read_once = False
+                # Drain the 1-byte dummy ticket wakeup from the underlying socket
+                self._sock.recv(1)
+                raise ssl.SSLWantReadError()
+            return self._sock.recv(bufsize, flags)
+
+        def __getattr__(self, name: str) -> Any:
+            return getattr(self._sock, name)
+
+    wrapped_remote = MockTLS13SSLSocket(remote_client)
+
+    # Simulate TLS 1.3 NewSessionTicket arriving on remote BEFORE client sends StartupMessage
+    remote_server.sendall(b"T")
+
+    proxy_thread = threading.Thread(
+        target=_proxy, args=(local_server, wrapped_remote), daemon=True
+    )
+    proxy_thread.start()
+
+    # Client sends StartupMessage and receives response without deadlocking
+    local_client.sendall(b"StartupMessage")
+    assert remote_server.recv(1024) == b"StartupMessage"
+    remote_server.sendall(b"AuthenticationOk")
+    assert local_client.recv(1024) == b"AuthenticationOk"
+
+    local_client.close()
+    proxy_thread.join(timeout=2.0)
+    assert not proxy_thread.is_alive()
+    remote_server.close()
+def test_proxy_sqldata_bidirectional() -> None:
+    """Test that _proxy_sqldata forwards traffic and connect dispatches SqlDataSocket."""
+    local_client, local_server = socket.socketpair()
+    read_queue: queue.Queue = queue.Queue()
+    remote = MagicMock(spec=SqlDataSocket)
+    remote.sendall.side_effect = lambda payload: read_queue.put(b"echo:" + payload)
+    remote.recv.side_effect = lambda bufsize: read_queue.get() or b""
+    remote.close.side_effect = lambda: read_queue.put(b"")
+
+    proxy_thread = threading.Thread(
+        target=_proxy_sqldata, args=(local_server, remote), daemon=True
+    )
+    proxy_thread.start()
+    local_client.sendall(b"SELECT 1")
+    assert local_client.recv(1024) == b"echo:SELECT 1"
+    local_client.close()
+    proxy_thread.join(timeout=1.0)
+    remote.settimeout.assert_called_once_with(None)
+
+    # Also verify _PsycopgProxy._accept_and_proxy dispatches SqlDataSocket to _proxy_sqldata
+    done = threading.Event()
+    remote.recv.side_effect = lambda bufsize: (done.set(), b"")[1]
+    with patch("psycopg.connect") as mock_psycopg_connect:
+
+        def mock_connect_impl(*args: Any, **kwargs: Any) -> MagicMock:
+            host = kwargs["host"]
+            socket_path = os.path.join(host, ".s.PGSQL.5432")
+            with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as client:
+                client.connect(socket_path)
+            assert done.wait(timeout=1.0)
+            return MagicMock()
+
+        mock_psycopg_connect.side_effect = mock_connect_impl
+        connect("127.0.0.1", remote, user="u", db="d")

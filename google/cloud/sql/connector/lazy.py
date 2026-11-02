@@ -18,7 +18,7 @@ import asyncio
 from collections.abc import Awaitable
 from datetime import datetime
 from datetime import timedelta
-from datetime import timezone
+from datetime import UTC
 import logging
 from typing import Callable
 
@@ -133,7 +133,7 @@ class LazyRefreshCache(ConnectionInfoCache):
             if (
                 self._cached
                 and not self._needs_refresh
-                and datetime.now(timezone.utc)
+                and datetime.now(UTC)
                 < (self._cached.expiration - timedelta(seconds=_refresh_buffer))
             ):
                 logger.debug(

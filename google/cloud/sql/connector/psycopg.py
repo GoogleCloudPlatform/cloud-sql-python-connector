@@ -12,19 +12,127 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import contextlib
 import logging
 import os
+import platform
 import selectors
 import socket
 import ssl
 import tempfile
 import threading
-from typing import Any, TYPE_CHECKING
+from types import TracebackType
+from typing import Any, Self, TYPE_CHECKING
+
+from google.cloud.sql.connector.sqldata_client import SqlDataSocket
 
 if TYPE_CHECKING:
     import psycopg
 
 logger = logging.getLogger(name=__name__)
+
+_BUFFER_SIZE = 8192
+_DEFAULT_PGSQL_PORT = 5432
+_LOOPBACK_HOST = "127.0.0.1"
+_UNIX_SOCKET_NAME = ".s.PGSQL.5432"
+
+
+def _close_socket(sock: socket.socket, *, shutdown: bool = True) -> None:
+    """Safely shut down and close a socket, ignoring OSErrors."""
+    if shutdown:
+        try:
+            sock.shutdown(socket.SHUT_RDWR)
+        except OSError:
+            pass
+    try:
+        sock.close()
+    except OSError:
+        pass
+
+
+def _forward_bytes(
+    src: socket.socket,
+    dst: socket.socket,
+    src_name: str,
+    dst_name: str,
+    *,
+    nonblocking: bool = False,
+) -> bool:
+    """Read a chunk of bytes from src and send it to dst.
+
+    Returns:
+        bool: True if bytes were forwarded, False on EOF or OSError.
+    """
+    try:
+        if nonblocking:
+            src.setblocking(False)
+        try:
+            data = src.recv(_BUFFER_SIZE)
+        finally:
+            if nonblocking:
+                with contextlib.suppress(OSError):
+                    src.setblocking(True)
+    except OSError as e:
+        if nonblocking and isinstance(e, (ssl.SSLWantReadError, BlockingIOError)):
+            return True
+        logger.debug(f"Failed to receive from {src_name} socket: {e}")
+        return False
+    if not data:
+        logger.debug(f"EOF reached on {src_name} socket")
+        return False
+    try:
+        dst.sendall(data)
+    except OSError as e:
+        logger.debug(f"Failed to send to {dst_name} socket: {e}")
+        return False
+    return True
+
+
+def _forward_pending(local: socket.socket, remote: "ssl.SSLSocket") -> bool:
+    """Read any pending decrypted data from SSL buffer and forward it to local.
+
+    Returns:
+        bool: True if EOF was reached or error occurred (should exit).
+    """
+    if not hasattr(remote, "pending"):
+        return False
+    pending_bytes = remote.pending()
+    if not isinstance(pending_bytes, int):
+        return False
+
+    while pending_bytes > 0:
+        if not _forward_bytes(remote, local, "remote", "local"):
+            return True
+        try:
+            pending_bytes = remote.pending()
+        except OSError:
+            break
+        if not isinstance(pending_bytes, int):
+            break
+    return False
+
+
+def _forward_local_to_remote(local: socket.socket, remote: SqlDataSocket) -> None:
+    """Forward bytes from local socket to remote SqlDataSocket until EOF or error."""
+    try:
+        while _forward_bytes(local, remote, "local", "remote"):
+            pass
+    finally:
+        _close_socket(remote, shutdown=False)
+
+
+def _proxy_sqldata(local: socket.socket, remote: SqlDataSocket) -> None:
+    """Bidirectional thread-based proxy for queue-backed SqlDataSocket."""
+    remote.settimeout(None)
+    threading.Thread(
+        target=_forward_local_to_remote, args=(local, remote), daemon=True
+    ).start()
+    try:
+        while _forward_bytes(remote, local, "remote", "local"):
+            pass
+    finally:
+        _close_socket(local)
+        _close_socket(remote, shutdown=False)
 
 
 def _proxy(local: socket.socket, remote: "ssl.SSLSocket") -> None:
@@ -33,104 +141,145 @@ def _proxy(local: socket.socket, remote: "ssl.SSLSocket") -> None:
     sel.register(local, selectors.EVENT_READ, data="local")
     sel.register(remote, selectors.EVENT_READ, data="remote")
 
-    def forward_pending() -> bool:
-        """Read any pending decrypted data from SSL buffer and forward it.
-        Returns True if EOF was reached or error occurred (should exit).
-        """
-        if not hasattr(remote, "pending"):
-            return False
-        pending_bytes = remote.pending()
-        if not isinstance(pending_bytes, int):
-            return False
-
-        while pending_bytes > 0:
-            try:
-                data = remote.recv(8192)
-            except OSError as e:
-                logger.debug("psycopg proxy: remote recv pending error: %s", e)
-                return True
-            if not data:
-                logger.debug("psycopg proxy: remote pending EOF")
-                return True
-            try:
-                local.sendall(data)
-            except OSError as e:
-                logger.debug("psycopg proxy: local send pending error: %s", e)
-                return True
-            try:
-                pending_bytes = remote.pending()
-            except OSError:
-                break
-            if not isinstance(pending_bytes, int):
-                break
-        return False
-
     try:
         while True:
             # First check if there is any pending data in SSL buffer
-            if forward_pending():
+            if _forward_pending(local, remote):
                 break
 
             events = sel.select()
 
-            for key, mask in events:
-                if key.data == "local":
-                    try:
-                        data = local.recv(8192)
-                    except OSError as e:
-                        logger.debug("psycopg proxy: local recv error: %s", e)
-                        return
-                    if not data:
-                        logger.debug("psycopg proxy: local EOF")
-                        return
-                    try:
-                        remote.sendall(data)
-                    except OSError as e:
-                        logger.debug("psycopg proxy: remote send error: %s", e)
-                        return
-                elif key.data == "remote":
-                    try:
-                        data = remote.recv(8192)
-                    except OSError as e:
-                        logger.debug("psycopg proxy: remote recv error: %s", e)
-                        return
-                    if not data:
-                        logger.debug("psycopg proxy: remote EOF")
-                        return
-                    try:
-                        local.sendall(data)
-                    except OSError as e:
-                        logger.debug("psycopg proxy: local send error: %s", e)
-                        return
+            for key, _ in events:
+                if key.data == "local" and not _forward_bytes(
+                    local, remote, "local", "remote"
+                ):
+                    return
+                if key.data == "remote" and not _forward_bytes(
+                    remote, local, "remote", "local", nonblocking=True
+                ):
+                    return
     except OSError as e:
-        logger.debug("psycopg proxy: OSError in loop: %s", e)
+        logger.debug(f"Selector loop error in proxy: {e}")
     finally:
         sel.close()
-        for s in (local, remote):
+        _close_socket(local)
+        _close_socket(remote)
+
+
+class _PsycopgProxy:
+    """Context manager that sets up a local listener socket and background proxy.
+
+    Encapsulates the platform-specific listener creation (Unix domain socket on
+    POSIX, TCP loopback on Windows), background connection acceptance, and
+    deterministic cleanup of temporary filesystem resources.
+    """
+
+    def __init__(
+        self, ip_address: str, remote_sock: "ssl.SSLSocket | SqlDataSocket"
+    ) -> None:
+        self._ip_address = ip_address
+        self._remote_sock = remote_sock
+        self._tmpdir: str | None = None
+        self._socket_path: str | None = None
+        self._local_sock: socket.socket
+        self.host: str = ""
+        self.port: int = _DEFAULT_PGSQL_PORT
+
+    def __enter__(self) -> Self:
+        self._local_sock = self._create_local_socket()
+        threading.Thread(target=self._accept_and_proxy, daemon=True).start()
+        return self
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
+        if exc_type is not None:
+            # psycopg never connected (or failed mid-handshake); close the server
+            # socket so the proxy thread unblocks and exits cleanly.
+            _close_socket(self._local_sock, shutdown=False)
+            _close_socket(self._remote_sock, shutdown=False)
+        self._cleanup_socket_files()
+
+    def _create_local_socket(self) -> socket.socket:
+        """Determine the platform and create a bound local listener socket."""
+        if platform.system() == "Windows":
+            # On Windows, libpq does not support Unix domain sockets.
+            # Use a local TCP loopback socket on an ephemeral port.
+            local_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            local_sock.bind((_LOOPBACK_HOST, 0))
+            local_sock.listen(1)
+            self.host = _LOOPBACK_HOST
+            self.port = local_sock.getsockname()[1]
+            logger.debug(
+                f"['{self._ip_address}']: Created TCP loopback listener "
+                f"on {self.host}:{self.port}"
+            )
+            return local_sock
+
+        self._tmpdir = tempfile.mkdtemp()
+        self._socket_path = os.path.join(self._tmpdir, _UNIX_SOCKET_NAME)
+        logger.debug(
+            f"['{self._ip_address}']: Created Unix socket at {self._socket_path}"
+        )
+        local_sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        local_sock.bind(self._socket_path)
+        local_sock.listen(1)
+        self.host = self._tmpdir
+        self.port = _DEFAULT_PGSQL_PORT
+        return local_sock
+
+    def _accept_and_proxy(self) -> None:
+        """Accept one connection then proxy bytes until the connection closes."""
+        local_conn: socket.socket | None = None
+        try:
+            local_conn, _ = self._local_sock.accept()
+            self._local_sock.close()
+            logger.debug(
+                f"['{self._ip_address}']: Accepted local connection, starting proxy"
+            )
+            if isinstance(self._remote_sock, SqlDataSocket):
+                _proxy_sqldata(local_conn, self._remote_sock)
+            else:
+                _proxy(local_conn, self._remote_sock)
+        except Exception as e:  # noqa: BLE001
+            logger.debug(f"['{self._ip_address}']: Error in accept/proxy thread: {e}")
+            if local_conn is not None:
+                _close_socket(local_conn)
+            _close_socket(self._remote_sock)
+
+    def _cleanup_socket_files(self) -> None:
+        """Remove temporary Unix socket file and directory if created."""
+        if self._socket_path:
             try:
-                s.shutdown(socket.SHUT_RDWR)
+                os.remove(self._socket_path)
             except OSError:
                 pass
+        if self._tmpdir:
             try:
-                s.close()
+                os.rmdir(self._tmpdir)
             except OSError:
                 pass
 
 
 def connect(
-    ip_address: str, remote_sock: "ssl.SSLSocket", **kwargs: Any
+    ip_address: str,
+    remote_sock: "ssl.SSLSocket | SqlDataSocket",
+    **kwargs: Any,
 ) -> "psycopg.Connection":
     """Create a psycopg DBAPI connection object.
 
     Because psycopg does not accept a pre-connected socket, this function
-    creates a temporary Unix domain socket, tells psycopg to connect there,
-    and runs a background proxy that forwards bytes between that socket and
-    the already-established Cloud SQL TLS connection.
+    creates a local listener (Unix domain socket on Unix, TCP loopback on Windows),
+    tells psycopg to connect there, and runs a background proxy that forwards bytes
+    between that socket and the already-established Cloud SQL connection.
 
     Args:
         ip_address (str): IP address of the Cloud SQL instance.
-        remote_sock (ssl.SSLSocket): SSL/TLS secure socket stream connected to the
-            Cloud SQL proxy server.
+        remote_sock (ssl.SSLSocket | SqlDataSocket): Secure socket stream
+            connected to the Cloud SQL instance.
 
     Returns:
         psycopg.Connection: A psycopg Connection object for the Cloud SQL instance.
@@ -142,94 +291,33 @@ def connect(
             'Unable to import module "psycopg." Please install and try again.'
         )
 
-    if not hasattr(socket, "AF_UNIX"):
-        raise NotImplementedError(
-            "Unix domain sockets (AF_UNIX) are not supported on this platform"
-        )
-
-    tmpdir = tempfile.mkdtemp()
-    socket_path = os.path.join(tmpdir, ".s.PGSQL.5432")
-    logger.debug("psycopg: created Unix socket at %s", socket_path)
-
-    local_sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-    local_sock.bind(socket_path)
-    local_sock.listen(1)
-
-    def _accept_and_proxy() -> None:
-        """Accept one connection then proxy bytes until the connection closes."""
-        unix_conn = None
-        try:
-            unix_conn, _ = local_sock.accept()
-            local_sock.close()
-            logger.debug("psycopg proxy: accepted connection, starting proxy")
-            _proxy(unix_conn, remote_sock)
-        except Exception as e:  # noqa: BLE001
-            logger.debug("psycopg proxy: error in accept/proxy thread: %s", e)
-            # Ensure cleanup on any exception
-            if unix_conn:
-                try:
-                    unix_conn.shutdown(socket.SHUT_RDWR)
-                except OSError:
-                    pass
-                try:
-                    unix_conn.close()
-                except OSError:
-                    pass
-            try:
-                remote_sock.shutdown(socket.SHUT_RDWR)
-            except OSError:
-                pass
-            try:
-                remote_sock.close()
-            except OSError:
-                pass
-
-    threading.Thread(target=_accept_and_proxy, daemon=True).start()
-
     user = kwargs.pop("user")
     db = kwargs.pop("db")
     passwd = kwargs.pop("password", None)
     # SSL is already handled by the underlying SSLSocket; disable it on the
-    # Unix socket so psycopg does not attempt a second TLS handshake.
+    # local socket so psycopg does not attempt a second TLS handshake.
     kwargs.pop("sslmode", None)
     timeout = kwargs.pop("timeout", None)
     if timeout is not None:
         kwargs["connect_timeout"] = int(timeout)
 
-    logger.debug("psycopg: connecting as user=%s dbname=%s", user, db)
-    try:
-        conn = psycopg.connect(
-            user=user,
-            dbname=db,
-            password=passwd,
-            host=tmpdir,
-            port=5432,
-            sslmode="disable",
-            **kwargs,
+    with _PsycopgProxy(ip_address, remote_sock) as proxy:
+        logger.debug(
+            f"['{ip_address}']: Connecting as user={user} dbname={db} "
+            f"to {proxy.host}:{proxy.port}"
         )
-        logger.debug("psycopg: connection established")
-        return conn
-    except Exception as e:
-        logger.debug("psycopg: connection failed: %s", e)
-        # psycopg never connected (or failed mid-handshake); close the server
-        # socket so the proxy thread unblocks and exits cleanly.
         try:
-            local_sock.close()
-        except OSError:
-            pass
-        try:
-            remote_sock.close()
-        except OSError:
-            pass
-        raise
-    finally:
-        # The socket file and its parent directory are only needed during the
-        # initial connect() call; remove them now regardless of outcome.
-        try:
-            os.remove(socket_path)
-        except OSError:
-            pass
-        try:
-            os.rmdir(tmpdir)
-        except OSError:
-            pass
+            conn = psycopg.connect(
+                user=user,
+                dbname=db,
+                password=passwd,
+                host=proxy.host,
+                port=proxy.port,
+                sslmode="disable",
+                **kwargs,
+            )
+            logger.debug(f"['{ip_address}']: Connection established")
+            return conn
+        except Exception as e:
+            logger.debug(f"['{ip_address}']: Connection failed: {e}")
+            raise
