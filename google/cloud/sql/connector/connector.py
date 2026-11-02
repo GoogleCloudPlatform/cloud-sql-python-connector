@@ -645,8 +645,9 @@ class Connector:
                         # Create socket with SSLContext for sync drivers
                         ctx = await conn_info.create_ssl_context(enable_iam_auth)
                         raw_sock = socket.create_connection((target_ip, SERVER_PROXY_PORT))
+                        sync_sock: socket.socket | ssl.SSLSocket | PostgresConnection
                         try:
-                            sock = ctx.wrap_socket(
+                            sync_sock = ctx.wrap_socket(
                                 raw_sock,
                                 server_hostname=target_ip,
                             )
@@ -654,15 +655,24 @@ class Connector:
                             raw_sock.close()
                             raise
 
+                        if (
+                            enable_iam_auth
+                            and conn_info.database_version.startswith("POSTGRES")
+                        ):
+                            sync_sock = PostgresConnection(
+                                sync_sock,
+                                on_startup=monitored_cache.record_principal,
+                            )
+
                         # If this connection was opened using a domain name, then store it
                         # for later in case we need to forcibly close it on failover.
                         if conn_info.conn_name.domain_name:
-                            monitored_cache.sockets.append(sock)
+                            monitored_cache.sockets.append(sync_sock)
                         # Synchronous drivers are blocking and run using executor
                         connect_partial = partial(
                             connector,
                             target_ip,
-                            sock,
+                            sync_sock,
                             **kwargs,
                         )
                         conn = await self._loop.run_in_executor(None, connect_partial)
@@ -673,15 +683,6 @@ class Connector:
                             f"['{conn_info.conn_name}']: Connection to {target_ip} failed: {e}"
                         )
                         last_ex = e
-
-                        if (
-                            enable_iam_auth
-                            and conn_info.database_version.startswith("POSTGRES")
-                        ):
-                            sock = PostgresConnection(
-                                sock,
-                                on_startup=monitored_cache.record_principal,
-                            )
                 if last_ex:
                     raise last_ex
 

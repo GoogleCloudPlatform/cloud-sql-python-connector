@@ -15,7 +15,7 @@
 import asyncio
 from datetime import datetime
 from datetime import timedelta
-from datetime import timezone
+from datetime import UTC
 from unittest.mock import AsyncMock
 
 import pytest
@@ -186,7 +186,7 @@ async def test_LazyRefreshCache_probe_connection_skips_non_postgres(
             return_value=MagicMock(
                 database_version="MYSQL_8_0",
                 ip_addrs={"PRIMARY": "127.0.0.1"},
-                expiration=datetime.now(timezone.utc) + timedelta(hours=1),
+                expiration=datetime.now(UTC) + timedelta(hours=1),
             )
         ),
     ):

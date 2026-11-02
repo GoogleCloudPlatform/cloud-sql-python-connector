@@ -16,9 +16,10 @@ limitations under the License.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 import socket
 import ssl
-from typing import Any, Callable
+from typing import Any
 
 MAX_PG_STARTUP_PACKET_LEN = 10000
 PG_PROTOCOL_VERSION_30 = 196608  # 0x00030000

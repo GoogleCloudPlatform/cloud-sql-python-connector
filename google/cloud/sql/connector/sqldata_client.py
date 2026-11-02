@@ -30,7 +30,7 @@ from google.api_core.exceptions import ResourceExhausted
 from google.auth.credentials import Credentials
 import grpc
 
-from google.cloud import sqladmin_v1beta4
+from google.cloud import sqladmin_v1beta4  # type: ignore[attr-defined]
 from google.cloud.sql.connector.enums import IPTypes
 from google.cloud.sql.connector.exceptions import CloudSQLIPTypeError
 

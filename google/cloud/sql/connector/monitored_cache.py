@@ -18,6 +18,7 @@ import asyncio
 from collections.abc import Callable
 import logging
 import socket
+import ssl
 from typing import Any
 
 import aiohttp

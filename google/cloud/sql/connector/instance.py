@@ -18,11 +18,11 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Awaitable
+from collections.abc import Callable
 from datetime import datetime
 from datetime import timedelta
 from datetime import UTC
 import logging
-from typing import Callable
 
 from google.cloud.sql.connector.client import CloudSQLClient
 from google.cloud.sql.connector.connection_info import ConnectionInfo
