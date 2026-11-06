@@ -13,6 +13,9 @@
 # limitations under the License.
 
 import asyncio
+from datetime import datetime
+from datetime import timedelta
+from datetime import UTC
 from unittest.mock import AsyncMock
 
 import pytest
@@ -110,4 +113,141 @@ async def test_LazyRefreshCache_connect_info_error(
         await cache.connect_info()
 
     await cache.close()
+
+
+async def test_LazyRefreshCache_probe_connection_postgres_startup_packet(
+    fake_client: CloudSQLClient,
+) -> None:
+    """
+    Test that LazyRefreshCache.connect_info probes the instance with a PostgreSQL
+    StartupMessage and Terminate when enable_iam_auth=True and a principal is recorded.
+    """
+    from unittest.mock import MagicMock
+    from unittest.mock import patch
+
+    from google.cloud.sql.connector.postgres_connection import (
+        build_postgres_startup_packet,
+    )
+
+    keys = asyncio.create_task(generate_keys())
+    cache = LazyRefreshCache(
+        ConnectionName("test-project", "test-region", "test-instance"),
+        client=fake_client,
+        keys=keys,
+        enable_iam_auth=True,
+    )
+    cache.record_principal("iam-user@example.com", "mydb")
+
+    mock_reader = AsyncMock()
+    mock_reader.read = AsyncMock(return_value=b"R\x00\x00\x00\x08\x00\x00\x00\x00")
+    mock_writer = MagicMock()
+    mock_writer.drain = AsyncMock()
+    mock_writer.wait_closed = AsyncMock()
+
+    with patch(
+        "google.cloud.sql.connector.instance.asyncio.open_connection",
+        AsyncMock(return_value=(mock_reader, mock_writer)),
+    ) as mock_open_conn:
+        await cache.connect_info()
+
+    mock_open_conn.assert_awaited_once()
+    written_packets = [call.args[0] for call in mock_writer.write.call_args_list]
+    expected_startup = build_postgres_startup_packet("iam-user@example.com", "mydb")
+    assert written_packets == [expected_startup, b"X\x00\x00\x00\x04"]
+    assert mock_reader.read.await_count == 2
+    mock_writer.close.assert_called_once()
+    mock_writer.wait_closed.assert_awaited_once()
+    await cache.close()
+
+
+async def test_LazyRefreshCache_probe_connection_skips_non_postgres(
+    fake_client: CloudSQLClient,
+) -> None:
+    """Test that LazyRefreshCache does not probe for non-Postgres engines."""
+    from unittest.mock import MagicMock
+    from unittest.mock import patch
+
+    keys = asyncio.create_task(generate_keys())
+    cache = LazyRefreshCache(
+        ConnectionName("test-project", "test-region", "test-instance"),
+        client=fake_client,
+        keys=keys,
+        enable_iam_auth=True,
+    )
+    cache.record_principal("iam-user@example.com", "mydb")
+
+    with patch(
+        "google.cloud.sql.connector.instance.asyncio.open_connection",
+        AsyncMock(),
+    ) as mock_open_conn, patch.object(
+        fake_client,
+        "get_connection_info",
+        AsyncMock(
+            return_value=MagicMock(
+                database_version="MYSQL_8_0",
+                ip_addrs={"PRIMARY": "127.0.0.1"},
+                expiration=datetime.now(UTC) + timedelta(hours=1),
+            )
+        ),
+    ):
+        await cache.connect_info()
+
+    mock_open_conn.assert_not_called()
+    await cache.close()
+
+
+async def test_LazyRefreshCache_probe_connection_skips_when_no_iam_principals(
+    fake_client: CloudSQLClient,
+) -> None:
+    """Test that LazyRefreshCache does not probe when no IAM principals are recorded."""
+    from unittest.mock import patch
+
+    keys = asyncio.create_task(generate_keys())
+    cache = LazyRefreshCache(
+        ConnectionName("test-project", "test-region", "test-instance"),
+        client=fake_client,
+        keys=keys,
+        enable_iam_auth=True,
+    )
+
+    with patch(
+        "google.cloud.sql.connector.instance.asyncio.open_connection",
+        AsyncMock(),
+    ) as mock_open_conn:
+        await cache.connect_info()
+
+    mock_open_conn.assert_not_called()
+    await cache.close()
+
+
+async def test_LazyRefreshCache_probe_connection_uses_dial_func(
+    fake_client: CloudSQLClient,
+) -> None:
+    """Test that LazyRefreshCache uses dial_func when provided."""
+    from unittest.mock import MagicMock
+
+    mock_reader = AsyncMock()
+    mock_reader.read = AsyncMock(return_value=b"R\x00\x00\x00\x08\x00\x00\x00\x00")
+    mock_writer = MagicMock()
+    mock_writer.drain = AsyncMock()
+    mock_writer.wait_closed = AsyncMock()
+    mock_dial = AsyncMock(return_value=(mock_reader, mock_writer))
+
+    keys = asyncio.create_task(generate_keys())
+    cache = LazyRefreshCache(
+        ConnectionName("test-project", "test-region", "test-instance"),
+        client=fake_client,
+        keys=keys,
+        enable_iam_auth=True,
+        dial_func=mock_dial,
+    )
+    cache.record_principal("iam-user@example.com", "mydb")
+
+    conn_info = await cache.connect_info()
+
+    mock_dial.assert_awaited_once_with(conn_info)
+    assert mock_writer.write.call_count == 2
+    mock_writer.close.assert_called_once()
+    await cache.close()
+
 
