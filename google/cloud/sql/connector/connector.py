@@ -349,6 +349,7 @@ class Connector:
         self,
         conn_name: ConnectionName,
         enable_iam_auth: bool,
+        ip_type: IPTypes | None = None,
     ) -> MonitoredCache:
         assert self._client is not None, "client must be initialized before creating cache"
         assert self._keys is not None, "keys must be initialized before creating cache"
@@ -357,6 +358,13 @@ class Connector:
             (str(conn_name), enable_iam_auth)
         ].closed:
             return self._cache[(str(conn_name), enable_iam_auth)]
+
+        effective_ip_type = ip_type if ip_type is not None else self._ip_type
+        dial_func = partial(
+            self._dial_probe_connection,
+            enable_iam_auth=enable_iam_auth,
+            ip_type=effective_ip_type,
+        )
 
         if self._refresh_strategy == RefreshStrategy.LAZY:
             logger.debug(
@@ -367,6 +375,9 @@ class Connector:
                 self._client,
                 self._keys,
                 enable_iam_auth,
+                ip_type=effective_ip_type,
+                timeout=self._timeout,
+                dial_func=dial_func,
             )
         else:
             logger.debug(
@@ -377,6 +388,9 @@ class Connector:
                 self._client,
                 self._keys,
                 enable_iam_auth,
+                ip_type=effective_ip_type,
+                timeout=self._timeout,
+                dial_func=dial_func,
             )
         # wrap cache as a MonitoredCache
         monitored_cache = MonitoredCache(
@@ -455,7 +469,9 @@ class Connector:
 
         conn_name = await self._resolver.resolve(instance_connection_string)
         if ip_type != IPTypes.SQL_DATA:
-            monitored_cache = self._get_or_create_cache(conn_name, enable_iam_auth)
+            monitored_cache = self._get_or_create_cache(
+                conn_name, enable_iam_auth, ip_type
+            )
 
         connect_func = {
             "pymysql": pymysql.connect,
@@ -590,33 +606,7 @@ class Connector:
                     await self._remove_cached(str(conn_name), enable_iam_auth)
                     raise
 
-                targets = []
-                if conn_info.conn_name.domain_name and isinstance(self._resolver, DnsResolver):
-                    try:
-                        ips = await self._resolver.resolve_a_record(conn_info.conn_name.domain_name)
-                        if ips:
-                            targets.extend(ips)
-                            logger.debug(
-                                f"['{instance_connection_string}']: Custom DNS name "
-                                f"'{conn_info.conn_name.domain_name}' resolved to '{ips}', "
-                                "using it to connect"
-                            )
-                        else:
-                            logger.debug(
-                                f"['{instance_connection_string}']: Custom DNS name "
-                                f"'{conn_info.conn_name.domain_name}' resolved but returned no "
-                                f"entries, using '{preferred_ips}' from instance metadata"
-                            )
-                            targets.extend(preferred_ips)
-                    except Exception as e:  # noqa: BLE001
-                        logger.debug(
-                            f"['{instance_connection_string}']: Custom DNS name "
-                            f"'{conn_info.conn_name.domain_name}' did not resolve to an IP "
-                            f"address: {e}, using '{preferred_ips}' from instance metadata"
-                        )
-                        targets.extend(preferred_ips)
-                else:
-                    targets.extend(preferred_ips)
+                targets = await self._resolve_targets(conn_info, preferred_ips)
                 # format `user` param for automatic IAM database authn
                 if enable_iam_auth:
                     formatted_user = format_database_user(
@@ -639,6 +629,19 @@ class Connector:
                                 await conn_info.create_ssl_context(enable_iam_auth),
                                 **kwargs,
                             )
+                            if (
+                                enable_iam_auth
+                                and conn_info.database_version.startswith("POSTGRES")
+                            ):
+                                db_name = kwargs.get("database")
+                                if db_name is None:
+                                    db_name = kwargs.get("db")
+                                user = kwargs.get("user")
+                                if user:
+                                    monitored_cache.record_principal(
+                                        str(user),
+                                        str(db_name) if db_name else str(user),
+                                    )
                             last_ex = None
                             return conn
 
@@ -706,12 +709,12 @@ class Connector:
         cache = self._cache.pop((instance_connection_string, enable_iam_auth))
         await cache.close()
 
-    async def _dial_probe_connection(
+    async def _resolve_targets(
         self,
         conn_info: ConnectionInfo,
-        enable_iam_auth: bool,
-    ) -> tuple[asyncio.StreamReader, asyncio.StreamWriter]:
-        """Dials a TLS probe connection using the connector's IP resolution and SSLContext."""
+        preferred_ips: list[str],
+    ) -> list[str]:
+        """Resolves target IP addresses for a Cloud SQL instance, with DNS fallback."""
         targets: list[str] = []
         if conn_info.conn_name.domain_name and isinstance(self._resolver, DnsResolver):
             try:
@@ -720,14 +723,39 @@ class Connector:
                 )
                 if ips:
                     targets.extend(ips)
+                    logger.debug(
+                        f"['{conn_info.conn_name}']: Custom DNS name "
+                        f"'{conn_info.conn_name.domain_name}' resolved to '{ips}', "
+                        "using it to connect"
+                    )
                 else:
-                    targets.extend(conn_info.get_preferred_ips(self._ip_type))
-            except Exception:  # noqa: BLE001
-                targets.extend(conn_info.get_preferred_ips(self._ip_type))
-        elif conn_info.conn_name.domain_name:
-            targets.append(conn_info.conn_name.domain_name)
+                    logger.debug(
+                        f"['{conn_info.conn_name}']: Custom DNS name "
+                        f"'{conn_info.conn_name.domain_name}' resolved but returned no "
+                        f"entries, using '{preferred_ips}' from instance metadata"
+                    )
+                    targets.extend(preferred_ips)
+            except Exception as e:  # noqa: BLE001
+                logger.debug(
+                    f"['{conn_info.conn_name}']: Custom DNS name "
+                    f"'{conn_info.conn_name.domain_name}' did not resolve to an IP "
+                    f"address: {e}, using '{preferred_ips}' from instance metadata"
+                )
+                targets.extend(preferred_ips)
         else:
-            targets.extend(conn_info.get_preferred_ips(self._ip_type))
+            targets.extend(preferred_ips)
+        return targets
+
+    async def _dial_probe_connection(
+        self,
+        conn_info: ConnectionInfo,
+        enable_iam_auth: bool,
+        ip_type: IPTypes | None = None,
+    ) -> tuple[asyncio.StreamReader, asyncio.StreamWriter]:
+        """Dials a TLS probe connection using the connector's IP resolution and SSLContext."""
+        effective_ip_type = ip_type if ip_type is not None else self._ip_type
+        preferred_ips = conn_info.get_preferred_ips(effective_ip_type)
+        targets = await self._resolve_targets(conn_info, preferred_ips)
 
         if not targets:
             raise ConnectionError(
@@ -751,7 +779,7 @@ class Connector:
                         ssl=ssl_context,
                         server_hostname=server_hostname,
                     ),
-                    timeout=float(self._timeout),
+                    timeout=float(max(1, self._timeout)),
                 )
                 return reader, writer
             except Exception as e:  # noqa: BLE001

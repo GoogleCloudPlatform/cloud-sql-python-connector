@@ -239,6 +239,7 @@ async def test_LazyRefreshCache_probe_connection_uses_dial_func(
         client=fake_client,
         keys=keys,
         enable_iam_auth=True,
+        ip_type="public",
         dial_func=mock_dial,
     )
     cache.record_principal("iam-user@example.com", "mydb")

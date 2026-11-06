@@ -14,10 +14,12 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
+import socket
 from unittest.mock import MagicMock
 
 from google.cloud.sql.connector.postgres_connection import build_postgres_startup_packet
 from google.cloud.sql.connector.postgres_connection import build_terminate_packet
+from google.cloud.sql.connector.postgres_connection import MAX_PG_STARTUP_PACKET_LEN
 from google.cloud.sql.connector.postgres_connection import parse_postgres_startup_packet
 from google.cloud.sql.connector.postgres_connection import PostgresConnection
 
@@ -188,3 +190,110 @@ def test_postgres_connection_socket_methods() -> None:
 
     with conn as c:
         assert c is conn
+
+
+def test_postgres_connection_makefile_captures_startup_message() -> None:
+    """Test that makefile('rwb') (used by pg8000) routes writes through PostgresConnection."""
+    s1, s2 = socket.socketpair()
+    captured: list[tuple[str, str]] = []
+    conn = PostgresConnection(
+        s1,
+        on_startup=lambda u, d: captured.append((u, d)),
+    )
+    try:
+        stream = conn.makefile("rwb")
+        assert conn._io_refs == 1
+        pkt = build_postgres_startup_packet("pg8000-user@example.com", "pg8000db")
+
+        # Write in chunks via BufferedRWPair (just like pg8000 does)
+        stream.write(pkt[:8])
+        stream.flush()
+        assert not captured
+        assert not conn.startup_message_sent
+
+        stream.write(pkt[8:])
+        stream.flush()
+        assert captured == [("pg8000-user@example.com", "pg8000db")]
+        assert conn.startup_message_sent
+        assert s2.recv(len(pkt)) == pkt
+
+        stream.close()
+        assert conn._io_refs == 0
+    finally:
+        conn.close()
+        s2.close()
+
+
+def test_postgres_connection_partial_send_no_duplicate_buffer() -> None:
+    """Test that partial send() return values only inspect bytes actually written."""
+    pkt = build_postgres_startup_packet("partial@example.com", "partialdb")
+    mock_sock = MagicMock()
+    # First send returns 0 bytes (e.g. partial/unaccepted), second sends 6 bytes,
+    # third sends the remaining bytes.
+    mock_sock.send.side_effect = [0, 6, len(pkt) - 6]
+    captured: list[tuple[str, str]] = []
+
+    conn = PostgresConnection(
+        mock_sock,
+        on_startup=lambda u, d: captured.append((u, d)),
+    )
+
+    assert conn.send(pkt) == 0
+    assert not captured
+    assert conn.send(pkt) == 6
+    assert not captured
+    assert conn.send(pkt[6:]) == len(pkt) - 6
+    assert captured == [("partial@example.com", "partialdb")]
+    assert conn.startup_message_sent
+
+
+def test_postgres_connection_edge_cases_and_parser_boundaries() -> None:
+    """Test parser boundary cases, buffer overflow cap, empty writes, and __exit__ without target method."""
+    # User present without database defaults database to user
+    user_only_body = b"user\x00onlyuser\x00\x00"
+    user_only_pkt = (8 + len(user_only_body)).to_bytes(
+        4, byteorder="big"
+    ) + b"\x00\x03\x00\x00" + user_only_body
+    user, db, complete = parse_postgres_startup_packet(user_only_pkt)
+    assert complete
+    assert (user, db) == ("onlyuser", "onlyuser")
+
+    # build_postgres_startup_packet defaults empty database to user
+    built = build_postgres_startup_packet("onlyuser", "")
+    assert parse_postgres_startup_packet(built) == ("onlyuser", "onlyuser", True)
+
+    # Truncated key without null terminator stops parsing cleanly
+    trunc_key_body = b"user_without_null"
+    trunc_key_pkt = (8 + len(trunc_key_body)).to_bytes(
+        4, byteorder="big"
+    ) + b"\x00\x03\x00\x00" + trunc_key_body
+    assert parse_postgres_startup_packet(trunc_key_pkt) == ("", "", True)
+
+    # Key present, value missing null terminator stops parsing cleanly
+    trunc_val_body = b"user\x00val_without_null"
+    trunc_val_pkt = (8 + len(trunc_val_body)).to_bytes(
+        4, byteorder="big"
+    ) + b"\x00\x03\x00\x00" + trunc_val_body
+    assert parse_postgres_startup_packet(trunc_val_pkt) == ("", "", True)
+
+    # Exceeding MAX_PG_STARTUP_PACKET_LEN + 16 with repeated SSLRequest disables inspection
+    class BareSocket:
+        def send(self, data: bytes) -> int:
+            return len(data)
+
+    captured: list[tuple[str, str]] = []
+    bare_conn = PostgresConnection(
+        BareSocket(),  # type: ignore[arg-type]
+        on_startup=lambda u, d: captured.append((u, d)),
+    )
+    bare_conn._inspect(b"")
+    ssl_req = b"\x00\x00\x00\x08\x04\xd2\x16\x2f"
+    oversized = ssl_req * ((MAX_PG_STARTUP_PACKET_LEN + 16) // 8 + 2)
+    bare_conn.send(oversized)
+    assert bare_conn.startup_message_sent
+    assert bare_conn._buf == bytearray()
+    assert not captured
+
+    # __exit__ returns None cleanly when underlying socket lacks __exit__
+    with bare_conn as entered:
+        assert entered is bare_conn

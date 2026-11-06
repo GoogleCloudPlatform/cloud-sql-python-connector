@@ -862,6 +862,278 @@ async def test_Connector_connect_async_postgres_wraps_with_postgres_connection(
 
 
 @pytest.mark.asyncio
+async def test_Connector_connect_async_asyncpg_records_iam_principal(
+    fake_credentials: Credentials, fake_client: CloudSQLClient
+) -> None:
+    """Test that asyncpg connections record IAM principals only on success when enable_iam_auth=True."""
+    async with Connector(
+        credentials=fake_credentials, loop=asyncio.get_running_loop()
+    ) as connector:
+        connector._client = fake_client
+        fake_client.instance.db_version = "POSTGRES_15"
+
+        # 1. Failed asyncpg connection must NOT record principal
+        with (
+            patch(
+                "google.cloud.sql.connector.asyncpg.connect",
+                AsyncMock(side_effect=ConnectionError("auth failed")),
+            ),
+            patch.object(MonitoredCache, "force_refresh", AsyncMock()),
+            pytest.raises(ConnectionError, match="auth failed"),
+        ):
+            await connector.connect_async(
+                "test-project:test-region:test-instance",
+                "asyncpg",
+                user="failed-user@example.com",
+                password="my-pass",
+                db="faildb",
+                enable_iam_auth=True,
+            )
+
+        cache_entry = connector._cache[
+            ("test-project:test-region:test-instance", True)
+        ].cache
+        assert cache_entry._iam_principals == []
+
+        # 2. Successful asyncpg connection records truncated IAM user & db
+        with patch(
+            "google.cloud.sql.connector.asyncpg.connect",
+            AsyncMock(return_value=True),
+        ):
+            await connector.connect_async(
+                "test-project:test-region:test-instance",
+                "asyncpg",
+                user="sa@my-project.iam.gserviceaccount.com",
+                password="my-pass",
+                database="asyncpgdb",
+                enable_iam_auth=True,
+            )
+
+        assert (
+            "sa@my-project.iam",
+            "asyncpgdb",
+        ) in cache_entry._iam_principals
+
+        # 3. enable_iam_auth=False must NOT record principal
+        with patch(
+            "google.cloud.sql.connector.asyncpg.connect",
+            AsyncMock(return_value=True),
+        ):
+            await connector.connect_async(
+                "test-project:test-region:test-instance",
+                "asyncpg",
+                user="builtin-user",
+                password="my-pass",
+                db="my-db",
+                enable_iam_auth=False,
+            )
+
+        non_iam_cache = connector._cache[
+            ("test-project:test-region:test-instance", False)
+        ].cache
+        assert non_iam_cache._iam_principals == []
+
+
+@pytest.mark.asyncio
+async def test_Connector_wires_dial_func_private_ip_refresh_ahead(
+    fake_credentials: Credentials, fake_client: CloudSQLClient
+) -> None:
+    """Test Connector wires ip_type, timeout, and _dial_probe_connection into RefreshAheadCache."""
+    async with Connector(
+        credentials=fake_credentials,
+        ip_type=IPTypes.PRIVATE,
+        timeout=17,
+        enable_iam_auth=True,
+        loop=asyncio.get_running_loop(),
+    ) as connector:
+        connector._client = fake_client
+        fake_client.instance.db_version = "POSTGRES_15"
+        original_ips = fake_client.instance.ip_addrs
+        fake_client.instance.ip_addrs = {
+            "PRIMARY": "1.2.3.4",
+            "PRIVATE": "10.0.0.5",
+        }
+        try:
+            with patch(
+                "google.cloud.sql.connector.asyncpg.connect",
+                AsyncMock(return_value=True),
+            ):
+                await connector.connect_async(
+                    "test-project:test-region:test-instance",
+                    "asyncpg",
+                    user="private-user@example.com",
+                    db="privdb",
+                )
+
+            cache = connector._cache[
+                ("test-project:test-region:test-instance", True)
+            ].cache
+            assert isinstance(cache, RefreshAheadCache)
+            assert cache._ip_type == IPTypes.PRIVATE
+            assert cache._timeout == 17
+            assert cache._dial_func is not None
+
+            conn_info = await cache.connect_info()
+            mock_reader = AsyncMock()
+            mock_reader.read = AsyncMock(
+                return_value=b"R\x00\x00\x00\x08\x00\x00\x00\x00"
+            )
+            mock_writer = MagicMock()
+            mock_writer.drain = AsyncMock()
+            mock_writer.wait_closed = AsyncMock()
+
+            with patch(
+                "google.cloud.sql.connector.connector.asyncio.open_connection",
+                AsyncMock(return_value=(mock_reader, mock_writer)),
+            ) as mock_open_conn:
+                await cache._probe_connection(conn_info)
+
+            mock_open_conn.assert_awaited_once()
+            assert mock_open_conn.call_args.kwargs["host"] == "10.0.0.5"
+        finally:
+            fake_client.instance.ip_addrs = original_ips
+
+
+@pytest.mark.asyncio
+async def test_Connector_wires_dial_func_dns_resolver_lazy_cache(
+    fake_credentials: Credentials, fake_client: CloudSQLClient
+) -> None:
+    """Test Connector wires dial_func into LazyRefreshCache and uses DnsResolver with IP fallback."""
+    from google.cloud.sql.connector.connection_name import ConnectionName
+    from google.cloud.sql.connector.exceptions import DnsResolutionError
+    from google.cloud.sql.connector.lazy import LazyRefreshCache
+    from google.cloud.sql.connector.resolver import DnsResolver
+
+    async with Connector(
+        credentials=fake_credentials,
+        ip_type=IPTypes.PSC,
+        timeout=12,
+        enable_iam_auth=True,
+        refresh_strategy="lazy",
+        loop=asyncio.get_running_loop(),
+    ) as connector:
+        connector._client = fake_client
+        fake_client.instance.db_version = "POSTGRES_15"
+        original_ips = fake_client.instance.ip_addrs
+        fake_client.instance.ip_addrs = {"PSC": "psc.dns.internal"}
+        mock_resolver = MagicMock(spec=DnsResolver)
+        mock_resolver.resolve = AsyncMock(
+            return_value=ConnectionName(
+                "test-project", "test-region", "test-instance", "db.example.com"
+            )
+        )
+        mock_resolver.resolve_a_record = AsyncMock(return_value=["10.20.30.40"])
+        connector._resolver = mock_resolver
+        try:
+            with patch(
+                "google.cloud.sql.connector.asyncpg.connect",
+                AsyncMock(return_value=True),
+            ):
+                await connector.connect_async(
+                    "db.example.com",
+                    "asyncpg",
+                    user="dns-user@example.com",
+                    db="dnsdb",
+                )
+
+            cache = connector._cache[
+                ("db.example.com -> test-project:test-region:test-instance", True)
+            ].cache
+            assert isinstance(cache, LazyRefreshCache)
+            assert cache._ip_type == IPTypes.PSC
+            assert cache._timeout == 12
+            assert cache._dial_func is not None
+
+            conn_info = await cache.connect_info()
+            mock_reader = AsyncMock()
+            mock_reader.read = AsyncMock(
+                return_value=b"R\x00\x00\x00\x08\x00\x00\x00\x00"
+            )
+            mock_writer = MagicMock()
+            mock_writer.drain = AsyncMock()
+            mock_writer.wait_closed = AsyncMock()
+
+            # 1. Uses DnsResolver.resolve_a_record target
+            with patch(
+                "google.cloud.sql.connector.connector.asyncio.open_connection",
+                AsyncMock(return_value=(mock_reader, mock_writer)),
+            ) as mock_open_conn:
+                await cache._probe_connection(conn_info)
+
+            mock_resolver.resolve_a_record.assert_awaited_with("db.example.com")
+            assert mock_open_conn.call_args.kwargs["host"] == "10.20.30.40"
+            assert (
+                mock_open_conn.call_args.kwargs["server_hostname"]
+                == "db.example.com"
+            )
+
+            # 2. Falls back to preferred PSC IP when A-record resolution fails
+            mock_resolver.resolve_a_record = AsyncMock(
+                side_effect=DnsResolutionError("no A record")
+            )
+            with patch(
+                "google.cloud.sql.connector.connector.asyncio.open_connection",
+                AsyncMock(return_value=(mock_reader, mock_writer)),
+            ) as mock_open_conn:
+                await cache._probe_connection(conn_info)
+
+            assert (
+                mock_open_conn.call_args.kwargs["host"] == "psc.dns.internal"
+            )
+        finally:
+            fake_client.instance.ip_addrs = original_ips
+
+
+@pytest.mark.asyncio
+async def test_Connector_dial_probe_connection_errors(
+    fake_credentials: Credentials, fake_client: CloudSQLClient
+) -> None:
+    """Test _dial_probe_connection error handling for missing targets and connection failures."""
+    async with Connector(
+        credentials=fake_credentials,
+        ip_type=IPTypes.PUBLIC,
+        enable_iam_auth=True,
+        loop=asyncio.get_running_loop(),
+    ) as connector:
+        connector._client = fake_client
+        with patch(
+            "google.cloud.sql.connector.asyncpg.connect",
+            AsyncMock(return_value=True),
+        ):
+            await connector.connect_async(
+                "test-project:test-region:test-instance",
+                "asyncpg",
+                user="err-user@example.com",
+                db="errdb",
+            )
+        cache = connector._cache[
+            ("test-project:test-region:test-instance", True)
+        ].cache
+        conn_info = await cache.connect_info()
+
+        # 1. Missing target IPs raises ConnectionError
+        original_addrs = conn_info.ip_addrs
+        conn_info.ip_addrs = {"PRIMARY": []}
+        try:
+            with pytest.raises(
+                ConnectionError, match="No target IP addresses found"
+            ):
+                await connector._dial_probe_connection(conn_info, True)
+        finally:
+            conn_info.ip_addrs = original_addrs
+
+        # 2. Failed dial re-raises underlying exception
+        with (
+            patch(
+                "google.cloud.sql.connector.connector.asyncio.open_connection",
+                AsyncMock(side_effect=OSError("probe connect refused")),
+            ),
+            pytest.raises(OSError, match="probe connect refused"),
+        ):
+            await connector._dial_probe_connection(conn_info, True)
+
+
+@pytest.mark.asyncio
 async def test_Connector_connect_async_iam_username_truncation(
     fake_credentials: Credentials, fake_client: CloudSQLClient
 ) -> None:

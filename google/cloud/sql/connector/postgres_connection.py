@@ -35,6 +35,9 @@ class PostgresConnection:
     Once the startup message is detected or determined not to be a PostgreSQL v3
     startup packet, startup_message_sent is set to True, the internal buffer is
     cleared, and all subsequent writes pass through directly with zero overhead.
+
+    Like standard Python socket and stream wrappers, callers own synchronization
+    for concurrent writes; no internal lock is acquired on the write path.
     """
 
     def __init__(
@@ -57,26 +60,71 @@ class PostgresConnection:
             self._buf.clear()
             if user:
                 self._on_startup(user, database)
-        elif len(self._buf) > MAX_PG_STARTUP_PACKET_LEN + 8:
+        elif len(self._buf) > MAX_PG_STARTUP_PACKET_LEN + 16:
             self.startup_message_sent = True
             self._buf.clear()
 
-    def send(self, data: bytes, *args: Any, **kwargs: Any) -> int:
+    def send(
+        self,
+        data: bytes | bytearray | memoryview,
+        *args: Any,
+        **kwargs: Any,
+    ) -> int:
+        sent = self._sock.send(data, *args, **kwargs)
         if not self.startup_message_sent:
-            self._inspect(data)
-        return self._sock.send(data, *args, **kwargs)
+            chunk = data[:sent] if isinstance(sent, int) else data
+            if chunk:
+                self._inspect(chunk)
+        return sent
 
-    def sendall(self, data: bytes, *args: Any, **kwargs: Any) -> None:
-        if not self.startup_message_sent:
+    def sendall(
+        self,
+        data: bytes | bytearray | memoryview,
+        *args: Any,
+        **kwargs: Any,
+    ) -> None:
+        self._sock.sendall(data, *args, **kwargs)
+        if not self.startup_message_sent and data:
             self._inspect(data)
-        return self._sock.sendall(data, *args, **kwargs)
 
-    def write(self, data: bytes) -> int:
+    def write(self, data: bytes | bytearray | memoryview) -> int:
+        written = (
+            self._sock.write(data)
+            if hasattr(self._sock, "write")
+            else self._sock.send(data)
+        )
         if not self.startup_message_sent:
-            self._inspect(data)
-        if hasattr(self._sock, "write"):
-            return self._sock.write(data)
-        return self._sock.send(data)
+            chunk = data[:written] if isinstance(written, int) else data
+            if chunk:
+                self._inspect(chunk)
+        return written
+
+    @property
+    def _io_refs(self) -> int:
+        return getattr(self._sock, "_io_refs", 0)
+
+    @_io_refs.setter
+    def _io_refs(self, value: int) -> None:
+        self._sock._io_refs = value  # type: ignore[union-attr]
+
+    def makefile(
+        self,
+        mode: str = "r",
+        buffering: int | None = None,
+        *,
+        encoding: str | None = None,
+        errors: str | None = None,
+        newline: str | None = None,
+    ) -> Any:
+        """Returns an I/O stream connected to this wrapped socket so makefile writes are inspected."""
+        return socket.socket.makefile(  # type: ignore[call-overload]
+            self,
+            mode=mode,
+            buffering=buffering,
+            encoding=encoding,
+            errors=errors,
+            newline=newline,
+        )
 
     def close(self) -> None:
         self._sock.close()

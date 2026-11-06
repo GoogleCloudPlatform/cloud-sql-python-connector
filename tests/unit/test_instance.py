@@ -31,6 +31,8 @@ from google.cloud.sql.connector.exceptions import AutoIAMAuthNotSupported
 from google.cloud.sql.connector.exceptions import CloudSQLConnectionError
 from google.cloud.sql.connector.exceptions import CloudSQLIPTypeError
 from google.cloud.sql.connector.exceptions import TLSVersionError
+from google.cloud.sql.connector.instance import _append_iam_principal
+from google.cloud.sql.connector.instance import _probe_instance_connection
 from google.cloud.sql.connector.instance import RefreshAheadCache
 from google.cloud.sql.connector.rate_limiter import AsyncRateLimiter
 from google.cloud.sql.connector.refresh_utils import _is_valid
@@ -534,3 +536,86 @@ async def test_ConnectionInfo_missing_server_ca_cert() -> None:
     with pytest.raises(CloudSQLConnectionError) as exc_info:
         await info.create_ssl_context()
     assert "server CA certificate is missing" in str(exc_info.value)
+
+
+@pytest.mark.asyncio
+async def test_probe_instance_connection_edge_cases(
+    fake_client: CloudSQLClient,
+) -> None:
+    """Test string ip_type normalization, _append_iam_principal edge cases, and probe fallbacks."""
+    from unittest.mock import MagicMock
+
+    from google.cloud.sql.connector.utils import generate_keys
+
+    # 1. RefreshAheadCache accepts string ip_type
+    keys = asyncio.create_task(generate_keys())
+    cache = RefreshAheadCache(
+        ConnectionName("test-project", "test-region", "test-instance"),
+        client=fake_client,
+        keys=keys,
+        enable_iam_auth=False,
+        ip_type="private",
+    )
+    assert cache._ip_type == IPTypes.PRIVATE
+    await cache.close()
+
+    # 2. _append_iam_principal ignores empty user and defaults empty db to user
+    principals: list[tuple[str, str]] = []
+    _append_iam_principal(principals, "", "ignored")
+    _append_iam_principal(principals, "u1", "")
+    assert principals == [("u1", "u1")]
+
+    conn_name = ConnectionName(
+        "test-project", "test-region", "test-instance", "db.example.com"
+    )
+    conn_info = ConnectionInfo(
+        "", "cert", "ca", b"key", {}, "POSTGRES_15", datetime.datetime.now(datetime.UTC)
+    )
+
+    # 3. enable_iam_auth=False returns early
+    await _probe_instance_connection(
+        conn_name, conn_info, False, IPTypes.PUBLIC, 30, principals
+    )
+
+    # 4. Empty targets in dial_func=None fallback returns without error
+    no_domain_name = ConnectionName("test-project", "test-region", "test-instance")
+    await _probe_instance_connection(
+        no_domain_name, conn_info, True, IPTypes.PUBLIC, 30, principals
+    )
+
+    # 5. SSL context failure in dial_func=None fallback returns cleanly
+    bad_ssl_info = ConnectionInfo(
+        "", "cert", None, b"key", {"PRIMARY": "1.2.3.4"}, "POSTGRES_15", datetime.datetime.now(datetime.UTC)
+    )
+    await _probe_instance_connection(
+        conn_name, bad_ssl_info, True, IPTypes.PUBLIC, 30, principals
+    )
+
+    # 6. dial_func raising exception is logged and does not propagate
+    failing_dial = AsyncMock(side_effect=OSError("dial boom"))
+    await _probe_instance_connection(
+        conn_name, conn_info, True, IPTypes.PUBLIC, 30, principals, failing_dial
+    )
+
+    # 7. dial_func=None fallback with domain_name and EOF timeout on terminate read
+    mock_reader = AsyncMock()
+    mock_reader.read = AsyncMock(
+        side_effect=[b"R\x00\x00\x00\x08\x00\x00\x00\x00", TimeoutError("eof wait")]
+    )
+    mock_writer = MagicMock()
+    mock_writer.drain = AsyncMock()
+    mock_writer.wait_closed = AsyncMock()
+    with (
+        patch.object(
+            ConnectionInfo, "create_ssl_context", AsyncMock(return_value=MagicMock())
+        ),
+        patch(
+            "google.cloud.sql.connector.instance.asyncio.open_connection",
+            AsyncMock(return_value=(mock_reader, mock_writer)),
+        ) as mock_open,
+    ):
+        await _probe_instance_connection(
+            conn_name, bad_ssl_info, True, IPTypes.PUBLIC, 30, principals
+        )
+    mock_open.assert_awaited_once()
+    assert mock_open.call_args.kwargs["host"] == "db.example.com"

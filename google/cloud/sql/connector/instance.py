@@ -319,9 +319,8 @@ async def _probe_instance_connection(
     if dial_func is None:
         if conn_name.domain_name:
             targets.append(conn_name.domain_name)
-        else:
-            if ip_type.value in conn_info.ip_addrs:
-                targets.extend(conn_info.ip_addrs[ip_type.value])
+        if ip_type.value in conn_info.ip_addrs:
+            targets.extend(conn_info.ip_addrs[ip_type.value])
 
         if not targets:
             logger.debug(
@@ -338,7 +337,7 @@ async def _probe_instance_connection(
             return
 
     all_succeeded = True
-    for user, database in iam_principals:
+    for user, database in list(iam_principals):
         probed_principal = False
         if dial_func is not None:
             try:
@@ -368,7 +367,7 @@ async def _probe_instance_connection(
                                 else None
                             ),
                         ),
-                        timeout=float(timeout),
+                        timeout=float(max(1, timeout)),
                     )
                     await _send_startup_probe(
                         reader, writer, user, database, timeout, conn_name
@@ -406,7 +405,7 @@ async def _send_startup_probe(
         await writer.drain()
         await asyncio.wait_for(
             reader.read(1024),
-            timeout=float(timeout),
+            timeout=float(max(1, timeout)),
         )
         writer.write(build_terminate_packet())
         await writer.drain()
