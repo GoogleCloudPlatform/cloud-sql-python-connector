@@ -107,7 +107,7 @@ def parse_postgres_startup_packet(
             False if more bytes are needed (partial packet).
     """
     data = bytes(buf)
-    # Skip prepended SSLRequest (80877103) or GSSENCRequest (80877104) (can occur in succession)
+    # Step 1: Skip prepended SSLRequest (80877103) or GSSENCRequest (80877104) (can occur in succession).
     while len(data) >= 8:
         pkt_len = int.from_bytes(data[0:4], byteorder="big")
         code = int.from_bytes(data[4:8], byteorder="big")
@@ -118,12 +118,14 @@ def parse_postgres_startup_packet(
         else:
             break
 
+    # Step 2: Wait for at least 8 bytes (4-byte packet length + 4-byte protocol code).
     if len(data) < 8:
         return "", "", False
 
     pkt_len = int.from_bytes(data[0:4], byteorder="big")
     code = int.from_bytes(data[4:8], byteorder="big")
 
+    # Step 3: Validate protocol version (v3.0) and packet length bounds.
     if (
         code != PG_PROTOCOL_VERSION_30
         or pkt_len < 8
@@ -131,9 +133,11 @@ def parse_postgres_startup_packet(
     ):
         return "", "", True
 
+    # Step 4: Wait until the complete packet body has arrived.
     if len(data) < pkt_len:
         return "", "", False
 
+    # Step 5: Decode null-terminated key-value pairs (user, database) from the payload.
     payload = data[8:pkt_len]
     user = ""
     database = ""
@@ -159,6 +163,7 @@ def parse_postgres_startup_packet(
     if user and not database:
         database = user
 
+    # Step 6: Successfully extracted credentials.
     return user, database, True
 
 
