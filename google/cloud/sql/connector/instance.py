@@ -406,7 +406,7 @@ async def _send_startup_probe(
         await writer.drain()
         await asyncio.wait_for(
             reader.read(1024),
-            timeout=float(timeout),
+            timeout=float(max(1, timeout)),
         )
         writer.write(build_terminate_packet())
         await writer.drain()
