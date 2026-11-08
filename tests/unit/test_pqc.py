@@ -338,10 +338,12 @@ def _run_mtls_handshake_with_wire_capture(
         socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server_listener,
         socket.socket(socket.AF_INET, socket.SOCK_STREAM) as proxy_listener,
     ):
+        server_listener.settimeout(10)
         server_listener.bind(("127.0.0.1", 0))
         server_listener.listen(1)
         server_addr = server_listener.getsockname()
 
+        proxy_listener.settimeout(10)
         proxy_listener.bind(("127.0.0.1", 0))
         proxy_listener.listen(1)
         proxy_addr = proxy_listener.getsockname()
@@ -349,6 +351,7 @@ def _run_mtls_handshake_with_wire_capture(
         def run_server() -> None:
             try:
                 raw_conn, _ = server_listener.accept()
+                raw_conn.settimeout(10)
                 with (
                     raw_conn,
                     server_ctx.wrap_socket(raw_conn, server_side=True) as tls_conn,
@@ -362,6 +365,7 @@ def _run_mtls_handshake_with_wire_capture(
 
         def run_proxy() -> None:
             client_side, _ = proxy_listener.accept()
+            client_side.settimeout(10)
             server_side = socket.create_connection(server_addr, timeout=10)
             t_up = threading.Thread(
                 target=_relay_stream,
@@ -448,7 +452,9 @@ async def test_create_ssl_context_pkcs8_and_legacy_pkcs1_mtls(
     pkcs8_ctx = await pkcs8_info.create_ssl_context()
     assert pkcs8_ctx.minimum_version == ssl.TLSVersion.TLSv1_3
 
-    capture_pkcs8 = _run_mtls_handshake_with_wire_capture(pkcs8_ctx, server_ctx)
+    capture_pkcs8 = await asyncio.to_thread(
+        _run_mtls_handshake_with_wire_capture, pkcs8_ctx, server_ctx
+    )
     assert capture_pkcs8.tls_version == "TLSv1.3"
 
     # 2. Backwards compatibility: legacy PKCS#1 (TraditionalOpenSSL) RSA key
@@ -470,7 +476,9 @@ async def test_create_ssl_context_pkcs8_and_legacy_pkcs1_mtls(
     pkcs1_info = mtls_authority.make_connection_info(pkcs1_priv, legacy_pub)
     pkcs1_ctx = await pkcs1_info.create_ssl_context()
 
-    capture_pkcs1 = _run_mtls_handshake_with_wire_capture(pkcs1_ctx, server_ctx)
+    capture_pkcs1 = await asyncio.to_thread(
+        _run_mtls_handshake_with_wire_capture, pkcs1_ctx, server_ctx
+    )
     assert capture_pkcs1.tls_version == "TLSv1.3"
 
 
@@ -499,7 +507,9 @@ async def test_create_ssl_context_algorithm_agnostic_ecdsa_pkcs8(
     ec_info = mtls_authority.make_connection_info(ec_priv_pkcs8, ec_pub_spki)
     ec_ctx = await ec_info.create_ssl_context()
 
-    capture = _run_mtls_handshake_with_wire_capture(ec_ctx, server_ctx)
+    capture = await asyncio.to_thread(
+        _run_mtls_handshake_with_wire_capture, ec_ctx, server_ctx
+    )
     assert capture.tls_version == "TLSv1.3"
 
 
@@ -518,7 +528,9 @@ async def test_tls13_pqc_x25519mlkem768_handshake(
     client_ctx = await conn_info.create_ssl_context()
     server_ctx = await mtls_authority.build_server_ssl_context()
 
-    capture = _run_mtls_handshake_with_wire_capture(client_ctx, server_ctx)
+    capture = await asyncio.to_thread(
+        _run_mtls_handshake_with_wire_capture, client_ctx, server_ctx
+    )
 
     assert capture.tls_version == "TLSv1.3"
     assert X25519_MLKEM768_GROUP_ID in capture.client_supported_groups, (
@@ -548,7 +560,9 @@ async def test_tls13_classical_fallback_handshake(
     # Restrict server to classical P-256 only
     server_ctx = await mtls_authority.build_server_ssl_context(ecdh_curve="prime256v1")
 
-    capture = _run_mtls_handshake_with_wire_capture(client_ctx, server_ctx)
+    capture = await asyncio.to_thread(
+        _run_mtls_handshake_with_wire_capture, client_ctx, server_ctx
+    )
 
     assert capture.tls_version == "TLSv1.3"
     assert SECP256R1_GROUP_ID in capture.client_supported_groups
@@ -587,10 +601,12 @@ def _run_opt_out_subprocess_handshake(
             )
 
         payload_path = os.path.join(tmpdir, "conn_payload.json")
+        server_listener.settimeout(10)
         server_listener.bind(("127.0.0.1", 0))
         server_listener.listen(1)
         server_addr = server_listener.getsockname()
 
+        proxy_listener.settimeout(10)
         proxy_listener.bind(("127.0.0.1", 0))
         proxy_listener.listen(1)
         proxy_addr = proxy_listener.getsockname()
@@ -610,6 +626,7 @@ def _run_opt_out_subprocess_handshake(
         def run_server() -> None:
             try:
                 raw_conn, _ = server_listener.accept()
+                raw_conn.settimeout(10)
                 with (
                     raw_conn,
                     server_ctx.wrap_socket(raw_conn, server_side=True) as tls_conn,
@@ -622,6 +639,7 @@ def _run_opt_out_subprocess_handshake(
 
         def run_proxy() -> None:
             client_side, _ = proxy_listener.accept()
+            client_side.settimeout(10)
             server_side = socket.create_connection(server_addr, timeout=10)
             t_up = threading.Thread(
                 target=_relay_stream,

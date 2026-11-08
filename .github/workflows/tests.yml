@@ -204,8 +204,10 @@ jobs:
     name: unit tests (OpenSSL 3.5+ PQC)
     runs-on: ubuntu-latest
     container:
-      # Debian Trixie ships OpenSSL 3.5+ (required for native TLS 1.3 X25519MLKEM768);
-      # ubuntu-latest (24.04) ships OpenSSL 3.0.x.
+      # Explicitly pin Debian Trixie (OpenSSL 3.5+) to guarantee non-skipped
+      # TLS 1.3 X25519MLKEM768 wire-level coverage regardless of ubuntu-latest
+      # runner image shifts (ubuntu-latest currently resolves to Ubuntu 26.04,
+      # which also ships OpenSSL 3.5+).
       image: python:3.13-trixie@sha256:6a9220edda062e9223ea0784740a535987299420b96fbfd520b89bbd3e772485
     permissions:
       contents: read

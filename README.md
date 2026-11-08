@@ -779,8 +779,11 @@ python3 -c "import ssl; print(ssl.OPENSSL_VERSION)"
 
 > [!NOTE]
 >
-> Connections configured with `ip_type="sql_data"` (`IPTypes.SQL_DATA`) use gRPC
-> rather than a direct `ssl` socket unless falling back to direct TLS.
+> Connections configured with `ip_type="sql_data"` (`IPTypes.SQL_DATA`) stream
+> over gRPC (`grpcio`), which uses its bundled BoringSSL (supporting
+> `X25519MLKEM768` independently of Python's `ssl` module and `OPENSSL_CONF`),
+> whereas its direct-TLS fallback path uses `create_ssl_context()` and Python's
+> linked OpenSSL library as described above.
 
 #### Backwards compatibility
 
