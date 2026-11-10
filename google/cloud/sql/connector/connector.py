@@ -23,6 +23,7 @@ import logging
 import os
 import random
 import socket
+import ssl
 from threading import Thread
 import time
 from types import TracebackType
@@ -38,6 +39,7 @@ from google.cloud.sql.connector import psycopg
 from google.cloud.sql.connector import pymysql
 from google.cloud.sql.connector import pytds
 from google.cloud.sql.connector.client import CloudSQLClient
+from google.cloud.sql.connector.connection_info import ConnectionInfo
 from google.cloud.sql.connector.connection_name import ConnectionName
 from google.cloud.sql.connector.enums import DriverMapping
 from google.cloud.sql.connector.enums import IPTypes
@@ -49,6 +51,7 @@ from google.cloud.sql.connector.exceptions import ResourceExhaustedError
 from google.cloud.sql.connector.instance import RefreshAheadCache
 from google.cloud.sql.connector.lazy import LazyRefreshCache
 from google.cloud.sql.connector.monitored_cache import MonitoredCache
+from google.cloud.sql.connector.postgres_connection import PostgresConnection
 from google.cloud.sql.connector.resolver import DefaultResolver
 from google.cloud.sql.connector.resolver import DnsResolver
 from google.cloud.sql.connector.sqldata_client import SqlDataClient
@@ -346,6 +349,7 @@ class Connector:
         self,
         conn_name: ConnectionName,
         enable_iam_auth: bool,
+        ip_type: IPTypes | None = None,
     ) -> MonitoredCache:
         assert self._client is not None, "client must be initialized before creating cache"
         assert self._keys is not None, "keys must be initialized before creating cache"
@@ -354,6 +358,13 @@ class Connector:
             (str(conn_name), enable_iam_auth)
         ].closed:
             return self._cache[(str(conn_name), enable_iam_auth)]
+
+        effective_ip_type = ip_type if ip_type is not None else self._ip_type
+        dial_func = partial(
+            self._dial_probe_connection,
+            enable_iam_auth=enable_iam_auth,
+            ip_type=effective_ip_type,
+        )
 
         if self._refresh_strategy == RefreshStrategy.LAZY:
             logger.debug(
@@ -364,6 +375,9 @@ class Connector:
                 self._client,
                 self._keys,
                 enable_iam_auth,
+                ip_type=effective_ip_type,
+                timeout=self._timeout,
+                dial_func=dial_func,
             )
         else:
             logger.debug(
@@ -374,6 +388,9 @@ class Connector:
                 self._client,
                 self._keys,
                 enable_iam_auth,
+                ip_type=effective_ip_type,
+                timeout=self._timeout,
+                dial_func=dial_func,
             )
         # wrap cache as a MonitoredCache
         monitored_cache = MonitoredCache(
@@ -452,7 +469,9 @@ class Connector:
 
         conn_name = await self._resolver.resolve(instance_connection_string)
         if ip_type != IPTypes.SQL_DATA:
-            monitored_cache = self._get_or_create_cache(conn_name, enable_iam_auth)
+            monitored_cache = self._get_or_create_cache(
+                conn_name, enable_iam_auth, ip_type
+            )
 
         connect_func = {
             "pymysql": pymysql.connect,
@@ -587,33 +606,7 @@ class Connector:
                     await self._remove_cached(str(conn_name), enable_iam_auth)
                     raise
 
-                targets = []
-                if conn_info.conn_name.domain_name and isinstance(self._resolver, DnsResolver):
-                    try:
-                        ips = await self._resolver.resolve_a_record(conn_info.conn_name.domain_name)
-                        if ips:
-                            targets.extend(ips)
-                            logger.debug(
-                                f"['{instance_connection_string}']: Custom DNS name "
-                                f"'{conn_info.conn_name.domain_name}' resolved to '{ips}', "
-                                "using it to connect"
-                            )
-                        else:
-                            logger.debug(
-                                f"['{instance_connection_string}']: Custom DNS name "
-                                f"'{conn_info.conn_name.domain_name}' resolved but returned no "
-                                f"entries, using '{preferred_ips}' from instance metadata"
-                            )
-                            targets.extend(preferred_ips)
-                    except Exception as e:  # noqa: BLE001
-                        logger.debug(
-                            f"['{instance_connection_string}']: Custom DNS name "
-                            f"'{conn_info.conn_name.domain_name}' did not resolve to an IP "
-                            f"address: {e}, using '{preferred_ips}' from instance metadata"
-                        )
-                        targets.extend(preferred_ips)
-                else:
-                    targets.extend(preferred_ips)
+                targets = await self._resolve_targets(conn_info, preferred_ips)
                 # format `user` param for automatic IAM database authn
                 if enable_iam_auth:
                     formatted_user = format_database_user(
@@ -636,14 +629,28 @@ class Connector:
                                 await conn_info.create_ssl_context(enable_iam_auth),
                                 **kwargs,
                             )
+                            if (
+                                enable_iam_auth
+                                and conn_info.database_version.startswith("POSTGRES")
+                            ):
+                                db_name = kwargs.get("database")
+                                if db_name is None:
+                                    db_name = kwargs.get("db")
+                                user = kwargs.get("user")
+                                if user:
+                                    monitored_cache.record_principal(
+                                        str(user),
+                                        str(db_name) if db_name else str(user),
+                                    )
                             last_ex = None
                             return conn
 
                         # Create socket with SSLContext for sync drivers
                         ctx = await conn_info.create_ssl_context(enable_iam_auth)
                         raw_sock = socket.create_connection((target_ip, SERVER_PROXY_PORT))
+                        sync_sock: socket.socket | ssl.SSLSocket | PostgresConnection
                         try:
-                            sock = ctx.wrap_socket(
+                            sync_sock = ctx.wrap_socket(
                                 raw_sock,
                                 server_hostname=target_ip,
                             )
@@ -651,15 +658,24 @@ class Connector:
                             raw_sock.close()
                             raise
 
+                        if (
+                            enable_iam_auth
+                            and conn_info.database_version.startswith("POSTGRES")
+                        ):
+                            sync_sock = PostgresConnection(
+                                sync_sock,
+                                on_startup=monitored_cache.record_principal,
+                            )
+
                         # If this connection was opened using a domain name, then store it
                         # for later in case we need to forcibly close it on failover.
                         if conn_info.conn_name.domain_name:
-                            monitored_cache.sockets.append(sock)
+                            monitored_cache.sockets.append(sync_sock)
                         # Synchronous drivers are blocking and run using executor
                         connect_partial = partial(
                             connector,
                             target_ip,
-                            sock,
+                            sync_sock,
                             **kwargs,
                         )
                         conn = await self._loop.run_in_executor(None, connect_partial)
@@ -670,7 +686,6 @@ class Connector:
                             f"['{conn_info.conn_name}']: Connection to {target_ip} failed: {e}"
                         )
                         last_ex = e
-
                 if last_ex:
                     raise last_ex
 
@@ -693,6 +708,87 @@ class Connector:
         # remove cache from stored caches and close it
         cache = self._cache.pop((instance_connection_string, enable_iam_auth))
         await cache.close()
+
+    async def _resolve_targets(
+        self,
+        conn_info: ConnectionInfo,
+        preferred_ips: list[str],
+    ) -> list[str]:
+        """Resolves target IP addresses for a Cloud SQL instance, with DNS fallback."""
+        targets: list[str] = []
+        if conn_info.conn_name.domain_name and isinstance(self._resolver, DnsResolver):
+            try:
+                ips = await self._resolver.resolve_a_record(
+                    conn_info.conn_name.domain_name
+                )
+                if ips:
+                    targets.extend(ips)
+                    logger.debug(
+                        f"['{conn_info.conn_name}']: Custom DNS name "
+                        f"'{conn_info.conn_name.domain_name}' resolved to '{ips}', "
+                        "using it to connect"
+                    )
+                else:
+                    logger.debug(
+                        f"['{conn_info.conn_name}']: Custom DNS name "
+                        f"'{conn_info.conn_name.domain_name}' resolved but returned no "
+                        f"entries, using '{preferred_ips}' from instance metadata"
+                    )
+                    targets.extend(preferred_ips)
+            except Exception as e:  # noqa: BLE001
+                logger.debug(
+                    f"['{conn_info.conn_name}']: Custom DNS name "
+                    f"'{conn_info.conn_name.domain_name}' did not resolve to an IP "
+                    f"address: {e}, using '{preferred_ips}' from instance metadata"
+                )
+                targets.extend(preferred_ips)
+        else:
+            targets.extend(preferred_ips)
+        return targets
+
+    async def _dial_probe_connection(
+        self,
+        conn_info: ConnectionInfo,
+        enable_iam_auth: bool,
+        ip_type: IPTypes | None = None,
+    ) -> tuple[asyncio.StreamReader, asyncio.StreamWriter]:
+        """Dials a TLS probe connection using the connector's IP resolution and SSLContext."""
+        effective_ip_type = ip_type if ip_type is not None else self._ip_type
+        preferred_ips = conn_info.get_preferred_ips(effective_ip_type)
+        targets = await self._resolve_targets(conn_info, preferred_ips)
+
+        if not targets:
+            raise ConnectionError(
+                f"No target IP addresses found for {conn_info.conn_name}"
+            )
+
+        ssl_context = await conn_info.create_ssl_context(enable_iam_auth)
+        server_hostname = (
+            conn_info.conn_name.domain_name
+            if conn_info.conn_name.domain_name
+            else None
+        )
+
+        last_err: Exception | None = None
+        for target in targets:
+            try:
+                reader, writer = await asyncio.wait_for(
+                    asyncio.open_connection(
+                        host=target,
+                        port=SERVER_PROXY_PORT,
+                        ssl=ssl_context,
+                        server_hostname=server_hostname,
+                    ),
+                    timeout=float(max(1, self._timeout)),
+                )
+                return reader, writer
+            except Exception as e:  # noqa: BLE001
+                last_err = e
+        if last_err:
+            raise last_err
+        raise ConnectionError(
+            f"Failed to connect to any target for {conn_info.conn_name}"
+        )
 
     def __enter__(self) -> Any:
         """Enter context manager by returning Connector object"""

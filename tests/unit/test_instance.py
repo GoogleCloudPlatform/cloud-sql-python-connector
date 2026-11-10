@@ -31,6 +31,9 @@ from google.cloud.sql.connector.exceptions import AutoIAMAuthNotSupported
 from google.cloud.sql.connector.exceptions import CloudSQLConnectionError
 from google.cloud.sql.connector.exceptions import CloudSQLIPTypeError
 from google.cloud.sql.connector.exceptions import TLSVersionError
+from google.cloud.sql.connector.instance import _append_iam_principal
+from google.cloud.sql.connector.instance import _probe_instance_connection
+from google.cloud.sql.connector.instance import _send_startup_probe
 from google.cloud.sql.connector.instance import RefreshAheadCache
 from google.cloud.sql.connector.rate_limiter import AsyncRateLimiter
 from google.cloud.sql.connector.refresh_utils import _is_valid
@@ -392,6 +395,139 @@ async def test_ConnectionInfo_create_ssl_context_no_tls1_3_warning() -> None:
             in mock_logger.warning.call_args[0][0]
         )
 
+
+@pytest.mark.asyncio
+async def test_probe_connection_postgres_startup_packet(
+    cache: RefreshAheadCache,
+) -> None:
+    """Test that _probe_connection sends PostgreSQL v3 StartupMessage and Terminate when IAM principal is recorded."""
+    from unittest.mock import MagicMock
+
+    from google.cloud.sql.connector.postgres_connection import (
+        build_postgres_startup_packet,
+    )
+
+    cache._enable_iam_auth = True
+    cache.record_principal("iam-user@example.com", "mydb")
+    conn_info = await cache.connect_info()
+
+    mock_reader = AsyncMock()
+    mock_reader.read = AsyncMock(return_value=b"R\x00\x00\x00\x08\x00\x00\x00\x00")
+    mock_writer = MagicMock()
+    mock_writer.drain = AsyncMock()
+    mock_writer.wait_closed = AsyncMock()
+
+    with patch(
+        "google.cloud.sql.connector.instance.asyncio.open_connection",
+        AsyncMock(return_value=(mock_reader, mock_writer)),
+    ) as mock_open_conn:
+        await cache._probe_connection(conn_info)
+
+    mock_open_conn.assert_awaited_once()
+    written_packets = [call.args[0] for call in mock_writer.write.call_args_list]
+    expected_startup = build_postgres_startup_packet("iam-user@example.com", "mydb")
+    assert written_packets == [expected_startup, b"X\x00\x00\x00\x04"]
+    assert mock_reader.read.await_count == 2
+    mock_writer.close.assert_called_once()
+    mock_writer.wait_closed.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_probe_connection_skips_non_postgres(
+    cache: RefreshAheadCache,
+) -> None:
+    """Test that _probe_connection does not probe for non-Postgres engines (e.g. MySQL)."""
+    cache._enable_iam_auth = True
+    cache.record_principal("iam-user@example.com", "mydb")
+    conn_info = await cache.connect_info()
+    conn_info.database_version = "MYSQL_8_0"
+
+    with patch(
+        "google.cloud.sql.connector.instance.asyncio.open_connection",
+        AsyncMock(),
+    ) as mock_open_conn:
+        await cache._probe_connection(conn_info)
+
+    mock_open_conn.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_probe_connection_skips_when_no_iam_principals(
+    cache: RefreshAheadCache,
+) -> None:
+    """Test that _probe_connection does not probe when no IAM principals are recorded."""
+    cache._enable_iam_auth = True
+    conn_info = await cache.connect_info()
+
+    with patch(
+        "google.cloud.sql.connector.instance.asyncio.open_connection",
+        AsyncMock(),
+    ) as mock_open_conn:
+        await cache._probe_connection(conn_info)
+
+    mock_open_conn.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_probe_connection_uses_dial_func(
+    fake_client: CloudSQLClient,
+) -> None:
+    """Test that _probe_connection uses dial_func when provided."""
+    from unittest.mock import MagicMock
+
+    from google.cloud.sql.connector.utils import generate_keys
+
+    mock_reader = AsyncMock()
+    mock_reader.read = AsyncMock(return_value=b"R\x00\x00\x00\x08\x00\x00\x00\x00")
+    mock_writer = MagicMock()
+    mock_writer.drain = AsyncMock()
+    mock_writer.wait_closed = AsyncMock()
+    mock_dial = AsyncMock(return_value=(mock_reader, mock_writer))
+
+    keys = asyncio.create_task(generate_keys())
+    cache = RefreshAheadCache(
+        ConnectionName("test-project", "test-region", "test-instance"),
+        client=fake_client,
+        keys=keys,
+        enable_iam_auth=True,
+        dial_func=mock_dial,
+    )
+    cache.record_principal("iam-user@example.com", "mydb")
+    conn_info = await cache.connect_info()
+
+    mock_dial.assert_awaited_once_with(conn_info)
+    assert mock_writer.write.call_count == 2
+    mock_writer.close.assert_called_once()
+    await cache.close()
+
+
+@pytest.mark.asyncio
+async def test_probe_connection_handles_connection_reset_cleanly(
+    cache: RefreshAheadCache,
+) -> None:
+    """Test that _probe_connection handles abrupt server disconnect/reset without raising."""
+    from unittest.mock import MagicMock
+
+    cache._enable_iam_auth = True
+    cache.record_principal("iam-user@example.com", "mydb")
+    conn_info = await cache.connect_info()
+
+    mock_reader = AsyncMock()
+    mock_reader.read = AsyncMock(return_value=b"")  # Server EOF
+    mock_writer = MagicMock()
+    mock_writer.drain = AsyncMock()
+    mock_writer.wait_closed = AsyncMock(side_effect=ConnectionResetError("reset"))
+
+    with patch(
+        "google.cloud.sql.connector.instance.asyncio.open_connection",
+        AsyncMock(return_value=(mock_reader, mock_writer)),
+    ):
+        # Should not raise exception
+        await cache._probe_connection(conn_info)
+
+    mock_writer.close.assert_called_once()
+
+
 @pytest.mark.asyncio
 async def test_ConnectionInfo_missing_server_ca_cert() -> None:
     """Test that create_ssl_context raises CloudSQLConnectionError when server_ca_cert is None."""
@@ -401,3 +537,182 @@ async def test_ConnectionInfo_missing_server_ca_cert() -> None:
     with pytest.raises(CloudSQLConnectionError) as exc_info:
         await info.create_ssl_context()
     assert "server CA certificate is missing" in str(exc_info.value)
+
+
+@pytest.mark.asyncio
+async def test_probe_instance_connection_edge_cases(
+    fake_client: CloudSQLClient,
+) -> None:
+    """Test string ip_type normalization, _append_iam_principal edge cases, and probe fallbacks."""
+    from unittest.mock import MagicMock
+
+    from google.cloud.sql.connector.utils import generate_keys
+
+    # 1. RefreshAheadCache accepts string ip_type
+    keys = asyncio.create_task(generate_keys())
+    cache = RefreshAheadCache(
+        ConnectionName("test-project", "test-region", "test-instance"),
+        client=fake_client,
+        keys=keys,
+        enable_iam_auth=False,
+        ip_type="private",
+    )
+    assert cache._ip_type == IPTypes.PRIVATE
+    await cache.close()
+
+    # 2. _append_iam_principal ignores empty user and defaults empty db to user
+    principals: list[tuple[str, str]] = []
+    _append_iam_principal(principals, "", "ignored")
+    _append_iam_principal(principals, "u1", "")
+    assert principals == [("u1", "u1")]
+
+    conn_name = ConnectionName(
+        "test-project", "test-region", "test-instance", "db.example.com"
+    )
+    conn_info = ConnectionInfo(
+        "", "cert", "ca", b"key", {}, "POSTGRES_15", datetime.datetime.now(datetime.UTC)
+    )
+
+    # 3. enable_iam_auth=False returns early
+    await _probe_instance_connection(
+        conn_name, conn_info, False, IPTypes.PUBLIC, 30, principals
+    )
+
+    # 4. Empty targets in dial_func=None fallback returns without error
+    no_domain_name = ConnectionName("test-project", "test-region", "test-instance")
+    await _probe_instance_connection(
+        no_domain_name, conn_info, True, IPTypes.PUBLIC, 30, principals
+    )
+
+    # 5. SSL context failure in dial_func=None fallback returns cleanly
+    bad_ssl_info = ConnectionInfo(
+        "", "cert", None, b"key", {"PRIMARY": "1.2.3.4"}, "POSTGRES_15", datetime.datetime.now(datetime.UTC)
+    )
+    await _probe_instance_connection(
+        conn_name, bad_ssl_info, True, IPTypes.PUBLIC, 30, principals
+    )
+
+    # 6. dial_func raising exception is logged and does not propagate
+    failing_dial = AsyncMock(side_effect=OSError("dial boom"))
+    await _probe_instance_connection(
+        conn_name, conn_info, True, IPTypes.PUBLIC, 30, principals, failing_dial
+    )
+
+    # 7. dial_func=None fallback with domain_name and EOF timeout on terminate read
+    mock_reader = AsyncMock()
+    mock_reader.read = AsyncMock(
+        side_effect=[b"R\x00\x00\x00\x08\x00\x00\x00\x00", TimeoutError("eof wait")]
+    )
+    mock_writer = MagicMock()
+    mock_writer.drain = AsyncMock()
+    mock_writer.wait_closed = AsyncMock()
+    with (
+        patch.object(
+            ConnectionInfo, "create_ssl_context", AsyncMock(return_value=MagicMock())
+        ),
+        patch(
+            "google.cloud.sql.connector.instance.asyncio.open_connection",
+            AsyncMock(return_value=(mock_reader, mock_writer)),
+        ) as mock_open,
+    ):
+        await _probe_instance_connection(
+            conn_name, bad_ssl_info, True, IPTypes.PUBLIC, 30, principals
+        )
+    mock_open.assert_awaited_once()
+    assert mock_open.call_args.kwargs["host"] == "db.example.com"
+
+
+@pytest.mark.asyncio
+async def test_probe_instance_connection_shared_deadline_and_abort() -> None:
+    """Test _probe_instance_connection enforces a single shared deadline and aborts stalled closes."""
+    import time
+    from unittest.mock import MagicMock
+
+    conn_name = ConnectionName("test-project", "test-region", "test-instance")
+    conn_info = ConnectionInfo(
+        "",
+        "cert",
+        "ca",
+        b"key",
+        {"PRIMARY": ["10.0.0.1", "10.0.0.2"]},
+        "POSTGRES_15",
+        datetime.datetime.now(datetime.UTC),
+    )
+    principals = [("u1", "db"), ("u2", "db"), ("u3", "db")]
+
+    # 1. Shared deadline caps multiple principals x multiple stalling targets under ~1s (fallback path)
+    attempts = 0
+
+    async def slow_open(*args: object, **kwargs: object) -> tuple[object, object]:
+        nonlocal attempts
+        attempts += 1
+        await asyncio.sleep(0.45)
+        raise OSError("slow fail")
+
+    with (
+        patch.object(
+            ConnectionInfo, "create_ssl_context", AsyncMock(return_value=MagicMock())
+        ),
+        patch(
+            "google.cloud.sql.connector.instance.asyncio.open_connection",
+            side_effect=slow_open,
+        ),
+    ):
+        start = time.monotonic()
+        await _probe_instance_connection(
+            conn_name, conn_info, True, IPTypes.PUBLIC, 1, principals
+        )
+        elapsed = time.monotonic() - start
+
+    # Total budget was 1s, so we must stop far short of 3 * 2 = 6 attempts (~2.7s).
+    assert elapsed < 1.5
+    assert attempts < 6
+
+    # 2. Shared deadline also stops custom dial_func loop once budget is exhausted
+    dial_calls = 0
+
+    async def slow_dial(_: ConnectionInfo) -> tuple[object, object]:
+        nonlocal dial_calls
+        dial_calls += 1
+        await asyncio.sleep(1.5)
+        return AsyncMock(), MagicMock()
+
+    start = time.monotonic()
+    await _probe_instance_connection(
+        conn_name,
+        conn_info,
+        True,
+        IPTypes.PUBLIC,
+        1,
+        principals,
+        slow_dial,  # type: ignore[arg-type]
+    )
+    assert time.monotonic() - start < 1.5
+    assert dial_calls == 1
+
+    # 3. _send_startup_probe zeroes out when remaining <= 0 and aborts transport on drain/wait_closed timeout
+    mock_reader = AsyncMock()
+    mock_writer = MagicMock()
+    mock_writer.drain = AsyncMock()
+    mock_writer.wait_closed = AsyncMock(side_effect=TimeoutError("close stall"))
+    mock_writer.transport = MagicMock()
+    assert (
+        await _send_startup_probe(mock_reader, mock_writer, "u1", "db", 0.0, conn_name)
+        is False
+    )
+    mock_writer.write.assert_not_called()
+    mock_writer.close.assert_called_once()
+    mock_writer.transport.abort.assert_called_once()
+
+    # 4. _send_startup_probe bounds writer.drain() by timeout and aborts transport on close timeout
+    async def slow_drain() -> None:
+        await asyncio.sleep(5)
+
+    mock_writer2 = MagicMock()
+    mock_writer2.drain = slow_drain
+    mock_writer2.wait_closed = AsyncMock(side_effect=TimeoutError("close stall"))
+    mock_writer2.transport = MagicMock()
+    with pytest.raises(TimeoutError):
+        await _send_startup_probe(mock_reader, mock_writer2, "u1", "db", 0.05, conn_name)
+    mock_writer2.close.assert_called_once()
+    mock_writer2.transport.abort.assert_called_once()
