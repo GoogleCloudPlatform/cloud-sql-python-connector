@@ -23,6 +23,24 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 
 
 async def generate_keys() -> tuple[bytes, str]:
+    """Generate keys off-loop and drain active generation before cancellation."""
+    task = asyncio.create_task(asyncio.to_thread(_generate_keys_sync))
+    try:
+        return await asyncio.shield(task)
+    except asyncio.CancelledError:
+        while not task.done():
+            try:
+                # wait() neither cancels the task nor raises its work error.
+                await asyncio.wait({task})
+            except asyncio.CancelledError:
+                continue
+        # Observe a simultaneous failure without replacing caller cancellation.
+        if not task.cancelled():
+            task.exception()
+        raise
+
+
+def _generate_keys_sync() -> tuple[bytes, str]:
     """A helper function to generate the private and public keys.
 
     backend - The value specified is default_backend(). This is because the
