@@ -33,6 +33,7 @@ from google.cloud.sql.connector.exceptions import CloudSQLIPTypeError
 from google.cloud.sql.connector.exceptions import TLSVersionError
 from google.cloud.sql.connector.instance import _append_iam_principal
 from google.cloud.sql.connector.instance import _probe_instance_connection
+from google.cloud.sql.connector.instance import _send_startup_probe
 from google.cloud.sql.connector.instance import RefreshAheadCache
 from google.cloud.sql.connector.rate_limiter import AsyncRateLimiter
 from google.cloud.sql.connector.refresh_utils import _is_valid
@@ -619,3 +620,99 @@ async def test_probe_instance_connection_edge_cases(
         )
     mock_open.assert_awaited_once()
     assert mock_open.call_args.kwargs["host"] == "db.example.com"
+
+
+@pytest.mark.asyncio
+async def test_probe_instance_connection_shared_deadline_and_abort() -> None:
+    """Test _probe_instance_connection enforces a single shared deadline and aborts stalled closes."""
+    import time
+    from unittest.mock import MagicMock
+
+    conn_name = ConnectionName("test-project", "test-region", "test-instance")
+    conn_info = ConnectionInfo(
+        "",
+        "cert",
+        "ca",
+        b"key",
+        {"PRIMARY": ["10.0.0.1", "10.0.0.2"]},
+        "POSTGRES_15",
+        datetime.datetime.now(datetime.UTC),
+    )
+    principals = [("u1", "db"), ("u2", "db"), ("u3", "db")]
+
+    # 1. Shared deadline caps multiple principals x multiple stalling targets under ~1s (fallback path)
+    attempts = 0
+
+    async def slow_open(*args: object, **kwargs: object) -> tuple[object, object]:
+        nonlocal attempts
+        attempts += 1
+        await asyncio.sleep(0.45)
+        raise OSError("slow fail")
+
+    with (
+        patch.object(
+            ConnectionInfo, "create_ssl_context", AsyncMock(return_value=MagicMock())
+        ),
+        patch(
+            "google.cloud.sql.connector.instance.asyncio.open_connection",
+            side_effect=slow_open,
+        ),
+    ):
+        start = time.monotonic()
+        await _probe_instance_connection(
+            conn_name, conn_info, True, IPTypes.PUBLIC, 1, principals
+        )
+        elapsed = time.monotonic() - start
+
+    # Total budget was 1s, so we must stop far short of 3 * 2 = 6 attempts (~2.7s).
+    assert elapsed < 1.5
+    assert attempts < 6
+
+    # 2. Shared deadline also stops custom dial_func loop once budget is exhausted
+    dial_calls = 0
+
+    async def slow_dial(_: ConnectionInfo) -> tuple[object, object]:
+        nonlocal dial_calls
+        dial_calls += 1
+        await asyncio.sleep(1.5)
+        return AsyncMock(), MagicMock()
+
+    start = time.monotonic()
+    await _probe_instance_connection(
+        conn_name,
+        conn_info,
+        True,
+        IPTypes.PUBLIC,
+        1,
+        principals,
+        slow_dial,  # type: ignore[arg-type]
+    )
+    assert time.monotonic() - start < 1.5
+    assert dial_calls == 1
+
+    # 3. _send_startup_probe zeroes out when remaining <= 0 and aborts transport on drain/wait_closed timeout
+    mock_reader = AsyncMock()
+    mock_writer = MagicMock()
+    mock_writer.drain = AsyncMock()
+    mock_writer.wait_closed = AsyncMock(side_effect=TimeoutError("close stall"))
+    mock_writer.transport = MagicMock()
+    assert (
+        await _send_startup_probe(mock_reader, mock_writer, "u1", "db", 0.0, conn_name)
+        is False
+    )
+    mock_writer.write.assert_not_called()
+    mock_writer.close.assert_called_once()
+    mock_writer.transport.abort.assert_called_once()
+
+    # 4. _send_startup_probe bounds writer.drain() by timeout and aborts transport on close timeout
+    async def slow_drain() -> None:
+        await asyncio.sleep(5)
+
+    mock_writer2 = MagicMock()
+    mock_writer2.drain = slow_drain
+    mock_writer2.wait_closed = AsyncMock(side_effect=TimeoutError("close stall"))
+    mock_writer2.transport = MagicMock()
+    with pytest.raises(TimeoutError):
+        await _send_startup_probe(mock_reader, mock_writer2, "u1", "db", 0.05, conn_name)
+    mock_writer2.close.assert_called_once()
+    mock_writer2.transport.abort.assert_called_once()

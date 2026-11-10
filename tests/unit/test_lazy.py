@@ -252,3 +252,44 @@ async def test_LazyRefreshCache_probe_connection_uses_dial_func(
     await cache.close()
 
 
+async def test_LazyRefreshCache_connect_info_releases_lock_before_probing(
+    fake_client: CloudSQLClient,
+) -> None:
+    """Test that concurrent connect_info() callers do not block behind a slow probe."""
+    probe_started = asyncio.Event()
+    release_probe = asyncio.Event()
+
+    async def blocked_dial(_: ConnectionInfo) -> tuple[AsyncMock, object]:
+        from unittest.mock import MagicMock
+
+        probe_started.set()
+        await release_probe.wait()
+        mock_reader = AsyncMock()
+        mock_reader.read = AsyncMock(return_value=b"R\x00\x00\x00\x08\x00\x00\x00\x00")
+        mock_writer = MagicMock()
+        mock_writer.drain = AsyncMock()
+        mock_writer.wait_closed = AsyncMock()
+        return mock_reader, mock_writer
+
+    keys = asyncio.create_task(generate_keys())
+    cache = LazyRefreshCache(
+        ConnectionName("test-project", "test-region", "test-instance"),
+        client=fake_client,
+        keys=keys,
+        enable_iam_auth=True,
+        dial_func=blocked_dial,  # type: ignore[arg-type]
+    )
+    cache.record_principal("iam-user@example.com", "mydb")
+
+    first_task = asyncio.create_task(cache.connect_info())
+    await asyncio.wait_for(probe_started.wait(), timeout=2.0)
+
+    # Second concurrent caller should hit fresh cache immediately without waiting for probe
+    second_info = await asyncio.wait_for(cache.connect_info(), timeout=0.2)
+    release_probe.set()
+    first_info = await asyncio.wait_for(first_task, timeout=2.0)
+
+    assert second_info is first_info
+    await cache.close()
+
+

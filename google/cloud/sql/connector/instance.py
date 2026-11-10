@@ -336,22 +336,40 @@ async def _probe_instance_connection(
             )
             return
 
+    loop = asyncio.get_running_loop()
+    deadline = loop.time() + float(max(1, timeout))
+
     all_succeeded = True
     for user, database in list(iam_principals):
+        remaining = deadline - loop.time()
+        if remaining <= 0:
+            all_succeeded = False
+            break
+
         probed_principal = False
         if dial_func is not None:
             try:
-                reader, writer = await dial_func(conn_info)
-                await _send_startup_probe(
-                    reader, writer, user, database, timeout, conn_name
+                reader, writer = await asyncio.wait_for(
+                    dial_func(conn_info),
+                    timeout=remaining,
                 )
-                probed_principal = True
+                probed_principal = await _send_startup_probe(
+                    reader,
+                    writer,
+                    user,
+                    database,
+                    max(0.0, deadline - loop.time()),
+                    conn_name,
+                )
             except Exception as e:  # noqa: BLE001
                 logger.debug(
                     f"['{conn_name}']: Probing IAM token refresh for ({user}, {database}) failed: {e!s}"
                 )
         else:
             for target in targets:
+                remaining = deadline - loop.time()
+                if remaining <= 0:
+                    break
                 try:
                     logger.debug(
                         f"['{conn_name}']: Probing IAM token refresh on {target}:{SERVER_PROXY_PORT}"
@@ -367,12 +385,16 @@ async def _probe_instance_connection(
                                 else None
                             ),
                         ),
-                        timeout=float(max(1, timeout)),
+                        timeout=remaining,
                     )
-                    await _send_startup_probe(
-                        reader, writer, user, database, timeout, conn_name
+                    probed_principal = await _send_startup_probe(
+                        reader,
+                        writer,
+                        user,
+                        database,
+                        max(0.0, deadline - loop.time()),
+                        conn_name,
                     )
-                    probed_principal = True
                     break
                 except Exception as e:  # noqa: BLE001
                     logger.debug(
@@ -396,25 +418,36 @@ async def _send_startup_probe(
     writer: asyncio.StreamWriter,
     user: str,
     database: str,
-    timeout: int,
+    timeout: float,
     conn_name: ConnectionName,
-) -> None:
+) -> bool:
     """Sends a PostgreSQL StartupMessage probe and gracefully terminates."""
+    loop = asyncio.get_running_loop()
+    deadline = loop.time() + max(0.0, float(timeout))
     try:
+        remaining = deadline - loop.time()
+        if remaining <= 0:
+            return False
         writer.write(build_postgres_startup_packet(user, database))
-        await writer.drain()
+        await asyncio.wait_for(writer.drain(), timeout=remaining)
         await asyncio.wait_for(
             reader.read(1024),
-            timeout=float(max(1, timeout)),
+            timeout=max(0.0, deadline - loop.time()),
         )
         writer.write(build_terminate_packet())
-        await writer.drain()
-        try:
-            await asyncio.wait_for(reader.read(1024), timeout=1.0)
-        except Exception as e:  # noqa: BLE001
-            logger.debug(
-                f"['{conn_name}']: Ignoring error while waiting for server EOF: {e!s}"
-            )
+        await asyncio.wait_for(
+            writer.drain(),
+            timeout=max(0.0, deadline - loop.time()),
+        )
+        eof_timeout = min(max(0.0, deadline - loop.time()), 1.0)
+        if eof_timeout > 0:
+            try:
+                await asyncio.wait_for(reader.read(1024), timeout=eof_timeout)
+            except Exception as e:  # noqa: BLE001
+                logger.debug(
+                    f"['{conn_name}']: Ignoring error while waiting for server EOF: {e!s}"
+                )
+        return True
     finally:
         writer.close()
         try:
@@ -423,3 +456,6 @@ async def _send_startup_probe(
             logger.debug(
                 f"['{conn_name}']: Ignoring error while waiting for socket to close: {e!s}"
             )
+            transport = getattr(writer, "transport", None)
+            if transport is not None and hasattr(transport, "abort"):
+                transport.abort()

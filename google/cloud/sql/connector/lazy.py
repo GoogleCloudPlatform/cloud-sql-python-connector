@@ -150,8 +150,6 @@ class LazyRefreshCache(ConnectionInfoCache):
                     self._keys,
                     self._enable_iam_auth,
                 )
-                if self._enable_iam_auth:
-                    await self._probe_connection(conn_info)
             except Exception as e:
                 logger.debug(
                     f"['{self._conn_name}']: Connection info "
@@ -168,7 +166,11 @@ class LazyRefreshCache(ConnectionInfoCache):
             )
             self._cached = conn_info
             self._needs_refresh = False
-            return conn_info
+
+        if self._enable_iam_auth:
+            await self._probe_connection(conn_info)
+
+        return conn_info
 
     async def close(self) -> None:
         """Close is a no-op and provided purely for a consistent interface with
