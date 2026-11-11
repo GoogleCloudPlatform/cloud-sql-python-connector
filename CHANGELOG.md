@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.24.0](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v1.23.0...v1.24.0) (2026-11-11)
+
+
+### Features
+
+* add Python 3.15 support ([#1504](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/1504)) ([88195d8](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/88195d8ec7c5e08366f93a2eb35e9d1b0e884cb7))
+
+
+### Bug Fixes
+
+* send PostgreSQL v3 StartupMessage in proactive IAM refresh probe for MCP ([#1500](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/1500)) ([cccf35c](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/cccf35c1dd95bbd2cf348dd71cbaa25d9638edd5))
+* update dependencies to latest ([#1503](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/1503)) ([2ae3ea3](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/2ae3ea3eb77ef07817c27e4b07534e96e131679c))
+* use PKCS[#8](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/8) for key serialization and verify PQC TLS 1.3 support ([#1501](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/issues/1501)) ([e1c7228](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/commit/e1c7228e58120e6da63221f8348441b1c518dd51))
+
 ## [1.23.0](https://github.com/GoogleCloudPlatform/cloud-sql-python-connector/compare/v1.22.0...v1.23.0) (2026-10-15)
 
 
