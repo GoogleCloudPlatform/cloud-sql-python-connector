@@ -749,6 +749,84 @@ async def main():
         await pool.dispose()
 ```
 
+### Post-Quantum Cryptography (PQC)
+
+The Cloud SQL Python Connector establishes mTLS connections over TLS 1.3 using
+Python's standard `ssl` module without restricting key-exchange groups. When
+Python's `ssl` module is linked against **OpenSSL 3.5 or later**, TLS 1.3
+connections automatically offer and negotiate the hybrid post-quantum key
+exchange group **`X25519MLKEM768`** (ML-KEM-768 combined with X25519) whenever
+the Cloud SQL instance supports it. No code changes or connector configuration
+are required.
+
+#### Checking your OpenSSL version
+
+Post-quantum TLS key exchange depends on the OpenSSL library linked into your
+Python runtime's `ssl` module (not the Python language version or the
+`cryptography` package version alone). Run the following command to check which
+OpenSSL version your Python interpreter uses:
+
+```sh
+python3 -c "import ssl; print(ssl.OPENSSL_VERSION)"
+```
+
+- **OpenSSL 3.5.0 or higher** (for example, `python:3.13-trixie` / Debian 13
+  "Trixie" container images; check your runtime with the one-liner above):
+  `X25519MLKEM768` is enabled by default on TLS 1.3 connections.
+- **OpenSSL earlier than 3.5.0** (for example, Ubuntu 24.04 LTS, which ships
+  system OpenSSL 3.0.x): TLS 1.3 connections continue to use classical elliptic
+  curve Diffie-Hellman (such as `X25519` or `P-256`).
+
+> [!NOTE]
+>
+> Connections configured with `ip_type="sql_data"` (`IPTypes.SQL_DATA`) stream
+> over gRPC (`grpcio`), which uses its bundled BoringSSL (supporting
+> `X25519MLKEM768` independently of Python's `ssl` module and `OPENSSL_CONF`),
+> whereas its direct-TLS fallback path uses `create_ssl_context()` and Python's
+> linked OpenSSL library as described above.
+
+#### Backwards compatibility
+
+Hybrid post-quantum key exchange is backwards-compatible. On OpenSSL 3.5+,
+Python's `ssl` module advertises both hybrid (`X25519MLKEM768`) and classical
+(`X25519`, `secp256r1`, etc.) groups in the TLS 1.3 `ClientHello`. If either the
+client runtime (OpenSSL `< 3.5`) or the Cloud SQL instance only supports
+classical groups, the TLS 1.3 handshake automatically falls back to classical
+ECDHE without error.
+
+#### Opting out
+
+If you need to disable post-quantum key exchange on an OpenSSL 3.5+ client (for
+example, to troubleshoot a network middlebox sensitive to larger TLS
+`ClientHello` records), configure OpenSSL's `Groups` list via an OpenSSL
+configuration file (`OPENSSL_CONF`) to advertise only classical curves.
+
+> [!WARNING]
+>
+> Setting `OPENSSL_CONF` replaces the system default OpenSSL configuration for
+> the entire Python process. It affects **all** TLS connections made by the
+> process (not just Cloud SQL connections), and starting from a minimal file
+> omits distribution defaults (such as Debian's `MinProtocol` or
+> `CipherString`). Copy your system's `openssl.cnf` (check `openssl version -d`,
+> typically `/etc/ssl/openssl.cnf`) and add `Groups = X25519:P-256:P-384` under
+> its `[system_default_sect]` section rather than using a bare file from
+> scratch.
+
+For example, after copying `/etc/ssl/openssl.cnf`, ensure its
+`[system_default_sect]` (referenced via `ssl_conf` -> `system_default`) sets
+`Groups`:
+
+```ini
+[system_default_sect]
+Groups = X25519:P-256:P-384
+```
+
+Then point `OPENSSL_CONF` to your modified copy when starting your application:
+
+```sh
+OPENSSL_CONF=/path/to/openssl.cnf python3 app.py
+```
+
 ### Debug Logging
 
 The Cloud SQL Python Connector uses the standard [Python logging module][python-logging]

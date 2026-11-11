@@ -30,6 +30,7 @@ from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.hazmat.primitives.asymmetric.types import CertificatePublicKeyTypes
 from cryptography.x509.oid import NameOID
 from google.auth import _helpers
 from google.auth.credentials import Credentials
@@ -161,7 +162,7 @@ def self_signed_cert(cert: x509.CertificateBuilder, key: rsa.RSAPrivateKey) -> s
 def client_key_signed_cert(
     cert: x509.CertificateBuilder,
     priv_key: rsa.RSAPrivateKey,
-    client_key: rsa.RSAPublicKey,
+    client_key: CertificatePublicKeyTypes,
     cert_before: datetime.datetime | None = None,
     cert_expiration: datetime.datetime | None = None,
 ) -> str:
@@ -200,7 +201,7 @@ def client_key_signed_cert(
 async def create_ssl_context(instance: FakeCSQLInstance) -> ssl.SSLContext:
     """Helper method to build an ssl.SSLContext for tests"""
     client_private, client_bytes = await generate_keys()
-    client_key: rsa.RSAPublicKey = serialization.load_pem_public_key(
+    client_key: CertificatePublicKeyTypes = serialization.load_pem_public_key(
         client_bytes.encode("UTF-8"),
     )  # type: ignore
     ephemeral_cert = client_key_signed_cert(
@@ -292,9 +293,9 @@ class FakeCSQLInstance:
     async def generate_ephemeral(self, request: Any) -> web.Response:
         body = await request.json()
         pub_key = body["public_key"]
-        client_key: rsa.RSAPublicKey = serialization.load_pem_public_key(
+        client_key: CertificatePublicKeyTypes = serialization.load_pem_public_key(
             pub_key.encode("UTF-8"),
-        )
+        )  # type: ignore
         ephemeral_cert = client_key_signed_cert(
             self.server_ca,
             self.server_key,
