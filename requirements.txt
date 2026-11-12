@@ -2,7 +2,7 @@ certifi==2026.10.23
 cryptography==50.0.2
 filelock==4.2.10
 google-auth==2.62.2
-google-cloud-sql==0.1.4
+google-cloud-sql==0.1.5
 idna==3.20
 packaging==26.3
 pip==26.3
