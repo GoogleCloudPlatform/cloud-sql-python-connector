@@ -162,7 +162,9 @@ class CloudSQLClient:
                 and d["dnsScope"] == "INSTANCE"
             ]
             # Sort: .sql-psc.goog first
-            psc_dns_names.sort(key=lambda x: x.endswith(".sql-psc.goog"), reverse=True)
+            psc_dns_names.sort(
+                key=lambda x: x.lower().endswith(".sql-psc.goog"), reverse=True
+            )
 
             # Fall back do dns_name field if dns_names is not set
             if not psc_dns_names:
